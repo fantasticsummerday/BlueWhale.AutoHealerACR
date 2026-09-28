@@ -43,3 +43,18 @@ sd_build.txt
 # ---- 系统 ----
 Thumbs.db
 desktop.ini
+
+# ---- 文档抓取/分析的一次性脚本与产物 ----
+doc*.json
+doc*.txt
+api_out.html
+dump.html
+probe.*
+scrape*
+actions.tsv
+healer_actions.tsv
+extract_*.py
+extract_*.js
+fetch_*.js
+inspect_*.py
+verify_*.py
