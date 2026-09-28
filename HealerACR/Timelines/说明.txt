@@ -1,0 +1,54 @@
+这个文件夹放 cactbot 的时间轴文件（.txt）
+================================================
+
+怎么用
+------
+1. 去 cactbot 仓库把你要打的副本的时间轴拷过来：
+
+   https://github.com/OverlayPlugin/cactbot/tree/main/ui/raidboss/data
+
+   路径长这样（按版本分）：
+     07-dt/trial/valigarmanda.txt
+     07-dt/raid/m1s.txt
+     06-ew/raid/p12s.txt
+     ...
+
+   哪些副本有时间轴，可以用这个页面查：
+   https://overlayplugin.github.io/cactbot/util/coverage/coverage.html?lang=cn
+
+2. 直接把这个 .txt 丢进本文件夹（子文件夹也行，会递归扫）。
+
+3. 游戏里重载 ACR，进本就会自动匹配。
+   匹配靠文件头那行 `# ZoneId: 1195`，所以**别删那行注释**。
+
+
+它是怎么工作的
+--------------
+- 扫描本文件夹所有 .txt，读文件头的 ZoneId 建索引
+- 进本后按当前副本 ID 挑出对应那份
+- 用战斗时间推进，碰到 `Ability` / `StartsUsing` 行就提前（默认 1.5 秒）发出"该铺减伤了"的信号
+- 到底要不要真的交减伤，交给 `MemApiSpell.IsBossAoe(技能ID)` 自动判断
+
+注意：cactbot 的时间轴里 `StartsUsing` 大多只是同步锚点（名字是 `--sync--`），
+**真正记录技能落地的是 `Ability` 行**，所以两种都会看，再靠 IsBossAoe 过滤。
+
+所以不需要手工维护"哪些技能要减伤"的名单 —— 自动认。
+认不准的时候，可以在 ACR 设置里用「时间轴额外技能Id」手工补（十进制，逗号分隔）。
+
+
+已知限制
+--------
+cactbot 的时间轴用 `jump` / `label` 表达循环和分支（同一个副本的不同阶段）。
+骨架里**按时间线性排**，没有模拟跳转，所以：
+
+  ✔ 副本开头 2-4 分钟（绝大多数减伤需求都在这里）—— 准
+  ✘ 后半段的循环阶段 —— 会有偏差
+
+要精确到循环阶段，得把 jump 目标也当成独立时间轴来跑，
+那是下一步的事（见 README 的 TODO）。
+
+
+没放文件会怎样
+--------------
+不影响使用：`Res_TeamMitigation` 会自动退回"看 boss 读条"的判断，
+也就是没有时间轴时的老行为。

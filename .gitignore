@@ -1,0 +1,45 @@
+# ============================================================================
+#  FF14 ACR 项目 —— git 忽略规则
+# ============================================================================
+
+# ---- 编译产物 ----
+bin/
+obj/
+build/
+*.dll
+*.pdb
+*.user
+*.suo
+
+# ---- 发布包（每个版本几十 MB，不进仓库）----
+release/
+
+# ---- 本地依赖与参考 ----
+localnuget/
+ref/
+packages/
+
+# ---- 快照工具的目录（有 git 之后就不需要了）----
+.snapshots/
+
+# ---- 游戏数据 dump（用 tools 里的工具随时能重新生成）----
+dump.tsv
+dump_*.tsv
+dump2_*.tsv
+
+# ---- 日志与临时文件 ----
+*.log
+build_log.txt
+hw_build.txt
+bw_build.txt
+sd_build.txt
+*.tmp
+
+# ---- IDE ----
+.vs/
+.idea/
+.vscode/
+
+# ---- 系统 ----
+Thumbs.db
+desktop.ini

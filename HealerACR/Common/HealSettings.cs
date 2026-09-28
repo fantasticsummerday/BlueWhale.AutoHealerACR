@@ -1,0 +1,268 @@
+using System.Numerics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using AEAssist.CombatRoutine.View.JobView;
+using AEAssist.Helper;
+
+namespace HealerACR.Common;
+
+/// <summary>
+/// 四个奶妈共用的设置。每个职业各存一份 json
+/// （奶妈设置_WhiteMage.json / _Scholar.json / ...），切职业不会互相覆盖阈值。
+///
+/// 序列化用 System.Text.Json，注意开了 IncludeFields —— 下面这些都是字段。
+/// </summary>
+public class HealSettings
+{
+    public static HealSettings Instance { get; private set; } = new();
+
+    private static string _filePath = string.Empty;
+
+    private static readonly JsonSerializerOptions JsonOpt = new()
+    {
+        WriteIndented = true,
+        IncludeFields = true,
+    };
+
+    /// <summary>由 Entry 的 Build(settingFolder) 调用一次</summary>
+    public static void Build(string settingFolder, string jobName)
+    {
+        _filePath = Path.Combine(settingFolder, $"奶妈设置_{jobName}.json");
+
+        if (!File.Exists(_filePath))
+        {
+            Instance = new HealSettings();
+            Instance.Save();
+            return;
+        }
+
+        try
+        {
+            var text = File.ReadAllText(_filePath);
+            Instance = JsonSerializer.Deserialize<HealSettings>(text, JsonOpt) ?? new HealSettings();
+        }
+        catch (Exception e)
+        {
+            Instance = new HealSettings();
+            LogHelper.Error($"[HealerACR] 设置读取失败，已重置默认值: {e}");
+        }
+    }
+
+    public void Save()
+    {
+        if (string.IsNullOrEmpty(_filePath)) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+            File.WriteAllText(_filePath, JsonSerializer.Serialize(this, JsonOpt));
+        }
+        catch (Exception e)
+        {
+            LogHelper.Error($"[HealerACR] 设置保存失败: {e}");
+        }
+    }
+
+    // ================== 治疗 ==================
+
+    /// <summary>总开关：关了之后只输出不奶人（低压本想自己手动奶时用）</summary>
+    public bool 奶人 = true;
+
+    /// <summary>低于这条血线 → 交能力技大加（天赐 / 深谋 / 先天禀赋 / 白牛…）</summary>
+    public float 紧急单奶阈值 = 0.30f;   // 更晚才动用紧急资源，平时靠普通治疗
+
+    /// <summary>低于这条血线 → 用 GCD 单体治疗</summary>
+    /// <summary>单条治疗阈值的基础值（用户设置的原值，存 json）</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("单体治疗阈值")]
+    public float 单体治疗阈值_基础 = 0.52f;
+    // ⚠️ 默认值对照 鍚岀被 ACR 的 Scholar_SingleGCDHeal / Scholar_Lustrate：
+    //    它的 Check 常量里是 `50` —— **血量 50% 才治**。
+    //    我原来是 0.65（掉到 65% 就开始读条），明显保守得多，
+    //    在不需要治疗的场合会抢 GCD（用户实测反馈："过于保守"）。
+    //    取 0.52 是留 2% 余量，避免卡在 50% 边界反复触发。
+
+    /// <summary>
+    /// 实际生效的单体治疗阈值 = 基础值 经过 阈值钩子 调整。
+    /// 不挂钩子时与原值完全相同。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public float 单体治疗阈值
+    {
+        get => 阈值钩子.应用(单体治疗阈值_基础);
+        set => 单体治疗阈值_基础 = value;
+    }
+
+    /// <summary>群体治疗血线</summary>
+    /// <summary>群体治疗阈值的基础值（用户设置的原值，存 json）</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("群体治疗阈值")]
+    public float 群体治疗阈值_基础 = 0.62f;
+    // 群奶阈值同步下调：原来 0.70 意味着"平均掉 30% 就交群奶"，
+    // 实际战场上这个血线还很安全，交群奶属于浪费。
+
+    /// <summary>实际生效的群体治疗阈值（经过钩子调整）</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public float 群体治疗阈值
+    {
+        get => 阈值钩子.应用(群体治疗阈值_基础);
+        set => 群体治疗阈值_基础 = value;
+    }
+
+    /// <summary>低于群奶血线的人 ≥ 这个数，才值得群奶</summary>
+    public int 群奶最少人数 = 2;
+
+    public bool 单体治疗 = true;
+    public bool 群体治疗 = true;
+
+    // ================== 保命 ==================
+
+    public bool 复活 = true;
+
+    /// <summary>没即刻时是否也硬读条拉人（日随建议关：战斗里读 8 秒很危险）</summary>
+    public bool 允许硬读复活 = false;
+
+    public bool 驱散 = true;
+
+    public bool 醒梦 = true;
+    public int 醒梦蓝量阈值 = 6000;
+
+    // ================== 输出 ==================
+
+    public bool 输出 = true;
+    public bool AOE = true;
+    public bool 挂Dot = true;
+
+    /// <summary>目标血量低于这个比例就不补 DoT 了（小怪快死时省 GCD）</summary>
+    public float 不挂Dot血线 = 0.03f;
+
+    /// <summary>DoT 的持续时间（秒）。用来在拿不到 DoT buff ID 时按时间兜底</summary>
+    public float Dot持续时间 = 30f;
+
+    /// <summary>
+    /// 木桩环境下打最优输出（需求 5）。
+    /// 开着的时候，只要当前选中目标是训练木桩，治疗/复活/驱散/减伤全部让路，
+    /// 输出技能也不再"攒资源"，按各职业的最优循环打满。
+    /// </summary>
+    public bool 木桩优先输出 = true;
+
+    // ================== 减伤 ==================
+
+    /// <summary>
+    /// 团队/个人减伤能力技是否自动放。
+    /// 0.1.0~0.1.2 这里是默认关的 —— 结果就是节制/野战阵/中间学派/坚角清汁
+    /// 一个都不会触发。现在默认打开（日随里 CD 都很长，卡 CD 放不会浪费）。
+    /// </summary>
+    public bool 自动减伤 = true;
+
+    /// <summary>启用技能效果确认（hook ActionEffect，默认关，风险高）</summary>
+    public bool 启用效果确认 = false;
+
+    /// <summary>时间轴预报"马上要来大伤害"时，要不要把治疗资源攥住别乱花</summary>
+    public bool 时间轴攒资源 = true;
+
+    // ================== 时间轴（cactbot） ==================
+
+    /// <summary>是否启用 Timelines 目录里的 cactbot 时间轴</summary>
+    public bool 启用时间轴 = true;
+
+    /// <summary>提前多少秒发出"该减伤了"的信号（时间轴里的技能时间点之前）</summary>
+    public float 时间轴提前秒 = 1.5f;
+
+    /// <summary>手工补的"要减伤"技能 ID，十进制，逗号/空格分隔</summary>
+    public string 时间轴额外技能Id = "";
+
+    // ================== 职业细化参数（各职业的「职业」页里调） ==================
+
+    /// <summary>白魔：队伍血量低于这个值才动百合，否则攒着等更急的时候</summary>
+    public float 百合使用血线 = 0.50f;
+
+    /// <summary>白魔：苦难之心（血百合满了）是否自动打出去</summary>
+    public bool 用苦难之心 = true;
+
+    /// <summary>学者：妖精契约的触发血线（坦克低于这个才挂）</summary>
+    public float 妖精契约血线 = 0.80f;
+
+    /// <summary>学者：以太低于这个数就不放"能力技群奶"，退回 GCD 群奶</summary>
+    public int 以太保留数 = 1;
+
+    /// <summary>占星：出卡优先给近战（关掉则优先远程）</summary>
+    public bool 出卡优先近战 = true;
+
+    /// <summary>占星：地星提前多少秒铺（地星 10 秒后自动炸）</summary>
+    public float 地星提前秒 = 10f;
+
+    /// <summary>贤者：蛇胆低于这个数就不放"能力技群奶"</summary>
+    public int 蛇胆保留数 = 1;
+
+    /// <summary>贤者：毒刺攒到几个就泄掉（避免溢出浪费）</summary>
+    public int 箭毒泄刺阈值 = 2;
+
+    // ================== 占星卡牌 ==================
+
+    /// <summary>
+    /// 哪些牌算"近战卡"（给近战 DPS）。
+    /// 按 CardType 的运行时名字匹配，不在这份名单里的视为远程卡。
+    /// </summary>
+    public string 近战卡关键词 = "Balance,Bole,Arrow,太阳,世界树,箭";
+
+    // ================== ID 覆盖（自动解析失败时手工填） ==================
+
+    /// <summary>
+    /// 技能 ID 覆盖：键 = 技能英文名（跟各职业 SpellTable 里写的一致），值 = 游戏技能 ID。
+    ///
+    /// 平时不用填 —— 代码会先用 MemApiSpell.GetId(名字) 去游戏数据里查。
+    /// 如果日志里出现"[HealerACR] 技能名解析失败：XXX"，
+    /// 就用卫月插件 SeeSpell 查到 ID，在这里补一条。
+    /// </summary>
+    public Dictionary<string, uint> 技能Id覆盖 = new();
+
+    /// <summary>
+    /// 状态 ID 覆盖：键 = AuraIds.cs 里的中文键名（比如 "即刻"、"死斗"、"白魔Dot"），
+    /// 值 = 游戏状态 ID。拿不准的 buff 用 SeeBuff 查。
+    /// </summary>
+    public Dictionary<string, uint> BuffId覆盖 = new();
+
+    // ================== 其他 ==================
+
+    public bool 复活喊话开关 = false;
+    public string 复活喊话频道 = "/p ";
+    public List<string> 复活喊话 = new() { "制作\"<t>\"成功！" };
+
+    /// <summary>QT 面板的配色/位置保存</summary>
+    public JobViewSave 职业视图保存 = new()
+    {
+        MainColor = new Vector4(40 / 255f, 173 / 255f, 70 / 255f, 0.8f),
+    };
+
+    /// <summary>
+    /// 给 JobViewWindow 用的保存回调。
+    /// ⚠️ 必须 JsonIgnore：它是委托，System.Text.Json 序列化不了，
+    ///    不加的话每次 Save() 都会抛 NotSupportedException（0.1.0 就是这么炸的）。
+    /// </summary>
+    [JsonIgnore]
+    public Action 保存回调 => Save;
+}
+
+/// <summary>
+/// 阈值钩子 —— 外部可以挂一个"调整函数"来改写治疗阈值。
+///
+/// **设计要点：不挂钩子就是原值。**
+/// 所以原版 HealerACR 完全不受影响；
+/// BlueWhale 挂上它，AI 的"保守/激进"才有实际效果。
+///
+/// 用钩子而不是直接改字段，是因为：
+///   · 直接改字段会被存进 json（把 AI 的临时判断变成永久设置）
+///   · 钩子是每次读的时候现算，AI 一改倾向立刻生效、不落盘
+/// </summary>
+public static class 阈值钩子
+{
+    /// <summary>治疗阈值调整函数。输入原值，返回调整后的值。</summary>
+    public static Func<float, float>? 治疗阈值调整;
+
+    public static float 应用(float 原值)
+    {
+        try { return 治疗阈值调整?.Invoke(原值) ?? 原值; }
+        catch { return 原值; }   // 钩子里出任何问题都退回原值
+    }
+
+    /// <summary>卸载钩子（BlueWhale 退出/换职业时调）</summary>
+    public static void 卸载() => 治疗阈值调整 = null;
+}
