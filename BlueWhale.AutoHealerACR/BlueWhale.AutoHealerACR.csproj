@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>BlueWhale</AssemblyName>
+    <RootNamespace>BlueWhale.AutoHealerACR</RootNamespace>
+    <Version>1.7.0</Version>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AEAssist.NET" Version="1.2.16" />
+  </ItemGroup>
+
+  <!--
+    ★ 直接编译 HealerACR 的源码 ★
+
+    这样 BlueWhale 继承 HealerACR 的职业入口时，
+    技能逻辑 / timeline / 设置界面 / 全部 resolver 都是同一份代码 ——
+    改一处两边都生效，不会出现"两套逻辑慢慢分叉"。
+
+    代价：BlueWhale.dll 会大一些（把 HealerACR 的实现也编进去了）。
+          但换来的是**完全独立**：不需要 HealerACR.dll 在旁边。
+  -->
+  <ItemGroup>
+    <Compile Include="..\HealerACR\**\*.cs"
+             Exclude="..\HealerACR\bin\**;..\HealerACR\obj\**" />
+  </ItemGroup>
+
+</Project>

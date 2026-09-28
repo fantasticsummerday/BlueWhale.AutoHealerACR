@@ -1,0 +1,230 @@
+using AEAssist;
+using AEAssist.Helper;
+using AEAssist.MemoryApi;
+using HealerACR.Common;
+
+namespace HealerACR.Timeline;
+
+/// <summary>
+/// 时间轴管理器：负责"找对文件"，跑起来的事交给 <see cref="TimelineRunner"/>。
+///
+///   1. 启动时扫描 ACR 目录下的 <c>Timelines\*.txt</c>，读文件头的 <c># ZoneId: N</c> 建索引
+///   2. 战斗中按当前副本 ID 挑出对应那份，装进 Runner
+///   3. Runner 每帧推进，命中技能行就提前 <c>时间轴提前秒</c> 发出信号
+///
+/// 没有时间轴的副本会自动退回读条判断（Res_TeamMitigation 里做了兜底），日随照样跑。
+/// </summary>
+public static class TimelineManager
+{
+    /// <summary>地图 ID → 时间轴文件路径</summary>
+    private static readonly Dictionary<uint, string> 索引 = new();
+
+    private static readonly TimelineRunner Runner = new();
+    private static uint 当前地图;
+
+    /// <summary>给 QT 面板显示的状态</summary>
+    public static string 状态 => Runner.状态;
+
+    /// <summary>当前地图 ID（给 AI 描述"在哪个副本"用）</summary>
+    public static uint 当前地图Id => 当前地图;
+
+    public static int 条目数 => Runner.有数据 ? 1 : 0;
+
+    /// <summary>时间轴目录：dll 旁边的 Timelines 文件夹</summary>
+    /// <summary>
+    /// 时间轴目录：优先找 dll 旁边的 Timelines，找不到再依次兜底。
+    ///
+    /// ⚠️ 不能只用 Assembly.Location —— AEAssist 是用字节流加载 ACR 的，
+    ///    这种情况下 Location 可能是空串，退化成当前目录后就永远找不到时间轴
+    ///    （日志里"没有 Timelines 目录"就是这么来的）。
+    /// </summary>
+    public static string 时间轴目录
+    {
+        get
+        {
+            foreach (var 候选 in 候选目录())
+            {
+                try { if (Directory.Exists(候选)) return 候选; } catch { }
+            }
+
+            var 全部 = 候选目录().ToList();
+            return 全部.Count > 0 ? 全部[0] : "Timelines";
+        }
+    }
+
+    /// <summary>候选目录，按优先级排列</summary>
+    /// <summary>候选目录，按优先级排列</summary>
+    private static IEnumerable<string> 候选目录()
+    {
+        var 名字 = "HealerACR";
+        try { 名字 = typeof(TimelineManager).Assembly.GetName().Name ?? 名字; } catch { }
+
+        // 1) dll 旁边（正常情况下就是这个）
+        string dll目录 = null;
+        try
+        {
+            var dll = typeof(TimelineManager).Assembly.Location;
+            if (!string.IsNullOrEmpty(dll)) dll目录 = Path.GetDirectoryName(dll);
+        }
+        catch { }
+
+        if (!string.IsNullOrEmpty(dll目录)) yield return Path.Combine(dll目录, "Timelines");
+
+        // 2) 从 AEAssist.dll 的位置反推 —— ACR 一般就在它附近
+        foreach (var ae in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            string ae目录 = null;
+            try
+            {
+                if (ae.GetName().Name != "AEAssist") continue;
+                var loc = ae.Location;
+                if (!string.IsNullOrEmpty(loc)) ae目录 = Path.GetDirectoryName(loc);
+            }
+            catch { }
+
+            if (string.IsNullOrEmpty(ae目录)) continue;
+
+            yield return Path.Combine(ae目录, "ACR", 名字, "Timelines");
+            yield return Path.Combine(ae目录, "..", "ACR", 名字, "Timelines");
+            yield return Path.Combine(ae目录, "..", "..", "ACR", 名字, "Timelines");
+        }
+
+        // 3) 已知的常见布局
+        foreach (var 根 in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
+        {
+            if (string.IsNullOrEmpty(根)) continue;
+            yield return Path.Combine(根, "ACR", 名字, "Timelines");
+            yield return Path.Combine(根, "Output", "ACR", 名字, "Timelines");
+            yield return Path.Combine(根, "..", "ACR", 名字, "Timelines");
+        }
+
+        // 4) 当前目录下
+        yield return Path.Combine(".", "Timelines");
+    }
+
+    /// <summary>启动 / 重载时调用一次</summary>
+    public static void 初始化()
+    {
+        索引.Clear();
+        当前地图 = 0;
+        Runner.卸载();
+
+        // 找不到时把**所有尝试过的路径**打出来（带存在与否），
+// 这样一眼就能看出该把 Timelines 放哪
+        var 尝试 = new List<string>();
+        foreach (var d in 候选目录())
+        {
+            bool 在;
+            try { 在 = Directory.Exists(d); } catch { 在 = false; }
+            尝试.Add((在 ? "[有] " : "[无] ") + d);
+        }
+        var 提示 = "没有 Timelines 目录。已找过：" + string.Join(" | ", 尝试);
+
+        try
+        {
+            if (Directory.Exists(时间轴目录))
+            {
+                foreach (var 文件 in Directory.GetFiles(时间轴目录, "*.txt", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        var id = CactbotTimelineParser.解析地图Id(File.ReadAllText(文件));
+                        if (id is { } v && v != 0) 索引[v] = 文件;
+                    }
+                    catch (Exception e)
+                    {
+                        LogHelper.Error($"[HealerACR] 时间轴索引失败 {Path.GetFileName(文件)}: {e.Message}");
+                    }
+                }
+
+                提示 = $"已索引 {索引.Count} 份时间轴";
+            }
+        }
+        catch (Exception e)
+        {
+            提示 = "扫描失败: " + e.Message;
+            LogHelper.Error($"[HealerACR] 时间轴扫描失败: {e}");
+        }
+
+        Runner.设置空闲状态(提示);
+        LogHelper.Info($"[HealerACR] {提示}");
+    }
+
+    /// <summary>每帧调用（挂在 IRotationEventHandler.OnBattleUpdate 上）</summary>
+    public static void 更新(int 战斗毫秒)
+    {
+        if (!HealSettings.Instance.启用时间轴 || !HealQt.GetQt("时间轴", true))
+        {
+            Runner.清本帧();
+            return;
+        }
+
+        if (战斗毫秒 <= 0)
+        {
+            Runner.清本帧();
+            return;
+        }
+
+        确保当前时间轴();
+        Runner.更新(战斗毫秒 / 1000.0, HealSettings.Instance.时间轴提前秒);
+    }
+
+    /// <summary>时间轴有没有要求"现在铺减伤"</summary>
+    public static bool 该铺减伤() => Runner.本帧要减伤;
+
+    /// <summary>未来 N 秒附近有没有减伤需求（地星预铺 / 攒资源用）</summary>
+    public static bool 未来有减伤(double 秒后, double 容差 = 1.5)
+    {
+        if (!HealSettings.Instance.启用时间轴) return false;
+        return Runner.未来有减伤(秒后, 容差);
+    }
+
+    /// <summary>再过多少秒会有下一次减伤需求，没有返回 -1</summary>
+    public static double 距下次减伤()
+    {
+        if (!HealSettings.Instance.启用时间轴) return -1;
+        return Runner.距下次减伤();
+    }
+
+    /// <summary>战斗结束 / 重置</summary>
+    public static void 战斗重置()
+    {
+        Runner.重置();
+    }
+
+    private static void 确保当前时间轴()
+    {
+        uint 副本;
+        try
+        {
+            副本 = Core.Resolve<MemApiZoneInfo>().GetCurrTerrId();
+        }
+        catch
+        {
+            return;
+        }
+
+        if (副本 == 当前地图) return;
+
+        当前地图 = 副本;
+
+        if (!索引.TryGetValue(副本, out var 文件))
+        {
+            Runner.卸载();
+            Runner.设置空闲状态($"副本 {副本} 没有时间轴（走读条判断）");
+            return;
+        }
+
+        try
+        {
+            var 文本 = File.ReadAllText(文件);
+            Runner.装载(CactbotTimelineParser.解析(文本, Path.GetFileName(文件)));
+            LogHelper.Info($"[HealerACR] 载入时间轴：{状态}");
+        }
+        catch (Exception e)
+        {
+            Runner.卸载();
+            LogHelper.Error($"[HealerACR] 时间轴解析失败: {e}");
+        }
+    }
+}

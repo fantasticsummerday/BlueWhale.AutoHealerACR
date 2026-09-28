@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ============================================================
+       HealerACR —— 日随用四奶妈 ACR（AEAssist 3.0 / 卫月版）
+       目标框架跟随 AEAssist.NET 包：net10.0-windows
+       ============================================================ -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>HealerACR</AssemblyName>
+    <RootNamespace>HealerACR</RootNamespace>
+    <Version>1.5.0</Version>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <!-- 这个包里的 dll 由 AEAssist 主程序在运行时提供，不复制 -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- ★ 改这一个路径：AEAssist 扫描外部 ACR 的目录。
+       dll 必须和所在文件夹同名（文件夹 HealerACR ↔ HealerACR.dll） -->
+  <PropertyGroup>
+    <AEAssistAcrDir Condition="'$(AEAssistAcrDir)' == ''">C:\AEAssist3\Output\ACR</AEAssistAcrDir>
+    <OutputPath>$(AEAssistAcrDir)\HealerACR\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 只跟这一个包打交道。它已经带齐了：
+         AEAssist.dll / Dalamud.dll / ECommons.dll / FFXIVClientStructs.dll /
+         Lumina*.dll / Dalamud.Bindings.ImGui*.dll / CSCore.dll
+         所以**不需要**再去引 XIVLauncher 目录里的 dll。 -->
+    <PackageReference Include="AEAssist.NET" Version="1.2.16" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

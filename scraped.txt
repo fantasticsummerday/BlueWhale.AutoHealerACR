@@ -1,0 +1,68 @@
+mmmmmmmmmmlli1ƒ⁇
+M
+AEAssist3.0ACR开发
+登录腾讯文档
+只能查看
+菜单
+插入
+标题
+默认字体
+小一
+更多
+快捷工具
+PDF转换
+生成图片
+排版美化
+打印
+大纲
+AEAssist3.0 ACR开发
+开始
+ACR入口 RotationEntry
+基于优先级的决策 SlotResolver
+概念Slot/SlotSequence
+技能和目标
+ACR的设置文件和设置界面
+ACR的UI (QT选项和快捷键)
+时间轴控制
+第 1 页 / 共 19 页
+第 2 页 / 共 19 页
+第 3 页 / 共 19 页
+第 4 页 / 共 19 页
+第 5 页 / 共 19 页
+第 6 页 / 共 19 页
+第 7 页 / 共 19 页
+第 8 页 / 共 19 页
+第 9 页 / 共 19 页
+第 10 页 / 共 19 页
+第 11 页 / 共 19 页
+第 12 页 / 共 19 页
+第 13 页 / 共 19 页
+3408 个字
+100
+%
+时间轴的QT控制
+text
+ACR的各种事件回调
+副本-AEAssist3.0ACR开发
+ACR开发中的注意事项
+关于状态的判断(例如Buff,机工过热状态等)
+获取技能和Buff的Id
+ACR的热重载
+AEAssist提供的API
+FF14内存访问的封装
+复杂逻辑复用
+IBattleCharacter或者Core.Me的扩展
+控制ACR运行流程
+常用API说明
+技能是否可用 IsReady
+技能变换 CheckActionChange
+AOE使用检查 CheckNeedUseAOE
+设置当前gcd内只能单插/不插能力技
+https://github.com/tssailzz8/MyPlugins
+当前队伍内的可施法对象 T/H/D
+指定接下来要使用的技能
+近战身位指示器
+目标濒死检测
+能力技能不等待服务器回包
+爆发药是否可用
+技能用在场地中心
