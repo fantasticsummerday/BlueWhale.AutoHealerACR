@@ -90,6 +90,10 @@ public class Res_TeamMitigation : ISlotResolver
             // ── 地面放置型技能的位置选择（对照 鍚岀被 ACR 的 Qt「脚下放罩」）──
             //   · 勾上：放**自己脚下**（小怪散开时更稳，自己一定在队伍里）
             //   · 不勾：放**当前目标处**（Boss 战放 Boss 脚下，近战都在那）
+            // 自动识别"这个技能是不是要放地上"（对照 CastType=7）
+            // 这样以后加新的地面技能不用再去改表
+            var 是地面 = 技能数据.是地面技能(_t.团队减伤);
+
             var 放脚下 = HealQt.GetQt("脚下放罩", false);
 
             if (放脚下)
