@@ -426,7 +426,7 @@ public class Res_Emergency : ISlotResolver
     {
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
-        if (!HealQt.GetQt("应急", false)) return -101;
+        if (!HealQt.GetQt("应急", true)) return -101;   // 兜底改成 true —— 之前是 false 导致紧急治疗从未生效
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
