@@ -73,6 +73,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
+            坦克压力.重置();
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -185,6 +186,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
+            坦克压力.重置();
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -297,6 +299,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
+            坦克压力.重置();
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -409,6 +412,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
+            坦克压力.重置();
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -708,6 +712,7 @@ public class AiHeartbeat : ISlotResolver
             AiSettingPage.每帧更新();     // 收集"测试连接"的异步结果
             AiSettings.每帧更新();        // 脱战后补写攒下的设置保存（避免战斗中做 IO）
 
+            坦克压力.每帧更新();          // 采样 T 的血量波动
             Ai初始化.每帧更新();          // 初始化超时检查
             Ai初始化.检查熔断提示();      // 熔断状态变化 → 屏幕横幅告知
             HealerACR.Common.HealQt.每帧更新();   // 一次性开关（解除熔断）
@@ -780,6 +785,7 @@ public override Rotation Build(string settingFolder)
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
+            坦克压力.重置();
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 

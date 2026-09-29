@@ -27,6 +27,7 @@ public static class AiSituation
         采资源(sb);
         采队友(sb);
         采敌人(sb);
+        采坦克压力(sb);
         采时间轴(sb);
         采可选技能(sb);
 
@@ -215,6 +216,28 @@ public static class AiSituation
     }
 
     // ==================== 敌人 ====================
+
+    /// <summary>
+    /// 坦克压力 —— 用户要求的三个判断：
+    ///   · 接战时 T 的血量波动大不大
+    ///   · 减伤够不够（用波动间接看，见 坦克压力 类的说明）
+    ///   · 怪多不多
+    /// </summary>
+    private static void 采坦克压力(StringBuilder sb)
+    {
+        try
+        {
+            sb.AppendLine("【坦克压力 / 接战强度】");
+            sb.Append(坦克压力.状态描述());
+            sb.Append(坦克压力.敌人描述());
+            sb.AppendLine();
+        }
+        catch (Exception e)
+        {
+            sb.AppendLine("【坦克压力】读取失败：" + e.Message);
+            sb.AppendLine();
+        }
+    }
 
     private static void 采敌人(StringBuilder sb)
     {
