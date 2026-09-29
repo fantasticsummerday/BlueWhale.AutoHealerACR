@@ -58,3 +58,7 @@ extract_*.js
 fetch_*.js
 inspect_*.py
 verify_*.py
+
+# ---- 文档不进远端仓库（用户要求：只推代码本体）----
+*.md
+
