@@ -466,6 +466,90 @@ public static class HealTargetHelper
     /// 当前目标是不是"快死的残血小怪"（需求 2）—— 这种目标不要交爆发。
     /// 血量低于阈值，或者 TTK 估算很快，都算。
     /// </summary>
+    /// <summary>
+    /// **这个怪值不值得上 DoT**（照抄参考实现的 ShouldSkipDotByHp）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 判据（三段，逐条对照参考实现的 IL）★
+    ///
+    ///    ① `CurrentHp <= 0` 或血量比例 <= 0.1%  → 跳过（正在死）
+    ///    ② 血量比例 < 「不挂Dot血线」（默认 3%）→ 跳过
+    ///    ③ `MaxHp <= 队伍最大血量 × 倍数`       → 跳过
+    ///
+    ///  ── 第 ③ 条是这次新增的核心 ──
+    ///     DoT 是 **30 秒**的持续伤害。怪 **5 秒就死**的话，
+    ///     剩下 25 秒的伤害全浪费，还占了一个本该打直接伤害的 GCD。
+    ///     ⇒ **小怪无论血线多少都不该上 DoT。**
+    ///
+    ///  ⚠️ 分母用「队伍最大血量」而不是「我的」——
+    ///     参考实现用的是我的，但我的 MaxHp 随等级变化极大
+    ///     （Lv50 学者约 1.5 万 / Lv90 约 6 万），而怪的 MaxHp 也随等级变，
+    ///     两边不同步 → 照抄会在低等级把绝大多数怪判成"不值得"（等于关掉 DoT）。
+    ///     详见 `HealSettings.Dot血量倍数` 的说明。
+    ///
+    ///  ⚠️ 倍数为 0（或负）= **关掉第 ③ 条**（回到旧行为）。
+    ///     拿不到队伍血量时也**放行** —— 这条是"优化"不是"安全"，
+    ///     拿不到数据不该拦着（保守方向是别乱拦）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 值得上Dot(IBattleChara? 目标)
+    {
+        if (目标 == null) return false;
+
+        try
+        {
+            // ① 已经在死 / 死了
+            if (目标.CurrentHp <= 0) return false;
+            var 血比 = 目标.MaxHp > 0 ? 目标.CurrentHp / (float)目标.MaxHp : 1f;
+            if (血比 <= 0.001f) return false;
+
+            // ② 低于「不挂Dot血线」（沿用已有设置，默认 3%）
+            float 血线;
+            try { 血线 = HealSettings.Instance.不挂Dot血线; }
+            catch { 血线 = 0.03f; }
+            if (血比 < 血线) return false;
+
+            // ③ 血量倍数（0 = 关掉这条）
+            float 倍数;
+            try { 倍数 = HealSettings.Instance.Dot血量倍数; }
+            catch { 倍数 = 12f; }
+            if (倍数 <= 0f) return true;
+
+            var 基准 = 队伍最大血量();
+            if (基准 <= 0f) return true;      // 拿不到 → 放行
+
+            return 目标.MaxHp > 基准 * 倍数;
+        }
+        catch
+        {
+            return true;   // 任何异常 → 放行（别因为判断失败就不上 DoT）
+        }
+    }
+
+    /// <summary>
+    /// **队伍里最大的 MaxHp** —— 给 DoT 血量倍数当分母。
+    ///
+    /// ⚠️ 用队伍最大而不是"我的"：坦克血通常最厚，
+    ///     用它当基准更稳定（不会因为切了个脆皮职业就变）。
+    ///     拿不到就退回我自己。
+    /// </summary>
+    private static float 队伍最大血量()
+    {
+        try
+        {
+            float 最大 = 0f;
+            foreach (var r in PartyHelper.CastableParty)
+            {
+                if (r == null) continue;
+                if (r.MaxHp > 最大) 最大 = r.MaxHp;
+            }
+            if (最大 > 0f) return 最大;
+        }
+        catch { }
+
+        try { return Core.Me.MaxHp; } catch { return 0f; }
+    }
+
     public static bool 目标快死了(float 血线 = 0.25f, int ttk秒 = 12)    {
         var t = 当前目标();
 

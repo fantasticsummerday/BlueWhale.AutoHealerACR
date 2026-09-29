@@ -69,6 +69,114 @@ public static class 敌人移动检测
         s.采样数++;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 复刻参考实现的 `IsTargetMoving`（逐帧位移法）★
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>上一次位置（逐帧位移用）—— key 用 EntityId，和参考实现一致</summary>
+    private static readonly Dictionary<ulong, Vector3> _上次位置 = new();
+
+    /// <summary>
+    /// **这个目标"这一帧"动了没有** —— 复刻参考实现的 `IsTargetMoving`。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 和上面 `移动很少()` 的区别（两套判据，用途不同）★
+    ///
+    ///    | | 移动很少()（我们的） | 本方法（参考实现的） |
+    ///    |---|---|---|
+    ///    | 判据 | 3 秒内**平均速度** < 2.5 米/秒 | **逐帧位移** > 0.0001 |
+    ///    | 观察期 | 要 3000ms + 4 个采样点 | **没有** |
+    ///    | 数据不足 | 一律 false | **首次返回 false，之后立刻生效** |
+    ///    | 用途 | "这个怪稳不稳"（长时间判断）| "它现在动没动"（当下判断）|
+    ///
+    ///  ⚠️ **名字反过来看会晕**：`移动很少` 名字像"判当下"，
+    ///     其实是**长时间平均**；本方法才是真正的"当下有没有动"。
+    ///
+    ///  ⚠️ 首次见到这个目标返回 **false**（"没在动"）——
+    ///     参考实现就是这么写的（`IL_0035-0043`：建档后直接 `Ldc_i4_0; Ret`）。
+    ///     不这么写的话，第一帧必然返回 true，会白白挡住一次施放。
+    ///
+    ///  ⚠️ key 用 `EntityId`（参考实现也是）——
+    ///     `GameObjectId` 和它在我们这个版本里是同一个值的两种暴露，
+    ///     但用 `EntityId` 更明确（对象身份而非"游戏对象 id"）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 正在移动(IBattleChara? 目标)
+    {
+        if (目标 == null) return false;
+
+        try
+        {
+            var id = 目标.EntityId;
+            if (id == 0) return false;
+
+            var 位置 = 目标.Position;
+
+            if (!_上次位置.TryGetValue(id, out var 上次))
+            {
+                _上次位置[id] = 位置;
+                return false;              // 首次 → 当作"没动"（照抄参考实现）
+            }
+
+            _上次位置[id] = 位置;
+
+            // ⚠️ 0.0001 是参考实现的阈值（`Ldc_r4 0.0001` + `Cgt`）——
+            //    这是**平方距离**的比较，0.0001 = 0.01 米 = 1 厘米。
+            //    非常灵敏：站着不动的目标偶尔也会有 1 厘米抖动，
+            //    但那种抖动是**单帧**的，不会持续，所以不会误判成"一直在动"。
+            var dx = 位置.X - 上次.X;
+            var dy = 位置.Y - 上次.Y;
+            var dz = 位置.Z - 上次.Z;
+            return dx * dx + dy * dy + dz * dz > 0.0001f;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>清掉逐帧位移记录（换本时用）</summary>
+    public static void 清位移记录() => _上次位置.Clear();
+
+    /// <summary>
+    /// 【临时诊断】确认 `GameObjectId` 和 `EntityId` 是不是同一个值。
+    ///
+    /// 为什么要查：我们好几处用 `GameObjectId` 当字典 key，
+    /// 而参考实现用 `EntityId`。如果两者不同值，
+    /// 那些字典会不断新建档 → 移动检测恒 false → 地面技能永远放自己脚下。
+    ///
+    /// 每 5 秒打一条，最多 6 条。**确认后删掉这个方法。**
+    /// </summary>
+    private static int _诊断次数;
+
+    public static void 诊断Id()
+    {
+        if (_诊断次数 >= 6) return;
+
+        try
+        {
+            var 现在 = TimeHelper.Now();
+            if (现在 - _上次诊断时间 < 5000) return;
+            _上次诊断时间 = 现在;
+            _诊断次数++;
+
+            var 敌人 = HealTargetHelper.当前目标();
+            if (敌人 == null)
+            {
+                LogHelper.Info("[诊断.Id] 当前没有目标");
+                return;
+            }
+
+            LogHelper.Info($"[诊断.Id] 名称={敌人.Name} " +
+                           $"GameObjectId={敌人.GameObjectId} " +
+                           $"EntityId={敌人.EntityId} " +
+                           $"相同={敌人.GameObjectId == 敌人.EntityId}");
+        }
+        catch { }
+    }
+
+    private static long _上次诊断时间;
+
     /// <summary>
     /// 这个敌人是不是**已经稳定了足够久**（可以放心往它脚下放地面技能）。
     ///
@@ -189,8 +297,14 @@ public static class 敌人移动检测
     /// <summary>清理过期记录（每帧调一下，很轻）</summary>
     public static void 清理()
     {
+        // ⚠️ 临时诊断（确认 GameObjectId == EntityId，确认后删）
+        诊断Id();
+
         try
         {
+            // 位移记录也要清过期 —— 不清会随敌人数无限增长
+            if (_上次位置.Count > 64) _上次位置.Clear();
+
             if (_记录.Count == 0) return;
 
             var 现在 = TimeHelper.Now();
@@ -207,5 +321,10 @@ public static class 敌人移动检测
     }
 
     /// <summary>换本 / 战斗重置时清空</summary>
-    public static void 重置() => _记录.Clear();
+    public static void 重置()
+    {
+        _记录.Clear();
+        _上次位置.Clear();
+        _诊断次数 = 0;
+    }
 }

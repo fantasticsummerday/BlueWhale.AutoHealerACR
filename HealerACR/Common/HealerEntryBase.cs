@@ -636,6 +636,10 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Checkbox("AOE", ref s.AOE);
             ImGui.Checkbox("挂 Dot", ref s.挂Dot);
             ImGui.SliderFloat("不挂 Dot 血线", ref s.不挂Dot血线, 0f, 1f, "%.2f");
+            ImGui.SliderFloat("DoT 血量倍数", ref s.Dot血量倍数, 0f, 30f, "%.0f");
+            ImGui.TextDisabled("  怪的 MaxHp 不到「队伍最大血量 x 这个倍数」就不上 DoT。");
+            ImGui.TextDisabled("  小怪血量上限低，上了 30 秒 DoT 它几秒就死 = 白费 GCD。");
+            ImGui.TextDisabled("  0 = 关掉这条判据（回到旧行为）。默认 12。");
             ImGui.TextDisabled("  目标血量低于这个值就不浪费 GCD 挂 Dot");
             ImGui.SliderFloat("Dot 持续时间", ref s.Dot持续时间, 3f, 30f, "%.0f 秒");
 
