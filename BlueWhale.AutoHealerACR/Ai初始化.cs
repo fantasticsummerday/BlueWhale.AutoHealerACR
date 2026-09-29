@@ -203,32 +203,6 @@ public static class Ai初始化
             // ★ 新一代：让还没回来的旧请求从此失效 ★
             var 我的世代 = ++_世代;
 
-            // 【临时诊断】确认后删
-            try
-            {
-                var 栈 = new System.Diagnostics.StackTrace(true);
-                var 谁 = "?";
-                for (var i = 1; i < 栈.FrameCount && i < 6; i++)
-                {
-                    var m = 栈.GetFrame(i)?.GetMethod();
-                    if (m == null) continue;
-                    var 名 = m.DeclaringType?.Name + "." + m.Name;
-                    if (名.Contains("Ai初始化")) continue;
-                    if (名.Contains("MoveNext")) continue;
-                    谁 = 名;
-                    break;
-                }
-                Ai调试.日志($"[世代] 开始() 取得世代 {我的世代} ｜ 来自 {谁}");
-            }
-            catch { }
-
-            Ai调试.日志("开始初始化 —— 让 AI 先把当前局面过一遍");
-
-            // ⚠️ 上屏文案要**说清现在是本地策略** ——
-            //    用户看的是对话框，不是日志。只说"初始化中…"
-            //    他不知道这段时间到底是谁在做决策。
-            屏幕提示.提示("小鲸鱼", "初始化中，先用本地策略打…", "ai-init-start");
-
             _ = 跑一次(我的世代);
         }
         catch (Exception e)
@@ -648,26 +622,6 @@ public static class Ai初始化
         //
         //     没有请求在飞的时候，`++` 没有任何东西可以作废，
         //     只会白白让后续 `开始()` 的世代跳号。
-        // 【临时诊断】把"谁在推世代"打出来（确认后删）
-        try
-        {
-            var 栈 = new System.Diagnostics.StackTrace(true);
-            var 谁 = "?";
-            for (var i = 1; i < 栈.FrameCount && i < 6; i++)
-            {
-                var m = 栈.GetFrame(i)?.GetMethod();
-                if (m == null) continue;
-                var 名 = m.DeclaringType?.Name + "." + m.Name;
-                if (名.Contains("Ai初始化")) continue;
-                if (名.Contains("MoveNext")) continue;   // 异步状态机噪音
-                谁 = 名;
-                break;
-            }
-            Ai调试.日志($"[世代] 重置() 进行中={进行中} 世代={_世代}" +
-                        (进行中 ? $" -> {_世代 + 1}" : "（不变）") + $" ｜ 来自 {谁}");
-        }
-        catch { }
-
         if (进行中) _世代++;
     }
 }

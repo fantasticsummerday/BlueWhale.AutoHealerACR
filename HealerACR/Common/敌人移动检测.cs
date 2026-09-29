@@ -138,44 +138,6 @@ public static class 敌人移动检测
     /// <summary>清掉逐帧位移记录（换本时用）</summary>
     public static void 清位移记录() => _上次位置.Clear();
 
-    /// <summary>
-    /// 【临时诊断】确认 `GameObjectId` 和 `EntityId` 是不是同一个值。
-    ///
-    /// 为什么要查：我们好几处用 `GameObjectId` 当字典 key，
-    /// 而参考实现用 `EntityId`。如果两者不同值，
-    /// 那些字典会不断新建档 → 移动检测恒 false → 地面技能永远放自己脚下。
-    ///
-    /// 每 5 秒打一条，最多 6 条。**确认后删掉这个方法。**
-    /// </summary>
-    private static int _诊断次数;
-
-    public static void 诊断Id()
-    {
-        if (_诊断次数 >= 6) return;
-
-        try
-        {
-            var 现在 = TimeHelper.Now();
-            if (现在 - _上次诊断时间 < 5000) return;
-            _上次诊断时间 = 现在;
-            _诊断次数++;
-
-            var 敌人 = HealTargetHelper.当前目标();
-            if (敌人 == null)
-            {
-                LogHelper.Info("[诊断.Id] 当前没有目标");
-                return;
-            }
-
-            LogHelper.Info($"[诊断.Id] 名称={敌人.Name} " +
-                           $"GameObjectId={敌人.GameObjectId} " +
-                           $"EntityId={敌人.EntityId} " +
-                           $"相同={敌人.GameObjectId == 敌人.EntityId}");
-        }
-        catch { }
-    }
-
-    private static long _上次诊断时间;
 
     /// <summary>
     /// 这个敌人是不是**已经稳定了足够久**（可以放心往它脚下放地面技能）。
@@ -297,9 +259,6 @@ public static class 敌人移动检测
     /// <summary>清理过期记录（每帧调一下，很轻）</summary>
     public static void 清理()
     {
-        // ⚠️ 临时诊断（确认 GameObjectId == EntityId，确认后删）
-        诊断Id();
-
         try
         {
             // 位移记录也要清过期 —— 不清会随敌人数无限增长
@@ -325,6 +284,5 @@ public static class 敌人移动检测
     {
         _记录.Clear();
         _上次位置.Clear();
-        _诊断次数 = 0;
     }
 }

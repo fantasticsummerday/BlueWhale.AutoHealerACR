@@ -86,6 +86,8 @@ public class 幻术师RotationEntry : HealerEntryBase
         {
             new SlotResolverData(new Res_Sprint(), SlotMode.Always),
             new SlotResolverData(new Res_OffensiveAbility(_spells), SlotMode.Always),
+            // 宠物不在场就召唤（学者的朝日召唤）—— 排在脱战准备之前
+            new SlotResolverData(new Res_SummonPet(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_PrepareResources(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_Raise(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Esuna(_spells), SlotMode.Gcd),

@@ -135,6 +135,8 @@ public class WHMRotationEntry : HealerEntryBase
         {
             new SlotResolverData(new Res_Sprint(), SlotMode.Always),              // 脱战自动疾跑
             new SlotResolverData(new Res_OffensiveAbility(_spells), SlotMode.Always),   // 按错题集：能力技进 Always，不受 GCD 就绪的影响
+            // 宠物不在场就召唤（学者的朝日召唤）—— 排在脱战准备之前
+            new SlotResolverData(new Res_SummonPet(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_PrepareResources(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_Raise(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Esuna(_spells), SlotMode.Gcd),

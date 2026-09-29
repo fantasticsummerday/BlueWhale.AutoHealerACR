@@ -286,53 +286,24 @@ public class Res_BaseDamage : ISlotResolver
 
     public Res_BaseDamage(JobSpellTable table) => _t = table;
 
-    /// <summary>【临时诊断】基础输出的 Check 走了哪条分支</summary>
-    private static int _诊断次数;
-    private static long _上次诊断;
-
-    private static void 诊断(int 码, string 说明)
-    {
-        try
-        {
-            if (_诊断次数 >= 20) return;
-            var 现在 = TimeHelper.Now();
-            if (现在 - _上次诊断 < 2000) return;
-            _上次诊断 = 现在;
-            _诊断次数++;
-            LogHelper.Info($"[输出诊断] Check={码} ｜ {说明}");
-        }
-        catch { }
-    }
-
     public int Check()
     {
-        if (!HealQt.GetQt("输出")) { 诊断(-100, "输出 QT 关着"); return -100; }
-        if (蓝量.低蓝停手()) { 诊断(-9, "低蓝停手"); return -9; }
-        if (!SpellUtil.已解锁(_t.基础输出))
-        { 诊断(-2, "基础输出 " + _t.基础输出 + " 没解锁"); return -2; }
+        if (!HealQt.GetQt("输出")) return -100;
+        if (蓝量.低蓝停手()) return -9;   // 蓝留给治疗
+        if (!SpellUtil.已解锁(_t.基础输出)) return -2;
 
         // ⚠️ **用我们自己的目标选择器，不是玩家选中那个** ——
         //    见 `输出目标` 的长注释：原来直接读 `GetCurrTarget()`，
         //    于是"坦克拉到的怪不打、去打玩家选中的远处怪"。
         //    带粘滞，不会每帧乱切。
         var 目标 = 输出目标.选();
-        if (目标 == null)
-        {
-            var 选中 = Core.Me.GetCurrTarget();
-            诊断(-1, "输出目标.选() 返回 null（玩家选中=" +
-                     (选中?.Name.ToString() ?? "无") +
-                     " 可选中=" + (选中?.IsTargetable.ToString() ?? "-") +
-                     " 血=" + (选中?.CurrentHp.ToString() ?? "-") + "）");
-            return -1;
-        }
+        if (目标 == null) return -1;
 
         // 视线被挡就别按了 —— 按了也放不出去，白白占着 GCD 让循环卡住
-        if (!技能数据.打得到(目标))
-        { 诊断(-6, "打不到 " + 目标.Name + "（视线/射程）"); return -6; }
+        if (!技能数据.打得到(目标)) return -6;
 
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
-        if (_t.有特殊输出形态)
-        { 诊断(-5, "有特殊输出形态"); return -5; }
+        if (_t.有特殊输出形态) return -5;
 
         // ⚠️ 和 Build **同源**：同一个目标 + 同一个 `选填充技(目标)`
         var spell = 选填充技(目标);
@@ -341,15 +312,8 @@ public class Res_BaseDamage : ISlotResolver
         //    表现成"反复尝试读条"，GCD 全空转。
         //    挡住之后，瞬发技能（学者的毁坏 / 白魔的安慰之心…）自然轮到前面。
         //    ⚠️ 用 `选填充技()` 之后的 spell.Id —— 形态可能被游戏换掉。
-        if (spell != null && !SpellUtil.移动中可用(spell.Id))
-        { 诊断(-7, "移动中放不了 " + spell.Id); return -7; }
-
-        if (spell == null)
-        { 诊断(-1, "选填充技 返回 null"); return -1; }
-
-        var 就绪 = spell.IsReadyWithCanCast();
-        if (!就绪) 诊断(-1, "技能 " + spell.Id + " 不 ready/不可放");
-        return 就绪 ? 1 : -1;
+        if (spell != null && !SpellUtil.移动中可用(spell.Id)) return -7;
+        return spell != null && spell.IsReadyWithCanCast() ? 1 : -1;
     }
 
     /// <summary>

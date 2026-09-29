@@ -90,6 +90,22 @@ public class SCHSpellTable : JobSpellTable
     // 需求 4：脱战把以太补上
     public override uint[] 脱战准备技能 => new[] { SpellIds.取("以太超流") };
 
+    /// <summary>
+    /// **召唤小仙女**（朝日召唤 17215，Lv4）。
+    ///
+    /// ⚠️ 这是学者治疗体系的地基，不是可选项：
+    ///     · 「异想的祥光」—— 免费群体治疗
+    ///     · 「异想的幻光」—— 免费群体减伤 + 治疗量提升
+    ///     · 「以太契约」—— 给小仙女指定目标持续回血
+    ///     · 「炽天召唤」—— 把小仙女升级成炽天使，解锁慰藉群盾
+    ///     小仙女不在场时这些**全部放不出来**。
+    ///
+    /// ⚠️ 版本里**没有**单独的「夕月召唤」—— 查过官方技能表
+    ///     （`dump_actions.tsv`），学者 Lv4 只有 17215「朝日召唤」这一个。
+    ///     所以不做一个"选哪个仙女"的开关，那是多余的。
+    /// </summary>
+    public override uint 召唤宠物 => SpellIds.取("朝日召唤");
+
     // 移动填充：毁坏（Ruin II）是瞬发的，边走边打不掉输出
     public override uint 移动填充技 => SpellIds.取("毁坏");
 
@@ -225,6 +241,8 @@ public class SCHRotationEntry : HealerEntryBase
             new SlotResolverData(new SCH_Aetherflow(), SlotMode.Always),   // 按错题集：能力技进 Always，不受 GCD 就绪的影响
             new SlotResolverData(new SCH_ChainStratagem(), SlotMode.Always),   // 按错题集：能力技进 Always，不受 GCD 就绪的影响
             new SlotResolverData(new Res_OffensiveAbility(_spells), SlotMode.Always),   // 按错题集：能力技进 Always，不受 GCD 就绪的影响
+            // 宠物不在场就召唤（学者的朝日召唤）—— 排在脱战准备之前
+            new SlotResolverData(new Res_SummonPet(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_PrepareResources(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_Raise(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Esuna(_spells), SlotMode.Gcd),
