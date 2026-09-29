@@ -15,9 +15,9 @@ namespace HealerACR.Common;
 ///     2. **全程 try-catch** —— 任何一步失败都只是降级
 ///     3. **挂不上就退回 RecentlyUsed** —— 不影响任何其他功能
 ///
-/// 原理（逆向 鍚岀被 ACR 的 ActionEffectTracker 得出）：
+/// 原理（逆向同类 ACR 的 ActionEffectTracker 得出）：
 ///   ActionEffect 是"技能命中"的回调，但它**不含技能 ID** ——
-///   所以必须"放技能前记下打算放什么，回调来了再匹配"，这也是 鍚岀被 ACR 用
+///   所以必须"放技能前记下打算放什么，回调来了再匹配"，这也是 同类 ACR 用
 ///   MatchesAction（内部走 CheckActionChange）的原因。
 ///
 /// 签名串来源：AEAssist.ACT.ActionHook 的 .cctor（我把它扒出来的，

@@ -6,7 +6,7 @@ using AEAssist.Helper;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 智能 AOE 选目标 —— 对照 鍚岀被 ACR 的
+/// 智能 AOE 选目标 —— 参考同类 ACR 的
 /// `SmartTargetCircleAOE` / `SmartTargetLineAOE` / `SmartTargetFanAOE`。
 ///
 /// **要解决的问题**：

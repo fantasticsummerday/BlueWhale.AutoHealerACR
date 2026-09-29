@@ -72,7 +72,7 @@ public class Res_TeamMitigation : ISlotResolver
             if (!时间轴要求 && !读条要求 && !敌人够多) return -1;
 
             // ⚠️ 队伍里坦克正在假死 → 这段时间整体压力不大，罩子先留着
-            //    （对照 鍚岀被 ACR 罩子 Check 里的 409/811/810）
+            //    （参考同类 ACR 的罩子 Check 里的 409/811/810）
             try
             {
                 var 主坦 = HealTargetHelper.血量最低的坦克();
@@ -87,7 +87,7 @@ public class Res_TeamMitigation : ISlotResolver
     {
         try
         {
-            // ── 地面放置型技能的位置选择（对照 鍚岀被 ACR 的 Qt「脚下放罩」）──
+            // ── 地面放置型技能的位置选择（参考同类 ACR 的 Qt「脚下放罩」）──
             //   · 勾上：放**自己脚下**（小怪散开时更稳，自己一定在队伍里）
             //   · 不勾：放**当前目标处**（Boss 战放 Boss 脚下，近战都在那）
             // 自动识别"这个技能是不是要放地上"（对照 CastType=7）
@@ -106,10 +106,10 @@ public class Res_TeamMitigation : ISlotResolver
             var spell = SpellUtil.Get(_t.团队减伤);
             if (spell == null) return;
 
-            // ── 延迟放置（对照 鍚岀被 ACR 的 Slot.AddDelaySpell）──
+            // ── 延迟放置（参考同类 ACR 的 Slot.AddDelaySpell）──
             //   450ms 是它用的值：等动画锁结束再放，避免"技能按了但没落下去"。
             //   地面技能尤其容易吃这个亏 —— 按下去人一动，位置就飘了。
-            // ── 选位（对照 鍚岀被 ACR 的 GetOptimalTargetWithEnemyMovementCheck）──
+            // ── 选位（参考同类 ACR 的 GetOptimalTargetWithEnemyMovementCheck）──
             //   敌人站得稳 → 放它脚下；它在动 → 放自己脚下。
             //   这样不会出现"罩子扔下去、敌人跑了、技能白放"。
             var 落点 = 敌人移动检测.地面技能位置();
@@ -174,11 +174,11 @@ public class Res_GroupShield : ISlotResolver
         var 时间轴要求 = HealQt.GetQt("时间轴", true) && TimelineManager.该铺减伤();
         if (!时间轴要求 && !减伤Helper.即将来大伤害()) return -1;
 
-        // 对应 鍚岀被 ACR SuperAOEHeal 的"检测队友身上有没有盾"：
+        // 对应 外部 ACR SuperAOEHeal 的"检测队友身上有没有盾"：
         // 血线够低、身上又没盾的人，才值得铺；都有盾了就跳过，别重叠浪费
         var s = HealSettings.Instance;
         // 排除坦克：它们有自己的减伤体系，群盾留给其他人更划算。
-        // 对照 鍚岀被 ACR 的"检测周围非T队内玩家身上有盾"——它里面也是先 IsTank 过滤。
+        // 参考同类 ACR 的"检测周围非T队内玩家身上有盾"——它里面也是先 IsTank 过滤。
         var 需要盾 = HealTargetHelper.可治疗队友()
             .Count(r => !r.IsTank()
                         && r.血量比例() <= s.群体治疗阈值

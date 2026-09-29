@@ -53,7 +53,7 @@ public static class 战斗记忆
         人类 = 1,       // 玩家手动按的 —— 这才是"参考答案"
         ACR = 2,        // 原版 HealerACR 逻辑
         AI = 3,         // BlueWhale 的 AI 决策
-        其他ACR = 4,    // 鍚岀被 ACR 之类的外部 ACR
+        其他ACR = 4,    // 同类的外部 ACR
     }
 
     /// <summary>一条决策记录（含延迟回填的结果）</summary>

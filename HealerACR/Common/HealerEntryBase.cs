@@ -74,7 +74,7 @@ public abstract class HealerEntryBase : IRotationEntry
             .SetRotationEventHandler(new HealRotationEventHandler())
             // 日随用的"起手"其实只会做开怪倒计时预铺，序列是空的
             .AddOpener(level => new 预铺起手(Spells))
-            // ── Trigger Action（对照 鍚岀被 ACR 用的 AddTriggerAction）──
+            // ── Trigger Action（参考同类 ACR 用的 AddTriggerAction）──
             //   让"铺减伤 / 攒资源"能从 AEAssist 的时间轴编辑器里直接触发。
             //   两者并存：轮询还在跑，Trigger 是额外的触发源。
             .AddTriggerAction(new AEAssist.CombatRoutine.Trigger.ITriggerAction[]
@@ -82,7 +82,7 @@ public abstract class HealerEntryBase : IRotationEntry
                 new 减伤触发器(),
                 new 攒资源触发器(),
             })
-            // ── Trigger Condition（对照 鍚岀被 ACR 用的 AddTriggerCondition）──
+            // ── Trigger Condition（参考同类 ACR 用的 AddTriggerCondition）──
             //   时间轴编辑器里可选的"条件"，配合 Action 用。
             .AddTriggerCondition(new AEAssist.CombatRoutine.Trigger.ITriggerCond[]
             {
@@ -91,7 +91,7 @@ public abstract class HealerEntryBase : IRotationEntry
                 new 资源条件(),
             });
 
-        // ── 爆发轴（对照 鍚岀被 ACR 用的 AddSlotSequences）──
+        // ── 爆发轴（参考同类 ACR 用的 AddSlotSequences）──
         //   爆发期按固定套路走，不被优先级逻辑打断。
         //   **默认关闭** —— 爆发轴会占 GCD，日随里不一定划算。
         try
@@ -125,7 +125,7 @@ public abstract class HealerEntryBase : IRotationEntry
         var s = HealSettings.Instance;
         视图窗口 = new JobViewWindow(s.职业视图保存, s.保存回调, OverlayTitle);
 
-        // ── 加一个「优先级」页签（对照 鍚岀被 ACR 的 JobPriorityUI）──
+        // ── 加一个「优先级」页签（参考同类 ACR 的 JobPriorityUI）──
         //   决定血线接近时先救谁。用 JobViewWindow.AddTab 挂进去。
         try
         {
@@ -151,15 +151,15 @@ public abstract class HealerEntryBase : IRotationEntry
         加开关("减伤", true);
         加开关("群盾", false);
         加开关("时间轴", true);
-        加开关("能量吸收", true);    // 复刻 鍚岀被 ACR：允许卸豆换输出
-        加开关("小怪卸豆", true);    // 复刻 鍚岀被 ACR：非 Boss 目标放手卸
-        加开关("强制以太", false);   // 复刻 鍚岀被 ACR：手动强制补，默认关
-        // ---- 小仙女系统（复刻 鍚岀被 ACR 的开关命名）----
+        加开关("能量吸收", true);    // 参考实现：允许卸豆换输出
+        加开关("小怪卸豆", true);    // 参考实现：非 Boss 目标放手卸
+        加开关("强制以太", false);   // 参考实现：手动强制补，默认关
+        // ---- 小仙女系统（参考实现的开关命名）----
         加开关("自动召唤", true);    // 小仙女掉了自动补
         加开关("自动转化", false);   // 牺牲小仙女换 3 颗以太（默认关，有代价）
         加开关("脚下放罩", false);   // 地面减伤放自己脚下（不勾则放目标处）
 
-        // 每个职业自己的页（对照 鍚岀被 ACR 的 XXXOverlay / XXXSettingView 做法）
+        // 每个职业自己的页（参考同类 ACR 的 XXXOverlay / XXXSettingView 做法）
         视图窗口.AddTab("职业", w => 职业面板.画(TargetJob, w));
         // 通用页：阈值 + 时间轴
         视图窗口.AddTab("阈值", 画阈值设置);
@@ -372,10 +372,10 @@ public class HealRotationEventHandler : IRotationEventHandler
     public static JobSpellTable? 当前技能表;
     public Task OnPreCombat()
     {
-        // 说明：本来想在这里挂"开怪倒计时"（预铺盾 + 吃爆发药），对照 鍚岀被 ACR 的
+        // 说明：本来想在这里挂"开怪倒计时"（预铺盾 + 吃爆发药），参考同类 ACR 的
         // Opener.InitCountDown，但撞了两个墙：
         //   1. AEAssist 的 CountDownHandler 是**实例**方法，找不到公开的实例来源
-        //      （鍚岀被 ACR 里的 CountDownHandler 可能是它自己的同名类型）
+        //      （同类 ACR 里的 CountDownHandler 可能是它自己的同名类型）
         //   2. 这个事件处理类里拿不到 JobSpellTable（Spells 是入口类的属性）
         //
         // 而且吃药这件事 **AEAssist 自己就有**（PotionSetting / NotAutoPotion3），

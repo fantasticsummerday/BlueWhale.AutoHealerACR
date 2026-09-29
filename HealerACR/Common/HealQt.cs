@@ -111,7 +111,7 @@ public static class HealQt
         }
     }
 
-    // ==================== QT 同步（对照 鍚岀被 ACR 的 PullQtSyncService）====================
+    // ==================== QT 同步（参考同类 ACR 的 PullQtSyncService）====================
 
     /// <summary>
     /// 安全读 QT：窗口拿不到 / 抛异常时返回兜底值，绝不把异常抛给调用方。
@@ -185,7 +185,7 @@ public static class HealQt
     /// <summary>当前登记了多少个 QT 开关（诊断用）</summary>
     public static int 登记数 => _已登记.Count;
 
-    // ============ 原生 API 封装（对照 鍚岀被 ACR.Sage.Qt）============
+    // ============ 原生 API 封装（对照 原生 QT 封装）============
     // 它的 Qt 类就是把 JobViewWindow 的这几个方法包了一层：
     //   GetQt / SetQt / ReverseQt / NewDefault / SetDefaultFromNow / GetQtArray
     // 我补上之前没用到的三个。

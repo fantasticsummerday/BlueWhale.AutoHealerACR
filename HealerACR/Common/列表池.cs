@@ -1,7 +1,7 @@
 namespace HealerACR.Common;
 
 /// <summary>
-/// 列表对象池 —— 对照 鍚岀被 ACR 的 `BattleCharaListPool`。
+/// 列表对象池 —— 参考同类 ACR 的 `BattleCharaListPool`。
 ///
 /// **为什么需要**：
 ///   选目标、数敌人这类操作**每帧都在跑**，每次都 `new List&lt;T&gt;()`

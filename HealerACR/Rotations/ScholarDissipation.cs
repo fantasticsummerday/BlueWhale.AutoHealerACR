@@ -7,7 +7,7 @@ using HealerACR.Common;
 namespace HealerACR.Rotations;
 
 /// <summary>
-/// 自动转化 —— 复刻 鍚岀被 ACR 的 Scholar_AutoDissipation。
+/// 自动转化 —— 参考实现的 Scholar_AutoDissipation。
 ///
 /// **转化的作用**：牺牲小仙女，换 **3 颗以太**（CD 180 秒）。
 ///
@@ -33,7 +33,7 @@ public class SCH_AutoDissipation : ISlotResolver
         if (!HealQt.GetQt("自动转化", false)) return -101;
 
         // 依赖「自动以太」—— 转化掉的小仙女之后要能叫回来，
-        // 否则就是纯粹拿小仙女换豆子，得不偿失（对照 鍚岀被 ACR 也检查这个开关）
+        // 否则就是纯粹拿小仙女换豆子，得不偿失（对照 同类 ACR 也检查这个开关）
         if (!HealQt.GetQt("自动以太", true)) return -100;
 
         if (技能 == 0) return -102;

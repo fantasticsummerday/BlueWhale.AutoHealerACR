@@ -4,7 +4,7 @@ using AEAssist.Extension;
 namespace HealerACR.Common;
 
 /// <summary>
-/// DoT 黑名单 —— 对照 鍚岀被 ACR 的 `DotBlacklistHelper`。
+/// DoT 黑名单 —— 参考同类 ACR 的 `DotBlacklistHelper`。
 ///
 /// ══════════════════════════════════════════════════════════════════
 ///  为什么要黑名单：

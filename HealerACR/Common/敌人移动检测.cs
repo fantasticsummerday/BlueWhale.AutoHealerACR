@@ -6,7 +6,7 @@ using AEAssist.Helper;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 敌人移动检测 —— 对照 鍚岀被 ACR 的 `ScholarEnemyCheck.HasEnemyMovedLessThan`。
+/// 敌人移动检测 —— 参考同类 ACR 的 `ScholarEnemyCheck.HasEnemyMovedLessThan`。
 ///
 /// **要解决的问题**：地面放置技能（罩子 / 地星 / 庇护所 / 礼仪之铃）
 /// 放下去之后敌人一走，技能就废了。所以选位置要挑"站位稳定"的敌人。

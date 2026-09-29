@@ -152,7 +152,7 @@ public class Res_SingleMitigation : ISlotResolver
         if (坦克 == null) return -1;
         if (坦克.有该技能的Buff(技能)) return -3;
 
-            // ⚠️ 假死状态不给减伤（对照 鍚岀被 ACR 罩子 Check 里的 409/811/810）
+            // ⚠️ 假死状态不给减伤（参考同类 ACR 的罩子 Check 里的 409/811/810）
             //    坦克开死斗/行尸走肉时那几秒本来就不会死，减伤纯浪费。
             if (坦克.处于假死状态()) return -4;
 
@@ -396,7 +396,7 @@ public class Res_PlacedHeal : ISlotResolver
 
     public void Build(Slot slot)
     { 
-            // 地面技能选位（对照 鍚岀被 ACR 的敌人移动检测）
+            // 地面技能选位（参考同类 ACR 的敌人移动检测）
             try
             {
                 var 落点 = 敌人移动检测.地面技能位置();

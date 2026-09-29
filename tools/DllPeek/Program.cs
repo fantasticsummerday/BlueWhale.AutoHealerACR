@@ -8,7 +8,7 @@ using System.Reflection.PortableExecutable;
 //
 // 用法: DllPeek.exe <dll> [类型名关键词,逗号分隔]
 
-var path = args.Length > 0 ? args[0] : @"ref\鍚岀被 ACR\鍚岀被 ACR\鍚岀被 ACR.dll";
+var path = args.Length > 0 ? args[0] : @"ref\目标 dll";
 var filter = args.Length > 1
     ? args[1].Split(',', StringSplitOptions.RemoveEmptyEntries)
     : Array.Empty<string>();

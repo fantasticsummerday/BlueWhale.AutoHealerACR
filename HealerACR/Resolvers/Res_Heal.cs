@@ -186,7 +186,7 @@ public class Res_HealShield : ISlotResolver
         var 该铺 = 减伤Helper.即将来大伤害();
         var 坦克 = HealTargetHelper.血量最低的坦克(该铺 ? 1f : 0.7f);
         if (坦克 == null) return -1;
-        // ⚠️ 对照 鍚岀被 ACR 的 Scholar_SingleGCDHeal：
+        // ⚠️ 参考同类 ACR 的 Scholar_SingleGCDHeal：
         //    它判的是"目标身上 buff 时间小于或不存在"，**不是"有没有 buff"**。
         //
         //    区别很大：鼓舞的盾只有 30 秒，快过期的盾等于没有。

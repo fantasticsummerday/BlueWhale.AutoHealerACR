@@ -26,7 +26,7 @@ public static class CharacterExt
     /// <summary>
     /// 我上的某个 buff，在这个目标上是不是"快没了"（剩余 &lt; 秒）。
     ///
-    /// 对照 鍚岀被 ACR 的 GameObjectExtension.HasMyAuraWithTimeleft ——
+    /// 参考同类 ACR 的 GameObjectExtension.HasMyAuraWithTimeleft ——
     /// 比只看"有没有"精确得多：DoT 还剩 20 秒时不该补，剩 3 秒才该补。
     /// 拿不到时间信息时返回 true（当成该补，宁可多补一次）。
     /// </summary>
@@ -52,12 +52,12 @@ public static class CharacterExt
     /// <summary>
     /// 现在是不是插入能力技的时机。
     ///
-    /// 对照 鍚岀被 ACR 用的 GCDHelper.CanUseGCD ——
+    /// 参考同类 ACR 用的 GCDHelper.CanUseGCD ——
     /// 比我之前硬编码的 "GCD 剩余 &lt; 600ms" 准：不同技速下 GCD 长度不一样，
     /// 固定 600ms 在高速时偏早、低速时偏晚。读不到就退回旧阈值。
     /// </summary>
     /// <summary>
-    /// 某个 buff 在目标身上的层数。对照 鍚岀被 ACR 用的 GameObjectExtension.GetAuraStack。
+    /// 某个 buff 在目标身上的层数。参考同类 ACR 用的 GameObjectExtension.GetAuraStack。
     /// 读不到返回 0。
     /// </summary>
     public static int Buff层数(this IBattleChara c, uint buffId)
@@ -67,7 +67,7 @@ public static class CharacterExt
     }
 
     /// <summary>
-    /// 当前 GCD 的总时长（毫秒）。对照 鍚岀被 ACR 用的 GCDHelper.GetGCDDuration。
+    /// 当前 GCD 的总时长（毫秒）。参考同类 ACR 用的 GCDHelper.GetGCDDuration。
     /// 用途：把"GCD 剩余"换算成"进度百分比"，比拿固定阈值判断准。
     /// </summary>
     public static int GCD时长
@@ -110,7 +110,7 @@ public static class CharacterExt
     /// <summary>
     /// 技能当前充能层数。读不到返回 -1（调用方据此退回旧逻辑）。
     ///
-    /// 对照 鍚岀被 ACR 的 MemApiSpell.GetCharges —— 比"用时间限流猜充能"准得多：
+    /// 参考同类 ACR 的 MemApiSpell.GetCharges —— 比"用时间限流猜充能"准得多：
     /// 之前是"2 秒内不放第二次"，属于盲猜；现在能直接读"还剩几层"。
     /// </summary>
     public static int 充能数(uint id)
@@ -123,7 +123,7 @@ public static class CharacterExt
     /// <summary>
     /// 我挂在这个目标身上的 buff 还剩多少秒（没有则返回 -1）。
     ///
-    /// **对照 鍚岀被 ACR 的 `鍚岀被 ACRBuffHelper.目标身上buff时间`** ——
+    /// **参考同类 ACR 的 `BuffHelper.目标身上buff时间`** ——
     /// 它直接调 `MemApiBuff.GetAuraTimeleft` 拿精确值，
     /// 而不是只问"是不是小于 N 秒"。
     ///
@@ -203,7 +203,7 @@ public static class CharacterExt
 
     /// <summary>
     /// 一次查多个可能的护盾 buff。
-    /// 对照 鍚岀被 ACR 的 Scholar_TankSingleShield.HasShield()——它内部用的是 HasAnyAura，
+    /// 参考同类 ACR 的 Scholar_TankSingleShield.HasShield()——它内部用的是 HasAnyAura，
     /// 而不是只认一个 id：护盾类 buff 在不同等级/形态下 id 会变，只认一个容易漏判。
     /// </summary>
     /// <summary>
@@ -219,7 +219,7 @@ public static class CharacterExt
     /// <summary>
     /// 目标是不是处于"假死"类无敌状态（死斗 / 行尸走肉 / 死而不僵）。
     ///
-    /// **为什么要判这个**（对照 鍚岀被 ACR 的 Scholar_SacredSoil，
+    /// **为什么要判这个**（参考同类 ACR 的 Scholar_SacredSoil，
     /// 它的 Check 常量里有 `409, 811, 810` —— 正是这三个）：
     ///
     ///   坦克开假死时，那几秒**它本来就不会死**，

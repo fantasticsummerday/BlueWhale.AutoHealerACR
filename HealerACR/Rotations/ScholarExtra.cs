@@ -8,10 +8,10 @@ namespace HealerACR.Rotations;
 // ============================================================================
 //  学者 90-100 级的三个技能（0.3.8 补）。
 //
-//  对照 鍚岀被 ACR 的类型表发现的缺口：
+//  参考同类 ACR 的类型表发现的缺口：
 //    Scholar_Baneful_Impaction -> 埋伏之毒（92）
 //    Scholar_Seraphism         -> 炽天附体（100）
-//    96 级那个 鍚岀被 ACR 没单独建类，但它是独立的群盾强化
+//    96 级那个 同类 ACR 没单独建类，但它是独立的群盾强化
 // ============================================================================
 
 /// <summary>
@@ -74,7 +74,7 @@ public class SCH_AdloquiumUpgrade : ISlotResolver
 }
 
 /// <summary>
-/// 强制以太超流 —— 复刻 鍚岀被 ACR 的 Scholar_ForceAetherflow。
+/// 强制以太超流 —— 参考实现的 Scholar_ForceAetherflow。
 ///
 /// 它的 Check 只有两个条件：Qt.GetQt("强制以太") + IsReadyWithCanCast。
 /// 也就是**完全交给用户手动控制**，不看豆子数量、不看 CD 之外的任何东西。

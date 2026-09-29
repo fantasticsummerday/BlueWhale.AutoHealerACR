@@ -13,7 +13,7 @@ namespace BlueWhale.AutoHealerACR;
 /// **这是整个 AI 接管的地基。**
 /// 喂给 AI 的信息越全，它的决策越靠谱；信息不够它就只能在幻觉里编。
 ///
-/// 采集范围对照 HealerACR 的调试页和 鍚岀被 ACR 的 Overlay.DrawDev ——
+/// 采集范围对照 HealerACR 的调试页和 同类 ACR 的 Overlay.DrawDev ——
 /// 那些面板上能看到的东西，AI 也应该能看到。
 /// </summary>
 public static class AiSituation

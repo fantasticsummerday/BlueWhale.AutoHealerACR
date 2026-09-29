@@ -55,7 +55,7 @@ public static class JobApiHelper
     /// <summary>
     /// 以太（0-3）。
     ///
-    /// ⚠️ 对照 鍚岀被 ACR 的 Scholar_EnergyDrain2：它用的是
+    /// ⚠️ 参考同类 ACR 的 Scholar_EnergyDrain2：它用的是
     ///    <c>GetAuraStack(自己, 304)</c> —— 也就是**读「以太超流」buff 的层数**，
     ///    而不是 JobApi_Scholar.Aetherflow。
     ///
@@ -67,7 +67,7 @@ public static class JobApiHelper
     {
         get
         {
-            // 首选：buff 层数（鍚岀被 ACR 的做法）
+            // 首选：buff 层数（同类 ACR 的做法）
             try
             {
                 var n = Core.Me.GetAuraStack(以太BuffId);

@@ -7,7 +7,7 @@ using HealerACR.Common;
 namespace HealerACR.Resolvers;
 
 /// <summary>
-/// 脱战自动疾跑 —— 日随跑图用（对照 鍚岀被 ACR 的 鍚岀被 ACR.Sprint）。
+/// 脱战自动疾跑 —— 日随跑图用（参考同类 ACR 的 外部 ACR.Sprint）。
 ///
 /// 条件卡得很死，只在"确实要赶路"时才跑：
 ///   不在战斗 + 正在移动 + 疾跑可用

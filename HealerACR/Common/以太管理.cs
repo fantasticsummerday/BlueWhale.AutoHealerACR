@@ -5,7 +5,7 @@ using AEAssist.Helper;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 以太管理 —— 对照 鍚岀被 ACR 的 `AetherflowManager.SetNoAetherflowTrue`。
+/// 以太管理 —— 参考同类 ACR 的 `AetherflowManager.SetNoAetherflowTrue`。
 ///
 /// ══════════════════════════════════════════════════════════════════
 ///  ⚠️ 用户实测指出的问题：**「以太保留数」的用途被我搞窄了。**
@@ -15,7 +15,7 @@ namespace HealerACR.Common;
 ///  这只能保证"永远留着 N 颗"，但**分不清现在是不是有压力** ——
 ///  平静期也一直在留，白白浪费输出。
 ///
-///  鍚岀被 ACR 的做法是"**动态抑制**"：
+///  同类 ACR 的做法是"**动态抑制**"：
 ///      · 每用掉一颗豆子（不屈/活性法/罩子/契约）→ 记一个时间戳
 ///      · **7 秒内不再打豆子**
 ///      · 7 秒后没再动用 → 认为压力过去了，可以打
@@ -34,7 +34,7 @@ public static class 以太管理
 {
     /// <summary>
     /// 用掉豆子后的抑制时长（毫秒）。
-    /// 鍚岀被 ACR 用的是 7 秒 —— 约 2~3 个 GCD，
+    /// 同类 ACR 用的是 7 秒 —— 约 2~3 个 GCD，
     /// 正好覆盖"刚用完可能还要再用"的那个窗口。
     /// </summary>
     private const int 抑制时长 = 7000;

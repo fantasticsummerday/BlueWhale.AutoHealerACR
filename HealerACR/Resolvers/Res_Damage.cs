@@ -43,7 +43,7 @@ public class Res_Dot : ISlotResolver
 
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
 
-        // ── DoT 黑名单（对照 鍚岀被 ACR 的 DotBlacklistHelper）──
+        // ── DoT 黑名单（参考同类 ACR 的 DotBlacklistHelper）──
         //   有些怪免疫 DoT 或者吃不上，往它们身上补 = 每 30 秒白费一个 GCD，
         //   而且因为 buff 永远上不去，DoT 会反复触发、把输出循环卡死。
         if (!Dot黑名单.可以上Dot(target)) return -5;
@@ -85,7 +85,7 @@ public class Res_Dot : ISlotResolver
                 有配置 = true;
 
                 // ⚠️ 用"剩余时间"而不是"有没有"来判断。
-                //    对照 鍚岀被 ACR 的 HasMyAuraWithTimeleft：
+                //    参考同类 ACR 的 HasMyAuraWithTimeleft：
                 //    DoT 还剩 20 秒时补上去纯属浪费 GCD，剩 3 秒才该补。
                 //    之前只看 HasAura，等于"只要挂着就永远不补"——
                 //    DoT 自然断档也发现不了。
@@ -100,7 +100,7 @@ public class Res_Dot : ISlotResolver
                   //  低等级尤其容易踩：50 级用「猛毒菌」(buff 189)，
                   //  和其他档位完全不沾边，一个 false 就直接判"不用补"。
                   //
-                  //  对照 鍚岀被 ACR 的 Scholar_Dot —— 它同时调 HasAura 和
+                  //  参考同类 ACR 的 Scholar_Dot —— 它同时调 HasAura 和
                   //  HasMyAuraWithTimeleft，就是因为单靠时间判断不够。
                   // ══════════════════════════════════════════════════════
 
@@ -108,7 +108,7 @@ public class Res_Dot : ISlotResolver
                   if (!target.HasLocalPlayerAura(b)) continue;
 
                   // ② 在身上、而且还能撑一会儿 → 确实不用补
-                  // **按"还能放几个 GCD"算，而不是固定秒数**（对照 鍚岀被 ACR 用 GetAuraTimeleft）
+                  // **按"还能放几个 GCD"算，而不是固定秒数**（参考同类 ACR 用 GetAuraTimeleft）
                   //   急速高的时候 GCD 变短，固定秒数会补得太晚导致断档。
                   if (!target.撑不过N个Gcd(b, 2, 1.5f)) return false;
 

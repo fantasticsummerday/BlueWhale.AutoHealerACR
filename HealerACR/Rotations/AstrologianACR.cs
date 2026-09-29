@@ -76,7 +76,7 @@ public class ASTRotationEntry : HealerEntryBase
 
             new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
-            // ---- 爆发组合（复刻 鍚岀被 ACR 的 AST.Ability.Burst 思路）----
+            // ---- 爆发组合（参考实现的 AST.Ability.Burst 思路）----
             // 顺序：占卜 → 光速 → 王冠卡 → 出卡 → 小奥秘 → 抽卡
             // 占卜必须最先 —— 它是 120 秒团辅，后面的出卡/伤害都要吃它的增益。
             new SlotResolverData(new AST_Divination(), SlotMode.OffGcd),
@@ -415,7 +415,7 @@ public class AST_EarthlyStar : ISlotResolver
         var spell = SpellUtil.当前形态(技能);
         if (spell == null) return;
             // 地面技能选位：敌人站得稳就放它脚下，否则放自己脚下
-            // （对照 鍚岀被 ACR 的敌人移动检测）
+            // （参考同类 ACR 的敌人移动检测）
             var 落点 = 敌人移动检测.地面技能位置();
             slot.Add(new Spell(spell.Id, 落点));
     }
@@ -438,7 +438,7 @@ public class AST_Lightspeed : ISlotResolver
         //    之前木桩分支写在它前面，导致木桩上"可用就放"，两次充能一口气全交。
         if (AuraIds.光速 != 0 && Core.Me.HasAura(AuraIds.光速)) return -3;
 
-        // 充能判断（对照 鍚岀被 ACR 的 GetCharges）：
+        // 充能判断（参考同类 ACR 的 GetCharges）：
         //   光速是 2 层充能技，**满层时不用就浪费**，所以满层时缩短限流尽快交掉；
         //   只剩 1 层时保持较长限流，留给真正需要的场合。读不到充能就退回原来的 2.5 秒。
         var 充能 = CharacterExt.充能数(技能);

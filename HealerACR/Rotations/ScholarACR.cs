@@ -58,7 +58,7 @@ public class SCHSpellTable : JobSpellTable
     /// <summary>
     /// 输出能力技（能量吸收）。
     ///
-    /// ⚠️ 复刻 鍚岀被 ACR 的 Scholar_EnergyDrain2：
+    /// ⚠️ 参考实现的 Scholar_EnergyDrain2：
     ///    它的判断是 `GetAuraStack(304) >= 1` —— **有 1 颗豆子就打**，
     ///    根本不搞"攒够 3 颗才卸"那一套。
     ///
@@ -79,10 +79,10 @@ public class SCHSpellTable : JobSpellTable
 
             if (!JobApiHelper.读得到("以太")) return new[] { 能量吸收 };
 
-            // 复刻 鍚岀被 ACR 的 Qt「能量吸收」开关
+            // 参考实现的 Qt「能量吸收」开关
             if (!HealQt.GetQt("能量吸收", true)) return Array.Empty<uint>();
 
-            // ---- 小怪卸豆（复刻 鍚岀被 ACR 的 Qt「小怪卸豆」+ IsBoss）----
+            // ---- 小怪卸豆（参考实现的 Qt「小怪卸豆」+ IsBoss）----
             // Boss 战把豆子留给治疗（活性法/不屈），小怪阶段拿去换输出更划算。
             var 目标 = HealTargetHelper.当前目标();
             var 是Boss = false;
@@ -91,7 +91,7 @@ public class SCHSpellTable : JobSpellTable
             //    原来的写法是"非 Boss 就直接返回"，连以太数量都没看 ——
             //    结果小怪阶段豆子全打光，真出意外（队友暴毙/突然大伤害）就没牌了。
             //    现在的规则：小怪阶段最多卸到剩 1 颗，那 1 颗是救命用的。
-            // ── 动态抑制（对照 鍚岀被 ACR 的 AetherflowManager.SetNoAetherflowTrue）──
+            // ── 动态抑制（参考同类 ACR 的 AetherflowManager.SetNoAetherflowTrue）──
             //   核心洞察：**豆子要留是因为要应急奶**，
             //   而"刚用过豆子"本身就是"有压力"的最强信号 ——
             //   比血量阈值更直接（血线可能涨回来了，但花掉的资源还没补上）。
@@ -106,7 +106,7 @@ public class SCHSpellTable : JobSpellTable
             var 以太 = JobApiHelper.以太;
             if (以太 <= 0) return Array.Empty<uint>();   // 没豆子，等以太超流补
 
-            // ① 队伍血量健康 → 有豆子就卸（对照 鍚岀被 ACR 的 >= 1）
+            // ① 队伍血量健康 → 有豆子就卸（参考同类 ACR 的 >= 1）
             if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值) == 0)
             {
                 // ★ 保底 + 动态抑制一起判 ★
@@ -333,7 +333,7 @@ public class SCH_Consolation : ISlotResolver
         if (JobApiHelper.炽天使剩余 <= 0) return -3;
 
         // 慰藉 2 层充能：3 秒内只放一次，避免一口气全交
-        // 慰藉 2 层充能（对照 鍚岀被 ACR 的 GetCharges）：
+        // 慰藉 2 层充能（参考同类 ACR 的 GetCharges）：
         //   满 2 层时尽快交掉防溢出；只剩 1 层时保持较长限流，避免一口气全交。
         var 充能 = CharacterExt.充能数(技能);
         var 限流 = 充能 >= 2 ? 800 : 3000;
@@ -379,7 +379,7 @@ public class SCH_SummonFairy : ISlotResolver
         try { if (MoveHelper.IsMoving()) return -3; } catch { }
 
         // ⚠️ 这里刻意**不检查 SpellUtil.可用()**。
-        //    逆向 鍚岀被 ACR 的 Scholar_GetPet 发现：它的 Check 里根本没有可用性检查，
+        //    逆向同类 ACR 的 Scholar_GetPet 发现：它的 Check 里根本没有可用性检查，
         //    判断完条件就直接把技能塞进 slot 交给游戏。
         //    而我加的 IsReadyWithCanCast() 对召唤类技能返回 false，
         //    导致永远不召唤（日志：已解锁=True 能召唤=False）。

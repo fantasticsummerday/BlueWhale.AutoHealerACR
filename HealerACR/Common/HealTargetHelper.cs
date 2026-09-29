@@ -161,7 +161,7 @@ public static class HealTargetHelper
     ///
     ///    原来这里实现的是"两个奶妈时，只让对象 ID 最小的那个拉人"，
     ///    本意是避免重复。但实际会死锁：
-    ///      · 如果对方奶妈是别的 ACR（比如 鍚岀被 ACR），它很可能也有自己的协调逻辑
+    ///      · 如果对方奶妈是别的 ACR（比如其他 ACR），它很可能也有自己的协调逻辑
     ///      · 两边互相谦让 → **两个都不拉**
     ///      · 更糟的是这个判断在"有没有即刻"之前就 return 了，
     ///        所以表现成"明明即刻是好的，就是不拉人"
@@ -187,7 +187,7 @@ public static class HealTargetHelper
         if (!该我复活()) return null;
 
         // ── 优先顺序：奶妈 > 坦克 > 其他人 ──
-        //    对照 鍚岀被 ACR 的 ShouldPrioritizeHealerResurrect：
+        //    参考同类 ACR 的 ShouldPrioritizeHealerResurrect：
         //    奶妈躺了 → 全队治疗断档 → 最容易连锁崩盘，所以优先救。
         var 躺着的 = PartyHelper.DeadAllies
             .Where(r => r != null && !r.HasAura(AuraIds.复活等待))

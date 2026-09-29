@@ -3,10 +3,10 @@ using AEAssist;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 蓝量相关的判断。对照 鍚岀被 ACR 的 <c>ScholarSpellHelper.IsLowMpStopActive()</c>。
+/// 蓝量相关的判断。参考同类 ACR 的 <c>ScholarSpellHelper.IsLowMpStopActive()</c>。
 ///
 /// 为什么需要：奶妈的输出 GCD 也耗蓝（每次约 400），蓝打空之后就治不了人了。
-/// 鍚岀被 ACR 的做法是"低蓝停手" —— 蓝量低于阈值时停止一切输出，把蓝留给治疗。
+/// 同类 ACR 的做法是"低蓝停手" —— 蓝量低于阈值时停止一切输出，把蓝留给治疗。
 /// </summary>
 public static class 蓝量
 {

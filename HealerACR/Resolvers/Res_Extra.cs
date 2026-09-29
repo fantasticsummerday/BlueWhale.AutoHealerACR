@@ -5,9 +5,9 @@ using HealerACR.Timeline;
 namespace HealerACR.Resolvers;
 
 // ============================================================================
-//  补上"鍚岀被 ACR 有而我没有"的几个技能。
+//  补上"同类 ACR 有而我没有"的几个技能。
 //
-//  对照来源：反编译 鍚岀被 ACR.dll 的类型表看到它有
+//  对照来源：反编译 目标 dll 的类型表看到它有
 //    Scholar_WhisperingDawn / Scholar_FeyIllumination / AST.Horoscope
 //  这三个东西我原先没有，技能 ID 都是从游戏 Action 表 dump 出来核对过的。
 // ============================================================================

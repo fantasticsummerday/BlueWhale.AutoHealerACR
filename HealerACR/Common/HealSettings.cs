@@ -74,7 +74,7 @@ public class HealSettings
     /// <summary>单条治疗阈值的基础值（用户设置的原值，存 json）</summary>
     [System.Text.Json.Serialization.JsonPropertyName("单体治疗阈值")]
     public float 单体治疗阈值_基础 = 0.52f;
-    // ⚠️ 默认值对照 鍚岀被 ACR 的 Scholar_SingleGCDHeal / Scholar_Lustrate：
+    // ⚠️ 默认值参考同类 ACR 的 Scholar_SingleGCDHeal / Scholar_Lustrate：
     //    它的 Check 常量里是 `50` —— **血量 50% 才治**。
     //    我原来是 0.65（掉到 65% 就开始读条），明显保守得多，
     //    在不需要治疗的场合会抢 GCD（用户实测反馈："过于保守"）。

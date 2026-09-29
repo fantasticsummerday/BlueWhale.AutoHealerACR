@@ -4,7 +4,7 @@ using AEAssist.Extension;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 职业 ID 表 —— 对照 鍚岀被 ACR 的 `鍚岀被 ACRTargetHelper.IsHealerJob`。
+/// 职业 ID 表 —— 参考同类 ACR 的 `TargetHelper.IsHealerJob`。
 ///
 /// 它的实现里是一串硬编码常量：`常量(24, 28, 33, 40, 1)`
 /// —— 正是四个奶妈的职业 ID。

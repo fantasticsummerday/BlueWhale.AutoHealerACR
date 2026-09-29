@@ -5,7 +5,7 @@ using AEAssist.Helper;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 死亡追踪 —— 对照 鍚岀被 ACR 的 `IsTargetDeadLongEnough` / `UpdateDeathStatus`。
+/// 死亡追踪 —— 参考同类 ACR 的 `IsTargetDeadLongEnough` / `UpdateDeathStatus`。
 ///
 /// ══════════════════════════════════════════════════════════════════
 ///  它解决的问题：**刚躺下的人不该马上拉。**

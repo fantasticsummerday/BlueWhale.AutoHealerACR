@@ -16,7 +16,7 @@ namespace BlueWhale.AutoHealerACR;
 /// **关键在于异步**：后台问 AI，答案存下来给主循环读 ——
 /// 主循环永远不阻塞，AI 慢几秒也没关系（这正是策略层适合先做的原因）。
 ///
-/// 对照 鍚岀被 ACR 的 `IsFairyGaugeReduced`：它也用 `AsyncVoidMethodBuilder`
+/// 参考同类 ACR 的 `IsFairyGaugeReduced`：它也用 `AsyncVoidMethodBuilder`
 /// 做异步状态检测，思路一致 —— **别在战斗线程里等网络**。
 /// </summary>
 public static class AiStrategyLayer

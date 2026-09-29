@@ -5,7 +5,7 @@ using HealerACR.Common;
 namespace HealerACR.Resolvers;
 
 // ============================================================================
-//  0.3.9 补四项日随实用能力（对照 鍚岀被 ACR 的 MoveGCD / LBCheck / UsePotionCheck /
+//  0.3.9 补四项日随实用能力（参考同类 ACR 的 MoveGCD / LBCheck / UsePotionCheck /
 //  IsReadyWithin）。
 //
 //  API 均从 AEAssist.NET 元数据里核实过签名，不是猜的：
@@ -98,7 +98,7 @@ public class Res_LimitBreak : ISlotResolver
 // ============================================================================
 
 /// <summary>
-/// 就绪预判工具。对应 鍚岀被 ACR 的 IsReadyWithin / IsReadyByNextGcd。
+/// 就绪预判工具。对应 同类 ACR 的 IsReadyWithin / IsReadyByNextGcd。
 ///
 /// 用途：避免"技能还有半个 GCD 就好了，却先用了个替代品"这种浪费。
 /// </summary>

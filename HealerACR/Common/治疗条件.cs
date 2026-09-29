@@ -6,7 +6,7 @@ using Dalamud.Bindings.ImGui;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 治疗条件 —— 对照 鍚岀被 ACR 用的 `Rotation.AddTriggerCondition`。
+/// 治疗条件 —— 参考同类 ACR 用的 `Rotation.AddTriggerCondition`。
 ///
 /// ══════════════════════════════════════════════════════════════════
 ///  Trigger 体系有两半：

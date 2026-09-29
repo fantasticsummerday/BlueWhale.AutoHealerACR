@@ -4,7 +4,7 @@ using HealerACR.Common;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 每个职业自己的 QT 页（对照 鍚岀被 ACR 的 ASTOverlay / BLM_QT 那种做法）。
+/// 每个职业自己的 QT 页（参考同类 ACR 的 ASTOverlay / BLM_QT 那种做法）。
 ///
 /// 0.2.1 起每页顶部都会**实时显示该职业的资源数值** ——
 /// 排查"技能不触发"时，第一件事就是看资源到底读到没有。
@@ -32,7 +32,7 @@ public static class 职业面板
                 break;
         }
 
-        // 调试页（对照 鍚岀被 ACR 的 Overlay.DrawDev）—— 折叠面板，默认收起
+        // 调试页（参考同类 ACR 的 Overlay.DrawDev）—— 折叠面板，默认收起
         调试页();
     }
 
@@ -177,7 +177,7 @@ public static class 职业面板
     }
 
     /// <summary>
-    /// 调试页 —— 对照 鍚岀被 ACR 的 Overlay.DrawDev。
+    /// 调试页 —— 参考同类 ACR 的 Overlay.DrawDev。
     ///
     /// **为什么值得做**：前面几轮排查"能力技为什么不打"时，反复需要知道
     /// GCD 剩多少 / 能不能插能力技 / 以太读到几 —— 每次都靠加日志、跑一轮、

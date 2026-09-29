@@ -39,7 +39,7 @@ public static class AuraIds
     /// <summary>
     /// 转化中（学者）= 791。
     /// ⚠️ 这是「转化」（Dissipation）状态，**不是"小仙女在场"** —— 我一开始看反了。
-    /// 从 鍚岀被 ACR 的 Scholar_GetPet 逆向出来：它 Check 里有 HasAura(791)，
+    /// 从 同类 ACR 的 Scholar_GetPet 逆向出来：它 Check 里有 HasAura(791)，
     /// 意思是"转化期间小仙女被牺牲了，召唤无效，跳过"。
     /// </summary>
     public static uint 转化中 => 取("转化中", 791);

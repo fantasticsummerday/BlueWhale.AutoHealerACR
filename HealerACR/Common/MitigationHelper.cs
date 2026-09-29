@@ -28,7 +28,7 @@ public static class 减伤Helper
     /// 找出"正在憋大招"的敌人。
     ///
     /// ══════════════════════════════════════════════════════════════════
-    ///  ⚠️ 修正（对照 鍚岀被 ACR 的 鍚岀被 ACRTargetHelper.CheckAllNearbyEnemiesSkills）
+    ///  ⚠️ 修正（参考同类 ACR 的 TargetHelper.CheckAllNearbyEnemiesSkills）
     ///
     ///  原来只查两个单位：当前目标、当前目标正在打的人。
     ///  这有个致命盲区 —— **Boss 在读大伤害条、但你选中了别的东西 →

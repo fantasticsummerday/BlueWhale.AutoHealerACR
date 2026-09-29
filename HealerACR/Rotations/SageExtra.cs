@@ -34,7 +34,7 @@ public class SGE_Phlegma : ISlotResolver
         // 对目标的伤害技，需要选中目标
         if (HealTargetHelper.当前目标() == null) return -1;
 
-        // 发炎 2 层充能（对照 鍚岀被 ACR 的 GetCharges）：
+        // 发炎 2 层充能（参考同类 ACR 的 GetCharges）：
         //   满 2 层尽快交掉防溢出；只剩 1 层时保持较长限流。
         var 充能 = CharacterExt.充能数(技能);
         var 限流 = 充能 >= 2 ? 600 : 2000;

@@ -132,7 +132,7 @@ public static class 技能数据
     /// <summary>
     /// 从我这里看，目标是不是被墙/柱子挡住了。
     ///
-    /// **对照 鍚岀被 ACR 的 `IsTargetVisibleOrInRange`** ——
+    /// **参考同类 ACR 的 `IsTargetVisibleOrInRange`** ——
     /// 它在判断"这个技能能不能打到"时会检查视线，
     /// 而只看距离是不够的：**目标可能在墙后面，距离够但打不到**。
     ///
