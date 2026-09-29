@@ -42,42 +42,63 @@ public class Res_SummonPet : ISlotResolver
 
     public Res_SummonPet(JobSpellTable table) => _t = table;
 
-    /// <summary>【临时诊断】每 2 秒最多一条</summary>
-    private static long _上次诊断;
+    /// <summary>上次召唤的时刻（防抖用）</summary>
+    private static long _上次召唤时刻;
 
-    private void 诊断(string 说明)
-    {
-        try
-        {
-            var 现在 = AEAssist.Helper.TimeHelper.Now();
-            if (现在 - _上次诊断 < 2000) return;
-            _上次诊断 = 现在;
+    /// <summary>
+    /// 召唤后的冷却（毫秒）—— 防止"以为没宠物"时重复召唤。
+    ///
+    /// ⚠️ 为什么需要：**炽天召唤**（16545）会把小仙女**变成炽天使**，
+    ///    而炽天使期间 `JobApi_Scholar.HasPet` 可能读成 false →
+    ///    我们会以为"没宠物"→ 又召一只 →
+    ///    白白浪费一个 GCD，还可能把炽天使顶掉。
+    ///
+    ///    参考实现用的是 `RecentlyUsed(技能id, 毫秒)`（"这个技能最近用过吗"），
+    ///    我们用一个朴素但等效的：记下自己上次召唤的时刻。
+    ///
+    /// ⚠️ 3 秒的依据：朝日召唤自己读条约 1.2 秒 + 宠物实体出现约 0.4 秒，
+    ///    留一点余量。太短挡不住重复，太长会在宠物真死时迟迟不补。
+    /// </summary>
+    private const int 重召冷却毫秒 = 3000;
 
-            var 有宠 = JobApiHelper.有小仙女;
-            var 转化 = false;
-            try { 转化 = Core.Me.HasAura(AuraIds.转化中); } catch { }
-
-            AEAssist.Helper.LogHelper.Info(
-                $"[召唤诊断] {说明} ｜ 有小仙女={有宠} 转化中={转化} " +
-                $"在移动={SpellUtil.在移动()} 在副本={进本识别.在副本里()} " +
-                $"解锁={SpellUtil.已解锁(_t.召唤宠物)} 可用={SpellUtil.可用(_t.召唤宠物)} " +
-                $"QT={HealQt.GetQt("自动召唤", true)}");
-        }
-        catch { }
-    }
+    private static long 现在 => AEAssist.Helper.TimeHelper.Now();
 
     public int Check()
     {
         if (_t.召唤宠物 == 0) return -102;                  // 这个职业没有宠物
 
-        诊断("Check 进入");
-
         // ★ Qt 开关 —— 用户能关掉（和「小仙女」那个开关分开：
         //   那个管"用不用小仙女的技能"，这个管"召不召唤"）
         if (!HealQt.GetQt("自动召唤", true)) return -101;
 
-        // 已经在场就不重复召
-        if (JobApiHelper.有小仙女) return -1;
+        // ══════════════════════════════════════════════════════════
+        //  ★ 进本重召：这一次**忽略"已经在场"** ★
+        //
+        //  ⚠️ 小仙女跟着进本，`HasPet` 一直是 true ——
+        //     只判"不在场"的话，进本后永远不会重召。
+        //     用户要的是"每次进本重新召一次"。
+        //
+        //  ⚠️ 这里**只看、不取**（`有重召标记`）——
+        //     取走必须等到 `Build` 真的把技能放进 slot。
+        //     在 Check 里取的话，后面任何一条返回负值
+        //     （移动中被挡、CD 没好、转化中…）都会把标记**白白丢掉**，
+        //     而 `Check` 每帧会被调很多次 → 本局再也不重召。
+        // ══════════════════════════════════════════════════════════
+        var 要重召 = 进本识别.有重召标记;
+
+        // 已经在场就不重复召（除非本局要求重召）
+        if (JobApiHelper.有小仙女 && !要重召) return -1;
+
+        // ★ 防抖：刚召唤过就别再召（学参考实现的 RecentlyUsed）★
+        //
+        // ⚠️ 为什么需要：**炽天召唤**（16545）会把小仙女**变成炽天使**，
+        //    炽天使期间 `HasPet` 可能读成 false →
+        //    我们会以为"没宠物"→ 又召一只 →
+        //    白白浪费一个 GCD，还可能把炽天使顶掉。
+        //
+        //    参考实现在这里用的是 `RecentlyUsed`（"这个技能最近用过吗"），
+        //    我们用一个更朴素但等效的：记下自己上次召唤的时刻。
+        if (现在 - _上次召唤时刻 < 重召冷却毫秒) return -3;
 
         // 转化期间召唤无效（小仙女被主动牺牲了）
         try
@@ -127,17 +148,14 @@ public class Res_SummonPet : ISlotResolver
     {
         var spell = SpellUtil.Get(_t.召唤宠物);
 
-        // 【临时诊断】Build 有没有拿到技能对象
-        try
-        {
-            AEAssist.Helper.LogHelper.Info(
-                $"[召唤诊断] Build ｜ id={_t.召唤宠物} " +
-                $"spell={(spell == null ? "null" : spell.Id.ToString())} " +
-                $"形态={SpellUtil.当前形态(_t.召唤宠物)?.Id.ToString() ?? "null"}");
-        }
-        catch { }
-
         if (spell == null) return;
+
+        // 记下时刻 —— 给防抖用（下次 3 秒内不再召）
+        _上次召唤时刻 = 现在;
+
+        // ★ 到这里技能才真的会放出去 → 这时才取走"重召"标记 ★
+        //   （放到 Build 里就是为了"只有真放出去才消费掉"）
+        进本识别.取走重召标记();
 
         // ⚠️ 「朝日召唤」是**对自己放**的（`Range = 0`，查官方技能表），
         //    不带目标就是默认行为 —— 不要写 `new Spell(id, 队友)`。
