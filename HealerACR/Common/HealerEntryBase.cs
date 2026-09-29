@@ -56,6 +56,15 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>QT 窗口。所有 resolver 通过 HealerACR.Common.HealQt 读开关。</summary>
     public JobViewWindow? 视图窗口 { get; protected set; }
 
+    /// <summary>
+    /// **界面控制器** —— 实现 `IRotationUI`，内部按开关分流到
+    /// 自绘主题界面 / 框架 `JobViewWindow`。
+    ///
+    /// ⚠️ 可能为 null（创建失败时）——
+    ///     那时 `GetRotationUI()` 回退到 `视图窗口`，行为跟以前一样。
+    /// </summary>
+    protected 界面控制器? 界面 { get; set; }
+
     // ==================== 时间轴目录输入框的缓冲 ====================
 
     /// <summary>
@@ -334,6 +343,36 @@ public abstract class HealerEntryBase : IRotationEntry
         视图窗口.AddTab("阈值", 画阈值设置);
 
         HealQt.绑定(视图窗口);
+
+        // ★ 界面控制器：内部按「使用主题界面」开关分流 ★
+        //
+        //  ⚠️ 必须在 `HealQt.绑定` **之后** 建 ——
+        //     控制器要把 Qt 登记转发给 `视图窗口`，
+        //     而绑定会 `RemoveAllQt()` 清空窗口上的开关。
+        //     顺序反了就会把控制器刚登记的开关清掉。
+        try
+        {
+            界面 = new 界面控制器(视图窗口, 装主题页签);
+        }
+        catch (Exception e)
+        {
+            LogHelper.Error("[界面] 创建控制器失败（退回框架窗口）：" + e.Message);
+            界面 = null;
+        }
+    }
+
+    /// <summary>
+    /// **装配主题界面的页签** —— 内容和框架窗口**完全一致**。
+    ///
+    /// ⚠️ 两边必须调**同一批画法**（`职业优先级.画` / `职业面板.画` / `画阈值设置`）——
+    ///     各写一套会立刻变成“两个界面能改的东西不一样”，
+    ///     而且改一处忘另一处的错很难发现。
+    /// </summary>
+    private void 装主题页签(小鲸鱼面板 面板)
+    {
+        面板.页签.Add(("优先级", () => 职业优先级.画()));
+        面板.页签.Add(("职业", () => 职业面板.画(TargetJob, 视图窗口!)));
+        面板.页签.Add(("阈值", () => 画阈值设置(视图窗口!)));
     }
 
     /// <summary>子类加职业专属开关时用这个，顺带把默认值登记上</summary>
@@ -565,7 +604,14 @@ public abstract class HealerEntryBase : IRotationEntry
         ImGui.TextDisabled("（改完记得点一下）");
     }
 
-    public virtual IRotationUI GetRotationUI() => 视图窗口!;
+    /// <summary>
+    /// 框架靠这个拿到界面驱动器。
+    ///
+    /// ⚠️ 优先返回 `界面`（它内部会按开关决定用哪种），
+    ///     只有创建失败时才直接给框架窗口 ——
+    ///     那样行为完全等于改动之前。
+    /// </summary>
+    public virtual IRotationUI GetRotationUI() => (界面 as IRotationUI) ?? 视图窗口!;
 
     public virtual void OnDrawSetting()
     {
@@ -668,6 +714,20 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("占星");
             ImGui.Checkbox("出卡优先近战", ref s.出卡优先近战);
             ImGui.SliderFloat("地星提前秒", ref s.地星提前秒, 0f, 10f, "%.1f 秒");
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        //  ★ 界面（独立一欄，因为它影响"面板长什么样"）★
+        // ═════════════════════════════════════════════════════════════
+        if (ImGui.CollapsingHeader("界面", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.Checkbox("使用小鲸鱼主题界面", ref s.使用主题界面);
+            ImGui.TextDisabled("  自绘带边框的主窗口（鲸蓝主题）。取消勾选回到框架窗口。");
+            ImGui.TextDisabled("  ⚠ 切换后需要**重载 ACR 或切一次职业**才生效。");
+
+            ImGui.Spacing();
+            ImGui.SliderFloat("界面缩放", ref s.界面缩放, 0.8f, 1.6f, "%.2f");
+            ImGui.TextDisabled("  字太小或太大时调这个（只缩放布局，不模糊字体）。");
         }
 
         if (ImGui.CollapsingHeader("其他"))
