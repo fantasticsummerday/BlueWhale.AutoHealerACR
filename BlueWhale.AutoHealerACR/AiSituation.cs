@@ -154,6 +154,12 @@ public static class AiSituation
             // 记忆库 —— 由 记忆库.取相关记忆 生成，标题见那边的 AppendLine
             "【记忆库 ——",
             "【副本与机制时间轴】",
+            // 坦克压力（有几行推断，不如"我自己/队友/必须奶满"硬）
+            "【坦克压力 / 接战强度】",
+            // 敌人段（新加了"其他敌人"列表后变长；它整段是最长的，
+            // 但截掉它会让 AI 失去 DoT 判断依据 —— 所以**排在最后才丢**，
+            // 前面那些丢了都还能靠治疗常识兜住）
+            "【敌人】",
         };
 
         foreach (var 标 in 可丢段落)
@@ -601,6 +607,96 @@ public static class AiSituation
             // AOE 判断：能用 AOE 打到几个
             var 可AOE = HealTargetHelper.周围敌人数量(8f) >= 3;
             sb.AppendLine($"适合放 AOE：{(可AOE ? "是（≥3 个）" : "否")}");
+
+            // ══════════════════════════════════════════════════════════
+            //  ★ 非当前目标的敌人（用户要求）★
+            //
+            //    "非当前目标的敌人状态也得知道这样才能更好判断"
+            //
+            //  ── 补的是哪两个盲区 ──
+            //
+            //    ① **DoT 覆盖判断**
+            //       原来只看到当前目标有没有 DoT，看不到全局。
+            //       5 个怪里 3 个已经有我的 DoT，AI 也以为"只有当前这个有"。
+            //       → 没法判断"再补 DoT 是不是全在重复"。
+            //
+            //    ② **AOE / 群奶时机**
+            //       原来只知道"5 米内有几个"，不知道血量分布。
+            //       一堆残血小怪即将清完时交群奶/爆发是浪费 ——
+            //       本地有 `敌人波次要结束` 在管，但 AI 看不到依据。
+            //
+            //  ⚠️ 必须**排除当前目标**（它在上面已经单独详细列过了），
+            //     否则同一个怪出现两遍，浪费长度预算还容易让 AI 混淆。
+            // ══════════════════════════════════════════════════════════
+            try
+            {
+                var 总数 = HealTargetHelper.附近敌人总数();
+
+                // 用当前职业真正的 DoT buff 表去查（各职业不同，且**有多档**）
+                uint[] DotBuffs = Array.Empty<uint>();
+                var 有Dot技能 = false;
+                try
+                {
+                    var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+                    if (表 != null && 表.Dot技能 != 0)
+                    {
+                        有Dot技能 = true;
+                        DotBuffs = 表.所有DotBuff ?? Array.Empty<uint>();
+                    }
+                }
+                catch { }
+
+                var 其他 = HealTargetHelper.其他敌人(DotBuffs)
+                    .Where(x => !x.是当前目标)
+                    .ToList();
+
+                if (其他.Count > 0)
+                {
+                    sb.AppendLine($"其他敌人（共 {总数} 个在附近，下面是除当前目标外最需要关注的）：");
+
+                    foreach (var x in 其他)
+                    {
+                        var 标记 = new List<string>();
+                        if (x.是Boss) 标记.Add("Boss");
+                        if (有Dot技能)
+                            标记.Add(x.有我的Dot ? "**已有我的DoT**" : "**没有我的DoT**");
+                        if (x.血量比例 <= 0.25f) 标记.Add("残血");
+                        if (x.距离 <= 8f) 标记.Add($"近({x.距离:F0}m)");
+
+                        var 后缀 = 标记.Count > 0 ? "  [" + string.Join("/", 标记) + "]" : "";
+                        sb.AppendLine($"  {x.名字}：{x.血量比例 * 100f:F0}%（{x.距离:F0}m）{后缀}");
+                    }
+
+                    // 汇总一句，方便 AI 一眼看出该不该补 DoT
+                    if (有Dot技能 && DotBuffs.Length > 0)
+                    {
+                        bool 当前也有 = false;
+                        try
+                        {
+                            foreach (var b in DotBuffs)
+                                if (b != 0 && 目标.HasAura(b)) { 当前也有 = true; break; }
+                        }
+                        catch { }
+
+                        var 覆盖数 = 其他.Count(x => x.有我的Dot) + (当前也有 ? 1 : 0);
+
+                        sb.AppendLine($"  → 附近 {总数} 个敌人里，**{覆盖数} 个身上有我的 DoT** " +
+                                      "（判断\"要不要补 DoT\"看这个，别只看当前目标）");
+                    }
+
+                    var 残血数 = 其他.Count(x => x.血量比例 <= 0.25f);
+                    if (残血数 >= 2)
+                    {
+                        sb.AppendLine($"  → 有 {残血数} 个残血小怪，**这一波快清完了** —— " +
+                                      "别再交群奶/爆发，省下来给下一波");
+                    }
+                }
+                else if (总数 > 1)
+                {
+                    sb.AppendLine($"其他敌人：附近共 {总数} 个，但没有需要额外关注的");
+                }
+            }
+            catch { }
 
             sb.AppendLine();
         }

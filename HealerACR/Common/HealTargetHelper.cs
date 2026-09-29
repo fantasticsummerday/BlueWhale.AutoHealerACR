@@ -264,8 +264,7 @@ public static class HealTargetHelper
     /// 当前目标是不是"快死的残血小怪"（需求 2）—— 这种目标不要交爆发。
     /// 血量低于阈值，或者 TTK 估算很快，都算。
     /// </summary>
-    public static bool 目标快死了(float 血线 = 0.25f, int ttk秒 = 12)
-    {
+    public static bool 目标快死了(float 血线 = 0.25f, int ttk秒 = 12)    {
         var t = 当前目标();
 
         // 没目标就别拦着（让输出逻辑自己处理）
@@ -289,6 +288,148 @@ public static class HealTargetHelper
     public static bool 值得交爆发(float 血线 = 0.25f, int ttk秒 = 12)
     {
         return !目标快死了(血线, ttk秒) && !敌人波次要结束();
+    }
+
+    // ==================== 全部敌人概览（给 AI 看）====================
+
+    /// <summary>一个敌人的概览信息</summary>
+    public sealed class 敌人信息
+    {
+        public string 名字 = "";
+        public uint 血量;
+        public uint 上限;
+        public float 血量比例;
+        public float 距离;
+        public bool 是Boss;
+        public bool 是当前目标;
+        /// <summary>身上有没有"我挂的 DoT"</summary>
+        public bool 有我的Dot;
+    }
+
+    /// <summary>
+    /// **除了当前目标之外的敌人** —— 按"对治疗决策的有用程度"排序。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要做这个（用户要求）★
+    ///
+    ///    "非当前目标的敌人状态也得知道这样才能更好判断"
+    ///
+    ///  原来 AI 只看到**当前选中**的那一个敌人。这有两个实际盲区：
+    ///
+    ///    ① **DoT 覆盖判断做不了** —— 只看到当前目标有没有 DoT，
+    ///       看不到"一共 5 个怪，其中 3 个有我的 DoT"。
+    ///       于是没法判断"该不该再补 DoT"（补了可能全在重复）。
+    ///
+    ///    ② **AOE / 群奶时机判断不完整** —— 只知道"5 米内有几个"，
+    ///       不知道它们的血量分布。一堆残血小怪即将清完时，
+    ///       交群奶/爆发是浪费（这正是 `敌人波次要结束` 在管的事，
+    ///       但 AI 看不到依据）。
+    ///
+    ///  ── 排序规则（重要的排前面）──
+    ///    1. 身上**有我的 DoT** 的（关系到"要不要补"）
+    ///    2. **快死的**（关系到"别浪费资源"）
+    ///    3. 离我近的（关系到 AOE 能不能打到）
+    ///
+    ///  ⚠️ 参数收的是 <c>所有DotBuff</c>（**多档 buff 的数组**），不是单个技能 id。
+    ///     依据：`JobSpellTable.所有DotBuff` 的注释 ——
+    ///     DoT 升级会换 buff id，只查一个的话满级会"永远认为没上 DoT"。
+    ///     这个坑在本地层踩过，喂给 AI 的数据不能重复踩。
+    ///
+    ///  ⚠️ 只返回**附近**的（默认 25 米内）—— 视野外的敌人对决策没意义，
+    ///    而且会把提示词撑爆。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static List<敌人信息> 其他敌人(IReadOnlyList<uint>? 我的DotBuffs = null,
+                                        float 半径 = 25f, int 最多几个 = 6)
+    {
+        var 结果 = new List<敌人信息>();
+
+        try
+        {
+            var 我 = Core.Me.Position;
+            var 当前 = 当前目标();
+
+            bool 有我的Dot(IBattleChara c)
+            {
+                if (我的DotBuffs == null || 我的DotBuffs.Count == 0) return false;
+
+                try
+                {
+                    foreach (var b in 我的DotBuffs)
+                        if (b != 0 && c.HasAura(b)) return true;
+                }
+                catch { }
+
+                return false;
+            }
+
+            var 候选 = new List<敌人信息>();
+
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null) continue;
+
+                try
+                {
+                    if (敌人.CurrentHp <= 0) continue;
+
+                    var 距离 = Vector3.Distance(我, 敌人.Position);
+                    if (距离 > 半径) continue;
+
+                    var 信息 = new 敌人信息
+                    {
+                        名字 = 敌人.Name.ToString(),
+                        血量 = 敌人.CurrentHp,
+                        上限 = Math.Max(1u, 敌人.MaxHp),
+                        距离 = 距离,
+                        是Boss = 敌人.IsBoss(),
+                        是当前目标 = 当前 != null && 敌人.GameObjectId == 当前.GameObjectId,
+                        有我的Dot = 有我的Dot(敌人),
+                    };
+
+                    信息.血量比例 = 信息.血量 * 1f / 信息.上限;
+
+                    候选.Add(信息);
+                }
+                catch { }
+            }
+
+            // 排序：有 DoT 的优先 → 快死的优先 → 近的优先
+            结果 = 候选
+                .OrderByDescending(x => x.有我的Dot)
+                .ThenBy(x => x.血量比例)
+                .ThenBy(x => x.距离)
+                .Take(最多几个)
+                .ToList();
+        }
+        catch { }
+
+        return 结果;
+    }
+
+    /// <summary>附近活着的敌人总数（含当前目标）</summary>
+    public static int 附近敌人总数(float 半径 = 25f)
+    {
+        try
+        {
+            var 我 = Core.Me.Position;
+            var n = 0;
+
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null) continue;
+                try
+                {
+                    if (敌人.CurrentHp <= 0) continue;
+                    if (Vector3.Distance(我, 敌人.Position) > 半径) continue;
+                    n++;
+                }
+                catch { }
+            }
+
+            return n;
+        }
+        catch { return 0; }
     }
 
     // ==================== 整波判断（对照同类 ACR 的 ShouldHoldForDyingTrash）====================
