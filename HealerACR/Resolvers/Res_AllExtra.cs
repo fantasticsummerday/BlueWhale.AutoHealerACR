@@ -40,7 +40,40 @@ internal static class 技能选取
 //  一、HoT 类
 // ============================================================================
 
-/// <summary>单体 HoT：白魔 再生 / 占星 吉星相位。</summary>
+/// <summary>
+/// 单体 HoT：白魔 再生 / 占星 吉星相位。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 重写说明（用户实测："50 级神兵不读再生"）★
+///
+///  旧实现**只给坦克挂**：
+///      var 坦克 = HealTargetHelper.血量最低的坦克(0.95f);
+///      if (坦克 == null) return -1;        // ← 没坦克就整个不挂
+///  后果：**单人 / 没坦克的场景，再生永远不会被放**。
+///  而 HoT 恰恰是最省资源的治疗手段（一个 GCD 换 30 秒持续回血），
+///  比硬读 GCD 直疗划算得多 —— 这正是用户说的
+///  "有时候再生比硬读 GCD 奶更好"。
+///
+///  ── 参考同类 ACR 的三层目标选择（它们的 HoT 逻辑是全库最完整的）──
+///    ① 止血优先：<85% 且**有持续伤害**且**没有可驱散状态**
+///    ② 坦克：低于阈值
+///    ③ 非坦克：低于阈值      ← **我们旧实现完全没有这一层**
+///  它们的优先级：坦克 20 / **非坦克 30**（非坦克反而更高，
+///  因为坦克通常有自回，非坦克掉血更依赖治疗）。
+///
+///  ── 我们比它们强的地方（既然有就用上）──
+///    · **续 HoT 按剩余时间**：它们只看"有没有"（`timeleft > 0` 就算有），
+///      结果 HoT 掉光前不会续、掉光后才发现 —— 中间有一段空窗。
+///      我们用 `撑不过N个Gcd` 提前续，覆盖不断档。
+///    · **不给自己挂**（`可以治()` 里排了假死类状态）
+///    · 数值全部走共享工具，不写死
+///
+///  ⚠️ 为什么"有可驱散状态就不挂"：
+///     那个状态很可能马上被驱散掉，此时挂 HoT 是**打在将要消失的问题上**。
+///     等驱散完再看血线更合理。
+///     （这条是从参考实现学来的，它们的理由注释没写，但这个解释站得住。）
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
 public class Res_SingleHoT : ISlotResolver
 {
     private readonly JobSpellTable _t;
@@ -51,6 +84,12 @@ public class Res_SingleHoT : ISlotResolver
         白魔: SpellIds.取("再生"),
         占星: SpellIds.取("吉星相位"));
 
+    /// <summary>止血优先的阈值 —— 参考实现用的是 0.85</summary>
+    private const float 止血阈值 = 0.85f;
+
+    /// <summary>低于这个血量的一律优先挂 HoT（保底，避免阈值设置过严导致不挂）</summary>
+    private const float 保底阈值 = 0.30f;
+
     public int Check()
     {
         if (HealTargetHelper.木桩模式) return -300;
@@ -59,21 +98,169 @@ public class Res_SingleHoT : ISlotResolver
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // 优先给坦克挂（HoT 收益最高），坦克满血也值得提前铺
-        var 坦克 = HealTargetHelper.血量最低的坦克(0.95f);
-        if (坦克 == null) return -1;
-        if (坦克.有该技能的Buff(技能)) return -3;
+        var 目标 = 选目标();
+        if (目标 == null) return -1;
 
-        return SpellUtil.可用(技能) ? 5 : -1;
+        // ⚠️ 移动守卫：再生是**瞬发**，所以这条对再生永远放行；
+        //    但占星的吉星相位是读条的，移动中确实放不出 —— 由它兜住。
+        if (!SpellUtil.移动中可用(技能)) return -7;
+
+        if (!SpellUtil.可用(技能)) return -1;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 动态优先级 —— 决定"HoT 还是硬读直疗" ★
+        //
+        //  用户实测的问题："有时候再生比硬读 GCD 奶更好"。
+        //
+        //  固定优先级解决不了这件事，因为**两种场景要的结果相反**：
+        //
+        //    · **有人濒危**（< 35%）→ 必须先直疗把血拉起来，
+        //      HoT 是慢的，这时候挂 HoT 等于见死不救。→ HoT 该让路。
+        //    · **有人中低血量且稳定**（没到濒危）→ 这正是 HoT 的强项：
+        //      一个 GCD 换 30 秒持续回血，比一次次硬读直疗省得多。
+        //      → HoT 该**优先**。
+        //
+        //  所以按局面动态给分值（都会盖过 `Res_HealSingleGcd` 的 10）：
+        //    · 有持续伤害（一直在掉血）→ 14，**最高**
+        //    · 一般中低血量           → 12，**也高于直疗**
+        //    · 有人濒危               → 3，**让路给直疗**
+        // ══════════════════════════════════════════════════════════════
+        try
+        {
+            // 有人濒危 → 让路（HoT 太慢，救不了急）
+            if (HealTargetHelper.低于阈值人数(0.35f) > 0) return 3;
+
+            // 目标身上有持续伤害 → 最该挂 HoT 的场景
+            if (AuraIds.有持续伤害(目标)) return 14;
+
+            return 12;
+        }
+        catch
+        {
+            return 5;
+        }
     }
 
     public void Build(Slot slot)
     {
-        var 坦克 = HealTargetHelper.血量最低的坦克(0.95f);
-        if (坦克 == null) return;
+        // ⚠️ **必须和 Check 同源**（开发约定 F③）：
+        //    Check 判的是"谁"，Build 就得给同一个人。
+        //    这里重新选一次是安全的 —— 选择逻辑是纯查询、无副作用；
+        //    真正要避免的是**判 A 放 B**，而这里两次调用是同一个函数。
+        var 目标 = 选目标();
+        if (目标 == null) return;
 
         var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(new Spell(spell.Id, 坦克));
+        if (spell != null) slot.Add(new Spell(spell.Id, 目标));
+    }
+
+    /// <summary>
+    /// 选 HoT 目标 —— **三层，按优先级**（见类注释的说明）。
+    ///
+    /// 返回 null = 现在不该挂。
+    /// </summary>
+    private IBattleChara? 选目标()
+    {
+        try
+        {
+            var s = HealSettings.Instance;
+
+            // 用户设的单体治疗阈值；但 HoT 比直疗"便宜"，
+            // 所以给一个保底值（参考实现也是这么做的：`Math.Max(0.3f, 阈值)`）——
+            // 否则用户把阈值调得很低时，HoT 会因为"没人低于阈值"而永不挂。
+            var 阈值 = Math.Max(保底阈值, s.单体治疗阈值);
+
+            // ── ① 止血优先：有持续伤害 + 血线掉了 + 没有被驱散的问题 ──
+            //
+            //   ⚠️ 这一层用**独立的 0.85 阈值**，不看用户设置 ——
+            //      因为"正在持续掉血"本身就是明确的治疗理由，
+            //      不该被"血线还没到阈值"挡住。
+            var 止血 = 找持续伤害目标(止血阈值);
+            if (止血 != null) return 止血;
+
+            // ── ② 坦克：低于阈值 ──
+            var 坦克 = HealTargetHelper.血量最低的坦克(阈值);
+            if (坦克 != null && 适合挂(坦克)) return 坦克;
+
+            // ── ③ 其他人：低于阈值（**旧实现缺这一层，导致没坦克就永不挂**）──
+            //
+            //   ⚠️ 排除自己：给自己挂 HoT 意义不大（自己在读条，
+            //      而且我们的 `可以治()` 已经排掉假死类状态）。
+            var 队友 = HealTargetHelper.最低血量队友(阈值);
+            if (队友 != null && 队友.GameObjectId != Core.Me.GameObjectId && 适合挂(队友))
+                return 队友;
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>这一层：有持续伤害、血线低于阈值、且没有可驱散状态</summary>
+    private IBattleChara? 找持续伤害目标(float 阈值)
+    {
+        try
+        {
+            IBattleChara? 最优 = null;
+            var 最低 = 1f;
+
+            foreach (var r in PartyHelper.CastableAlliesWithin30)
+            {
+                if (r == null) continue;
+                if (!适合挂(r)) continue;
+
+                var 比例 = r.血量比例();
+                if (比例 >= 阈值) continue;
+
+                if (!AuraIds.有持续伤害(r)) continue;
+
+                if (比例 < 最低) { 最低 = 比例; 最优 = r; }
+            }
+
+            return 最优;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 这个人现在适合挂 HoT 吗。
+    ///
+    /// 判据（缺一不可）：
+    ///   · 能治（`可以治()` 排掉了假死 / 已被禁止复活那类）
+    ///   · 身上**没有可驱散状态**（有的话先驱散更合理 —— 见类注释）
+    ///   · 身上**没有我这个 HoT**，或者**快断了**（提前续，别等掉光）
+    /// </summary>
+    private bool 适合挂(IBattleChara 目标)
+    {
+        try
+        {
+            if (!目标.可以治()) return false;
+
+            // 有可驱散状态 → 先等驱散，别把 HoT 打在将要消失的问题上
+            try { if (目标.HasCanDispel()) return false; } catch { }
+
+            var buff = AuraIds.技能转Buff(技能);
+            if (buff == 0) return true;   // 查不到 buff id 就别挡（宁可多挂）
+
+            // 身上没有 → 该挂
+            if (!目标.HasAura(buff)) return true;
+
+            // 身上有 → **提前续**：撑不过 3 个 GCD 就该补了
+            //
+            //   ⚠️ 这里和参考实现**不一样**（它们只看"有没有"）。
+            //      它们那样写会有一段"HoT 已掉光但还没补"的空窗，
+            //      我们用"剩余 GCD 数"提前接上，覆盖不断档。
+            return 目标.撑不过N个Gcd(buff, 3, 1.5f);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
 
