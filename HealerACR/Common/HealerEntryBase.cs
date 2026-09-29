@@ -900,7 +900,9 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 效果确认.重置(); } catch { }
         try { 技能诊断.重置(); } catch { }   // 诊断节流记录
         try { Dot补判.重置(); } catch { }
-        try { 记录模式.重置(); } catch { }    // DoT 保险丝（跨战斗必须清，否则开场不补 DoT）
+        try { 记录模式.重置();
+
+        OffGcd闸门.重置(); } catch { }    // DoT 保险丝（跨战斗必须清，否则开场不补 DoT）
     }
 
     public void OnSpellCastSuccess(Slot slot, Spell spell)
@@ -1008,6 +1010,13 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ★ 记录模式：观察玩家手动操作 ★
         //   非记录模式下这个方法第一行就 return，零开销。
         记录模式.每帧更新();
+
+        // ★ OffGcd 闸门诊断：观测队列深度到底会不会变成非 0 ★
+        //   ⚠️ 这是**只读诊断**，不改变任何行为。
+        //     为什么必须看：如果队列恒为 0，`可以排()` 就恒真 ——
+        //     闸门形同虚设（"读了但永远是同一个值"，比"注册了没人读"更隐蔽）。
+        //     日志里看到"历史最大 >= 1"才说明闸门真的会关上。
+        OffGcd闸门.每帧更新();
     }
 
     public void OnEnterRotation()
@@ -1037,7 +1046,9 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 技能诊断.重置(); } catch { }
         try { 屏幕提示.重置(); } catch { }      // 换职业后同 key 的提示应该能再弹一次
         try { Dot补判.重置(); } catch { }
-        try { 记录模式.重置(); } catch { }        // DoT 保险丝（换职业后重新开始计时）
+        try { 记录模式.重置();
+
+        OffGcd闸门.重置(); } catch { }        // DoT 保险丝（换职业后重新开始计时）
 
         // ② 队伍规模要重新判定（切职业常常伴随换队伍 / 换本）
         try { HealTargetHelper.刷新队伍规模(); } catch { }
@@ -1081,7 +1092,9 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 效果确认.重置(); } catch { }   // 同上：换本也要清
         try { 技能诊断.重置(); } catch { }
         try { Dot补判.重置(); } catch { }
-        try { 记录模式.重置(); } catch { }    // DoT 保险丝
+        try { 记录模式.重置();
+
+        OffGcd闸门.重置(); } catch { }    // DoT 保险丝
 
         // ★ 通知 AI 层：局面完全变了 ★
         //   不通知的话，AI 的"倾向"和阈值偏移会从上个副本带过来 ——

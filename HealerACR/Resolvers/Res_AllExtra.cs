@@ -896,6 +896,11 @@ public class Res_InstantHealAbility : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("单奶")) return -101;
 
+        // ⚠️ **能力技队列深度闸门**（对照分析发现的缺口）——
+        //    参考实现里瞬发单奶用 `CanUseOffGcd(1)`。
+        //    ⚠️ 加在 ①② 之前，两条路都管住（加在后面只管得住后一条）。
+        if (!OffGcd闸门.可以排(1)) return -1;
+
         // ── ① 预铺类 ──
         var 预铺 = _t.预铺单奶能力技;
         if (预铺 != 0 && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺) && 预铺目标(预铺) != null)

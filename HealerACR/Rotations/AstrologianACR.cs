@@ -18,6 +18,9 @@ public class ASTSpellTable : JobSpellTable
     public override uint 基础输出 => SpellUtil.取已解锁(
         SpellIds.取("落陷凶星"), SpellIds.取("煞星"), SpellIds.取("祸星"),
         SpellIds.取("灾星"), SpellIds.取("凶星"));
+
+    /// <summary>药尾声补刀用的瞬发填充技 —— 占星：落陷凶星（25871）—— 即刻下变瞬发。</summary>
+    public override uint 药尾声填充技 => SpellIds.取("落陷凶星");
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("中重力"), SpellIds.取("重力"));
     public override uint Dot技能 => SpellUtil.取已解锁(
@@ -106,6 +109,11 @@ public class ASTRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
+            // ★ 药尾声补刀：体力药快过期时用即刻把最后一发塞进窗口 ★
+            //   ⚠️ 放在 Res_BaseDamage **之前** —— 它要抢先，
+            //      否则基础输出会先把这个 GCD 占掉。
+            //   ⚠️ 放在 Res_Dot **之后** —— DoT 续期比补刀重要。
+            new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),

@@ -33,6 +33,9 @@ public class SCHSpellTable : JobSpellTable
     public override uint 基础输出 => SpellUtil.取已解锁(
         SpellIds.取("极炎法"), SpellIds.取("死炎法"), SpellIds.取("魔炎法"),
         SpellIds.取("气炎法"), SpellIds.取("毁坏"), SpellIds.取("毁灭"));
+
+    /// <summary>药尾声补刀用的瞬发填充技 —— 学者：毁坏（17870）—— 本来就是瞬发，但即刻下能用高一级的极炎法。</summary>
+    public override uint 药尾声填充技 => SpellIds.取("毁坏");
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("裂阵法"), SpellIds.取("破阵法"));
     // 注意：埋伏之毒**不在这里** —— 它需要"埋伏之毒预备"buff，是独立技能，
@@ -221,6 +224,11 @@ public class SCHRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new SCH_BanefulImpaction(), SlotMode.Gcd),   // 埋伏之毒（需预备 buff）
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
+            // ★ 药尾声补刀：体力药快过期时用即刻把最后一发塞进窗口 ★
+            //   ⚠️ 放在 Res_BaseDamage **之前** —— 它要抢先，
+            //      否则基础输出会先把这个 GCD 占掉。
+            //   ⚠️ 放在 Res_Dot **之后** —— DoT 续期比补刀重要。
+            new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new SCH_Consolation(), SlotMode.OffGcd),

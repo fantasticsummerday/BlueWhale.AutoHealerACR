@@ -17,6 +17,9 @@ public class SGESpellTable : JobSpellTable
 
     public override uint 基础输出 => SpellUtil.取已解锁(
         SpellIds.取("注药III"), SpellIds.取("注药II"), SpellIds.取("注药"));
+
+    /// <summary>药尾声补刀用的瞬发填充技 —— 贤者：注药（24283）—— 即刻下变瞬发。</summary>
+    public override uint 药尾声填充技 => SpellIds.取("注药");
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("失衡II"), SpellIds.取("失衡"));
     // 写"注药III/II/注药"的等级链：均衡注药是它们的形态，
@@ -127,6 +130,11 @@ public class SGERotationEntry : HealerEntryBase
             new SlotResolverData(new SGE_Phlegma(), SlotMode.Gcd),   // 发炎：DoT 之后才轮到它
             new SlotResolverData(new SGE_Toxikon(), SlotMode.Gcd),
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
+            // ★ 药尾声补刀：体力药快过期时用即刻把最后一发塞进窗口 ★
+            //   ⚠️ 放在 Res_BaseDamage **之前** —— 它要抢先，
+            //      否则基础输出会先把这个 GCD 占掉。
+            //   ⚠️ 放在 Res_Dot **之后** —— DoT 续期比补刀重要。
+            new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new SGE_Philosophia(), SlotMode.OffGcd),            // 智慧之爱（Lv100 群疗大招）

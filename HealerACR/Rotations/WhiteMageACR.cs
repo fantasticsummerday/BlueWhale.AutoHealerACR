@@ -27,6 +27,9 @@ public class WHMSpellTable : JobSpellTable
         SpellIds.取("坚石"),    // 18
         SpellIds.取("飞石"));   // 1
     public override uint 群体输出 => SpellUtil.取已解锁(SpellIds.取("豪圣"), SpellIds.取("神圣"));
+
+    /// <summary>药尾声补刀用的瞬发填充技 —— 白魔：闪灼（25859）—— 基础输出，即刻下变瞬发。</summary>
+    public override uint 药尾声填充技 => SpellIds.取("闪灼");
     public override uint Dot技能 => SpellUtil.取已解锁(
         SpellIds.取("天辉"), SpellIds.取("烈风"), SpellIds.取("疾风"));
     public override uint DotBuff => AuraIds.白魔Dot;
@@ -161,6 +164,11 @@ public class WHMRotationEntry : HealerEntryBase
             new SlotResolverData(new WHM_AfflatusMisery(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_GlareIV(), SlotMode.Gcd),   // 神速期间打闪飒
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
+            // ★ 药尾声补刀：体力药快过期时用即刻把最后一发塞进窗口 ★
+            //   ⚠️ 放在 Res_BaseDamage **之前** —— 它要抢先，
+            //      否则基础输出会先把这个 GCD 占掉。
+            //   ⚠️ 放在 Res_Dot **之后** —— DoT 续期比补刀重要。
+            new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
