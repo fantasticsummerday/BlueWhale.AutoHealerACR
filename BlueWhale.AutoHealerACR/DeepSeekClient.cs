@@ -18,8 +18,24 @@ public static class DeepSeekClient
 {
     private static readonly HttpClient _http = new()
     {
-        // 单个请求的超时由 CancellationToken 控制，这里给个大一点的兜底
-        Timeout = TimeSpan.FromSeconds(15),
+        // ⚠️ 这个值必须 **≥** 所有调用点里最长的超时，否则它会**静默砍掉**它们。
+        //
+        //  ── 实测踩的坑 ──
+        //      `HttpClient.Timeout` 是**硬上限**，`CancellationTokenSource`
+        //      的超时**盖不过它** —— 谁的秒数小谁说了算。
+        //
+        //      原来这里是 15 秒，而：
+        //          初始化   传 40000ms（40 秒）→ 实际只有 15 秒  ← 被砍
+        //          策略层   传 10000ms（10 秒）→ 正常
+        //          决策层   传  8000ms（ 8 秒）→ 正常
+        //
+        //      ⇒ 初始化那 40 秒**形同虚设**。而 `deepseek-flash` 是推理型模型，
+        //        初始化的局面报告又是最大的一次请求 —— 15 秒经常不够。
+        //        日志实证：一次运行 352 条「请求失败（超时）」，几乎全是它。
+        //
+        //  ⚠️ 各层**自己的**超时仍然生效（决策层 8 秒、策略层 10 秒）——
+        //     这里只是把天花板抬高，让它们各自的设置能真正起作用。
+        Timeout = TimeSpan.FromSeconds(60),
     };
 
     private static int _连续失败;
