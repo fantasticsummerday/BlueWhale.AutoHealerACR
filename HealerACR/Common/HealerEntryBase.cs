@@ -119,6 +119,9 @@ public abstract class HealerEntryBase : IRotationEntry
         // 把技能表注入给事件处理类 —— 它是独立类，拿不到入口类的 Spells 属性。
         // AfterSpell 里做单插控制要用到（判断"复活"用掉了即刻）。
         HealRotationEventHandler.当前技能表 = Spells;
+        // ★ 同时按职业登记 ★ —— 否则 5 个入口会互相覆盖，
+        //   最后加载的那个（幻术师）赢，导致 AI 看到错误的技能清单。
+        HealRotationEventHandler.登记技能表((uint)TargetJob, Spells);
 
         // 尝试挂 ActionEffect hook（默认关闭；挂不上会降级，不影响其他功能）
         效果确认.尝试挂载();
@@ -498,6 +501,50 @@ public class HealRotationEventHandler : IRotationEventHandler
     /// 这个事件处理类是独立类，拿不到入口类的属性，所以用静态字段传。
     /// </summary>
     public static JobSpellTable? 当前技能表;
+
+    /// <summary>
+    /// **按职业存的技能表** —— 解决"最后加载的职业覆盖前面的"问题。
+    ///
+    /// ⚠️ 这是个真 bug（用户实测发现）：
+    ///    BlueWhale 有 5 个入口（白魔/学者/占星/贤者/幻术师），
+    ///    AEAssist 加载时会**依次调用每个的 Build**，
+    ///    而每个 Build 都写同一个静态字段 `当前技能表` ——
+    ///    **最后一个（幻术师）赢了**。
+    ///
+    ///    后果：玩学者时，AI 收到的"可选技能清单"是**幻术师的技能**，
+    ///    于是它建议 `132 烈风` / `127 坚石` —— 学者根本没有这两个技能。
+    ///
+    ///    修法：**按职业 ID 存表**，取的时候用当前职业去查。
+    /// </summary>
+    private static readonly Dictionary<uint, JobSpellTable> _各职业技能表 = new();
+
+    /// <summary>入口类 Build 时调：登记本职业的技能表</summary>
+    public static void 登记技能表(uint 职业Id, JobSpellTable 表)
+    {
+        try
+        {
+            _各职业技能表[职业Id] = 表;
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 取**当前实际职业**的技能表。
+    ///
+    /// 优先按 `Core.Me.ClassJob` 查；查不到再退回旧的 `当前技能表`。
+    /// </summary>
+    public static JobSpellTable? 取当前职业技能表()
+    {
+        try
+        {
+            var 职业 = Core.Me.ClassJob.RowId;
+            if (_各职业技能表.TryGetValue(职业, out var 表) && 表 != null) return 表;
+        }
+        catch { }
+
+        return 当前技能表;   // 兜底
+    }
+
     public Task OnPreCombat()
     {
         // 说明：本来想在这里挂"开怪倒计时"（预铺盾 + 吃爆发药），参考同类 ACR 的

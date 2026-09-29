@@ -307,7 +307,9 @@ public static class AiSituation
         {
             sb.AppendLine("【可选技能（阶段 B 只能从这些 ID 里选）】");
 
-            var 表 = HealerACR.Common.HealRotationEventHandler.当前技能表;
+            // ⚠️ 必须取"当前实际职业"的表，不能用静态的 当前技能表 ——
+        //    那个会被最后加载的职业覆盖（用户实测：玩学者却收到幻术师的技能清单）
+        var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
             if (表 == null)
             {
                 sb.AppendLine("（拿不到技能表 —— 阶段 B 请输出 0|数据不足）");

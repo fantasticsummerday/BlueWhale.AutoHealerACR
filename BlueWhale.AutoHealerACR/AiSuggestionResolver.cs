@@ -77,6 +77,29 @@ public class AiSuggestionResolver : ISlotResolver
             var 需目标 = 需要目标(id);
             if (需目标 && HealTargetHelper.当前目标() == null) return -1;
 
+            // ══════════════════════════════════════════════════════════
+            //  ★ 终审第四步：治疗优先于输出 ★
+            //
+            //  用户实测指出的问题：
+            //    "中断了治疗读条之后，优先继续的是输出，然后再治疗"
+            //
+            //  原因：AI 建议走的是最高优先级（100），
+            //        **它会插到治疗 resolver 前面** ——
+            //        于是 AI 一说"接坚石输出"，治疗就被挤到后面去了。
+            //
+            //  但奶妈的根本原则是治疗优先。所以：
+            //    · 有人需要治疗 + AI 建议的是输出 → **让位**（返回 -1，走原队列）
+            //    · 其他情况 → 照常采纳
+            //
+            //  这样 AI 依然能在"没治疗压力"时优化输出，
+            //  但绝不会因为它的建议而耽误治疗。
+            // ══════════════════════════════════════════════════════════
+            if (是输出技能(id) && 有人需要治疗())
+            {
+                Ai调试.调试($"建议 {id} 是输出技能，但当前有治疗需求 → 让位给原队列");
+                return -1;
+            }
+
             本帧采纳 = true;
             本帧技能 = id;
             return 100;   // 最高优先级（比 Always 队列里的其他都高）
@@ -124,6 +147,52 @@ public class AiSuggestionResolver : ISlotResolver
     }
 
     /// <summary>
+    /// 这个技能是不是"输出技能"。
+    ///
+    /// 用途：**治疗优先** —— 有治疗需求时，AI 建议的输出技能要让位。
+    /// </summary>
+    private static bool 是输出技能(uint id)
+    {
+        if (id == 0) return false;
+
+        try
+        {
+            var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+            if (表 == null) return false;   // 拿不到表就不拦（宁可放过）
+
+            if (id == 表.基础输出) return true;
+            if (id == 表.群体输出) return true;
+            if (id == 表.Dot技能) return true;
+            if (id == 表.移动填充技) return true;
+            if (表.输出能力技 != null && Array.IndexOf(表.输出能力技, id) >= 0) return true;
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 现在有没有人需要治疗。
+    ///
+    /// 判据：**低于单体治疗阈值的人数 > 0**（用玩家自己设的阈值，不另定标准）。
+    /// </summary>
+    private static bool 有人需要治疗()
+    {
+        try
+        {
+            var 阈值 = HealerACR.Common.HealSettings.Instance.单体治疗阈值;
+            return HealerACR.Common.HealTargetHelper.低于阈值人数(阈值) > 0;
+        }
+        catch
+        {
+            return false;   // 判断不了就不拦
+        }
+    }
+
+    /// <summary>
     /// 这个技能是不是必须指定目标。
     ///
     /// 判据很粗但够用：**输出类的都要目标，治疗类的都不要**（以自己为原点）。
@@ -133,7 +202,7 @@ public class AiSuggestionResolver : ISlotResolver
     {
         try
         {
-            var 表 = HealerACR.Common.HealRotationEventHandler.当前技能表;
+            var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
             if (表 == null) return false;
 
             if (id == 表.基础输出) return true;

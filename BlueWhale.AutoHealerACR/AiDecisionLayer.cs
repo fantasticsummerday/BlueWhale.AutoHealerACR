@@ -313,7 +313,7 @@ public static class AiDecisionLayer
 
         try
         {
-            var 表 = HealerACR.Common.HealRotationEventHandler.当前技能表;
+            var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
             if (表 == null) return true;   // 拿不到表就不拦（宁可放过也别全丢）
 
             if (id == 表.基础输出) return true;
