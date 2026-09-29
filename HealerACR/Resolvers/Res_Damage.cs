@@ -286,24 +286,53 @@ public class Res_BaseDamage : ISlotResolver
 
     public Res_BaseDamage(JobSpellTable table) => _t = table;
 
+    /// <summary>【临时诊断】基础输出的 Check 走了哪条分支</summary>
+    private static int _诊断次数;
+    private static long _上次诊断;
+
+    private static void 诊断(int 码, string 说明)
+    {
+        try
+        {
+            if (_诊断次数 >= 20) return;
+            var 现在 = TimeHelper.Now();
+            if (现在 - _上次诊断 < 2000) return;
+            _上次诊断 = 现在;
+            _诊断次数++;
+            LogHelper.Info($"[输出诊断] Check={码} ｜ {说明}");
+        }
+        catch { }
+    }
+
     public int Check()
     {
-        if (!HealQt.GetQt("输出")) return -100;
-        if (蓝量.低蓝停手()) return -9;   // 蓝留给治疗
-        if (!SpellUtil.已解锁(_t.基础输出)) return -2;
+        if (!HealQt.GetQt("输出")) { 诊断(-100, "输出 QT 关着"); return -100; }
+        if (蓝量.低蓝停手()) { 诊断(-9, "低蓝停手"); return -9; }
+        if (!SpellUtil.已解锁(_t.基础输出))
+        { 诊断(-2, "基础输出 " + _t.基础输出 + " 没解锁"); return -2; }
 
         // ⚠️ **用我们自己的目标选择器，不是玩家选中那个** ——
         //    见 `输出目标` 的长注释：原来直接读 `GetCurrTarget()`，
         //    于是"坦克拉到的怪不打、去打玩家选中的远处怪"。
         //    带粘滞，不会每帧乱切。
         var 目标 = 输出目标.选();
-        if (目标 == null) return -1;
+        if (目标 == null)
+        {
+            var 选中 = Core.Me.GetCurrTarget();
+            诊断(-1, "输出目标.选() 返回 null（玩家选中=" +
+                     (选中?.Name.ToString() ?? "无") +
+                     " 可选中=" + (选中?.IsTargetable.ToString() ?? "-") +
+                     " 血=" + (选中?.CurrentHp.ToString() ?? "-") + "）");
+            return -1;
+        }
 
         // 视线被挡就别按了 —— 按了也放不出去，白白占着 GCD 让循环卡住
-        if (!技能数据.打得到(目标)) return -6;
+        if (!技能数据.打得到(目标))
+        { 诊断(-6, "打不到 " + 目标.Name + "（视线/射程）"); return -6; }
 
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
-        if (_t.有特殊输出形态) return -5;
+        if (_t.有特殊输出形态)
+        { 诊断(-5, "有特殊输出形态"); return -5; }
 
         // ⚠️ 和 Build **同源**：同一个目标 + 同一个 `选填充技(目标)`
         var spell = 选填充技(目标);
@@ -312,8 +341,15 @@ public class Res_BaseDamage : ISlotResolver
         //    表现成"反复尝试读条"，GCD 全空转。
         //    挡住之后，瞬发技能（学者的毁坏 / 白魔的安慰之心…）自然轮到前面。
         //    ⚠️ 用 `选填充技()` 之后的 spell.Id —— 形态可能被游戏换掉。
-        if (spell != null && !SpellUtil.移动中可用(spell.Id)) return -7;
-        return spell != null && spell.IsReadyWithCanCast() ? 1 : -1;
+        if (spell != null && !SpellUtil.移动中可用(spell.Id))
+        { 诊断(-7, "移动中放不了 " + spell.Id); return -7; }
+
+        if (spell == null)
+        { 诊断(-1, "选填充技 返回 null"); return -1; }
+
+        var 就绪 = spell.IsReadyWithCanCast();
+        if (!就绪) 诊断(-1, "技能 " + spell.Id + " 不 ready/不可放");
+        return 就绪 ? 1 : -1;
     }
 
     /// <summary>
@@ -354,23 +390,26 @@ public class Res_BaseDamage : ISlotResolver
     ///      大型 Boss 的目标圈半径有 5~10 米 —— 人站在圈上时，
     ///      中心距轻松超过 5 米，于是**永远判"够不着"**，一直打毁坏。
     ///
-    ///  ── 正确做法（框架 IL 直证）──
-    ///      `SpellHelper.CanCast(spell)` 内部是：
-    ///          目标 = SpellHelper.GetTarget(spell)
-    ///          return 射程与视线检查(spell.Id, 目标)   // CheckActionInRangeOrLoS
-    ///      后者读 Lumina 的 `Action.TargetArea` + 游戏自己的判定 ——
-    ///      **天然含 hitbox**，正是我们想要的语义。
+    ///  ── 修法：**够得到目标圈** ──
+    ///      `有效距离 = 中心距 - 目标.HitboxRadius`，再和半径比。
     ///
-    ///      ⚠️ 而且这**顺带修好了视线** —— 中心距判定完全没管柱子/墙。
+    ///      这才对应"技能能不能打到那个圈"：
+    ///      你站在圈上时，中心距可能 7~8 米，但扣掉圈半径就只有 1~2 米。
     ///
-    ///  ⚠️ 前提：**必须显式带目标**。
-    ///     `GetTarget(spell)` 在没带目标时取 `Core.Me.GetCurrTarget()`
-    ///     （玩家选中的那个），不是我们要打的目标 ——
-    ///     所以要 `new Spell(id, 目标)` 之后再判。
+    ///  ── 试过但要避开的做法（实测把正常循环搞坏了）──
+    ///      用 `new Spell(id, 目标).IsReadyWithCanCast()` 让游戏自己判：
+    ///        · `SpellHelper.GetTarget(spell)` 的 switch 里
+    ///          默认分支取的是 `Core.Me.GetCurrTarget()`（玩家选中那个），
+    ///          传目标进去**改变了目标语义**，连带影响判定
+    ///        · 框架判定失败时整条链会返回 null → **不放技能** →
+    ///          表现成"输出循环断断续续"
     ///
-    ///  ⚠️ 兜底：拿不到框架判定时，退回 `距离 - 目标.HitboxRadius <= 半径`
-    ///     —— 这是"够到目标圈"的近似。宁可偏乐观（多打一次高威力技能），
-    ///     也不要偏保守（永远打低威力那个，那正是这个 bug）。
+    ///      ⇒ 所以保持原结构（**哪个 Spell 对象能用就直接用它**），
+    ///        只把"中心距"换成"够得到目标圈"。CD 由框架在真正施放时把关。
+    ///
+    ///  ⚠️ 偏向是**刻意选的**：宁可偶尔多打一次高威力技能
+    ///     （打空只是浪费一个 GCD），也不偏保守
+    ///     （永远打低威力那个，那正是这个 bug）。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     private Spell? 选填充技(IBattleChara? 目标)
@@ -382,22 +421,8 @@ public class Res_BaseDamage : ISlotResolver
                 // `当前形态` 会自动升级（破阵法 → 裂阵法），
                 // 和 `群体输出` 走同一套形态表
                 var 近战 = SpellUtil.当前形态(_t.近战填充技);
-                if (近战 != null)
-                {
-                    // ★ 构造**带目标**的 Spell 再判 ——
-                    //   这样游戏判的就是"这个技能能不能打到这个目标"
-                    var 带目标 = new Spell(近战.Id, 目标);
-                    if (带目标.IsReadyWithCanCast()) return 带目标;
-
-                    // 兜底：够得到目标圈就算（见方法注释）
-                    //
-                    // ⚠️ 这里**不能**再判一次 `近战.IsReadyWithCanCast()` ——
-                    //    那个不带目标，`GetTarget` 会取**玩家选中**的目标，
-                    //    等于把刚修掉的"判错目标"又引回来。
-                    //    只判我们自己的"够得到圈"，CD 由框架在真正施放时把关。
-                    if (够得到目标圈(目标, _t.近战填充距离))
-                        return new Spell(近战.Id, 目标);
-                }
+                if (近战 != null && 够得到目标圈(目标, _t.近战填充距离))
+                    return 近战;
             }
         }
         catch { }
