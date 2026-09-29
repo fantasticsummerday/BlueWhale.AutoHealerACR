@@ -328,6 +328,40 @@ if _hits6 == 0:
 
 
 # ══════════════════════════════════════════════════════════════════
+#  ⑦ 工具脚本自身的 GBK 安全
+# ══════════════════════════════════════════════════════════════════
+报("")
+报("=== ⑦ 工具脚本的 GBK 安全 ===")
+报("    中文 Windows 控制台是 GBK。脚本里出现 emoji 之类")
+报("    GBK 编不了的字符，**一 print 就 UnicodeEncodeError 崩掉**。")
+报("    这个坑踩过两次（IdAudit 和 PromptBudget 各一次），所以机械检查。")
+
+_TOOLS = ROOT / "tools"
+_bad_tools = []
+for _p in _TOOLS.rglob("*.py"):
+    if "\\obj\\" in str(_p) or "\\bin\\" in str(_p):
+        continue
+    try:
+        _t = _p.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    _bad = set()
+    for _ch in _t:
+        try:
+            _ch.encode("gbk")
+        except UnicodeEncodeError:
+            _bad.add(hex(ord(_ch)))
+    if _bad:
+        _bad_tools.append((_p.name, sorted(_bad)))
+
+if _bad_tools:
+    for _n, _b in _bad_tools:
+        错("    " + _n + " 含非 GBK 字符 " + str(_b) + "，在中文控制台会崩")
+else:
+    报("    所有 .py 工具都是 GBK 安全的")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  输出
 # ══════════════════════════════════════════════════════════════════
 print("\n".join(信息))

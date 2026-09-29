@@ -168,6 +168,32 @@ if (Test-Path "tools\TimelineProbe\TimelineProbe.csproj") {
     提示 "没有 tools\TimelineProbe，跳过"
 }
 
+# ── 提示词预算：防止"记忆库长胖后把技能清单挤掉" ──
+#
+# ⚠️ 为什么这个也要拦：
+#    局面报告有 6000 字符上限，而**记忆库是会长大的**
+#    （结论由 AI 生成，长度不可控）。一旦撑爆，
+#    最先丢的是技能清单 —— 而 AI 只能从清单里选 ID，
+#    丢了两边就完全对不上了（表现为"AI 一直在给无效建议"）。
+if (Test-Path "tools\PromptBudget.py") {
+    $budgetOut = & $py "tools\PromptBudget.py" 2>&1
+    $budgetText = ($budgetOut | Out-String)
+    if ($budgetText -match "占用率：\s*(\d+)%") {
+        $占比 = [int]$Matches[1]
+        if ($占比 -ge 95) {
+            坏 "提示词预算占用 $占比%（>=95%）—— 随时会触发截断"
+            提示 "跑 python tools\PromptBudget.py 看是哪一段变大了"
+            $失败 = $true
+        } else {
+            好 "提示词预算占用 $占比%（有余量）"
+        }
+    } else {
+        提示 "PromptBudget 输出格式不符预期，跳过"
+    }
+} else {
+    提示 "没有 tools\PromptBudget.py，跳过"
+}
+
 # ══════════════════════════════════════════════════════════════════
 标题 "③ 组装包目录"
 # ══════════════════════════════════════════════════════════════════

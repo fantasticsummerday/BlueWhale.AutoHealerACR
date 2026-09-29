@@ -79,7 +79,7 @@ DEFAULT_OUT = "cactbot_timelines"
 def js_string_at(s: str, i: int):
     """从 s[i]（应为引号）解析一个 JS 字符串字面量 -> (内容, 结束位置)。
 
-    ⚠️ 必须正确反转义 —— 时间轴正文在 bundle 里是 `\\r\\n` 形式的转义序列，
+    [!] 必须正确反转义 —— 时间轴正文在 bundle 里是 `\\r\\n` 形式的转义序列，
        直接拿原始文本会得到一坨字面的 \\r\\n。
     """
     quote = s[i]
@@ -119,7 +119,7 @@ def js_string_at(s: str, i: int):
 def looks_like_timeline(s: str) -> bool:
     """判断一段字符串是不是时间轴。
 
-    ⚠️ 不能只看 `ZoneId` —— **旧格式时间轴没有那个头**（实测 t10.txt 就是）。
+    [!] 不能只看 `ZoneId` —— **旧格式时间轴没有那个头**（实测 t10.txt 就是）。
        所以用结构特征：ZoneId 头 / hideall 指令 / `数字.数字 "..."` 行。
     """
     if not s or len(s) < 40:
@@ -148,7 +148,7 @@ def main() -> int:
 
     # ── ① zoneId 符号名 -> 数值 ──
     #
-    # ⚠️ 结尾逗号写成 `,?` —— 表的**最后一项**后面是 `\n};` 而不是逗号。
+    # [!] 结尾逗号写成 `,?` —— 表的**最后一项**后面是 `\n};` 而不是逗号。
     #    实测 `'Zadnor': 975` 正好是最后一项，写成 `,` 就漏了它。
     zone_map = {}
     for m in re.finditer(r"'([A-Za-z0-9_]+)'\s*:\s*(\d+)\s*,?", rb):
@@ -175,7 +175,7 @@ def main() -> int:
         tf = re.search(r"timelineFile:\s*'([^']+)'", chunk)
         if not tf:
             continue
-        # ⚠️ 原文形如  zoneId: zone_id/* default.Zadnor */.Z.Zadnor,
+        # [!] 原文形如  zoneId: zone_id/* default.Zadnor */.Z.Zadnor,
         #    `zone_id` 和 `.Z.` 之间夹着**注释** ——
         #    不能用 `zone_id\w*\.Z\.`（那样一条都匹配不到）。
         zm = re.search(r"zoneId:\s*(\w+)[^,]*\.Z\.(\w+)", chunk)
