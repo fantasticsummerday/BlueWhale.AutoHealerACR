@@ -65,7 +65,7 @@ public class BlueWhaleViewWindow : IRotationUI
             // ---- 连接健康度 ----
             ImGui.TextDisabled("连接");
             ImGui.Text($"  Key 已配置：{(s.已配置 ? "是" : "否")}");
-            ImGui.Text($"  熔断中：{(DeepSeekClient.熔断中 ? "是 ⚠️" : "否")}");
+            ImGui.Text($"  状态：{DeepSeekClient.状态描述()}");
             ImGui.Text($"  连续失败：{DeepSeekClient.连续失败数}");
 
             if (ImGui.Button("解除熔断")) DeepSeekClient.解除熔断();

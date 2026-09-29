@@ -168,10 +168,26 @@ internal static class Ai层挂载
         //   加载后立刻跑一次完整请求，否则前 10 秒它是"哑"的。
         Ai初始化.开始();
 
+        // ── 「强制熔断」QT 开关 —— **状态型**，不弹回 ──
+        //
+        //   苧上 = 停掉所有 AI 请求；取消 = 恢复。
+        //  ⚠️ 参数是 bool（开还是关）—— 不能像下面那个一样无参。
+        HealQt.强制熔断请求 = 开 =>
+        {
+            DeepSeekClient.设强制熔断(开);
+        };
+
         // ── 「解除熔断」QT 开关接到实际动作 ──
         HealQt.解除熔断请求 = () =>
         {
             DeepSeekClient.解除熔断();
+
+            // ⚠️ 必须把「强制熔断」的 QT 也写回 false ——
+            //   `解除熔断()` 已经把它清了，但 QT 值还是 true。
+            //   不写回的话，`HealQt.每帧更新` 下一帧发现
+            //   "QT 还是 true 但状态已经是 false"→ 又把强制熔断打开，
+            //   现象就是"按了解除熔断没反应"。
+            HealQt.写回("强制熔断", false);
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
             屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
@@ -198,6 +214,7 @@ internal static class Ai层挂载
         记忆钩子.卸载();
         状态重置钩子.卸载();
         HealQt.解除熔断请求 = null;
+        HealQt.强制熔断请求 = null;
 
         // 记录模式的钩子也要摘掉 —— 否则关掉 ACR 之后
         // 本地层还会往一个已经没人管的采集器里塞数据
@@ -800,7 +817,7 @@ public static class AiSettingPage
         // ---- 实时状态 ----
         ImGui.Separator();
         ImGui.Text("AI 当前状态");
-        ImGui.Text($"  熔断中：{(DeepSeekClient.熔断中 ? "是 ⚠️" : "否")}    连续失败：{DeepSeekClient.连续失败数}");
+        ImGui.Text($"  状态：{DeepSeekClient.状态描述()}    连续失败：{DeepSeekClient.连续失败数}");
 
         // ── 最近的 AI 请求历史（对照你提的"多展示几条"）──
         if (AiStrategyLayer.历史.Count > 0)

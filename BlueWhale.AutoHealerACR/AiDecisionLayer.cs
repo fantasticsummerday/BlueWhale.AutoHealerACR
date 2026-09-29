@@ -267,7 +267,7 @@ public static class AiDecisionLayer
         定期汇总();
 
         if (_预取中) return;
-        if (DeepSeekClient.熔断中) return;
+        if (DeepSeekClient.该走原版逻辑) return;
 
         // ② 队列够长 → 不用补货（这是"预取"的关键：有货就不问）
         if (_队列.Count >= 目标长度) return;
@@ -379,7 +379,7 @@ public static class AiDecisionLayer
             var s = AiSettings.Instance;
             if (!s.启用决策层 || !s.已配置) return;
             if (_预取中) return;
-            if (DeepSeekClient.熔断中) return;
+            if (DeepSeekClient.该走原版逻辑) return;
 
             Ai调试.日志("局面剧变 -> 立刻重新预取");
             _ = 预取();

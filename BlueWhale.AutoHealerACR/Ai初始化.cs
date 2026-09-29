@@ -282,7 +282,7 @@ public static class Ai初始化
 
                 // ── 失败 ──
                 if (我的世代 != _世代) return;          // 重试途中被换掉 → 让位
-                if (DeepSeekClient.熔断中) break;        // 熔断器叫停 → 不再重试
+                if (DeepSeekClient.该走原版逻辑) break;   // 熔断器叫停 → 不再重试
 
                 await Task.Delay(退避).ConfigureAwait(false);
                 退避 = Math.Min(退避 * 2, 最大退避毫秒);
@@ -353,7 +353,7 @@ public static class Ai初始化
             }
             else
             {
-                结果 = DeepSeekClient.熔断中 ? "熔断中（走原版逻辑）" : "请求失败（走原版逻辑）";
+                结果 = DeepSeekClient.该走原版逻辑 ? "熔断中（走原版逻辑）" : "请求失败（走原版逻辑）";
                 Ai调试.日志($"初始化未拿到回复（共尝试 {第几次} 次）：" + 结果);
 
                 // ★ 失败时必须给出**具体原因** ★
@@ -507,7 +507,7 @@ public static class Ai初始化
     {
         try
         {
-            var 现在熔断 = DeepSeekClient.熔断中;
+            var 现在熔断 = DeepSeekClient.该走原版逻辑;
             if (现在熔断 == _上次熔断) return;
 
             _上次熔断 = 现在熔断;

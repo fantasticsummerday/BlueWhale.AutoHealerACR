@@ -60,7 +60,7 @@ public static class AiStrategyLayer
 
         if (!s.启用策略层 || !s.已配置) return;
         if (_刷新中) return;                       // 上一次还没回来
-        if (DeepSeekClient.熔断中) return;          // 熔断期，别浪费请求
+        if (DeepSeekClient.该走原版逻辑) return;   // 熔断期，别浪费请求
 
         var 间隔 = Math.Max(3, s.策略刷新秒) * 1000L;
         if (TimeHelper.Now() - _上次刷新 < 间隔) return;

@@ -172,9 +172,9 @@ public static class AiThresholdAdapter
             return "2) Key 已配置，但【阶段 A：策略层】没勾 —— 勾上才会开始请求";
         }
 
-        if (DeepSeekClient.熔断中)
+        if (DeepSeekClient.该走原版逻辑)
         {
-            return $"3) 熔断中（连续失败 {DeepSeekClient.连续失败数} 次，冷却 {s.失败冷却秒} 秒）—— 期间走原版阈值";
+            return $"3) {DeepSeekClient.状态描述()}（冷却 {s.失败冷却秒} 秒）—— 期间走原版阈值";
         }
 
         var 当前 = AiStrategyLayer.当前倾向;
