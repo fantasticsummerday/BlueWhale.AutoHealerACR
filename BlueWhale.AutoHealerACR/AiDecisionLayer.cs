@@ -371,10 +371,15 @@ public static class AiDecisionLayer
             var 局面 = AiSituation.采集();
 
             // 决策层：给 3 秒 —— 它是在"备货"，不必卡在 GCD 内
-            // 超时 8 秒 —— deepseek-flash 是**推理型模型**（日志里能看到"正文来自 reasoning_content"），
-            // 它会先思考再回答，通常 3~10 秒。
+            // 超时 8 秒 —— deepseek-flash 是**推理型模型**，会先思考再回答，通常 3~10 秒。
             // 反正是预取备货，慢一点没关系：备好了等着用，比"快但总超时"强。
-            var 回复 = await DeepSeekClient.提问(系统提示, 局面, 8000).ConfigureAwait(false);
+            //
+            // ⚠️ `期望_ID理由格式: true` —— 这是**唯一**需要它的调用点：
+            //    正文被截断成空时，允许从思考里捞 `ID|理由`（见 处理推理型回复）。
+            //    其他调用点（倾向/提炼）要的是散文，捞不得 —— 那会把
+            //    "思考过程"当成"结论"交上去，而且看不出来是半成品。
+            var 回复 = await DeepSeekClient.提问(系统提示, 局面, 8000,
+                         期望_ID理由格式: true).ConfigureAwait(false);
 
             if (回复 == null)
             {
