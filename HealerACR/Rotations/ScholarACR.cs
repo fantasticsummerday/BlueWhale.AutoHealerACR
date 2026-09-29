@@ -105,6 +105,21 @@ public class SCHSpellTable : JobSpellTable
     /// </summary>
     public override uint 近战填充技 => SpellIds.取("破阵法");
 
+    /// <summary>
+    /// 贴身距离门槛 = **5 米**。
+    ///
+    /// ⚠️ 表里的默认值是 3，那个**偏小** —— 查官方技能表
+    /// （`dump_actions.tsv`，逐字）：
+    ///     16539 破阵法  学者 46  CastType=2  Range=0  **EffectRange=5**
+    ///     25866 裂阵法  学者 82  CastType=2  Range=0  **EffectRange=5**
+    ///     CastType=2 = **以自己为中心**的范围技
+    /// ⇒ 半径就是 5 米。设成 3 的话，**3~5 米这一段会被判"够不着"**，
+    ///   白白打了低一级的填充技（毁坏 500 威力 vs 破阵法 600）。
+    ///
+    /// 参考实现在同一处用的也是 5（IL 里的 `Ldc_r4 5`）。
+    /// </summary>
+    public override float 近战填充距离 => 5f;
+
     // 能量吸收是"以太换输出"，卡 CD 打（跟法令一个道理）
     // 能量吸收是拿以太换输出。
     // ⚠️ 关键：以太**读不到**时不能判死 —— JobApiHelper 读失败会返回 0，

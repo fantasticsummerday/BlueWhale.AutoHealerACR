@@ -661,6 +661,7 @@ public static class HealTargetHelper
 
     // ==================== 整波判断（对照同类 ACR 的 ShouldHoldForDyingTrash）====================
 
+
     /// <summary>
     /// **当前这一波小怪是不是快清完了** —— 是的话不该交爆发。
     ///
@@ -674,19 +675,30 @@ public static class HealTargetHelper
     ///
     ///    所以判据要从"这个怪快死了"升级成"**这一波快没了**"。
     ///
-    ///  ★ 判据（对照同类 ACR 的 `BurstHoldControl.ShouldHoldForDyingTrash`）★
+    ///  ★ 判据：**两条并联**（对照同类 ACR 的 ShouldHoldForDyingTrash）★
     ///
     ///    取 25 米内的**非 Boss** 敌人：
-    ///      · 数量为 0 → 不算（没有波次概念）
-    ///      · 合计血量 < 阈值（默认 30%）→ 整波快清完了 → true
+    ///      ① 数量为 0 → 不算（没有波次概念）
+    ///      ② 合计血量 / 合计上限 < 阈值（默认 30%）→ true
+    ///      ③ **平均 DeathPrediction < 毫秒阈值（默认 15000）→ true**
     ///
-    ///  ★ 我**没有**照抄它的"平均 TTK < 15 秒"那半条 ★
+    ///  ★ 关于第 ③ 条（"平均 TTK"）★
     ///
-    ///    它的 TTK 用的是 `TargetStat.DeathPrediction` ——
-    ///    我反射查过，**这个成员在我们引用的 AEAssist.NET 1.2.16 里不是公开的**，
-    ///    拿不到。按《开发约定》E 节：**语义没吃透 / 拿不到的 API 不用**。
-    ///    所以这里只用能确定算出来的"合计血量"，宁可少一个判据，
-    ///    也不要写一个"看着更有依据、实际恒为 false"的条件。
+    ///    ⚠️ 这里原来写着"`TargetStat.DeathPrediction` 拿不到，所以不做" ——
+    ///       **那个结论是错的**，后来实测推翻了：
+    ///         · 元数据：`AEAssist.CombatRoutine.Module.Target.TargetStat`
+    ///           是 **public** 类型，`DeathPrediction` 是 **public** 字段；
+    ///           `TargetMgr.Instance` / `TargetStats` / `EnemysIn25` 同理
+    ///         · 编译验证：直接用它们写一段代码，**0 error**
+    ///       当初大概是反射没查全（只看了属性、没看字段）就下了结论。
+    ///
+    ///    为什么值得补：**它是唯一把"这波还有多久清完"量化的判据**。
+    ///    只看合计血量会漏掉一种情况 ——
+    ///    一波 5 只、合计还有 40% 血，但每只都只剩几千血、
+    ///    预测 5 秒内全死。这时候交爆发就是纯浪费。
+    ///
+    ///  ⚠️ 是 `||` 不是 `&&` —— 两条任一成立就算"快清完"，
+    ///     不会让原本成立的判断失效。
     ///
     ///  ★ 为什么排除 Boss ★
     ///
@@ -696,8 +708,11 @@ public static class HealTargetHelper
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     /// <param name="合计血线">整波合计血量低于这个比例 → 判定快清完</param>
+    /// <param name="平均TTK毫秒">平均预测死亡时间低于这个毫秒数 → 判定快清完</param>
     /// <param name="搜索半径">只看这个距离内的敌人（避免把下一波算进来）</param>
-    public static bool 敌人波次要结束(float 合计血线 = 0.30f, float 搜索半径 = 25f)
+    public static bool 敌人波次要结束(float 合计血线 = 0.30f,
+                                     float 平均TTK毫秒 = 15000f,
+                                     float 搜索半径 = 25f)
     {
         try
         {
@@ -727,7 +742,43 @@ public static class HealTargetHelper
             // 没有小怪 → 不适用（可能是纯 Boss 战，或还没接怪）
             if (数量 == 0 || 合计上限 <= 0f) return false;
 
-            return 合计当前 / 合计上限 < 合计血线;
+            // ① 合计血量
+            if (合计当前 / 合计上限 < 合计血线) return true;
+
+            // ② 平均预测死亡时间（TTK）
+            //
+            // ⚠️ 拿不到统计数据时**返回 false（不判定）**，
+            //    让 ① 单独生效 —— 不能因为这条拿不到就把整波判成"没结束"。
+            try
+            {
+                var mgr = AEAssist.CombatRoutine.Module.Target.TargetMgr.Instance;
+                if (mgr == null) return false;
+
+                var 统计表 = mgr.TargetStats;
+                if (统计表 == null) return false;
+
+                double 预测和 = 0;
+                var 预测数 = 0;
+
+                foreach (var kv in mgr.EnemysIn25)
+                {
+                    var 怪 = kv.Value;
+                    if (怪 == null) continue;
+                    if (怪.CurrentHp <= 0) continue;
+                    if (怪.IsBoss()) continue;                     // 和上面同一个口径
+
+                    if (!统计表.TryGetValue(怪.EntityId, out var st)) continue;
+                    if (st.DeathPrediction <= 0) continue;         // <=0 = 还预测不出来
+
+                    预测和 += st.DeathPrediction;
+                    预测数++;
+                }
+
+                if (预测数 > 0 && 预测和 / 预测数 < 平均TTK毫秒) return true;
+            }
+            catch { }
+
+            return false;
         }
         catch
         {
