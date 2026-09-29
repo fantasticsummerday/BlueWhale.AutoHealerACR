@@ -55,20 +55,83 @@ public static class TimelineManager
     ///    所以最终的可靠手段是**用户显式指定**
     ///    （设置界面里的「Timelines 目录」输入框）。
     /// </summary>
+    /// <summary>
+    /// 目录选择的缓存。
+    ///
+    /// ⚠️ **必须有**：<see cref="时间轴目录"/> 是个**属性**，
+    ///    可能在每帧被读（状态显示、判断有没有时间轴）。
+    ///    而选择过程要**遍历目录里的文件找 ZoneId 头** ——
+    ///    每帧做一次 IO 是明显的浪费。
+    ///
+    /// 失效时机：<see cref="初始化"/>（用户点了「重扫时间轴」、
+    /// 或者改了目录设置）—— 那时必须重新选。
+    /// </summary>
+    private static string _目录缓存;
+
     public static string 时间轴目录
     {
         get
         {
+            if (_目录缓存 != null) return _目录缓存;
+
+            _目录缓存 = 选时间轴目录();
+            return _目录缓存;
+        }
+    }
+
+    /// <summary>真正做选择的逻辑（见 <see cref="时间轴目录"/> 的说明）</summary>
+    private static string 选时间轴目录()
+    {
+        {
+            // ⚠️ **优先选"真的有可用时间轴"的目录**，而不是"第一个存在的"。
+            //
+            //    为什么不能只看"存在"或"有 .txt"：
+            //      · 候选里有大量**存在但是空的**目录
+            //        （cactbot 的 `user\raidboss` 默认就这样）
+            //      · 还有**有 txt 但不是时间轴**的
+            //        （实测：`cactbot-offline\ui\raidboss` 里那个 txt 是说明文件）
+            //    按这些选会选中没用的目录 → 索引 0 份，
+            //    而用户明明在别处放了时间轴 —— 很难排查。
+            //
+            //    判据是**内容**：文件里有没有 `ZoneId` 头
+            //    （cactbot 时间轴的标志，解析器也认它）。
+            //
+            //    三轮：
+            //      ① 有带 ZoneId 的时间轴 → 用它（这才是有用的那份）
+            //      ② 至少有 .txt        → 给用户一个"能填能放"的位置
+            //      ③ 只要求存在          → 兜底
+            string 有Txt = null;
+            string 第一个存在 = null;
+
             foreach (var 候选 in 候选目录())
             {
-                try { if (Directory.Exists(候选)) return 候选; } catch { }
+                try
+                {
+                    if (!Directory.Exists(候选)) continue;
+                    第一个存在 ??= 候选;
+
+                    var 有任意Txt = false;
+
+                    foreach (var 文件 in Directory.EnumerateFiles(候选, "*.txt", SearchOption.AllDirectories))
+                    {
+                        有任意Txt = true;
+
+                        // 只读开头几行找 ZoneId 头 —— 不整file读，省 IO
+                        if (看起来是时间轴(文件)) return 候选;
+                    }
+
+                    if (有任意Txt) 有Txt ??= 候选;
+                }
+                catch { }
             }
+
+            if (有Txt != null) return 有Txt;
+            if (第一个存在 != null) return 第一个存在;
 
             var 全部 = 候选目录().ToList();
             return 全部.Count > 0 ? 全部[0] : "Timelines";
         }
     }
-
     /// <summary>候选目录，按优先级排列</summary>
     private static IEnumerable<string> 候选目录()
     {
@@ -150,8 +213,176 @@ public static class TimelineManager
         foreach (var 候选 in 从设置目录反推())
             yield return 候选;
 
-        // 5) 当前目录下
+        // 5) ★ cactbot 的用户时间轴目录 ★
+        //    见 从cactbot反推() 的说明 —— 用的是**官方支持的** user 目录，
+        //    不碰编译好的 bundle.js。
+        foreach (var 候选 in 从cactbot反推())
+            yield return 候选;
+
+        // 6) 当前目录下
         yield return Path.Combine(".", "Timelines");
+    }
+
+    /// <summary>
+    /// 探测 cactbot 的时间轴目录。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么找 cactbot（用户要的联动）★
+    ///
+    ///    我们的时间轴格式**就是 cactbot 格式**
+    ///    （`# ZoneId: N` 头 + `-p` / `-ii` 指令），解析器本来就是照着它写的。
+    ///    所以指向 cactbot 的目录就能直接吃它的时间轴，**不用任何转换**。
+    ///
+    ///  ★ 只找 `user\raidboss`，**不碰 bundle.js** ★
+    ///
+    ///    新版 cactbot（v3+）把内置时间轴**编译进了 `raidboss.bundle.js`**
+    ///    （几百 KB 的 webpack 产物）。解析它：
+    ///      · 要逆向打包格式
+    ///      · 且**每个 cactbot 版本都可能变**
+    ///      · 属于"依赖内部实现"，随时会坏
+    ///    所以**不碰**。
+    ///
+    ///    改用 cactbot **官方支持**的 `user\raidboss\` ——
+    ///    用户可以把自己写的时间轴放那儿，**cactbot 和我们都能读**。
+    ///    这样：一份文件、两边共用、不依赖版本。
+    ///
+    ///  ── 怎么找到它 ──
+    ///    cactbot 装在 ACT 下（`<ACT>\Plugins\cactbot[-offline]\...`），
+    ///    而 ACT 和游戏通常同一个盘、相邻目录。
+    ///    所以从两个锚点出发找 `ACT` 目录：
+    ///      ① 设置目录往上的各级（AEAssist 根及其父级）
+    ///      ② 游戏目录的上一级
+    ///    找到 `ACT` 之后依次试 cactbot 的几种可能位置。
+    ///
+    ///  ⚠️ 全都找不到就安静跳过 —— 用户可以在设置里手动填
+    ///     （那个入口永远可用，是最终手段）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static IEnumerable<string> 从cactbot反推()
+    {
+        var 锚点 = new List<string>();
+
+        // 锚点①：设置目录往上的 4 级
+        try
+        {
+            var 当前 = Path.GetDirectoryName(HealSettings.当前文件路径);
+            for (var i = 0; i < 4 && !string.IsNullOrEmpty(当前); i++)
+            {
+                锚点.Add(当前);
+                当前 = Path.GetDirectoryName(当前);
+            }
+        }
+        catch { }
+
+        // 锚点②：游戏目录 / 当前工作目录
+        //
+        //   ⚠️ ACT 的层级可能**比游戏目录还高一级**：
+        //      实测布局  D:\FF14\最终幻想XIV\game   ← 游戏
+        //                D:\FF14\ACT               ← ACT 在更上面
+        //      而 AppContext.BaseDirectory 只到 `game`，
+        //      所以这里往上多取两级，否则找不到 ACT。
+        try
+        {
+            var 游戏 = AppContext.BaseDirectory;
+            if (!string.IsNullOrEmpty(游戏))
+            {
+                var p = 游戏.TrimEnd('\\', '/');
+                锚点.Add(p);
+                for (var i = 0; i < 3 && !string.IsNullOrEmpty(p); i++)
+                {
+                    p = Path.GetDirectoryName(p) ?? "";
+                    if (!string.IsNullOrEmpty(p)) 锚点.Add(p);
+                }
+            }
+        }
+        catch { }
+
+        // 锚点③：当前工作目录（AEAssist 启动时可能把工作目录设在游戏根，
+        //        那正好是 ACT 的兄弟目录）
+        try
+        {
+            var cwd = Directory.GetCurrentDirectory();
+            if (!string.IsNullOrEmpty(cwd)) 锚点.Add(cwd);
+        }
+        catch { }
+
+        var 已试 = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var 锚 in 锚点)
+        {
+            if (string.IsNullOrEmpty(锚)) continue;
+
+            // 在锚点本级和父级找 ACT 目录
+            foreach (var 基 in new[] { 锚, Path.GetDirectoryName(锚) ?? "" })
+            {
+                if (string.IsNullOrEmpty(基)) continue;
+
+                var act = Path.Combine(基, "ACT");
+                if (!已试.Add(act)) continue;
+                if (!SafeDirExists(act)) continue;
+
+                foreach (var p in Cactbot子路径(act))
+                {
+                    if (已试.Add(p)) yield return p;
+                }
+            }
+        }
+    }
+
+    /// <summary>给定 ACT 目录，列出 cactbot 的可能时间轴目录（按推荐顺序）</summary>
+    private static IEnumerable<string> Cactbot子路径(string act)
+    {
+        // ⚠️ 顺序有意义：**user\raidboss 排最前** ——
+        //    它是用户放自定义时间轴的地方，也是我们唯一"正式支持"的入口
+        //    （内置的那个在 bundle.js 里，解析不了）。
+        var cactbot们 = new[]
+        {
+            Path.Combine(act, "Plugins", "cactbot-offline"),
+            Path.Combine(act, "Plugins", "cactbot"),
+        };
+
+        foreach (var c in cactbot们)
+            yield return Path.Combine(c, "user", "raidboss");
+
+        // 旧版布局兜底（老 cactbot 把 txt 直接放在 ui\raidboss 下）
+        foreach (var c in cactbot们)
+            yield return Path.Combine(c, "ui", "raidboss");
+    }
+
+    private static bool SafeDirExists(string 路径)
+    {
+        try { return !string.IsNullOrEmpty(路径) && Directory.Exists(路径); }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// 这个文件**看起来**是 cactbot 时间轴吗 —— 只看开头几行有没有 `ZoneId` 头。
+    ///
+    /// ⚠️ 为什么不能只按扩展名判断：
+    ///    实测 `cactbot-offline\ui\raidboss\` 里的那个 txt 是**说明文件**，
+    ///    不是时间轴。只看 .txt 会选中这种没用的目录。
+    ///
+    /// ⚠️ 只读开头若干行（不整 file 读）—— 这个函数在"选目录"时会被调，
+    ///    目录里可能有很多文件，整读会很慢。
+    /// </summary>
+    private static bool 看起来是时间轴(string 文件)
+    {
+        try
+        {
+            using var reader = new StreamReader(文件, System.Text.Encoding.UTF8, true);
+
+            for (var i = 0; i < 15; i++)
+            {
+                var 行 = reader.ReadLine();
+                if (行 == null) break;
+
+                // cactbot 时间轴的标志行：`# ZoneId: 1195`
+                if (行.Contains("ZoneId", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+        }
+        catch { }
+
+        return false;
     }
 
     /// <summary>
@@ -188,6 +419,11 @@ public static class TimelineManager
         索引.Clear();
         当前地图 = 0;
         Runner.卸载();
+
+        // ★ 让目录缓存失效 ★
+        //   初始化 = "重新扫一遍"（用户点了重扫 / 改了目录设置 / 换本），
+        //   这时必须重新选目录 —— 否则改了设置还是用旧的缓存路径。
+        _目录缓存 = null;
 
         // 找不到时把**所有尝试过的路径**打出来（带存在与否），
 // 这样一眼就能看出该把 Timelines 放哪
