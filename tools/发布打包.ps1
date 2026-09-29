@@ -178,7 +178,12 @@ if (Test-Path "tools\TimelineProbe\TimelineProbe.csproj") {
 if (Test-Path "tools\PromptBudget.py") {
     $budgetOut = & $py "tools\PromptBudget.py" 2>&1
     $budgetText = ($budgetOut | Out-String)
-    if ($budgetText -match "占用率：\s*(\d+)%") {
+
+    # ⚠️ 只匹配 **ASCII 标记**（BUDGET_PERCENT=NN）。
+    #    第一版我匹配的是中文"占用率："—— PowerShell 按 GBK 去读
+    #    Python 的 UTF-8 输出，中文匹配不上，于是**静默跳过**了这条检查。
+    #    那看起来像"检查过了"，实际什么都没查 —— 比没有断言更糟。
+    if ($budgetText -match "BUDGET_PERCENT=(\d+)") {
         $占比 = [int]$Matches[1]
         if ($占比 -ge 95) {
             坏 "提示词预算占用 $占比%（>=95%）—— 随时会触发截断"
@@ -188,7 +193,10 @@ if (Test-Path "tools\PromptBudget.py") {
             好 "提示词预算占用 $占比%（有余量）"
         }
     } else {
-        提示 "PromptBudget 输出格式不符预期，跳过"
+        # 匹配不上就是**脚本坏了**，不能当"通过"放过去
+        坏 "PromptBudget 没有输出 BUDGET_PERCENT 标记 —— 断言无法执行"
+        提示 "要么工具坏了，要么发布脚本的正则过时了；必须修，不能跳过"
+        $失败 = $true
     }
 } else {
     提示 "没有 tools\PromptBudget.py，跳过"
