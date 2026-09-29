@@ -65,6 +65,12 @@ verify_*.py
 # 逆向中间产物（不该入库）——用通配符覆盖，不要写具体参考实现的名字
 *_full.txt
 
+# 官方权威数据表（用户从游戏数据导出的，本地保留即可，体积大且非本项目产物）
+#   Action.csv = 技能表 / Status.csv = 状态表 —— 放在工作区根目录或任意位置都忽略
+Action.csv
+Status.csv
+AEAssist*.md
+
 # 反汇编输出（15 MB，随时能用参考 dll 重新生成）
 .il/
 

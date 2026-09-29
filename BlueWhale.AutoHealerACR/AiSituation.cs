@@ -26,12 +26,41 @@ public static class AiSituation
         采自己(sb);
         采资源(sb);
         采队友(sb);
+        采必须奶满(sb);      // ★ 致死机制：必须放在队友之后、敌人之前 —— 它是最高优先信息
         采敌人(sb);
         采坦克压力(sb);
         采时间轴(sb);
         采可选技能(sb);
 
         return sb.ToString();
+    }
+
+    // ==================== 必须奶满（致死机制） ====================
+
+    /// <summary>
+    /// 采集「必须奶满」类机制。
+    ///
+    /// ⚠️ **必须明确告诉 AI"这不是按血线判断的"** ——
+    ///    否则它会按常识回"目标血量健康，不需要治疗"，
+    ///    而那正是这个机制最危险的地方（血看着健康，时间一到直接死）。
+    ///
+    /// 没有命中时**什么都不输出**（不留空段落污染提示词）。
+    /// </summary>
+    private static void 采必须奶满(StringBuilder sb)
+    {
+        try
+        {
+            var 文本 = 必须奶满.状态描述();
+            if (string.IsNullOrWhiteSpace(文本)) return;   // 没有就不占篇幅
+
+            sb.Append(文本);
+            sb.AppendLine();
+        }
+        catch (Exception e)
+        {
+            sb.AppendLine("（必须奶满机制读取失败：" + e.Message + "）");
+            sb.AppendLine();
+        }
     }
 
     // ==================== 副本 ====================

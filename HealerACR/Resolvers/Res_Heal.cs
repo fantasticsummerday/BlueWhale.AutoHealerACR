@@ -131,11 +131,33 @@ public class Res_HealSingleGcd : ISlotResolver
 
     public int Check()
     {
+        // 先算出"必须奶满"的那个人（没有就是 null）。
+        // ⚠️ Check 和 Build 都用这一个变量，保证判谁就放谁（开发约定 F③）。
+        var 奶满目标 = 必须奶满.找目标();
+
+        // ★ 木桩 / 开关仍然要尊重 —— 用户关掉治疗就该真的不治
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("单奶")) return -101;
         if (_t.单体治疗GCD == 0) return -102;
         if (!SpellUtil.已解锁(_t.单体治疗GCD)) return -2;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★★ 「必须奶满」机制 —— 优先级高于一切血线判断，且**绕过盾判断** ★★
+        //
+        //    这类 debuff 的解除条件是"把血奶到 100%"，
+        //    而**不是"血量低"** —— 所以绝对不能走下面的血线判断。
+        //    如果按血线走，一个 80% 血但中了「塞壬的歌声」的队友
+        //    会被判成"没事" → 效果结束 → 直接变僵尸。
+        //
+        //    ⚠️ 还必须**绕过下面那条"有盾就不再治"**：
+        //       盾不等于满血，状态照样解不掉。
+        //       所以这里直接 return，不走后面的盾判断。
+        // ══════════════════════════════════════════════════════════════
+        if (奶满目标 != null)
+        {
+            return 治疗量最大的单体() != 0 ? 30 : -1;
+        }
 
         // ⚠️ 先锁定"该奶谁"，再判断"这个人还需要奶吗" —— 顺序不能反。
         var target = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
@@ -165,8 +187,47 @@ public class Res_HealSingleGcd : ISlotResolver
         return SpellUtil.可用(_t.单体治疗GCD) ? 10 : -1;
     }
 
+    /// <summary>
+    /// 「必须奶满」时该用的单体治疗 —— 挑**治疗量最大**的那个。
+    ///
+    /// ⚠️ 不能直接用 <c>_t.单体治疗GCD</c>："最低级优先"是它给普通掉血用的，
+    ///    而中继发症状病时**每一秒都在倒计时**，需要用最高效的治疗尽快奶满。
+    ///
+    /// 白魔的候选顺序：**救疗(135) → 愈疗(131) → 治疗(120)**（治疗量从高到低）。
+    /// 其余职业目前只有单档单体 GCD 治疗，直接用表里的值。
+    ///
+    /// 拿不到任何候选时退回 <c>_t.单体治疗GCD</c>（宁可放一个弱治疗，也别不放）。
+    /// </summary>
+    private uint 治疗量最大的单体()
+    {
+        try
+        {
+            if (_t.Job == Jobs.WhiteMage)
+            {
+                var 最优 = SpellUtil.取已解锁(
+                    SpellIds.取("救疗"),
+                    SpellIds.取("愈疗"),
+                    SpellIds.取("治疗"));
+                if (最优 != 0) return 最优;
+            }
+        }
+        catch { }
+
+        return _t.单体治疗GCD;
+    }
+
     public void Build(Slot slot)
     {
+        // ⚠️ 必须和 Check 用**同一套**选目标逻辑（开发约定 F③）：
+        //    Check 判的是"必须奶满那个人"，Build 也得放同一个人，
+        //    否则就是"判 A 放 B" —— 那会让机制解不掉、人直接没了。
+        var 奶满目标 = 必须奶满.找目标();
+        if (奶满目标 != null)
+        {
+            slot.Add(new Spell(治疗量最大的单体(), 奶满目标));
+            return;
+        }
+
         var target = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
         if (target == null) return;
         slot.Add(new Spell(_t.单体治疗GCD, target));
