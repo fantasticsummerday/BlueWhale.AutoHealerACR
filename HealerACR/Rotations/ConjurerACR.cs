@@ -114,8 +114,11 @@ public class 幻术师RotationEntry : HealerEntryBase
             // ── 输出 ──
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),   // 幻术师没 AOE，会自己跳过
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
-            new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
+            // 移动填充兜底 —— 必须在 Res_BaseDamage **之后**：
+            // 破阵法（近战填充技）也是瞬发，应该由 Res_BaseDamage 优先选它，
+            // 放前面会把 GCD 抢成毁坏（实测过的问题）。
+            new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),
 
             // ── 能力技（减伤/资源）──
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),

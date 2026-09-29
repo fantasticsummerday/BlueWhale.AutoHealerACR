@@ -173,7 +173,12 @@ public class WHMRotationEntry : HealerEntryBase
             //   ⚠️ 必须在 Res_MoveGcd 之前（否则永远抢不到这个 GCD）
             //   ⚠️ 必须在 Res_Dot 之后（主目标的 DoT 优先级更高）
             new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
-            new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),            new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
+            // 基础输出：**必须排在 Res_MoveGcd 之前**。
+            // 破阵法（近战填充技）也是瞬发，该由它优先选；
+            // 排在移动填充之后会把 GCD 抢成毁坏（实测过的问题）。
+            new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
+            // 移动填充兜底：当 Res_BaseDamage 因为基础输出是读条技而让位时顶上。
+            new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
