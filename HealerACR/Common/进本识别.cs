@@ -44,21 +44,49 @@ public static class 进本识别
     /// </summary>
     public static Action? 进入副本;
 
-    /// <summary>上次检查时"在不在副本里"（边沿判据）</summary>
-    private static bool _上次在副本;
+    /// <summary>
+    /// 上次检查时的地图 ID（边沿判据）。
+    ///
+    /// ⚠️ 原来这里存的是 `bool _上次在副本` —— 那个判据**会漏**：
+    ///     · 副本 A 直接切副本 B（中间没有"不在副本"的状态）→ `true→true` → 漏
+    ///     · 优雷卡各岛之间来回（都是副本）→ 同样漏
+    ///     · 经过中转地图（房区→中转→副本）时边沿可能配不上 → 漏
+    ///     改成盯"地图 ID 变没变"就没有这些缺口了。
+    /// </summary>
+    private static uint _上次地图;
 
-    /// <summary>每帧调用一次 —— 只在"不在副本 → 在副本"的那一下通知</summary>
+    /// <summary>
+    /// 每帧调用一次 —— **地图 ID 一变就通知**（比原来的"在不在副本"判据更宽）。
+    ///
+    /// ⚠️ 调用点必须在**每帧都跑**的地方，不能挂在 `OnBattleUpdate`。
+    ///
+    ///    实测踩的坑：原来挂在 `OnBattleUpdate`，而框架 IL 证明
+    ///    `IRotationEventHandler.OnBattleUpdate` 只在 `BattleData.Update` 里被调，
+    ///    那条路**只有战斗循环会走**（`AILoop_Normal/PVP/Simulate`）。
+    ///
+    ///    结果：**进本那一刻是非战斗状态 → 这个方法从不执行** →
+    ///      · 时间轴没装 → 开怪时报「本场战斗没有加载时间轴」
+    ///      · AI 上下文没重建 → AI 以为还在上一个地图
+    ///
+    ///    现在它挂在 `SetUpdateAction`（每帧无条件）+ 仍在 `OnBattleUpdate`（战斗内），
+    ///    两边都会推它，所以什么状态都盖得住。
+    /// </summary>
     public static void 每帧检查()
     {
         try
         {
             var 地图 = TimelineManager.实时副本Id();
-            var 在副本 = 地图 != 0 && 地名.是副本(地图);
+            if (地图 == 0) return;               // 读不到 → 不当成"换图"
 
-            if (在副本 == _上次在副本) return;   // 没变化 → 不输出
-            _上次在副本 = 在副本;
+            // ★ 判据：**地图 ID 变了**（不是"在不在副本"）★
+            if (地图 == _上次地图) return;
 
-            if (!在副本) return;                 // 出本不通知（那是"离开"不是"识别"）
+            var 旧地图 = _上次地图;
+            _上次地图 = 地图;
+
+            // 不在副本表里的地图（房区 / 野外）也重建上下文 ——
+            // 至少要让它知道"现在在哪"，而不是继续用上一个地图的局面。
+            var 是副本 = 地名.是副本(地图);
 
             // ★ 第一步：**把时间轴装上**（不等开怪）★
             //
@@ -71,7 +99,13 @@ public static class 进本识别
             TimelineManager.现在加载();
 
             // ★ 第二步：输出"本地看到了什么"（日志兜底，不依赖 AI 层）★
-            LogHelper.Info($"[HealerACR] 进入副本：TerritoryType {地图}（{地名.解析(地图, 是副本: true)}）" +
+            var 前缀 = 旧地图 == 0
+                ? "进入地图"
+                : $"地图变化 {旧地图} -> {地图}";
+
+            LogHelper.Info($"[HealerACR] {前缀}：TerritoryType {地图}" +
+                           $"（{地名.解析(地图, 是副本: 是副本)}）" +
+                           $" | 是副本：{(是副本 ? "是" : "否")}" +
                            $" | 时间轴：{TimelineManager.状态摘要()}");
 
             // ★ 第三步：通知外层（重建 AI 上下文 + 打横幅）★
@@ -81,5 +115,5 @@ public static class 进本识别
     }
 
     /// <summary>重置边沿状态（换职业 / 重载时用）</summary>
-    public static void 重置() => _上次在副本 = false;
+    public static void 重置() => _上次地图 = 0;
 }
