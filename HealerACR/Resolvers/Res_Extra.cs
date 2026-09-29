@@ -30,7 +30,7 @@ public class SCH_WhisperingDawn : ISlotResolver
 
         var s = HealSettings.Instance;
         var 要求人数 = Math.Max(1, s.群奶最少人数 - 1);
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) < 要求人数) return -1;
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 17 : -1;
     }
@@ -125,7 +125,7 @@ public class AST_Horoscope : ISlotResolver
         //    没人需要治疗就等于空铺（还白搭一个 60 秒 CD）。
         var 阈值 = HealSettings.Instance.群体治疗阈值;
         var 要求人数 = Math.Max(1, HealSettings.Instance.群奶最少人数 - 1);
-        if (HealTargetHelper.低于阈值人数(阈值) < 要求人数) return -5;
+        if (HealTargetHelper.低于阈值人数(阈值, 20f) < 要求人数) return -5;
 
         // 已经铺过就不重复（buff id 通常和技能一致）
         if (Core.Me.有该技能的Buff(技能)) return -3;

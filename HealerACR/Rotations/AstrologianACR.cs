@@ -33,6 +33,18 @@ public class ASTSpellTable : JobSpellTable
     public override uint 群体治疗GCD => SpellUtil.取已解锁(
         SpellIds.取("阳星合相"), SpellIds.取("阳星相位"), SpellIds.取("阳星"));
     public override uint 紧急单奶 => SpellIds.取("先天禀赋");
+
+    /// <summary>
+    /// 天星交错：单体减伤/护盾，30 秒 CD —— **预铺类**（伤害来之前给）。
+    ///
+    /// ⚠️ 它原来只在 `Res_SingleMitigation` 里用（靠"伤害要来"触发），
+    ///    这里同时登记为预铺单奶能力技，让 `Res_InstantHealAbility` 在
+    ///    坦克掉血时也能主动交 —— 用户要求"优先用不读条的"。
+    /// </summary>
+    public override uint 预铺单奶能力技 => SpellIds.取("天星交错");
+
+    /// <summary>先天禀赋：瞬发、不读条的单体治疗（血量越低效果越强）。</summary>
+    public override uint 瞬发单奶能力技 => SpellIds.取("先天禀赋");
     public override uint 群体治疗能力技 => SpellIds.取("天星冲日");
     public override uint 团队减伤 => SpellIds.取("中间学派");
     public override uint 个人减伤 => SpellIds.取("擢升");
@@ -71,6 +83,12 @@ public class ASTRotationEntry : HealerEntryBase
             //   原来它排在所有治疗 GCD 之后 —— 场上有人被再生/医济抢走 GCD 时，
             //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
             new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
+            // ★ 预铺 / 瞬发治疗能力技 —— **必须在所有治疗 GCD 之前**。
+            //   用户实测报过“治疗应该优先能力技 / 不读条的技能”，
+            //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
+            //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
+            //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 吉星相位
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
@@ -408,7 +426,7 @@ public class AST_EarthlyStar : ISlotResolver
 
         // 没时间轴兜底：多人掉血就直接放
         var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) >= Math.Max(1, s.群奶最少人数 - 1))
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= Math.Max(1, s.群奶最少人数 - 1))
         {
             return SpellUtil.可用(技能) ? 6 : -1;
         }

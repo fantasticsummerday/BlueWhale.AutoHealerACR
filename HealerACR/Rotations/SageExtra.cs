@@ -111,7 +111,7 @@ public class SGE_Philosophia : ISlotResolver
 
         // 大招不能滥用 —— 门槛抬到"群体治疗阈值"以下的人数 ≥ 2
         var 阈值 = HealSettings.Instance.群体治疗阈值;
-        if (HealTargetHelper.低于阈值人数(阈值) < 2) return -4;
+        if (HealTargetHelper.低于阈值人数(阈值, 20f) < 2) return -4;
 
         if (低蓝停手()) return -5;
 

@@ -120,7 +120,7 @@ public class SCH_Accession : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 和普通群疗同一个门槛（它本身就是群疗的一种形态）
-        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值)
+        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值, 20f)
             < HealTargetHelper.群奶人数要求(2)) return -4;
 
         if (蓝量.低蓝停手()) return -5;

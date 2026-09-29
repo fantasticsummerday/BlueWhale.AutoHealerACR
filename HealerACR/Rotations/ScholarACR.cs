@@ -33,7 +33,21 @@ public class SCHSpellTable : JobSpellTable
 
     public override uint 单体治疗GCD => SpellUtil.取已解锁(SpellIds.取("鼓舞激励之策"), SpellIds.取("医术"));
     public override uint 群体治疗GCD => SpellIds.取("士气高扬之策");
-    public override uint 紧急单奶 => SpellUtil.取已解锁(SpellIds.取("深谋远虑之策"), SpellIds.取("生命活性法"));
+
+    // ⚠️ **绿帽不在这里** —— 它原先是 `取已解锁(深谋远虑之策, 生命活性法)`，
+    //    被当成"紧急单奶"，而急救判据是血 < 30%。
+    //    日志实证：坦克一直在 80%，于是**绿帽一次都没放过**
+    //    （那一场 61 次单盾 / 0 次绿帽）。
+    //    绿帽是 45 秒 CD 的**预铺**技能（挂上后目标掉到阈值自动触发治疗），
+    //    所以归到 `预铺单奶能力技`。详见 JobSpellTable 那一栏的说明。
+    public override uint 紧急单奶 => SpellIds.取("生命活性法");
+
+    /// <summary>绿帽：45 秒 CD 的预铺 —— 给坦克挂上，掉血时自动触发治疗。</summary>
+    public override uint 预铺单奶能力技 => SpellIds.取("深谋远虑之策");
+
+    /// <summary>生命活性法：不读条、能移动中用的单体治疗。</summary>
+    public override uint 瞬发单奶能力技 => SpellIds.取("生命活性法");
+
     public override uint 群体治疗能力技 => SpellIds.取("不屈不挠之策");
     public override uint 单体盾 => SpellIds.取("鼓舞激励之策");
     public override uint 团队减伤 => SpellIds.取("野战治疗阵");
@@ -165,6 +179,12 @@ public class SCHRotationEntry : HealerEntryBase
             //   原来它排在所有治疗 GCD 之后 —— 场上有人被再生/医济抢走 GCD 时，
             //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
             new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
+            // ★ 预铺 / 瞬发治疗能力技 —— **必须在所有治疗 GCD 之前**。
+            //   用户实测报过“治疗应该优先能力技 / 不读条的技能”，
+            //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
+            //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
+            //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Accession(), SlotMode.Gcd),                 // 降临之章（炽天附体期间）
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
@@ -273,7 +293,7 @@ public class SCH_FeyBlessing : ISlotResolver
         var s = HealSettings.Instance;
         // 小仙女技能是免费的，门槛比 GCD 群奶低一个人
         var 要求人数 = Math.Max(1, s.群奶最少人数 - 1);
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) < 要求人数) return -1;
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 18 : -1;
     }

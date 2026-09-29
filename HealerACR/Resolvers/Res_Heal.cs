@@ -268,7 +268,7 @@ public class Res_HealAoEGcd : ISlotResolver
         if (!SpellUtil.已解锁(_t.群体治疗GCD)) return -2;
 
         var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
 
         // ⚠️ **移动守卫**：群体治疗 GCD 基本都是读条的（阳星 / 医治 / 预后…），
         //    移动中硬读会一直被打断。

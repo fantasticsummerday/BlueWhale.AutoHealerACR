@@ -61,7 +61,21 @@ public class WHMSpellTable : JobSpellTable
     //
     //    ⇒ 常规急救先用**能攒充能的神名**；天赐祝福留给真正要命的时候
     //      （「必须奶满」机制走 `必须奶满.最该用的能力技`，那里直接取天赐，不受这里影响）。
+    /// <summary>
+    /// 常规急救 —— **优先神名**（60 秒 CD / 有充能，能攒两层）。
+    ///
+    /// 天赐祝福是"一次到满"的保命大（180 秒 CD），**不该当常规急救交**，
+    /// 它由 `预铺单奶能力技`/「必须奶满」那条路专门使用。
+    /// （历史上这里写反过：`取已解锁(天赐, 神名)` → 60 级后永远返回天赐，
+    ///   神名成死代码，且 180 秒 CD 被随手花掉。见 交接文档。）
+    /// </summary>
     public override uint 紧急单奶 => SpellUtil.取已解锁(SpellIds.取("神名"), SpellIds.取("天赐祝福"));
+
+    /// <summary>天赐祝福：一次到满的保命大（180 秒 CD），只由「必须奶满」那条路专门使用。</summary>
+    public override uint 预铺单奶能力技 => SpellUtil.取已解锁(SpellIds.取("水流幕"));
+
+    /// <summary>神名：瞬发、不读条的单体治疗。</summary>
+    public override uint 瞬发单奶能力技 => SpellUtil.取已解锁(SpellIds.取("神名"), SpellIds.取("天赐祝福"));
     public override uint 群体治疗能力技 => SpellIds.取("法令");
     public override bool 群体治疗能力技是输出型 => true;   // 法令要卡 CD
     public override uint 团队减伤 => SpellIds.取("节制");
@@ -108,6 +122,12 @@ public class WHMRotationEntry : HealerEntryBase
             //   原来它排在所有治疗 GCD 之后 —— 场上有人被再生/医济抢走 GCD 时，
             //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
             new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
+            // ★ 预铺 / 瞬发治疗能力技 —— **必须在所有治疗 GCD 之前**。
+            //   用户实测报过“治疗应该优先能力技 / 不读条的技能”，
+            //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
+            //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
+            //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 再生
             new SlotResolverData(new WHM_AfflatusRapture(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_AfflatusSolace(_spells), SlotMode.Gcd),
@@ -254,7 +274,7 @@ public class WHM_AfflatusRapture : ISlotResolver
         }
 
         var s = HealSettings.Instance;
-        var 需要群奶 = HealTargetHelper.低于阈值人数(s.群体治疗阈值) >= s.群奶最少人数;
+        var 需要群奶 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= s.群奶最少人数;
 
         // 百合满 3 颗 + 有两个以上人不在满血 → 顺手用群奶花掉（覆盖更划算）
         var 溢出可用 = JobApiHelper.百合 >= 3

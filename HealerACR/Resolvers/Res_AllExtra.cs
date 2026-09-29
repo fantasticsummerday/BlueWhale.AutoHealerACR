@@ -357,7 +357,7 @@ public class Res_GroupHoT : ISlotResolver
 
         // 兜底：多人掉血
         var 要求人数 = Math.Max(1, s.群奶最少人数 - 1);
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) < 要求人数) return -1;
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 8 : -1;
     }
@@ -682,7 +682,7 @@ public class Res_Emergency : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
 
         return SpellUtil.可用(技能) ? 10 : -1;
     }
@@ -765,6 +765,139 @@ public class Res_FreeCast : ISlotResolver
         if (spell == null) return;
         slot.Add(spell);
         上次开 = TimeHelper.Now();
+    }
+}
+
+/// <summary>
+/// **预铺类 / 瞬发类单体治疗能力技** —— 用户要求的"优先用不读条的"。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 解决什么（用户实测报的问题）★
+///
+///  用户原话："治疗应该优先能力技（或者说不用读条的技能），
+///             比如学者可以给 T 上绿帽而不是狂读单盾"
+///
+///  日志实证（他那一场学者）：
+///      鼓舞激励之策（单盾，**读条**）  61 次
+///      生命活性法（能力技）             6 次
+///      **深谋远虑之策（绿帽）           0 次**
+///
+///  ── 绿帽为什么是 0 ──
+///    它原来被塞在 `紧急单奶` 栏里，急救判据是血 < 30%（`紧急单奶阈值`）。
+///    日志里坦克一直在 80% → **永远不触发**。
+///    而绿帽是 45 秒 CD 的**预铺**技（挂上后目标掉到阈值自动触发治疗），
+///    设计用途就是"提前给"。**分类错了 → 等于这个技能不存在。**
+///
+///  ── 参考实现怎么做的（IL 直证）──
+///    学者的 resolver 列表顺序：
+///        13 不屈不挠之策（能力技）
+///        14 鼓舞激励之策（GCD 读条）   ← 单盾
+///        15 医术（GCD 读条）
+///        16 **深谋远虑之策（绿帽，能力技）**   ← 有独立 QT + 独立阈值
+///        18 生命活性法（能力技）
+///    即 **能力技有独立的 resolver 和独立的阈值**，而不是被塞进急救、
+///    共用"血 < 30%"这一条判据。
+///
+///  ── 这里的两层 ──
+///    ① `预铺单奶能力技`（绿帽 7434 / 水流幕 25861 / 天星交错 16556）
+///       → 打给**坦克**，坦克血线掉了就给。不占 GCD、不读条。
+///    ② `瞬发单奶能力技`（生命活性法 189 / 神名 3570 …）
+///       → 给血最低的人，**移动中尤其重要**（读条那个会被移动守卫挡掉）。
+///
+///  ⚠️ 两层必须分开：① 的价值在"**提前**"（伤害来之前给），
+///    ② 的价值在"**不读条**"（掉血了才给）。判据不同，混在一起会两头不讨好。
+///
+///  ⚠️ 这个 resolver 在决策队列里的位置**必须在 Res_HealSingleGcd 之前**
+///     —— 那才是"优先能力技"的实现方式（返回值不参与仲裁，位置才算）。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class Res_InstantHealAbility : ISlotResolver
+{
+    private readonly JobSpellTable _t;
+
+    public Res_InstantHealAbility(JobSpellTable t) => _t = t;
+
+    /// <summary>坦克低于这个血线就值得给预铺技（参考实现也是靠独立阈值，不共用急救那条）</summary>
+    private const float 预铺血线 = 0.85f;
+
+    /// <summary>选预铺目标：坦克优先，没坦克就退到血量最低的人</summary>
+    private IBattleChara? 预铺目标(uint 技能)
+    {
+        try
+        {
+            var 坦克 = HealTargetHelper.血量最低的坦克(预铺血线);
+            if (坦克 != null && !坦克.有该技能的Buff(技能) && !坦克.处于假死状态())
+                return 坦克;
+
+            // 没坦克（或坦克满血）时别浪费 —— 但不给满血的人铺
+            var 目标 = HealTargetHelper.最低血量队友(预铺血线);
+            if (目标 != null && !目标.有该技能的Buff(技能) && !目标.处于假死状态())
+                return 目标;
+
+            return null;
+        }
+        catch { return null; }
+    }
+
+    public int Check()
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+        if (!HealQt.GetQt("奶人")) return -100;
+        if (!HealQt.GetQt("单奶")) return -101;
+
+        // ── ① 预铺类 ──
+        var 预铺 = _t.预铺单奶能力技;
+        if (预铺 != 0 && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺) && 预铺目标(预铺) != null)
+        {
+            // ⚠️ 有人濒危时让路给急救（`Res_HealEmergency` 排在 OffGcd 趟，
+            //    这里只保证不跟"必须奶满/急救"抢目标）
+            if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
+                return 26;
+        }
+
+        // ── ② 瞬发类 ──
+        var 瞬发 = _t.瞬发单奶能力技;
+        if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
+        {
+            var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
+            if (目标 != null && !目标.处于假死状态() && 必须奶满.找目标() == null)
+                return 24;
+        }
+
+        return -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        // ⚠️ 必须和 Check 同源（开发约定 F③）：判谁就放谁，顺序也必须一致。
+
+        var 预铺 = _t.预铺单奶能力技;
+        if (预铺 != 0 && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺))
+        {
+            if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
+            {
+                var 目标 = 预铺目标(预铺);
+                if (目标 != null)
+                {
+                    var s = SpellUtil.当前形态(预铺);
+                    if (s != null) { slot.Add(new Spell(s.Id, 目标)); return; }
+                }
+            }
+        }
+
+        var 瞬发 = _t.瞬发单奶能力技;
+        if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
+        {
+            if (必须奶满.找目标() == null)
+            {
+                var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
+                if (目标 != null && !目标.处于假死状态())
+                {
+                    var s = SpellUtil.当前形态(瞬发);
+                    if (s != null) slot.Add(new Spell(s.Id, 目标));
+                }
+            }
+        }
     }
 }
 

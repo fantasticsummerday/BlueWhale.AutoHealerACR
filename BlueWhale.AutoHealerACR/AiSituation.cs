@@ -379,10 +379,31 @@ public static class AiSituation
         {
             sb.AppendLine("【职业资源】");
 
+            // ══════════════════════════════════════════════════════════
+            //  ⚠️⚠️ 必须**按当前职业**过滤，不能靠 `读得到()` 判断 ⚠️⚠️
+            //
+            //  用户实测发现：**白魔看到了小仙女、蛇胆、手牌、近战卡**。
+            //  AI 自己在回复里都吐槽了：
+            //    "职业资源显示小仙女、炽天使、妖精能量、蛇胆、毒刺、手牌、近战卡等，
+            //      是其他职业的资源混杂…可能初始化信息不准确"
+            //
+            //  ── 根因 ──
+            //    `JobApiHelper.读得到("以太")` 问的是
+            //    "**内存里能读到这个字段吗**" —— 而内存里**所有职业的资源字段都在**
+            //    （都是玩家对象的成员，只是当前职业用不到）。
+            //    所以这四个 if **全部为真**，于是每次都把四套资源全打出来。
+            //
+            //  ⇒ 判据换成"**当前职业是不是这个**"，用职业表里的 ID 比。
+            //    这样做还有个好处：读不到的字段不再输出**默认值 0**，
+            //    避免 AI 把"读不到"当成"真的是 0"。
+            // ══════════════════════════════════════════════════════════
+            uint 职业 = 0;
+            try { 职业 = Core.Me.ClassJob.RowId; } catch { }
+
             var 有 = false;
 
-            // 学者
-            if (JobApiHelper.读得到("以太"))
+            // 学者（28）/ 秘术师（26）
+            if (职业 == 职业表.学者 || 职业 == 26)
             {
                 sb.AppendLine($"以太（0-3）：{JobApiHelper.以太}");
                 sb.AppendLine($"小仙女在场：{(JobApiHelper.有小仙女 ? "是" : "否")}");
@@ -391,16 +412,16 @@ public static class AiSituation
                 有 = true;
             }
 
-            // 白魔
-            if (JobApiHelper.读得到("百合"))
+            // 白魔（24）/ 幻术师（6）
+            if (职业 == 职业表.白魔 || 职业 == 职业表.幻术师)
             {
                 sb.AppendLine($"百合（0-3）：{JobApiHelper.百合}");
                 sb.AppendLine($"血百合（0-3）：{JobApiHelper.血百合}");
                 有 = true;
             }
 
-            // 贤者
-            if (JobApiHelper.读得到("蛇胆"))
+            // 贤者（40）
+            if (职业 == 职业表.贤者)
             {
                 sb.AppendLine($"蛇胆（0-3）：{JobApiHelper.蛇胆}");
                 sb.AppendLine($"毒刺（0-3）：{JobApiHelper.毒刺}");
@@ -408,15 +429,23 @@ public static class AiSituation
                 有 = true;
             }
 
-            // 占星
-            if (JobApiHelper.读得到("手牌数"))
+            // 占星（33）
+            if (职业 == 职业表.占星)
             {
                 sb.AppendLine($"手牌数：{JobApiHelper.手牌数}");
                 sb.AppendLine($"有近战卡：{(JobApiHelper.有近战卡() ? "是" : "否")}");
                 有 = true;
             }
 
-            if (!有) sb.AppendLine("（当前职业没有可读的资源，或是别的职业）");
+            // ⚠️ 读不到职业时**明确说**，不要瞎猜也不要留空
+            if (职业 == 0)
+            {
+                sb.AppendLine("（读不到当前职业 ID —— 资源信息不可用，请按技能清单判断）");
+            }
+            else if (!有)
+            {
+                sb.AppendLine($"（当前职业 {职业} 不在四个奶妈里 / 没有可读资源）");
+            }
 
             sb.AppendLine();
         }

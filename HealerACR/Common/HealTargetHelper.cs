@@ -12,25 +12,67 @@ namespace HealerACR.Common;
 /// </summary>
 public static class HealTargetHelper
 {
-    /// <summary>按血量比例升序的、可以被治疗的队友</summary>
-    public static List<IBattleChara> 可治疗队友()
+    /// <summary>
+    /// 按血量比例升序的、可以被治疗的队友。
+    ///
+    /// ⚠️ 默认半径 30 米（单体治疗够用），但**群疗判断必须传技能真实半径** ——
+    ///    见 <see cref="低于阈值人数(float, float)"/> 的说明。
+    /// </summary>
+    public static List<IBattleChara> 可治疗队友(float 半径 = 30f)
     {
-        return PartyHelper.CastableAlliesWithin30
-            .Where(r => r.可以治())
-            .OrderBy(r => r.血量比例())
-            .ToList();
+        try
+        {
+            var 我 = Core.Me.Position;
+            var 源 = 半径 >= 30f
+                ? PartyHelper.CastableAlliesWithin30
+                : PartyHelper.CastableAlliesWithin30.Where(r =>
+                    {
+                        try { return Vector3.Distance(我, r.Position) <= 半径; }
+                        catch { return false; }
+                    });
+
+            return 源
+                .Where(r => r.可以治())
+                .OrderBy(r => r.血量比例())
+                .ToList();
+        }
+        catch
+        {
+            return new List<IBattleChara>();
+        }
     }
 
     /// <summary>血量最低、且低于阈值的队友；没有就是 null</summary>
-    public static IBattleChara? 最低血量队友(float 阈值)
+    public static IBattleChara? 最低血量队友(float 阈值, float 半径 = 30f)
     {
-        return 可治疗队友().FirstOrDefault(r => r.血量比例() <= 阈值);
+        return 可治疗队友(半径).FirstOrDefault(r => r.血量比例() <= 阈值);
     }
 
-    /// <summary>血量低于阈值的人数（判断值不值得群奶）</summary>
-    public static int 低于阈值人数(float 阈值)
+    /// <summary>
+    /// 血量低于阈值的人数（判断值不值得群奶）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 半径参数是**必须的** —— 用户实测报过"离小怪很远还在 AOE" ★
+    ///
+    ///  参考实现的计数函数是 `CountLowHpCastableAlliesInRange(阈值, 半径)`，
+    ///  调用时**按技能的真实半径传**（IL 直证）：
+    ///      白魔 医济/医治/愈疗  → **10 米**
+    ///      白魔 庇护所          → **20 米**
+    ///      学者 不屈/群盾/低语  → **20 米**
+    ///      占星 阳星/阳星合相   → **20 米**
+    ///  而且它内部 `if (range < 30f) 才查距离` —— 所以传 10/20 是**真的在筛**。
+    ///
+    ///  ⚠️ 我们原来写死用 `CastableAlliesWithin30`（一律 30 米）：
+    ///      结果 **30 米外有人掉血也算"够人数"** → 放群疗，
+    ///      而群疗实际只覆盖 10~20 米 → **那个人根本治不到**，
+    ///      还白占一个 GCD。这就是"离很远还在 AOE"的根因。
+    ///
+    ///  ⚠️ 默认值给 30 是为了兼容旧调用；**群疗路径一律要显式传技能半径**。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static int 低于阈值人数(float 阈值, float 半径 = 30f)
     {
-        return 可治疗队友().Count(r => r.血量比例() <= 阈值);
+        return 可治疗队友(半径).Count(r => r.血量比例() <= 阈值);
     }
 
     /// <summary>队伍里血量最低的人（不看阈值，给大加用）</summary>

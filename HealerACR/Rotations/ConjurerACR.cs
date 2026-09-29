@@ -95,6 +95,12 @@ public class 幻术师RotationEntry : HealerEntryBase
             //   原来它排在所有治疗 GCD 之后 —— 场上有人被再生/医济抢走 GCD 时，
             //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
             new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
+            // ★ 预铺 / 瞬发治疗能力技 —— **必须在所有治疗 GCD 之前**。
+            //   用户实测报过“治疗应该优先能力技 / 不读条的技能”，
+            //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
+            //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
+            //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),
 
             // ── 治疗（幻术师只有 GCD 治疗，没有百合/天赐那些能力技）──

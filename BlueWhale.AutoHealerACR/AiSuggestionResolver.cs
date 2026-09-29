@@ -132,6 +132,13 @@ public class AiSuggestionResolver : ISlotResolver
                 var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
                 var 目标 = HealTargetHelper.当前目标();
 
+                // ⚠️ 表可能为 null —— `取当前职业技能表()` 现在**会在查不到时返回 null**，
+                //    而不是退回"别的职业的表"（那会串职业，是个已修的真 bug）。
+                //
+                //    表为 null ⇒ 拿不到 `所有DotBuff` ⇒ `该补` 会退回**兜底间隔判断**
+                //    （`Dot补判.cs` 里 `所有DotBuff == null` 时走距离上次施放的时间）。
+                //    那个判断仍然安全（不会误放），只是不看 buff 剩余时间。
+                //    所以这里**不需要拦**，但也别把 `表?` 去掉 —— 去掉就会 NRE。
                 var 该补 = Dot补判.该补(
                     目标,
                     表?.所有DotBuff,

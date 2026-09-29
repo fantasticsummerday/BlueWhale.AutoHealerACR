@@ -1,6 +1,7 @@
 using AEAssist;
 using AEAssist.Extension;
 using AEAssist.Helper;
+using System.Text.RegularExpressions;
 
 namespace BlueWhale.AutoHealerACR;
 
@@ -115,6 +116,16 @@ public static class AiDecisionLayer
 
     /// <summary>AI 返回了但解析不出技能 ID 的行数（格式问题）</summary>
     public static int 解析失败次数 { get; private set; }
+
+    /// <summary>
+    /// 需要**归一化才解析出来**的行数（列表序号 / 引号 / 加粗之类的格式噪声）。
+    ///
+    /// 单列这个是为了区分两件事：
+    ///   · 解析失败 = AI 没给 `ID|理由`，要调**提示词**
+    ///   · 格式噪声 = 内容对了、外面裹了层壳，解析器能兜住，但提示词也该收紧
+    /// 混在一起看的话，会把"能兜住的"和"真丢了的"当成一回事。
+    /// </summary>
+    public static int 格式噪声次数 { get; private set; }
 
     /// <summary>因不在白名单被丢弃的条数（疑似幻觉）</summary>
     public static int 丢弃幻觉次数 { get; private set; }
@@ -523,6 +534,45 @@ public static class AiDecisionLayer
 
     // ==================== 解析 + 白名单 ====================
 
+    /// <summary>
+    /// 把一行"可能有格式噪声"的回复**归一化**成 `技能ID|理由`。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要做这个（日志实证）★
+    ///
+    ///   实测日志里出现过：`解析失败（批次 32）：『1. 25865|单体环境，用基础输出填充』`
+    ///   —— AI 的**内容完全正确**，只是前面多了个 `1. ` 序号，就被整条丢了。
+    ///
+    ///   同一个日志里还有更糟的：AI 说
+    ///      "或者考虑给T减伤？没有T减伤技能在列表里。野战治疗阵是团队减伤，但CD中（27.9）。"
+    ///   这句在日志里**连"解析失败"都没记**（因为不以数字开头、也不含竖线），
+    ///   等于**静默丢弃** —— 用户完全看不到 AI 其实考虑过减伤。
+    ///
+    ///  ── 原则 ──
+    ///    格式宽容、**语义严格**：
+    ///      · 归一化只去掉**列表标记 / 引号 / 空白**这类纯排版噪声
+    ///      · 归一化后仍然必须满足 `数字|理由`，内容一个字都不改
+    ///      · 真正不合格式的（纯散文），照旧计失败 —— 那样才能发现提示词在漂移
+    ///
+    ///  ⚠️ 归一化**改动过的**行要留日志：否则提示词格式约束失效了我们都不知道。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static string 归一化行(string 原始)
+    {
+        var s = 原始.Trim();
+
+        // ① 去掉 markdown 列表标记：`1. ` `1) ` `- ` `* ` `• ` `1、`
+        s = Regex.Replace(s, @"^\s*(?:[-*•]|\d+\s*[.)、:])\s*", "");
+
+        // ② 去掉包裹的引号 / 反引号 / 书名号（AI 爱把输出包起来）
+        s = s.Trim('`', '"', '\'', '「', '」', '『', '』', '“', '”');
+
+        // ③ 去掉 markdown 加粗标记（`**25859**|...`）
+        s = s.Replace("**", "");
+
+        return s.Trim();
+    }
+
     private static int 解析并填充(string 回复, int 批次 = 0)
     {
         var 条数 = 0;
@@ -535,7 +585,19 @@ public static class AiDecisionLayer
             {
                 if (条数 >= 每次请求步数) break;
 
-                var 段 = 原始行.Trim().Split('|', 2);
+                if (string.IsNullOrWhiteSpace(原始行)) continue;
+
+                var 归一 = 归一化行(原始行);
+
+                // 归一化改动了内容 → 记一笔（说明提示词的格式约束在漂移，
+                // 该去调提示词，而不是靠解析器一直兜着）
+                if (归一 != 原始行.Trim() && 归一.Length > 0)
+                {
+                    格式噪声次数++;
+                    Ai调试.调试($"格式噪声（批次 {批次}）：『{原始行.Trim()}』-> 『{归一}』");
+                }
+
+                var 段 = 归一.Split('|', 2);
                 if (段.Length == 0) continue;
 
                 if (!uint.TryParse(段[0].Trim(), out var id))
@@ -544,10 +606,7 @@ public static class AiDecisionLayer
                     //   原来直接 continue，统计上看不见 ——
                     //   而格式问题恰恰是提示词要调的最常见原因。
                     解析失败次数++;
-                    if (!string.IsNullOrWhiteSpace(原始行))
-                    {
-                        Ai调试.调试($"解析失败（批次 {批次}）：『{原始行.Trim()}』不是 `技能ID|理由` 格式");
-                    }
+                    Ai调试.调试($"解析失败（批次 {批次}）：『{原始行.Trim()}』不是 `技能ID|理由` 格式");
                     continue;
                 }
 
@@ -651,6 +710,7 @@ public static class AiDecisionLayer
         过期次数 = 0;
         排队过期条数 = 0;
         解析失败次数 = 0;
+        格式噪声次数 = 0;
         丢弃幻觉次数 = 0;
         清空丢弃条数 = 0;
         清空次数 = 0;
