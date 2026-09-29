@@ -281,19 +281,65 @@ public class Res_BaseDamage : ISlotResolver
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
         if (_t.有特殊输出形态) return -5;
 
-        var spell = SpellUtil.当前形态(_t.基础输出);
+        // ⚠️ 和 Build **同源**：同一个 `选填充技()`
+        var spell = 选填充技();
         // ⚠️ **移动守卫**：移动中不要放读条技能。
         //    不加这条的后果：读条被移动打断 → 下一帧再塞 → 再断，
         //    表现成"反复尝试读条"，GCD 全空转。
         //    挡住之后，瞬发技能（学者的毁坏 / 白魔的安慰之心…）自然轮到前面。
-        //    ⚠️ 用 当前形态 之后的 spell.Id —— 形态可能被游戏换掉。
+        //    ⚠️ 用 `选填充技()` 之后的 spell.Id —— 形态可能被游戏换掉。
         if (spell != null && !SpellUtil.移动中可用(spell.Id)) return -7;
         return spell != null && spell.IsReadyWithCanCast() ? 1 : -1;
     }
 
+    /// <summary>
+    /// **挑这一发打什么** —— 近距离时用「近战填充技」，否则用基础输出。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么 Check 和 Build 必须走同一个方法（开发约定 F③）★
+    ///
+    ///    如果 Check 判"该用破阵法"、Build 却 `Add(基础输出)`，
+    ///    结果就是**判 A 放 B** —— 白白多花 100 威力，而且日志上完全看不出来
+    ///    （技能确实放出去了，只是放错了那个）。
+    ///
+    ///  ── 判据 ──
+    ///    ① 这个职业有「近战填充技」（表里填了）
+    ///    ② 目标在 `近战填充距离` 内（远了打不到，硬放 = 空转一个 GCD）
+    ///    ③ 技能已解锁且当前形态可用（学者 82 级后自动升级成裂阵法）
+    ///
+    ///  ⚠️ 拿不到距离时**退回基础输出** —— 保守方向是"打得不最优"，
+    ///     而不是"空放一个打不到的技能"。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private Spell? 选填充技()
+    {
+        try
+        {
+            if (_t.近战填充技 != 0 && SpellUtil.已解锁(_t.近战填充技))
+            {
+                var 目标 = HealTargetHelper.当前目标();
+                if (目标 != null)
+                {
+                    var 距离 = Vector3.Distance(Core.Me.Position, 目标.Position);
+                    if (距离 <= _t.近战填充距离)
+                    {
+                        // `当前形态` 会自动升级（破阵法 → 裂阵法），
+                        // 和 `群体输出` 走同一套形态表
+                        var 近战 = SpellUtil.当前形态(_t.近战填充技);
+                        if (近战 != null && 近战.IsReadyWithCanCast()) return 近战;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return SpellUtil.当前形态(_t.基础输出);
+    }
+
     public void Build(Slot slot)
     {
-        var spell = SpellUtil.当前形态(_t.基础输出);
+        // ⚠️ 和 Check 同源
+        var spell = 选填充技();
         if (spell != null) slot.Add(spell);
     }
 }
