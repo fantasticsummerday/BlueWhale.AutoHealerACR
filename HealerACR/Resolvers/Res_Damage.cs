@@ -335,29 +335,73 @@ public class Res_BaseDamage : ISlotResolver
     ///     而不是"空放一个打不到的技能"。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    /// <summary>【临时诊断】选填充技的判据逐条结果，每 3 秒一条、最多 12 条</summary>
+    private static int _诊断次数;
+    private static long _上次诊断;
+
     private Spell? 选填充技()
     {
         try
         {
-            if (_t.近战填充技 != 0 && SpellUtil.已解锁(_t.近战填充技))
+            if (_t.近战填充技 != 0)
             {
+                var 已解锁 = SpellUtil.已解锁(_t.近战填充技);
                 var 目标 = 输出目标.选();
+                var 距离 = -1f;
                 if (目标 != null)
+                    距离 = Vector3.Distance(Core.Me.Position, 目标.Position);
+
+                if (已解锁 && 目标 != null && 距离 <= _t.近战填充距离)
                 {
-                    var 距离 = Vector3.Distance(Core.Me.Position, 目标.Position);
-                    if (距离 <= _t.近战填充距离)
+                    // `当前形态` 会自动升级（破阵法 → 裂阵法），
+                    // 和 `群体输出` 走同一套形态表
+                    var 近战 = SpellUtil.当前形态(_t.近战填充技);
+                    if (近战 != null && 近战.IsReadyWithCanCast())
                     {
-                        // `当前形态` 会自动升级（破阵法 → 裂阵法），
-                        // 和 `群体输出` 走同一套形态表
-                        var 近战 = SpellUtil.当前形态(_t.近战填充技);
-                        if (近战 != null && 近战.IsReadyWithCanCast()) return 近战;
+                        诊断(已解锁, 距离, 近战, "用近战填充技");
+                        return 近战;
                     }
+
+                    诊断(已解锁, 距离, 近战,
+                        "形态拿不到/不ready（近战=" + (近战?.Id.ToString() ?? "null") + "）");
+                }
+                else
+                {
+                    诊断(已解锁, 距离, null,
+                        !已解锁 ? "没解锁"
+                        : 目标 == null ? "没目标"
+                        : "距离超出（" + 距离.ToString("F2") + " > " + _t.近战填充距离.ToString("F1") + "）");
                 }
             }
         }
-        catch { }
+        catch (Exception e)
+        {
+            try { LogHelper.Info("[填充诊断] 异常：" + e.Message); } catch { }
+        }
 
         return SpellUtil.当前形态(_t.基础输出);
+    }
+
+    /// <summary>【临时诊断】</summary>
+    private void 诊断(bool 已解锁, float 距离, Spell? 近战, string 结论)
+    {
+        try
+        {
+            if (_诊断次数 >= 12) return;
+            var 现在 = TimeHelper.Now();
+            if (现在 - _上次诊断 < 3000) return;
+            _上次诊断 = 现在;
+            _诊断次数++;
+
+            LogHelper.Info(
+                $"[填充诊断] {_t.近战填充技} 解锁={已解锁} " +
+                $"距离={(距离 < 0 ? "无目标" : 距离.ToString("F2"))} " +
+                $"门槛={_t.近战填充距离:F1} " +
+                $"形态={(近战?.Id.ToString() ?? "null")} " +
+                $"可用={(近战?.IsReadyWithCanCast().ToString() ?? "-")} " +
+                $"｜ {结论}");
+        }
+        catch { }
     }
 
     public void Build(Slot slot)
