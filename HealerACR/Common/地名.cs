@@ -120,9 +120,68 @@ public static class 地名
         }
         catch (Exception e) { 比2 = "（异常：" + e.Message + "）"; }
 
-        // ★ 两个都失败 → 把**实际试过的路径**打出来（这是原来缺的那条信息）★
+        // ══════════════════════════════════════════════════════════
+        //  ③ **从设置目录反推** —— 这条**不依赖 `Assembly.Location`**
+        //
+        //  ⚠️ 为什么必须有它（实测）：
+        //     前两条在 Dalamud 里**都是空的** ——
+        //     日志原文：`程序集= ｜ BaseDirectory= ｜ 试过：? ／ ?`
+        //     ACR 是从内存加载的，`Assembly.Location` 返回空字符串。
+        //
+        //     而时间轴那边**早就有**这条推导（`TimelineManager.从设置目录反推()`），
+        //     所以时间轴一直能找到目录、地名一直找不到 ——
+        //     同一个插件里两个模块，一个能工作一个不能，差别就在这里。
+        //
+        //  推导链：
+        //     设置文件 <根>\Settings\Plugins\<作者>\奶妈设置_xxx.json
+        //     → 往上找若干层，每层试 ACR\BlueWhale\ 和 BlueWhale\
+        // ══════════════════════════════════════════════════════════
+        try
+        {
+            string? 作者目录 = null;
+            try { 作者目录 = Path.GetDirectoryName(HealSettings.当前文件路径); } catch { }
+
+            if (!string.IsNullOrWhiteSpace(作者目录))
+            {
+                // ⚠️ 用**程序集名**（BlueWhale）而不是硬编码 "HealerACR" ——
+                //    部署目录叫 BlueWhale，硬编码会一直猜错。
+                var 名字 = "BlueWhale";
+                try { 名字 = typeof(地名).Assembly.GetName().Name ?? 名字; } catch { }
+
+                var 当前 = 作者目录;
+                for (var i = 0; i < 5 && !string.IsNullOrWhiteSpace(当前); i++)
+                {
+                    foreach (var 候选 in new[]
+                             {
+                                 Path.Combine(当前, "ACR", 名字),
+                                 Path.Combine(当前, 名字),
+                                 Path.Combine(当前, "ACR", "BlueWhale"),
+                             })
+                    {
+                        try
+                        {
+                            if (File.Exists(Path.Combine(候选, "TerritoryNames.json")))
+                            {
+                                LogHelper.Info("[地名] 数据目录（从设置目录反推）：" + 候选);
+                                return 候选;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    当前 = Path.GetDirectoryName(当前);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[地名] 从设置目录反推失败：" + e.Message);
+        }
+
+        // ★ 三条都失败 → 把**实际试过的路径**打出来 ★
         LogHelper.Info($"[地名] 找不到数据目录 ｜ 程序集={程序集} ｜ BaseDirectory={基准} " +
-                       $"｜ 试过：{比1} ／ {比2}");
+                       $"｜ 试过：{比1} ／ {比2} ｜ 设置目录反推也失败" +
+                       "（本来还有内嵌兜底表，见 常见副本表）");
         return null;
     }
 
@@ -193,7 +252,24 @@ public static class 地名
         }
         catch { }
 
-        // ⚠️ 兜底照实说 —— 不要把 ID 伪装成名字
+        // ══════════════════════════════════════════════════════════
+        //  ★ 兜底①：**内嵌的常见副本表** ★
+        //
+        //  ⚠️ 顺序很重要：**先查内嵌表，再退化到 `区域#<id>`**。
+        //     外部文件读不到时（实测 `Assembly.Location` 是空串 → 文件找不到），
+        //     内嵌表就是唯一能给出**真名**的来源。
+        //
+        //     不给真名的后果不是"少个装饰" —— AI 收到的会是 `区域#1048`，
+        //     而那是个它无法理解的编号（这正是"AI 不知道在打什么本"的根因）。
+        // ══════════════════════════════════════════════════════════
+        try
+        {
+            var 兜底 = 常见副本表.查(territoryId);
+            if (!string.IsNullOrWhiteSpace(兜底)) return 兜底!;
+        }
+        catch { }
+
+        // ⚠️ 最后兜底照实说 —— 不要把 ID 伪装成名字
         return $"区域#{territoryId}";
     }
 
@@ -205,7 +281,11 @@ public static class 地名
         try
         {
             确保加载();
-            return _副本表?.ContainsKey(territoryId.ToString()) == true;
+            // ⚠️ 外部表说"是"就算 —— 但外部表**读不到时**要认内嵌表，
+            //    否则 `是副本()` 对所有地图返回 false（实测踩过这个坑）
+            if (_副本表?.ContainsKey(territoryId.ToString()) == true) return true;
+
+            return 常见副本表.查(territoryId) != null;
         }
         catch
         {
