@@ -1,0 +1,320 @@
+﻿<#
+.SYNOPSIS
+    发布打包脚本 —— 带**强制校验**，防止漏文件。
+
+.DESCRIPTION
+    ══════════════════════════════════════════════════════════════════
+     为什么要有这个脚本（用户要求："确保每次发布时时间轴已经打包进去了"）
+    ══════════════════════════════════════════════════════════════════
+
+     原来的打包是**手敲一长串命令**，而辅助文件靠"从上一个包复制"传来传去。
+     实测后果：cactbot 时间轴（310 份、3.6 MB）提取完之后，
+     **连续 10 个版本都没进包** —— 因为复制源是提取之前的老包，
+     而这个链条上没有任何一步会报错。
+
+     失败模式很隐蔽：包里确实有 `Timelines\` 目录（有 valigarmanda.txt），
+     所以"看起来没问题"，直到用户发现时间轴没生效。
+
+     ── 所以这个脚本的核心是**校验**，不是打包 ──
+     打包本身谁都会写；难的是**发现漏了**。
+     校验会明确要求：
+       · 时间轴份数 ≥ 阈值（默认 300）——  少一份就报错退出
+       · `Timelines\` 目录必须存在
+       · dll 的版本号 + revision 必须对得上
+
+.PARAMETER 主版本
+    HealerACR 的版本号（如 1.35.0）
+
+.PARAMETER BlueWhale版本
+    BlueWhale 的版本号（如 1.42.0）
+
+.PARAMETER 跳过校验
+    仅供调试用 —— 正常发布**不要**加这个开关
+
+.EXAMPLE
+    .\tools\发布打包.ps1 -HealerVer 1.35.0 -BlueVer 1.42.0
+#>
+
+param(
+    [Parameter(Mandatory = $true)][string]$HealerVer,
+    [Parameter(Mandatory = $true)][string]$BlueVer,
+    [switch]$SkipCheck
+)
+
+$ErrorActionPreference = "Stop"
+
+$仓库根 = Split-Path -Parent $PSScriptRoot
+Set-Location $仓库根
+
+# 时间轴最少份数 —— 低于这个数说明提取产物没同步/没生成
+$最少时间轴份数 = 300
+
+# ⚠️ 这些是时间轴目录里的**非时间轴**文件，计数时要排除。
+#    不排除的话计数会虚高，而"虚高"恰恰会掩盖真正的丢失。
+$非时间轴文件 = @("说明.txt", "授权说明.txt", "readme.txt")
+
+function 标题($t) { Write-Host ""; Write-Host "=== $t ===" -ForegroundColor Cyan }
+function 好($t)   { Write-Host "  OK  $t" -ForegroundColor Green }
+function 坏($t)   { Write-Host "  错误 $t" -ForegroundColor Red }
+function 提示($t) { Write-Host "      $t" -ForegroundColor DarkGray }
+
+# 统计时间轴份数（排除说明文件）
+function 数时间轴($目录) {
+    if (-not (Test-Path $目录)) { return -1 }
+    return @(Get-ChildItem $目录 -Recurse -File -Filter "*.txt" |
+             Where-Object { $非时间轴文件 -notcontains $_.Name }).Count
+}
+
+# 找**版本号最大**的旧包目录。
+#
+# ⚠️ 不能用 Sort-Object Name —— 那是**字符串**比较，
+#    `HealerACR-1.4.0` 会排在 `HealerACR-1.34.0` 后面（"4" > "3"），
+#    于是会选中很旧的包（实测差点选中 1.4.0）。
+function 最新旧包($release目录, $前缀) {
+    Get-ChildItem $release目录 -Directory -Filter "$前缀-*" |
+        ForEach-Object {
+            $v = $_.Name.Substring($前缀.Length + 1)
+            $parts = $v.Split(".")
+            $num = 0
+            if ($parts.Count -ge 3 -and
+                [int]::TryParse($parts[0], [ref]$num)) {
+                # 拼成可比较的数字：主*1000000 + 次*1000 + 修订
+                [pscustomobject]@{
+                    目录 = $_
+                    序 = [int]$parts[0] * 1000000 + [int]$parts[1] * 1000 + [int]$parts[2]
+                }
+            }
+        } |
+        Sort-Object 序 -Descending |
+        Select-Object -First 1
+}
+
+# ══════════════════════════════════════════════════════════════════
+标题 "① 前置检查：时间轴源目录"
+# ══════════════════════════════════════════════════════════════════
+
+$时间轴源 = Join-Path $仓库根 "cactbot_timelines"
+
+if (-not (Test-Path $时间轴源)) {
+    坏 "找不到 cactbot_timelines\"
+    提示 "先跑提取工具：python tools\CactbotTimelineDump.py"
+    exit 1
+}
+
+$源份数 = 数时间轴 $时间轴源
+提示 "cactbot_timelines\ 里 $源份数 份时间轴"
+
+if ($源份数 -lt $最少时间轴份数) {
+    坏 "时间轴份数不足：$源份数 < $最少时间轴份数"
+    提示 "要么提取没跑，要么 cactbot 更新后文件变少了 —— 先确认再发版"
+    exit 1
+}
+好 "源目录有 $源份数 份时间轴"
+
+# ══════════════════════════════════════════════════════════════════
+标题 "② 构建（--no-incremental，保证 revision 来自当前 HEAD）"
+# ══════════════════════════════════════════════════════════════════
+
+dotnet build "HealerACR\HealerACR.csproj" -c Release "-p:AEAssistAcrDir=$仓库根\build\ACR" --no-incremental |
+    Select-String -Pattern "error|已成功生成" | Select-Object -First 2 | ForEach-Object { 提示 $_ }
+dotnet build "BlueWhale.AutoHealerACR\BlueWhale.AutoHealerACR.csproj" -c Release --no-incremental |
+    Select-String -Pattern "error|已成功生成" | Select-Object -First 2 | ForEach-Object { 提示 $_ }
+
+# ══════════════════════════════════════════════════════════════════
+标题 "③ 组装包目录"
+# ══════════════════════════════════════════════════════════════════
+
+$H包 = Join-Path $仓库根 "release\HealerACR-$HealerVer"
+$B包 = Join-Path $仓库根 "release\BlueWhale-$BlueVer\BlueWhale"
+
+foreach ($d in @($H包, $B包)) {
+    if (Test-Path $d) { Remove-Item $d -Recurse -Force }
+    New-Item -ItemType Directory -Path $d -Force | Out-Null
+}
+
+# ── 辅助文件：**从仓库取**，不从旧包复制 ──
+#
+# ⚠️ 这一条是刻意的：旧做法"从上一个包复制"是 310 份时间轴丢失的**直接原因**
+#    （复制源在提取之前，而且链条上没人报错）。
+#    从仓库当前状态取，就不会有"上游过期"的问题。
+foreach ($pair in @(
+        @("HealerACR\README.md", "README.md"),
+        @("HealerACR\CHANGELOG.md", "CHANGELOG.md"),
+        @("HealerACR\开发约定.md", "开发约定.md"))) {
+    $src = Join-Path $仓库根 $pair[0]
+    if (Test-Path $src) {
+        Copy-Item $src (Join-Path $H包 $pair[1]) -Force
+        Copy-Item $src (Join-Path $B包 $pair[1]) -Force
+    } else { 提示 "缺 $($pair[0])（跳过）" }
+}
+
+$blueReadme = Join-Path $仓库根 "BlueWhale.AutoHealerACR\README.md"
+if (Test-Path $blueReadme) { Copy-Item $blueReadme (Join-Path $B包 "README.md") -Force }
+
+# ── 安装说明 / 逆向报告：优先用规范位置，其次才从旧包取 ──
+#
+# ⚠️ 为什么要有 `release\_support\`：
+#    这两个文件原来只在各版本包里传来传去（同一个"链条式复制"问题）——
+#    一旦某个包被覆盖坏，文件就丢了。
+#    实测：`HealerACR-1.34.0\` 里就没有 安装说明.txt（被旧打包脚本覆盖过）。
+#    所以固定存一份在 `release\_support\`，以它为**权威来源**。
+$支持目录 = Join-Path $仓库根 "release\_support"
+foreach ($f in @("安装说明.txt", "ActionEffect逆向报告.md")) {
+    $src = Join-Path $支持目录 $f
+    if (Test-Path $src) {
+        Copy-Item $src (Join-Path $H包 $f) -Force
+        Copy-Item $src (Join-Path $B包 $f) -Force
+        提示 "$f 来自 release\_support\"
+    } else {
+        提示 "缺 release\_support\$f"
+    }
+}
+
+# 兜底：规范位置没有就从最新旧包取
+if (-not (Test-Path (Join-Path $支持目录 "安装说明.txt"))) {
+    $旧 = 最新旧包 (Join-Path $仓库根 "release") "HealerACR"
+    if ($旧) {
+        $说明 = Join-Path $旧.目录.FullName "安装说明.txt"
+        if (Test-Path $说明) {
+            Copy-Item $说明 (Join-Path $H包 "安装说明.txt") -Force
+            Copy-Item $说明 (Join-Path $B包 "安装说明.txt") -Force
+            提示 "安装说明.txt 来自旧包 $($旧.目录.Name)"
+        }
+    }
+}
+
+# ── 时间轴：**显式复制**（不依赖任何链条）──
+#
+# ⚠️ 这里把 cactbot 时间轴放进 Timelines\cactbot\ 子目录，
+#    和仓库里那份 valigarmanda.txt 并存。
+$HTL = Join-Path $H包 "Timelines"
+$BTL = Join-Path $B包 "Timelines"
+New-Item -ItemType Directory -Path $HTL, $BTL -Force | Out-Null
+
+Copy-Item $时间轴源 (Join-Path $HTL "cactbot") -Recurse -Force
+Copy-Item $时间轴源 (Join-Path $BTL "cactbot") -Recurse -Force
+
+# 仓库里那份手动维护的时间轴也带上（如果有）
+$手动TL = Join-Path $仓库根 "release\_timelines"
+if (Test-Path $手动TL) {
+    Copy-Item (Join-Path $手动TL "*") $HTL -Recurse -Force
+    Copy-Item (Join-Path $手动TL "*") $BTL -Recurse -Force
+}
+
+# ── dll ──
+Copy-Item (Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.dll") $H包 -Force
+Copy-Item (Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.pdb") $H包 -Force
+Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.dll") $B包 -Force
+Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.pdb") $B包 -Force
+
+# 副本名表（记忆库用）
+$duty = Join-Path $仓库根 "DutyNames.json"
+if (Test-Path $duty) { Copy-Item $duty $B包 -Force }
+
+好 "包目录组装完成"
+
+# ══════════════════════════════════════════════════════════════════
+标题 "④ 校验包目录内容（打包前）"
+# ══════════════════════════════════════════════════════════════════
+
+$失败 = $false
+
+foreach ($pair in @(@($H包, "HealerACR"), @($B包, "BlueWhale"))) {
+    $dir, $名 = $pair
+
+    $tlDir = Join-Path $dir "Timelines"
+    if (-not (Test-Path $tlDir)) {
+        坏 "$名 ： 没有 Timelines\ 目录"
+        $失败 = $true
+        continue
+    }
+
+    $n = 数时间轴 $tlDir
+    if ($n -lt $最少时间轴份数) {
+        坏 "$名 ： Timelines 里只有 $n 份（要求 >= $最少时间轴份数）"
+        $失败 = $true
+    } else {
+        好 "$名 ： Timelines 有 $n 份"
+    }
+
+    if (-not (Test-Path (Join-Path $dir "$名.dll"))) {
+        坏 "$名 ： 没有 $名.dll"
+        $失败 = $true
+    }
+}
+
+if ($失败 -and -not $SkipCheck) {
+    坏 "校验不通过 —— **不要发布**。修好上面的问题再跑一次。"
+    exit 1
+}
+
+# ══════════════════════════════════════════════════════════════════
+标题 "⑤ 打 zip"
+# ══════════════════════════════════════════════════════════════════
+
+$Hzip = Join-Path $仓库根 "release\HealerACR-$HealerVer.zip"
+$Bzip = Join-Path $仓库根 "release\BlueWhale-$BlueVer.zip"
+foreach ($z in @($Hzip, $Bzip)) { if (Test-Path $z) { Remove-Item $z -Force } }
+
+Compress-Archive -Path (Join-Path $H包 "*") -DestinationPath $Hzip -Force
+Compress-Archive -Path (Join-Path $仓库根 "release\BlueWhale-$BlueVer\*") -DestinationPath $Bzip -Force
+
+# ══════════════════════════════════════════════════════════════════
+标题 "⑥ 校验 zip 内容（打包后 —— 这一步最容易发现问题）"
+# ══════════════════════════════════════════════════════════════════
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+foreach ($pair in @(@($Hzip, "HealerACR", "Timelines"), @($Bzip, "BlueWhale", "BlueWhale/Timelines"))) {
+    $zip, $名, $前缀 = $pair
+
+    if (-not (Test-Path $zip)) { 坏 "$名 ： zip 没生成"; continue }
+
+    $z = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+    try {
+        # ⚠️ zip 条目里的路径分隔符是**反斜杠**（`Timelines\cactbot\...`）——
+        #    Compress-Archive 在 Windows 上就这么写。
+        #    所以匹配前必须**统一成正斜杠**：
+        #    直接用 `-like "*Timelines/*"` 会 0 命中。
+        #    （实测踩过：包明明是对的，校验却报"只有 0 份"，
+        #      差点跑去改好好的打包逻辑。）
+        $tl = @($z.Entries | Where-Object {
+            $p = $_.FullName.Replace("\", "/")
+            $p -like "*$前缀/*" -and $p -like "*.txt" -and
+            $非时间轴文件 -notcontains [System.IO.Path]::GetFileName($p)
+        })
+        $大小MB = (Get-Item $zip).Length / 1MB
+
+        if ($tl.Count -lt $最少时间轴份数) {
+            坏 "$名 ： zip 里 Timelines 只有 $($tl.Count) 份（要求 >= $最少时间轴份数）"
+            $失败 = $true
+        } else {
+            好 "$名 ： zip 里有 $($tl.Count) 份时间轴，包大小 $([Math]::Round($大小MB,2)) MB"
+        }
+
+        # dll 的版本 + revision
+        $dllEntry = $z.Entries | Where-Object { $_.FullName -like "*$名.dll" } | Select-Object -First 1
+        if ($dllEntry) {
+            $head = (git rev-parse HEAD).Trim()
+            $short = $head.Substring(0, 7)
+            $tmp = Join-Path $env:TEMP "relcheck_$名.dll"
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($dllEntry, $tmp, $true)
+            $v = (Get-Item $tmp).VersionInfo.ProductVersion
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+
+            if ($v -match [regex]::Escape($short)) { 好 "$名 ： 版本 $v（revision 对得上）" }
+            else { 坏 "$名 ： 版本 $v 的 revision 对不上当前 HEAD（$short）"; $失败 = $true }
+        }
+    } finally { $z.Dispose() }
+}
+
+Write-Host ""
+if ($失败) {
+    坏 "校验不通过 —— **不要发布**"
+    exit 1
+}
+好 "全部校验通过，可以发布"
+Write-Host ""
+提示 "下一步（手动）："
+提示 "  git push origin master"
+提示 "  把 release\HealerACR-$HealerVer.zip 与 release\BlueWhale-$BlueVer.zip 分发"
