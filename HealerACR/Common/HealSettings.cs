@@ -363,6 +363,15 @@ public class HealSettings
 
     /// <summary>主题界面的 UI 缩放系数（0.8 ~ 1.6）</summary>
     public float 界面缩放 = 1f;
+
+    /// <summary>
+    /// **面板背景图的透明度**（0 ~ 1）。
+    ///
+    /// ⚠️ 默认 **0.30** —— 它是**背景**，不能压过文字。
+    ///     调到 0.5 以上就会开始影响读小字（尤其是淡灰的说明文字）。
+    ///     调到 0 等于关掉背景。
+    /// </summary>
+    public float 背景透明度 = 0.30f;
     public string 复活喊话频道 = "/p ";
     public List<string> 复活喊话 = new() { "制作\"<t>\"成功！" };
 

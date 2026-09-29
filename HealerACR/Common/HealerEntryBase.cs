@@ -760,6 +760,10 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Spacing();
             ImGui.SliderFloat("界面缩放", ref s.界面缩放, 0.8f, 1.6f, "%.2f");
             ImGui.TextDisabled("  字太小或太大时调这个（只缩放布局，不模糊字体）。");
+
+            ImGui.Spacing();
+            ImGui.SliderFloat("背景透明度", ref s.背景透明度, 0f, 1f, "%.2f");
+            ImGui.TextDisabled("  背景小鲸鱼立绘的淡淡程度，0 = 关掉。太高会影响读小字。");
         }
 
         if (ImGui.CollapsingHeader("其他"))

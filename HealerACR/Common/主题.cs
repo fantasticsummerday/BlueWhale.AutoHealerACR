@@ -176,6 +176,167 @@ public static class 主题
         catch { return 0xFFFFFFFF; }
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 面板背景图（小鲸鱼立绘，透明 + 模糊）★
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>背景图文件名（和 dll 放一起）</summary>
+    public const string 背景文件名 = "WhaleBgBlur.png";
+
+    /// <summary>背景透明度（0~1）。**要低** —— 它是背景，不能压过文字</summary>
+    public static float 背景透明 = 0.30f;
+
+    /// <summary>是否启用背景图</summary>
+    public static bool 背景开关 = true;
+
+    private static Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap? _背景贴图;
+    private static bool _背景试过了;
+
+    /// <summary>
+    /// **加载背景贴图**（只试一次）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么用"缩小再放大"当模糊 ★
+    ///
+    ///    ImGui 的 `AddImage` **没有模糊参数** —— 它只会把贴图按矩形拉伸。
+    ///
+    ///    真做高斯模糊的三个办法都不划算：
+    ///      · 自己写 shader        —— 插件里拿不到 ImGui 的 shader 接口
+    ///      · 每帧偏移叠加画 N 次  —— 20+ 次 draw call，每帧都跑
+    ///      · 运行时算一遍像素     —— 550x550 要几十毫秒，会卡帧
+    ///
+    ///    ⇒ **把模糊在离线做掉**（`WhaleBgBlur.png` 是 40x40，2.5KB）：
+    ///      40x40 放大到 600px 本身就是一次巨大的双线性插值 = 天然的模糊，
+    ///      再叠上离线的高斯，边缘完全化开。
+    ///      **每帧零计算，一次 draw call。**
+    ///
+    ///  ⚠️ 找不到文件时**静默跳过** —— 背景是装饰，
+    ///     不该因为它缺了就让面板画不出来。但打一行日志，
+    ///     免得用户以为"开关坏了"。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static void 确保背景()
+    {
+        if (_背景试过了) return;
+        _背景试过了 = true;
+
+        if (!背景开关) return;
+
+        try
+        {
+            var 目录 = 找资源目录();
+            if (目录 == null)
+            {
+                LogHelper.Info("[主题] 找不到插件目录，背景图跳过");
+                return;
+            }
+
+            var 路径 = Path.Combine(目录, 背景文件名);
+            if (!File.Exists(路径))
+            {
+                LogHelper.Info($"[主题] 没有背景图，用纯色底板（应有：{路径}）");
+                return;
+            }
+
+            // ⚠️ 用 Dalamud 的贴图服务，不要自己解析 PNG ——
+            //    解码、缓存、显存上传它都做好了。
+            //    测试确认 `Core.Resolve<ITextureProvider>()` 能拿到。
+            var 服务 = Core.Resolve<Dalamud.Plugin.Services.ITextureProvider>();
+            if (服务 == null) return;
+
+            var 共享 = 服务.GetFromFileAbsolute(路径);
+            _背景贴图 = 共享?.GetWrapOrEmpty();
+
+            LogHelper.Info("[主题] 背景图已加载：" + 背景文件名);
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[主题] 背景图加载失败（用纯色底板）：" + e.Message);
+        }
+    }
+
+    /// <summary>
+    /// 找插件自己的目录 —— 多候选，逐个试。
+    ///
+    /// ⚠️ 不能只用 `AppContext.BaseDirectory`（这个坑在"地名"那里踩过）：
+    ///    它在某些宿主下不指向插件目录，结果文件永远找不到，而且**一声不响**。
+    /// </summary>
+    private static string? 找资源目录()
+    {
+        try
+        {
+            var 程序集 = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrWhiteSpace(程序集))
+            {
+                var d = Path.GetDirectoryName(程序集);
+                if (!string.IsNullOrWhiteSpace(d) && File.Exists(Path.Combine(d, 背景文件名)))
+                    return d;
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (File.Exists(Path.Combine(AppContext.BaseDirectory, 背景文件名)))
+                return AppContext.BaseDirectory;
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>
+    /// **画背景图** —— 铺满给定矩形，按"填充"缩放并居中裁切。
+    ///
+    /// 调用点：`小鲸鱼面板.画底板()`（在底板之上、内容之下）。
+    ///
+    /// ⚠️ 用"填充 + 居中"而不是"拉伸"：
+    ///     拉伸会改宽高比，人脸会被拉扁 —— 一眼就难看。
+    ///     填充是"保证铺满、多出来的裁掉"，永远不会变形。
+    /// </summary>
+    public static void 画背景(Vector2 左上, Vector2 右下)
+    {
+        if (!背景开关) return;
+
+        try
+        {
+            确保背景();
+            if (_背景贴图 == null) return;
+
+            var 贴图宽 = (float)_背景贴图.Width;
+            var 贴图高 = (float)_背景贴图.Height;
+            if (贴图宽 <= 0 || 贴图高 <= 0) return;
+
+            var 框宽 = 右下.X - 左上.X;
+            var 框高 = 右下.Y - 左上.Y;
+            if (框宽 <= 1f || 框高 <= 1f) return;
+
+            // ── 填充：取较大的缩放比，保证两个方向都盖满 ──
+            var 比 = Math.Max(框宽 / 贴图宽, 框高 / 贴图高);
+            var 画宽 = 贴图宽 * 比;
+            var 画高 = 贴图高 * 比;
+
+            // ── 居中：多出来的部分平均分到两边（被窗口边缘裁掉）──
+            var x0 = 左上.X - (画宽 - 框宽) * 0.5f;
+            var y0 = 左上.Y - (画高 - 框高) * 0.5f;
+
+            var 绘制 = ImGui.GetWindowDrawList();
+            var 色 = new Vector4(1f, 1f, 1f, Math.Clamp(背景透明, 0f, 1f));
+
+            // ⚠️ 用 `IDalamudTextureWrap.Handle` —— 它的类型**就是** `ImTextureID`，
+            //    直接能传给 `AddImage`，不需要任何转换。
+            //    （属性名不是 `ImGuiHandle`，那是另一个版本的叫法。）
+            绘制.AddImage(
+                _背景贴图.Handle,
+                new Vector2(x0, y0),
+                new Vector2(x0 + 画宽, y0 + 画高),
+                Vector2.Zero, Vector2.One,
+                转U32(色));
+        }
+        catch { }
+    }
+
+
     /// <summary>
     /// **把整套配色推给 ImGui** —— 在 `Begin` 之后、画内容之前调。
     ///
@@ -254,4 +415,5 @@ public static class 主题
         }
         catch { }
     }
+
 }

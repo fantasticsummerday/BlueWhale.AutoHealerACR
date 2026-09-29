@@ -67,6 +67,19 @@ public sealed class 界面控制器 : IRotationUI
         if (_保存 != null)
             _主窗口.标题栏按钮.Add(("保存设置", () => { try { _保存(); } catch { } }));
 
+        // ★ 顶部常驻控件：启动 / 停手 ★
+        //
+        //  ⚠️ 这两个**必须自己做** ——
+        //     它们原来画在框架主窗口里，而 `IsCustomMain()` 返回 true 时
+        //     框架**不画主窗口** → 启动/停手就跟着消失了。
+        //
+        //  状态存在框架的 `AEAssist.Share` 里（public 静态字段，可读可写）：
+        //     `Share.Pull`         —— 启动（开怪）
+        //     `Share.TrustStopACR` —— 停手
+        //  ⇒ 直接读写它们 = **和框架共用同一个状态**，
+        //     不会出现"面板说停手了、实际还在打"这种两个真相。
+        _主窗口.顶部控件 = 画启动停手;
+
         // 反射取框架的 qtWindow（用于把 QT 面板按原样画出来）
         try
         {
@@ -118,6 +131,10 @@ public sealed class 界面控制器 : IRotationUI
         {
             // 缩放跟着设置走（每帧取，改了立刻生效）
             try { 主题.用户缩放 = Math.Clamp(HealSettings.Instance.界面缩放, 0.8f, 1.6f); }
+            catch { }
+
+            // 背景透明度也跟着设置走（改了立刻生效）
+            try { 主题.背景透明 = Math.Clamp(HealSettings.Instance.背景透明度, 0f, 1f); }
             catch { }
 
             if (!用主题)
@@ -190,6 +207,129 @@ public sealed class 界面控制器 : IRotationUI
         catch (Exception e)
         {
             try { ImGui.TextColored(主题.危险, "设置绘制异常：" + e.Message); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// **启动 / 停手** —— 找回框架主窗口里那两个按钮。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么状态用 `Share` 而不是自己存 ★
+    ///
+    ///    `AEAssist.Share.Pull` / `TrustStopACR` 是框架的 **public 静态字段** ——
+    ///    框架自己的主窗口、快捷键、IPC、时间轴动作**全都读写这两个字段**。
+    ///
+    ///    如果我们在自己这边再存一份 `bool _已启动`，会出现：
+    ///      · 用户按快捷键启动 → 框架改了 Share，我们的 bool 还是 false
+    ///        → 面板显示"未启动"，但实际在打
+    ///      · 用户按我们的按钮 → 只改了我们的 bool，框架不知道
+    ///        → 点了没反应
+    ///
+    ///    ⇒ **直接读写 Share**，只有一个真相。
+    ///
+    ///  ⚠️ 按钮文案带状态（"启动"/"已启动"）而不是做成 toggle 外观 ——
+    ///     这是**战斗中的关键开关**，一眼能看出当前状态比好看重要。
+    ///     用颜色区分：未启用=灰、已启用=绿。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private void 画启动停手()
+    {
+        try
+        {
+            var 缩放 = 主题.缩放();
+
+            // ── 启动 / 停止 ──
+            bool 启动中;
+            try { 启动中 = AEAssist.Share.Pull; } catch { 启动中 = false; }
+
+            var 启动色 = 启动中 ? 主题.成功 : 主题.卡片悬停;
+            if (画状态按钮(启动中 ? "已启动" : "启 动", 启动色, 90f * 缩放))
+            {
+                try { AEAssist.Share.Pull = !启动中; } catch { }
+            }
+
+            ImGui.SameLine(0, 8f * 缩放);
+
+            // ── 停手 ──
+            bool 停手中;
+            try { 停手中 = AEAssist.Share.TrustStopACR; } catch { 停手中 = false; }
+
+            var 停手色 = 停手中 ? 主题.危险 : 主题.卡片悬停;
+            if (画状态按钮(停手中 ? "已停手" : "停 手", 停手色, 90f * 缩放))
+            {
+                try { AEAssist.Share.TrustStopACR = !停手中; } catch { }
+            }
+
+            // ── 右边补一句状态说明 ──
+            //
+            //  ⚠️ 为什么要有文字说明：这两个开关**决定了 ACR 动不动**，
+            //     但按钮本身只能表达"开/关"。加一句白话，
+            //     让"为什么它不动"一眼可查。
+            ImGui.SameLine(0, 12f * 缩放);
+            try
+            {
+                var 说明 = 停手中 ? "ACR 已停手（不会出手）"
+                         : 启动中 ? "运行中"
+                         : "未启动（需点启动）";
+                ImGui.TextColored(主题.文字弱, 说明);
+            }
+            catch { }
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 画一个**带状态底色**的按钮。
+    ///
+    /// ⚠️ 不用 `ImGui.PushStyleColor(Button, ...)` 包一层再 Button ——
+    ///     那样要推弹 3 个颜色 × 2 个按钮 = 12 次调用，还容易漏弹。
+    ///     这里用一个 `InvisibleButton` + 自绘外观，和标题栏按钮同一套做法。
+    /// </summary>
+    /// <returns>是否被点击</returns>
+    private static bool 画状态按钮(string 文本, System.Numerics.Vector4 底色, float 宽)
+    {
+        try
+        {
+            var 缩放 = 主题.缩放();
+            var 高 = ImGui.GetFrameHeight();
+            var 起点 = ImGui.GetCursorScreenPos();
+
+            var 命中 = ImGui.InvisibleButton("##btn" + 文本, new System.Numerics.Vector2(宽, 高));
+            var 悬停 = ImGui.IsItemHovered();
+
+            var 绘制 = ImGui.GetWindowDrawList();
+            var 左上 = 起点;
+            var 右下 = new System.Numerics.Vector2(起点.X + 宽, 起点.Y + 高);
+
+            // 底色（悬停时提亮一点，给点击反馈）
+            var 实际 = 悬停
+                ? new System.Numerics.Vector4(
+                    Math.Min(1f, 底色.X + 0.12f),
+                    Math.Min(1f, 底色.Y + 0.12f),
+                    Math.Min(1f, 底色.Z + 0.12f),
+                    底色.W)
+                : 底色;
+
+            绘制.AddRectFilled(左上, 右下,
+                ImGui.ColorConvertFloat4ToU32(实际), 主题.圆角);
+
+            // 描边（让灰底按钮在深色背景上也看得见轮廓）
+            绘制.AddRect(左上, 右下, ImGui.ColorConvertFloat4ToU32(主题.边框),
+                         主题.圆角, ImDrawFlags.None, 1f);
+
+            // 文字居中
+            var 文字尺寸 = ImGui.CalcTextSize(文本);
+            var 文字位 = new System.Numerics.Vector2(
+                起点.X + (宽 - 文字尺寸.X) * 0.5f,
+                起点.Y + (高 - 文字尺寸.Y) * 0.5f);
+
+            绘制.AddText(文字位, ImGui.ColorConvertFloat4ToU32(主题.文字强), 文本);
+
+            return 命中;
+        }
+        catch
+        {
+            return false;
         }
     }
 

@@ -305,6 +305,18 @@ foreach ($n in @("TerritoryNames.json", "TerritoryPlaces.json")) {
     else { 坏 "缺少 $n（先跑 tools\TerritoryDump 生成）" }
 }
 
+# 主题面板的背景图
+#
+# ⚠️ 两份都要：
+#     · WhaleBgBlur.png —— 40x40 的**模糊版**，实际用的就是它（2.5KB）
+#     · WhaleBg.png     —— 550x550 原图，留着以后要用清晰版
+#   缺了同样不报错，只是面板没有背景（会打一行日志）。
+foreach ($n in @("WhaleBgBlur.png", "WhaleBg.png")) {
+    $f = Join-Path $仓库根 $n
+    if (Test-Path $f) { Copy-Item $f $B包 -Force }
+    else { 坏 "缺少 $n（主题面板背景图）" }
+}
+
 好 "包目录组装完成"
 
 # ══════════════════════════════════════════════════════════════════
@@ -343,7 +355,7 @@ foreach ($pair in @(@($H包, "HealerACR"), @($B包, "BlueWhale"))) {
 #    插件读不到时会静默退化（副本名变成 `区域#979` 这种"看起来像名字的 ID"）。
 #    用户实测踩过一次（站在雪都房区显示了完全错误的副本名），
 #    所以这里挡住，不让这种退化静默发出去。
-foreach ($n in @("DutyNames.json", "TerritoryNames.json", "TerritoryPlaces.json")) {
+foreach ($n in @("DutyNames.json", "TerritoryNames.json", "TerritoryPlaces.json", "WhaleBgBlur.png")) {
     $f = Join-Path $B包 $n
     if (-not (Test-Path $f)) {
         坏 "BlueWhale ： 包里缺 $n（副本名/地名会静默退化）"
