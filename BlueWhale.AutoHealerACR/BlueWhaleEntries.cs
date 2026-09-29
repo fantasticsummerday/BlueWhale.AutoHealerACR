@@ -76,6 +76,21 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
             LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
+        // ★ 启动 AI 初始化 ★
+        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
+        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
+        Ai初始化.开始();
+
+        // 把「解除熔断」这个 QT 开关接到实际动作上
+        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
+        HealerACR.Common.HealQt.解除熔断请求 = () =>
+        {
+            DeepSeekClient.解除熔断();
+            Ai初始化.重置();
+            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
@@ -171,6 +186,21 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
+        // ★ 启动 AI 初始化 ★
+        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
+        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
+        Ai初始化.开始();
+
+        // 把「解除熔断」这个 QT 开关接到实际动作上
+        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
+        HealerACR.Common.HealQt.解除熔断请求 = () =>
+        {
+            DeepSeekClient.解除熔断();
+            Ai初始化.重置();
+            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
@@ -270,6 +300,21 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
             LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
+        // ★ 启动 AI 初始化 ★
+        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
+        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
+        Ai初始化.开始();
+
+        // 把「解除熔断」这个 QT 开关接到实际动作上
+        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
+        HealerACR.Common.HealQt.解除熔断请求 = () =>
+        {
+            DeepSeekClient.解除熔断();
+            Ai初始化.重置();
+            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
@@ -365,6 +410,21 @@ public class BlueWhaleSageEntry : SGERotationEntry
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
+        // ★ 启动 AI 初始化 ★
+        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
+        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
+        Ai初始化.开始();
+
+        // 把「解除熔断」这个 QT 开关接到实际动作上
+        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
+        HealerACR.Common.HealQt.解除熔断请求 = () =>
+        {
+            DeepSeekClient.解除熔断();
+            Ai初始化.重置();
+            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
@@ -639,6 +699,10 @@ public class AiHeartbeat : ISlotResolver
             AiSettingPage.每帧更新();     // 收集"测试连接"的异步结果
             AiSettings.每帧更新();        // 脱战后补写攒下的设置保存（避免战斗中做 IO）
 
+            Ai初始化.每帧更新();          // 初始化超时检查
+            Ai初始化.检查熔断提示();      // 熔断状态变化 → 屏幕横幅告知
+            HealerACR.Common.HealQt.每帧更新();   // 一次性开关（解除熔断）
+
             // 以太管理：通过观察以太数量变化检测"用掉了豆子"
             HealerACR.Common.以太管理.每帧更新();
 
@@ -708,6 +772,21 @@ public override Rotation Build(string settingFolder)
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
+        // ★ 启动 AI 初始化 ★
+        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
+        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
+        Ai初始化.开始();
+
+        // 把「解除熔断」这个 QT 开关接到实际动作上
+        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
+        HealerACR.Common.HealQt.解除熔断请求 = () =>
+        {
+            DeepSeekClient.解除熔断();
+            Ai初始化.重置();
+            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子

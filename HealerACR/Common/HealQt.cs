@@ -185,6 +185,52 @@ public static class HealQt
     /// <summary>当前登记了多少个 QT 开关（诊断用）</summary>
     public static int 登记数 => _已登记.Count;
 
+    // ==================== 一次性开关（模拟按钮）====================
+
+    private static bool _上次解除熔断;
+
+    /// <summary>
+    /// 外部挂上"解除熔断"的实际动作（BlueWhale 挂 DeepSeekClient.解除熔断）。
+    /// 原版不挂 → 勾了也没反应，但不报错。
+    /// </summary>
+    public static Action? 解除熔断请求;
+
+    /// <summary>
+    /// 每帧调用：监听那种"勾上执行一次就弹回"的开关。
+    ///
+    /// **为什么这么做**：AEAssist 的 QT 只有 bool 开关，没有"按钮"类型。
+    /// 但 QT 开关**可以绑快捷键**（在 QT 控制台里设）——
+    /// 所以用"勾上 → 触发 → 自动弹回"来模拟按钮，
+    /// 用户绑个键就等于有了快捷键。
+    ///
+    /// 目前只有「解除熔断」用这个机制。
+    /// </summary>
+    public static void 每帧更新()
+    {
+        try
+        {
+            var 现在 = GetQt("解除熔断", false);
+
+            // 从 false 变 true 的那一帧 → 触发一次
+            if (现在 && !_上次解除熔断)
+            {
+                try { 解除熔断请求?.Invoke(); } catch { }
+            }
+
+            // 触发后立刻弹回（不管有没有挂回调）
+            if (现在)
+            {
+                try { _窗口?.SetQt("解除熔断", false); } catch { }
+                _上次解除熔断 = false;
+            }
+            else
+            {
+                _上次解除熔断 = false;
+            }
+        }
+        catch { }
+    }
+
     // ============ 原生 API 封装（对照 原生 QT 封装）============
     // 它的 Qt 类就是把 JobViewWindow 的这几个方法包了一层：
     //   GetQt / SetQt / ReverseQt / NewDefault / SetDefaultFromNow / GetQtArray

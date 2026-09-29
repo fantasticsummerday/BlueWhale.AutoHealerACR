@@ -185,6 +185,11 @@ public abstract class HealerEntryBase : IRotationEntry
         //   勾上 = 战斗或木桩，只要条件满足就走爆发轴
         //   默认关（爆发轴会占 GCD，日随里不一定划算）
         加开关("一键爆发", false);
+        // ★ 解除熔断 ★ —— HealQt 只提供 bool 开关，
+        //   但 AEAssist 的 QT 控制台支持给开关绑快捷键 ——
+        //   所以在 QT 面板里给这个开关设个键，就等于有了"解除熔断"快捷键。
+        //   勾上即解除，下一帧自动弹回（见 HealQt.每帧更新）。
+        加开关("解除熔断", false);
 
         // 每个职业自己的页（参考同类 ACR 的 XXXOverlay / XXXSettingView 做法）
         视图窗口.AddTab("职业", w => 职业面板.画(TargetJob, w));
