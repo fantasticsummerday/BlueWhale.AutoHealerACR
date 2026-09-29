@@ -120,6 +120,164 @@ public static class CharacterExt
         catch { return -1; }
     }
 
+    // ==================== 技能运行时状态（给 AI 描述用）====================
+    //
+    // ⚠️ 这一组是**只读描述**，不参与任何战斗判断 ——
+    //    目的是让 AI 知道"这个技能现在转好没有 / 还剩几层"，
+    //    而不是让它拿这些数字去自己算该放什么。
+    //    真正的判断仍在本地层（见 开发约定.md G 节：AI 是增强层）。
+
+    /// <summary>
+    /// 技能**剩余冷却**秒数。就绪返回 0，拿不到返回 -1。
+    /// </summary>
+    public static float 冷却剩余秒(uint id)
+    {
+        if (id == 0) return -1f;
+
+        try
+        {
+            var s = SpellUtil.Get(id);
+            if (s == null) return -1f;
+
+            var 剩余 = s.Cooldown;
+            return 剩余.TotalSeconds <= 0 ? 0f : (float)剩余.TotalSeconds;
+        }
+        catch
+        {
+            return -1f;
+        }
+    }
+
+    /// <summary>
+    /// 技能当前充能层数（读不到返回 -1）与上限。
+    ///
+    /// 用 <see cref="充能数"/> 走 MemApiSpell.GetCharges ——
+    /// 那是更可靠的来源；Spell.Charges 作为兜底。
+    /// </summary>
+    public static int 最大充能数(uint id)
+    {
+        if (id == 0) return 0;
+        try
+        {
+            var s = SpellUtil.Get(id);
+            return s?.MaxCharges ?? 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>施法时间（秒）；瞬发返回 0，拿不到返回 -1</summary>
+    public static float 施法时间秒(uint id)
+    {
+        if (id == 0) return -1f;
+        try
+        {
+            var s = SpellUtil.Get(id);
+            if (s == null) return -1f;
+            return (float)s.CastTime.TotalSeconds;
+        }
+        catch
+        {
+            return -1f;
+        }
+    }
+
+    /// <summary>蓝量消耗；不耗蓝返回 0，拿不到返回 -1</summary>
+    public static long 蓝耗(uint id)
+    {
+        if (id == 0) return -1;
+        try
+        {
+            var s = SpellUtil.Get(id);
+            return s == null ? -1 : (long)s.MPNeed;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    /// <summary>技能射程（米）；拿不到返回 -1</summary>
+    public static float 射程(uint id)
+    {
+        if (id == 0) return -1f;
+        try
+        {
+            var s = SpellUtil.Get(id);
+            return s == null ? -1f : s.ActionRange;
+        }
+        catch
+        {
+            return -1f;
+        }
+    }
+
+    /// <summary>
+    /// 目标身上**所有** aura 的「名字 + 剩余秒数」。
+    ///
+    /// 给 AI 用来判断"身上还挂着什么、还能撑多久"——
+    /// 尤其是盾 / HoT / 自身增益这类**时间敏感**的东西。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ⚠️ 这里**必须用 fromMe = false**（踩过的坑，我自己写错过一次）：
+    ///
+    ///    <see cref="我的Buff剩余秒"/> 走的是 `GetAuraTimeleft(..., true)`，
+    ///    它**只认"我挂的"** buff。而状态列表里还有大量**不是我挂的**：
+    ///      · 食物、药、部队特效
+    ///      · 队友给的增益（舞伴、诗歌、护盾…）
+    ///      · 敌人身上**别人**挂的 DoT
+    ///    对这些它返回 0 → 全被下面的 `>= 1f` 过滤掉 →
+    ///    AI 看到的"身上啥也没有"，判断直接跑偏。
+    ///
+    ///    正确做法是 `fromMe: false`（任意来源都算）。
+    ///    而对"我挂的 DoT"这种**需要区分归属**的场景，
+    ///    仍然走 `我的Buff剩余秒`（fromMe = true）——
+    ///    两者用途不同，不要互相替代。
+    /// ══════════════════════════════════════════════════════════════════
+    ///
+    /// ⚠️ 顺序不稳定（沿用游戏给的状态表顺序），调用方如需排序请自己排。
+    ///    拿不到返回空列表（不是 null）。
+    /// </summary>
+    public static List<(string 名, float 剩余秒)> 所有状态剩余(IBattleChara? 目标)
+    {
+        var 结果 = new List<(string, float)>();
+        if (目标 == null) return 结果;
+
+        try
+        {
+            var 列表 = 目标.StatusList;
+            if (列表 == null) return 结果;
+
+            var api = Core.Resolve<AEAssist.MemoryApi.MemApiBuff>();
+
+            foreach (var s in 列表)
+            {
+                if (s == null) continue;
+
+                string 名;
+                try { 名 = s.GameData.Value.Name.ToString(); }
+                catch { continue; }
+
+                if (string.IsNullOrWhiteSpace(名)) continue;
+
+                // ★ fromMe: false —— 任意来源的 aura 都要能读到（见上面的说明）
+                float 剩余;
+                try { 剩余 = api.GetAuraTimeleft(目标, s.StatusId, false) / 1000f; }
+                catch { continue; }
+
+                // 读不到或已过期的不列
+                if (剩余 < 0f) continue;
+
+                结果.Add((名, 剩余));
+            }
+        }
+        catch { }
+
+        return 结果;
+    }
+
     /// <summary>
     /// 我挂在这个目标身上的 buff 还剩多久（**单位：毫秒**；没有这个 buff 返回 -1）。
     ///
