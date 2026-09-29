@@ -298,6 +298,23 @@ public class HealSettings
             时间轴目录 = (值 ?? "").Trim();
 
             var p = 时间轴设置路径();
+
+            // ⚠️ **必须自己建目录** ——
+            //    这个文件在 `_filePath` 的**同一个目录**里，
+            //    而那个目录是框架给的 `settingFolder`。
+            //
+            //    正常流程下 `Save()` 会先建好它，但这里有两条不保证的路径：
+            //      · `Save()` 从没被调用过（新装 + 用户没改过任何设置）
+            //      · 用户在设置里**只改了时间轴目录**就关掉
+            //    一旦目录不存在，`File.WriteAllText` 直接抛
+            //    `DirectoryNotFoundException`，被下面的 catch 吃掉 ——
+            //    现象是"填了路径、保存了，但下次读还是空"。
+            //
+            //    而且这条是**首次运行**最容易踩的：新环境里
+            //    `D:\FF14\Settings\Plugins\<作者名>\` 可能还不存在。
+            var 目录 = Path.GetDirectoryName(p);
+            if (!string.IsNullOrEmpty(目录)) Directory.CreateDirectory(目录);
+
             File.WriteAllText(p, 时间轴目录, System.Text.Encoding.UTF8);
 
             LogHelper.Info(string.IsNullOrEmpty(时间轴目录)

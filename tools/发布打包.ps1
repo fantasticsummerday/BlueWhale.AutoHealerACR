@@ -206,7 +206,17 @@ if (Test-Path "tools\PromptBudget.py") {
 标题 "③ 组装包目录"
 # ══════════════════════════════════════════════════════════════════
 
-$H包 = Join-Path $仓库根 "release\HealerACR-$HealerVer"
+# ⚠️ **包目录要多一层子目录**，和 BlueWhale 对称。
+#
+#    为什么：zip 用 `Compress-Archive -Path "父目录\*"` 打包，
+#    而 `-Path "X\*"` **不包含 X 本身**（已手工复现确认）。
+#    所以想让 zip 里有 `HealerACR\` 这层，包目录就必须在子层。
+#
+#    原来 `$H包` 直接是 `release\HealerACR-<版本>`，
+#    打出来 zip 里**只有裸的 Timelines\ 和几个文件**，
+#    `HealerACR.dll` 落在 zip 最外层 —— 用户解压后不知道往哪放。
+#    实测 `HealerACR-1.76.0.zip` 327 条里**一条 dll 都没有**。
+$H包 = Join-Path $仓库根 "release\HealerACR-$HealerVer\HealerACR"
 $B包 = Join-Path $仓库根 "release\BlueWhale-$BlueVer\BlueWhale"
 
 foreach ($d in @($H包, $B包)) {
@@ -367,7 +377,18 @@ $Hzip = Join-Path $仓库根 "release\HealerACR-$HealerVer.zip"
 $Bzip = Join-Path $仓库根 "release\BlueWhale-$BlueVer.zip"
 foreach ($z in @($Hzip, $Bzip)) { if (Test-Path $z) { Remove-Item $z -Force } }
 
-Compress-Archive -Path (Join-Path $H包 "*") -DestinationPath $Hzip -Force
+# ⚠️ **必须打"父目录\*"**，让 zip 里带上 `HealerACR-<版本>\` 这一层。
+#
+#    原来写的是 `$H包\*` —— 而 `$H包` **就是包根目录本身**
+#     (`release\HealerACR-<版本>`)，于是 zip 里只有"根目录的内容"，
+#     **没有根目录**，结果解压出来是裸的 `Timelines\` + 几个文件，
+#     `HealerACR.dll` 处在 zip 最外层之外 —— 用户拿到手不知道往哪放。
+#
+#    而 BlueWhale 那行一直是 `release\BlueWhale-<版本>\*`（父目录），
+#     zip 里有 `BlueWhale\` 这层 —— **两行写法不对称**，只有 HealerACR 漏了。
+#
+#    实测：`HealerACR-1.76.0.zip` 里 327 个条目，**没有一条是 HealerACR.dll**。
+Compress-Archive -Path (Join-Path $仓库根 "release\HealerACR-$HealerVer\*") -DestinationPath $Hzip -Force
 Compress-Archive -Path (Join-Path $仓库根 "release\BlueWhale-$BlueVer\*") -DestinationPath $Bzip -Force
 
 # ══════════════════════════════════════════════════════════════════
@@ -376,13 +397,52 @@ Compress-Archive -Path (Join-Path $仓库根 "release\BlueWhale-$BlueVer\*") -De
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-foreach ($pair in @(@($Hzip, "HealerACR", "Timelines"), @($Bzip, "BlueWhale", "BlueWhale/Timelines"))) {
+foreach ($pair in @(@($Hzip, "HealerACR", "HealerACR/Timelines"), @($Bzip, "BlueWhale", "BlueWhale/Timelines"))) {
     $zip, $名, $前缀 = $pair
 
     if (-not (Test-Path $zip)) { 坏 "$名 ： zip 没生成"; continue }
 
     $z = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
     try {
+        # ══════════════════════════════════════════════════════════════
+        #  ★ 必需文件核对（**按 zip 内的确切路径查，不做模糊匹配**）★
+        #
+        #  ⚠️ 为什么必须单独有这一段：
+        #     原来只校验"时间轴份数"，而且用的是**模糊匹配**
+        #     (`-like "*Timelines/*"`)。那个匹配**掩盖过真问题** ——
+        #     `HealerACR-1.76.0.zip` 里 327 条**一条 `HealerACR.dll` 都没有**，
+        #     而校验照样报"全部校验通过，可以发布"。
+        #
+        #     根因是 `Compress-Archive -Path "X\*"` **不包含 X 这层**
+        #     （已手工复现确认），所以 zip 里只有裸的 `Timelines\`。
+        #     用户解压出来不知道往哪放，**这个包等于废的**。
+        #
+        #  ⇒ 这里直接查确切路径，查不到就拦住：
+        #       HealerACR → `HealerACR/HealerACR.dll`
+        #       BlueWhale → `BlueWhale/BlueWhale.dll` + 三份数据表
+        # ══════════════════════════════════════════════════════════════
+        $包内 = @($z.Entries | ForEach-Object {
+            $_.FullName.Replace("\", "/")
+        })
+
+        $必需 = if ($名 -eq "HealerACR") {
+            @("HealerACR/HealerACR.dll")
+        } else {
+            @("BlueWhale/BlueWhale.dll",
+              "BlueWhale/DutyNames.json",
+              "BlueWhale/TerritoryNames.json",
+              "BlueWhale/TerritoryPlaces.json")
+        }
+
+        foreach ($f in $必需) {
+            if ($包内 -contains $f) {
+                好 "$名 ： 包内有 $f"
+            } else {
+                坏 "$名 ： 包里**没有** $f —— 这个包不能用（检查 zip 的根目录层级）"
+                $失败 = $true
+            }
+        }
+
         # ⚠️ zip 条目里的路径分隔符是**反斜杠**（`Timelines\cactbot\...`）——
         #    Compress-Archive 在 Windows 上就这么写。
         #    所以匹配前必须**统一成正斜杠**：
