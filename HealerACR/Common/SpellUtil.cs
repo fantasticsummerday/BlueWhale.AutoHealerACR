@@ -98,6 +98,93 @@ public static class SpellUtil
     /// </summary>
     public static bool 移动中可用(uint id) => 移动中能放(id);
 
+    // ==================== 移动状态描述（给 AI 看）====================
+
+    /// <summary>
+    /// **我现在在移动吗**。读不到返回 false（保守：当作没在移动）。
+    /// </summary>
+    public static bool 在移动()
+    {
+        try { return MoveHelper.IsMoving(); }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// 当前读条进度 —— (是否在读条, 已读秒, 总读条秒)。没读条返回 (false, 0, 0)。
+    /// </summary>
+    public static (bool 在读条, float 已读秒, float 总秒) 读条进度()
+    {
+        try
+        {
+            var me = Core.Me;
+            if (me == null || !me.IsCasting) return (false, 0f, 0f);
+
+            var 总 = me.TotalCastTime;
+            var 已 = me.CurrentCastTime;
+
+            // TotalCastTime <= 0 说明不是真读条（瞬发也会让 IsCasting 短暂为真）
+            if (总 <= 0f) return (false, 0f, 0f);
+
+            return (true, 已, 总);
+        }
+        catch { return (false, 0f, 0f); }
+    }
+
+    /// <summary>
+    /// 一句话描述移动 / 读条状态 —— **给 AI 判断"能不能建议读条技能"用**。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要给 AI 这个（用户实测指出的问题）★
+    ///
+    ///    "本地逻辑已经会在移动时挡掉读条技能，但 **AI 还在建议读条技能**"
+    ///
+    ///    根因：**AI 根本不知道玩家在移动** ——
+    ///    `移动中能放()` 是本地层的事，AI 拿到的局面里没有这个信息。
+    ///    于是它按"站着不动"的前提给建议，那些建议全被本地拦掉，
+    ///    表现为"AI 一直在说用闪灼，但一个都没打出去"。
+    ///
+    ///    所以必须把移动状态**作为事实喂给它**，让它自己改成建议瞬发技能。
+    ///
+    ///  ── 输出形态（举例）──
+    ///      `移动中（读条会中断）—— 阶段B只能建议瞬发技能`
+    ///      `站定 —— 可以建议读条技能`
+    ///      `正在读条（已 1.2s / 共 2.5s）—— 读条期间不能移动`
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static string 移动状态描述()
+    {
+        var (在读条, 已读, 总) = 读条进度();
+
+        if (在读条)
+            return $"正在读条（已 {已读:F1}s / 共 {总:F1}s）—— 读条期间不能移动";
+
+        if (在移动())
+            return "移动中（读条会被中断）—— 阶段B只能建议瞬发技能";
+
+        return "站定 —— 可以建议读条技能";
+    }
+
+    /// <summary>
+    /// 这个技能**能不能在移动中放**（给 AI 看的一句话）。
+    /// 用于告诉 AI"你建议的这个技能现在放不放得出来"。
+    /// </summary>
+    public static string 技能移动适用性(uint id)
+    {
+        if (id == 0) return "未知";
+
+        try
+        {
+            var s = Get(id);
+            if (s == null) return "未知";
+
+            var 读条 = s.CastTime.TotalSeconds;
+            if (读条 <= 0.05) return "瞬发（移动中也能放）";
+
+            return $"读条 {读条:F1}s（移动中放不出）";
+        }
+        catch { return "未知"; }
+    }
+
     /// <summary>
     /// 等级变换：把"最初形态"的技能换成当前等级该用的那个。
     /// 白魔 Stone(1) → StoneII → Glare → GlareIII，学者 Ruin → Broil IV …
