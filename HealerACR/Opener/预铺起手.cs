@@ -78,16 +78,26 @@ public class 预铺起手 : IOpener
                 var 主坦 = PartyHelper.CastableTanks.FirstOrDefault();
                 if (主坦 == null) return;
 
-                var slot = new Slot();
-
+                // ⚠️ 用框架的 `AddSpell2NextSlot`，**不要** `NextSlot = new Slot()`
+                //
+                //    框架实现（IL 直读，41 字节）：
+                //        if (BattleData.NextSlot == null) BattleData.NextSlot = new Slot();
+                //        BattleData.NextSlot.Add(spell);
+                //
+                //    差别在**要不要覆盖已有的下一槽**：
+                //      · `NextSlot = new Slot()`  → **覆盖**（别处排好的会被丢掉）
+                //      · `AddSpell2NextSlot(spell)` → 追加（没有才新建）
+                //
+                //    同一个倒计时里我们可能连注册好几个动作（预铺盾 / 补治疗 / …），
+                //    直接赋值会让**后注册的覆盖先注册的**，前面的准备白做。
+                //    参考实现 A/B 处理"强制插队放技能"用的都是这个方法。
                 if (_t.护盾前置 != 0 && !JobApiHelper.均衡中)
                 {
                     var pre = SpellUtil.Get(_t.护盾前置);
-                    if (pre != null) slot.Add(pre);
+                    if (pre != null) AI.Instance.BattleData.AddSpell2NextSlot(pre);
                 }
 
-                slot.Add(new Spell(_t.单体盾, 主坦));
-                AI.Instance.BattleData.NextSlot = slot;
+                AI.Instance.BattleData.AddSpell2NextSlot(new Spell(_t.单体盾, 主坦));
             });
         }
 
@@ -100,9 +110,7 @@ public class 预铺起手 : IOpener
                 if (坦克 == null) return;
                 if (坦克.血量比例() > 0.95f) return;   // 满血就不浪费
 
-                var slot = new Slot();
-                slot.Add(new Spell(_t.单体治疗GCD, 坦克));
-                AI.Instance.BattleData.NextSlot = slot;
+                AI.Instance.BattleData.AddSpell2NextSlot(new Spell(_t.单体治疗GCD, 坦克));
             });
         }
 
