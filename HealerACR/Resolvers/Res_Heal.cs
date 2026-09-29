@@ -21,11 +21,41 @@ public class Res_HealEmergency : ISlotResolver
 
     public Res_HealEmergency(JobSpellTable table) => _t = table;
 
+    /// <summary>
+    /// 「必须奶满」时用的技能 —— 只挑"一次到满"那类（拿不到返回 0）。
+    ///
+    /// ⚠️ 和 <see cref="_t.紧急单奶"/> 的区别见 `必须奶满.最该用的能力技` 的注释：
+    ///    那张表里有"血高时无效"的技能（学者深谋远虑之策要降到阈值才触发、
+    ///    占星先天禀赋随血量降低而增强），**中 Doom 的人血还很高**，
+    ///    交那些技能等于没治。
+    /// </summary>
+    private uint 奶满技能 => 必须奶满.最该用的能力技(_t);
+
     public int Check()
     {
         if (HealTargetHelper.木桩模式) return -300;          // 木桩不奶
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("单奶")) return -101;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 「必须奶满」优先：**不受紧急单奶阈值限制** ★
+        //
+        //    下面那条 `最低血量队友(紧急单奶阈值)` 是给普通急救用的。
+        //    中 Doom/石化/塞壬之歌的人**血量可能很高**（80%+），
+        //    按血线判断会直接把他过滤掉 —— 白白浪费"一次到满"的机会，
+        //    然后倒计时归零人没了。
+        //
+        //    所以这里先无条件检查有没有人中机制；有就把能力技交给他。
+        // ══════════════════════════════════════════════════════════════
+        var 奶满目标 = 必须奶满.找目标();
+        if (奶满目标 != null)
+        {
+            var 技 = 奶满技能;
+            // 没有"一次到满"的能力技（如占星）→ 让位给 GCD 治疗链
+            if (技 != 0 && SpellUtil.已解锁(技) && SpellUtil.可用(技)) return 35;
+            return -1;
+        }
+
         if (_t.紧急单奶 == 0) return -102;
         if (!SpellUtil.已解锁(_t.紧急单奶)) return -2;
 
@@ -37,6 +67,16 @@ public class Res_HealEmergency : ISlotResolver
 
     public void Build(Slot slot)
     {
+        // ⚠️ 必须和 Check 同源（开发约定 F③）：Check 判的是奶满目标，
+        //    Build 也得放同一个人 + 同一个技能。
+        var 奶满目标 = 必须奶满.找目标();
+        if (奶满目标 != null)
+        {
+            var 技 = 奶满技能;
+            if (技 != 0) slot.Add(new Spell(技, 奶满目标));
+            return;
+        }
+
         var target = HealTargetHelper.最低血量队友(HealSettings.Instance.紧急单奶阈值);
         if (target == null) return;
         slot.Add(new Spell(_t.紧急单奶, target));
