@@ -112,6 +112,10 @@ public class ASTRotationEntry : HealerEntryBase
             //   药尾声补刀最该生效的场景就是**移动中**（读条放不出来），
             //   排在移动填充后面等于**永远选不到**。
             new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
+            // ★ 多目标 DoT：主目标 DoT 还在时，把 DoT 扩散到**其他被拉到的怪** ★
+            //   ⚠️ 必须在 Res_MoveGcd 之前（否则永远抢不到这个 GCD）
+            //   ⚠️ 必须在 Res_Dot 之后（主目标的 DoT 优先级更高）
+            new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),            new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),

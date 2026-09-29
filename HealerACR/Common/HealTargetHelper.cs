@@ -278,6 +278,166 @@ public static class HealTargetHelper
     }
 
     /// <summary>
+    /// **这个敌人被"拉到了"吗**（= 已经进战，在打我们队伍里的某个人）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要做它（用户实测报的问题）★
+    ///
+    ///    用户原话：
+    ///      "出现了自动给**没有仇恨**的目标上毒的问题"
+    ///
+    ///  ── 根因 ──
+    ///    `其他敌人()` 用的是 `Data.AllHostileTargets` ——
+    ///    那是**场景里所有敌对目标**，不区分"有没有进战"。
+    ///    所以 25 米内**还没被 T 拉到的怪**、旁边不相干的怪，
+    ///    全都会出现在 AI 的敌人列表里 → AI 自然会建议给它们补 DoT。
+    ///
+    ///  ── 判据为什么这么写 ──
+    ///    Dalamud **没有公开的 enmity（仇恨值）接口** ——
+    ///    我反射查过整个 `IBattleChara` / `ICharacter` / `IGameObject` 链，
+    ///    没有 `Enmity` / `Aggro` 之类的属性（`BattleChara` 结构体里有
+    ///    原生字段，但 Dalamud 没暴露）。所以只能用**间接信号**：
+    ///
+    ///      ① **它在看着我们队里的人** → 一定是被拉到了
+    ///         （`IGameObject.TargetObjectId`，最可靠的信号）
+    ///      ② **它在对我们队里的人读条** → 同上
+    ///         （`IBattleChara.CastTargetObjectId`，抓"正在起手"的怪）
+    ///
+    ///  ⚠️ **失败方向是"当作没拉到"**（保守）——
+    ///     宁可少给一个怪上 DoT，也不要给没拉的怪上毒把人引过来。
+    ///     这和你报的问题方向一致：误判成"拉了"的代价（ADD）远大于
+    ///     误判成"没拉"的代价（少打一个 DoT）。
+    ///
+    ///  ⚠️ 已知取舍：**怪已经在打我但我方列表读不到**时会判成没拉到。
+    ///     这种情况会在"目标是自己"时发生 —— 所以下面额外放行"目标是我自己"。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 有仇恨(IBattleChara 敌人)
+    {
+        if (敌人 == null) return false;
+
+        try
+        {
+            if (敌人.CurrentHp <= 0) return false;
+
+            // 我方所有可能的"被攻击对象"：队伍成员 + 我自己 + 陆行鸟/召唤物
+            var 我方 = new HashSet<ulong>();
+            try
+            {
+                foreach (var m in PartyHelper.CastableParty)
+                    if (m != null) 我方.Add(m.GameObjectId);
+            }
+            catch { }
+
+            try
+            {
+                if (Core.Me != null) 我方.Add(Core.Me.GameObjectId);
+            }
+            catch { }
+
+            if (我方.Count == 0) return false;
+
+            // ① 它在看着谁
+            try
+            {
+                var 目标Id = 敌人.TargetObjectId;
+                if (目标Id != 0 && 我方.Contains(目标Id)) return true;
+            }
+            catch { }
+
+            // ② 它在对谁读条
+            try
+            {
+                var 读条目标 = 敌人.CastTargetObjectId;
+                if (读条目标 != 0 && 我方.Contains(读条目标)) return true;
+            }
+            catch { }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// **被拉到了、但身上没有我的 DoT** 的敌人（按"值得补"排序）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 用户报的第二半（本地层缺口）★
+    ///
+    ///    "在小怪阶段没有别的技能可打的情况下
+    ///     没有给 T 拉到仇恨的其他小怪上 dot"
+    ///
+    ///  ── 我们的现状 ──
+    ///    `Res_Dot` 只认**当前选中**那一个目标。当前目标身上 DoT 还在时，
+    ///    它就不补了 —— **哪怕旁边还有 3 个被拉到的怪一个 DoT 都没有**。
+    ///    多目标 DoT 是两家参考实现都有的能力，我们一直没有
+    ///    （历史待办里排第 2，标注"必须先保证 Check/Build 同源"）。
+    ///
+    ///  ── 这个方法只负责"找出来"，不负责"怎么打" ──
+    ///    真正打的时候要切目标，那是另一件事（涉及 `SetTarget` 的时机）。
+    ///    先把它做出来喂给 AI / 诊断，让判断有依据。
+    ///
+    ///  ⚠️ 只返回**有仇恨**的（用 `有仇恨()`）—— 这是本次修的核心。
+    ///  ⚠️ 排除当前目标（那个归 `Res_Dot` 管，避免重复建议）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static List<IBattleChara> 可补Dot的敌人(IReadOnlyList<uint>? 我的DotBuffs,
+                                                 float 半径 = 25f, int 最多几个 = 3)
+    {
+        var 结果 = new List<IBattleChara>();
+
+        try
+        {
+            var 我 = Core.Me.Position;
+            var 当前 = 当前目标();
+
+            bool 有我的Dot(IBattleChara c)
+            {
+                if (我的DotBuffs == null || 我的DotBuffs.Count == 0) return false;
+                try
+                {
+                    foreach (var b in 我的DotBuffs)
+                        if (b != 0 && c.HasAura(b)) return true;
+                }
+                catch { }
+                return false;
+            }
+
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null) continue;
+
+                try
+                {
+                    if (敌人.CurrentHp <= 0) continue;
+                    if (当前 != null && 敌人.GameObjectId == 当前.GameObjectId) continue;
+                    if (!有仇恨(敌人)) continue;              // ★ 本次修的核心
+                    if (有我的Dot(敌人)) continue;
+
+                    var 距离 = Vector3.Distance(我, 敌人.Position);
+                    if (距离 > 半径) continue;
+
+                    结果.Add(敌人);
+                }
+                catch { }
+            }
+
+            // 排序：近的优先（少走位、少切目标的时间）
+            结果 = 结果.OrderBy(x =>
+            {
+                try { return Vector3.Distance(我, x.Position); }
+                catch { return 999f; }
+            }).Take(最多几个).ToList();
+        }
+        catch { }
+
+        return 结果;
+    }
+
+    /// <summary>
     /// AOE 的最佳落点目标（需求 1）。
     /// 用 AEAssist 现成的 GetMostCanTargetObjects，它会挑"这个技能能打到最多敌人"的那个目标；
     /// 选不到就退回当前目标。
@@ -346,6 +506,15 @@ public static class HealTargetHelper
         public bool 是当前目标;
         /// <summary>身上有没有"我挂的 DoT"</summary>
         public bool 有我的Dot;
+
+        /// <summary>
+        /// **这个怪被拉到了吗**（已进战，在打我们队里的人）。
+        ///
+        /// ⚠️ 这个字段是**确保进来的都是拉到的**（`其他敌人()`
+        ///    已经过滤掉没拉到的）—— 保留它是为了让 AI
+        ///    看得出这份数据的口径，以后要是放宽过滤也不会混。
+        /// </summary>
+        public bool 有仇恨;
     }
 
     /// <summary>
@@ -415,6 +584,15 @@ public static class HealTargetHelper
                 {
                     if (敌人.CurrentHp <= 0) continue;
 
+                    // ⚠️ **必须过滤"没被拉到"的**（用户实测报的问题）——
+                    //    `Data.AllHostileTargets` 是**场景里所有敌对目标**。
+                    //    不过滤的话，25 米内**还没被 T 拉到的怪**也会进列表，
+                    //    AI 看到"附近 3 个敌人里 0 个有 DoT"就会建议补 ——
+                    //    而其中可能有两个根本没进战，等于**主动 ADD**。
+                    //    判据见 `有仇恨()` 的长注释（Dalamud 没暴露 enmity，
+                    //    只能用"它在打谁"间接判断）。
+                    if (!有仇恨(敌人)) continue;
+
                     var 距离 = Vector3.Distance(我, 敌人.Position);
                     if (距离 > 半径) continue;
 
@@ -427,6 +605,7 @@ public static class HealTargetHelper
                         是Boss = 敌人.IsBoss(),
                         是当前目标 = 当前 != null && 敌人.GameObjectId == 当前.GameObjectId,
                         有我的Dot = 有我的Dot(敌人),
+                        有仇恨 = true,   // 能进来就说明已经过了 有仇恨() 过滤
                     };
 
                     信息.血量比例 = 信息.血量 * 1f / 信息.上限;
@@ -463,6 +642,12 @@ public static class HealTargetHelper
                 try
                 {
                     if (敌人.CurrentHp <= 0) continue;
+
+                    // ⚠️ 口径与 `其他敌人()` 保持一致：**只数被拉到的**。
+                    //    不过滤的话，旁边一堆没进战的怪会把数量拉高，
+                    //    导致"够人数了该放 AOE"—— 而实际上只有 1 个在打我们。
+                    if (!有仇恨(敌人)) continue;
+
                     if (Vector3.Distance(我, 敌人.Position) > 半径) continue;
                     n++;
                 }

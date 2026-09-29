@@ -1,6 +1,7 @@
 using AEAssist.CombatRoutine;
 using AEAssist.Helper;
 using HealerACR.Common;
+using System.Numerics;
 
 namespace HealerACR.Resolvers;
 
@@ -294,5 +295,130 @@ public class Res_BaseDamage : ISlotResolver
     {
         var spell = SpellUtil.当前形态(_t.基础输出);
         if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// **多目标 DoT** —— 当前目标 DoT 还在时，把 DoT 补到**别的被拉到的怪**身上。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 用户实测报的问题（本地层缺口）★
+///
+///    "在小怪阶段没有别的技能可打的情况下
+///     没有给 T 拉到仇恨的其他小怪上 dot"
+///
+///  ── 我们的现状 ──
+///    `Res_Dot` 只认**当前选中**那一个目标。当前目标身上 DoT 还在时
+///    它就 `return -4` 让路 —— 于是流程走到 `Res_BaseDamage` 打单体填充，
+///    **哪怕旁边还有 3 个被拉到的怪一个 DoT 都没有**。
+///    多目标 DoT 是两家参考实现都有的能力，我们一直没有。
+///
+///  ── 为什么排在 `Res_BaseDamage` 之前（关键）──
+///    `Res_BaseDamage` 是"兜底单体输出"，触发条件极宽（只要输出开着）。
+///    本 resolver 想抢在它前面**只能排在它前面** ——
+///    优先级 = 队列位置，不是返回值大小。
+///
+///  ── 为什么排在 `Res_Dot` 之后 ──
+///    **主目标的 DoT 优先级更高**：主目标是正在被集火/正在打我们的那个，
+///    它身上 DoT 断档损失最大。所以先保主目标（`Res_Dot`），
+///    再扩散到副目标（本 resolver）。
+///
+///  ── 安全边界（本次修复的核心）──
+///    只给 **`有仇恨()`** 的怪补 —— 那是"它正在打我们队里的人"的信号。
+///    **没被拉到的怪一个都不碰**，绝不 ADD。
+///
+///  ⚠️ 不需要 `SetTarget`：`Spell(id, target)` 自带目标，
+///    框架会按这个目标打出去。所以补副目标 DoT **不会改变玩家当前选中的目标**
+///    （交接文档里那条"多目标 DoT 不需要 SetTarget"说的就是这个）。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class Res_MultiDot : ISlotResolver
+{
+    private readonly JobSpellTable _t;
+
+    public Res_MultiDot(JobSpellTable table) => _t = table;
+
+    /// <summary>最多同时维持几个副目标的 DoT（防止在怪堆里无限上毒不输出）</summary>
+    private const int 副目标上限 = 2;
+
+    public int Check()
+    {
+        if (!HealQt.GetQt("DOT", true)) return -100;
+        if (!HealQt.GetQt("输出", true)) return -101;
+        if (蓝量.低蓝停手()) return -9;
+
+        var 技 = _t.Dot技能;
+        if (技 == 0) return -102;
+        if (!SpellUtil.已解锁(技)) return -2;
+
+        // ⚠️ **当前目标必须已经有 DoT** —— 否则这是 `Res_Dot` 的活，
+        //    不该由我们抢（它的判据更完整：含黑名单 / 止血 / 快死目标等）。
+        var 当前 = HealTargetHelper.当前目标();
+        if (当前 == null) return -1;
+
+        var buffs = _t.所有DotBuff;
+        if (buffs == null || buffs.Length == 0) return -1;
+
+        var 当前有 = false;
+        try
+        {
+            foreach (var b in buffs)
+                if (b != 0 && 当前.HasAura(b)) { 当前有 = true; break; }
+        }
+        catch { }
+
+        if (!当前有) return -1;   // 主目标还没上 → 让 Res_Dot 管
+
+        var spell = SpellUtil.当前形态(技);
+        if (spell == null) return -1;
+
+        // 移动守卫：DoT 多数读条。移动中交给移动填充。
+        if (!SpellUtil.移动中可用(spell.Id)) return -7;
+
+        if (选目标() == null) return -1;
+
+        return spell.IsReadyWithCanCast() ? 4 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        // ⚠️ **必须和 Check 同源**（开发约定 F③）—— 同一个 `选目标()`
+        var 目标 = 选目标();
+        if (目标 == null) return;
+
+        var spell = SpellUtil.当前形态(_t.Dot技能);
+        if (spell == null) return;
+
+        slot.Add(new Spell(spell.Id, 目标));
+    }
+
+    /// <summary>
+    /// 选一个"该补 DoT"的副目标 —— **只从有仇恨的里面选**。
+    ///
+    /// 复用 `HealTargetHelper.可补Dot的敌人`：它已经做了
+    /// 「有仇恨 + 没有我的 DoT + 排除当前目标」的全部过滤。
+    /// 这里只再加两道本地约束（黑名单、贴脸不打）。
+    /// </summary>
+    private IBattleChara? 选目标()
+    {
+        try
+        {
+            var 候选 = HealTargetHelper.可补Dot的敌人(_t.所有DotBuff, 25f, 副目标上限 + 2);
+
+            foreach (var c in 候选)
+            {
+                // DoT 黑名单（免疫 / 吃不上的怪，补了也白费，还会反复触发）
+                if (!Dot黑名单.可以上Dot(c)) continue;
+
+                // 贴脸的怪别上 —— 那种距离该放 AOE，上 DoT 反而浪费一个 GCD
+                try { if (Vector3.Distance(Core.Me.Position, c.Position) < 3f) continue; }
+                catch { }
+
+                return c;
+            }
+        }
+        catch { }
+
+        return null;
     }
 }
