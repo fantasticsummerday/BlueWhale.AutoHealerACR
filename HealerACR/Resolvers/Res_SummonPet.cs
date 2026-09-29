@@ -87,13 +87,40 @@ public class Res_SummonPet : ISlotResolver
         }
     }
 
+    /// <summary>【临时诊断】每 2 秒最多一条</summary>
+    private static long _上次诊断;
+
+    private void 诊断(string 说明)
+    {
+        try
+        {
+            var n = AEAssist.Helper.TimeHelper.Now();
+            if (n - _上次诊断 < 2000) return;
+            _上次诊断 = n;
+
+            var 转化 = false;
+            try { 转化 = Core.Me.HasAura(AuraIds.转化中); } catch { }
+
+            AEAssist.Helper.LogHelper.Info(
+                $"[召唤诊断] {说明} ｜ 有宠={JobApiHelper.有小仙女} " +
+                $"重召标记={进本识别.有重召标记} 待确认={_待确认重召} " +
+                $"转化={转化} 移动={SpellUtil.在移动()} 副本={进本识别.在副本里()} " +
+                $"解锁={SpellUtil.已解锁(_t.召唤宠物)} 可用={SpellUtil.可用(_t.召唤宠物)} " +
+                $"QT={HealQt.GetQt("自动召唤", true)} " +
+                $"距上次召={(现在 - _上次召唤时刻)}ms");
+        }
+        catch { }
+    }
+
     public int Check()
     {
         if (_t.召唤宠物 == 0) return -102;                  // 这个职业没有宠物
 
+        诊断("Check");
+
         // ★ Qt 开关 —— 用户能关掉（和「小仙女」那个开关分开：
         //   那个管"用不用小仙女的技能"，这个管"召不召唤"）
-        if (!HealQt.GetQt("自动召唤", true)) return -101;
+        if (!HealQt.GetQt("自动召唤", true)) { 诊断("挡：自动召唤 QT 关着"); return -101; }
 
         // ══════════════════════════════════════════════════════════
         //  ★ 进本重召：这一次**忽略"已经在场"** ★
@@ -135,7 +162,9 @@ public class Res_SummonPet : ISlotResolver
         }
 
         // 已经在场、且本局没要求重召 → 不用召
-        if (有宠物 && !要重召) return -1;
+        // ⚠️ 窗口内（`要重召 == true`）**跳过"有宠物就不召"** ——
+        //    这正是"进本重召一次"的语义：即使小仙女还在，也要为这一局重召。
+        if (有宠物 && !要重召) { 诊断("挡：有宠物且无需重召"); return -1; }
 
         // ★ 防抖：**只在"有宠物但想重召"时**才限制频率 ★
         //
@@ -156,17 +185,17 @@ public class Res_SummonPet : ISlotResolver
         //
         //  ⇒ 所以：**没宠物时不设冷却**（尽快重试），
         //          有宠物时要冷却（防止把炽天使顶掉）。
-        if (有宠物 && 现在 - _上次召唤时刻 < 重召冷却毫秒) return -3;
+        if (有宠物 && 现在 - _上次召唤时刻 < 重召冷却毫秒) { 诊断("挡：重召冷却"); return -3; }
 
         // 转化期间召唤无效（小仙女被主动牺牲了）
         try
         {
-            if (Core.Me.HasAura(AuraIds.转化中)) return -4;
+            if (Core.Me.HasAura(AuraIds.转化中)) { 诊断("挡：转化中"); return -4; }
         }
         catch { }
 
-        if (!SpellUtil.已解锁(_t.召唤宠物)) return -2;
-        if (!SpellUtil.可用(_t.召唤宠物)) return -5;
+        if (!SpellUtil.已解锁(_t.召唤宠物)) { 诊断("挡：没解锁"); return -2; }
+        if (!SpellUtil.可用(_t.召唤宠物)) { 诊断("挡：不可用"); return -5; }
 
         // ★ **移动守卫** —— 朝日召唤是 **1.5 秒读条**，移动中会被打断 ★
         //
@@ -232,8 +261,9 @@ public class Res_SummonPet : ISlotResolver
         //    所以"提高优先级"靠的是**位置**（已经在 Res_PrepareResources 之前），
         //    这里返回不同值只是为了日志上好区分是哪种情况触发的。
         // ══════════════════════════════════════════════════════════
-        if (进本识别.在副本里()) return 15;
+        if (进本识别.在副本里()) { 诊断("通过（在副本，返回 15）"); return 15; }
 
+        诊断("通过（返回 8）");
         return 8;
     }
 

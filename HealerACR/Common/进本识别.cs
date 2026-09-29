@@ -136,6 +136,7 @@ public static class 进本识别
                     {
                         _已置位地图 = 地图;
                         _本局要重召 = true;
+                        _重召置位时刻 = TimeHelper.Now();
                     }
                 }
                 catch { }
@@ -172,6 +173,7 @@ public static class 进本识别
                 {
                     _已置位地图 = 地图;
                     _本局要重召 = true;
+                    _重召置位时刻 = TimeHelper.Now();
                 }
             }
             catch { }
@@ -286,6 +288,24 @@ public static class 进本识别
     /// <summary>已经为哪个地图置过"重召"标记（同地图只置一次）</summary>
     private static uint _已置位地图;
 
+    /// <summary>重召标记是什么时候置位的（用于有效期判断）</summary>
+    private static long _重召置位时刻;
+
+    /// <summary>
+    /// **重召窗口**（毫秒）—— 进副本后这么久内，"要重召"标记一直有效。
+    ///
+    /// ⚠️ 为什么要有效期而不是"一直有效直到被消费"：
+    ///    实测出现过"落地后 20 秒没有任何动作"的情况 ——
+    ///    标记一直挂着但 `Res_SummonPet` 因为某些判据没通过而没出手。
+    ///    加窗口能保证**窗口内出现空 GCD 就一定会召**，
+    ///    同时**窗口有限** → 不会变成"每帧都召"（那会把 GCD 全浪费掉，
+    ///    而且实测会导致刚召出来的小仙女被下一次召唤杀掉）。
+    ///
+    /// ⚠️ 25 秒的依据：进本落地到第一次能自由行动的 GCD 通常在
+    ///    10 秒内（含过场动画）；留到 25 秒覆盖读条被打断后的重试。
+    /// </summary>
+    private const int 重召窗口毫秒 = 25000;
+
     /// <summary>
     /// **只看**有没有"本局要重召"标记（不移除）。
     ///
@@ -298,7 +318,24 @@ public static class 进本识别
     ///     ⇒ 所以 `Check` 用这个只读版本判，真正取走放到 `Build`
     ///       （那时技能确实要放出去了）。
     /// </summary>
-    public static bool 有重召标记 => _本局要重召;
+    public static bool 有重召标记
+    {
+        get
+        {
+            if (!_本局要重召) return false;
+
+            // ⚠️ **窗口过期就自动失效** —— 见 `重召窗口毫秒` 的说明。
+            //    过期后不清标记（那会让"本局已经召过"的信息丢失），
+            //    只是不再返回 true，于是回到正常逻辑。
+            try
+            {
+                if (TimeHelper.Now() - _重召置位时刻 > 重召窗口毫秒) return false;
+            }
+            catch { }
+
+            return true;
+        }
+    }
 
     /// <summary>取走"本局要重召"标记（只会返回一次 true）</summary>
     public static bool 取走重召标记()
@@ -316,5 +353,6 @@ public static class 进本识别
         _本轮已通知 = false;
         _本局要重召 = false;
         _已置位地图 = 0;
+        _重召置位时刻 = 0;
     }
 }
