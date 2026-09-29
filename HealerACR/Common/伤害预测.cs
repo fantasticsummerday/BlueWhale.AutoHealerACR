@@ -1,0 +1,472 @@
+using AEAssist;
+using AEAssist.Extension;
+using AEAssist.Helper;
+using HealerACR.Timeline;
+
+namespace HealerACR.Common;
+
+/// <summary>
+/// **伤害预测** —— 本地、每帧、不依赖 AI。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 为什么必须本地 ★
+///
+///    AI 分析一轮要几百毫秒，而建议还要缓存几秒 ——
+///    **等它想好，局面早就变了**（用户原话："思考好了已经过时了"）。
+///    治疗决策要在**几十毫秒**内做出，只能靠本地预测。
+///
+///  ★ 两个数据来源 ★
+///
+///    ① **观察法**（主要）——
+///       每帧记录全队血量，从"过去几秒掉了多少"外推"未来几秒会掉多少"。
+///
+///       ⚠️ 为什么不能直接读伤害数值：
+///          游戏**不暴露**"敌人下一次攻击打多少"。只能观察结果（掉血）。
+///          ⇒ 有滞后：战斗刚开始的几秒估不准。
+///          这是**已知限制**，不是 bug —— 有预测总比没有强。
+///
+///    ② **机制记录**（补充）——
+///       检测"突然大幅掉血"（>阈值）记成一次机制命中，
+///       同时关联时间轴上的机制名。
+///       ⇒ 第二次遇到同名机制就能预判"这一下大概打多少"。
+///
+///  ★ 平A vs 机制怎么区分 ★
+///    机制 = 短时间内（<0.5 秒）掉血超过 `机制判定比例`（默认 15% 最大血）
+///    平A = 其余的所有掉血（细水长流）
+///    两者的外推方式不同：
+///      · 平A 是**持续**的 → 按速率外推
+///      · 机制是**脉冲**的 → 按"下次什么时候来 + 大概多少"外推
+/// ══════════════════════════════════════════════════════════════════
+public static class 伤害预测
+{
+    // ══════════════════════════════════════════════════════════════
+    //  参数
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>血量采样保留多久（秒）</summary>
+    private const float 采样窗口秒 = 12f;
+
+    /// <summary>采样间隔（毫秒）—— 每帧采样太密，10 帧一次足够</summary>
+    private const int 采样间隔毫秒 = 160;
+
+    /// <summary>
+    /// 一次掉血超过**最大血的这个比例**，判定为「机制命中」而不是平A。
+    ///
+    /// ⚠️ 15% 的依据：平A 通常每次 3~8% 最大血，机制 AOE 通常 25~60%。
+    ///    取 15% 做分界，两边都不会误判得太离谱。
+    /// </summary>
+    private const float 机制判定比例 = 0.15f;
+
+    /// <summary>机制判定的时间窗（秒）—— 在这段时间内的掉血算"一次"</summary>
+    private const float 机制聚合秒 = 0.5f;
+
+    /// <summary>
+    /// **平A 兜底速率**（每秒掉最大血的百分之多少 / 每个敌人）。
+    ///
+    /// ⚠️ 只在"还没观察到任何掉血"时用（接怪的头几秒）。
+    ///    取 3% 是个保守值：4 人本单 Boss 大约 2~5%/秒。
+    ///    宁可高估（多奶一口）也不要低估（人死了没法救）。
+    /// </summary>
+    private const float 平A兜底每敌每秒 = 0.03f;
+
+    /// <summary>
+    /// **机制兜底伤害**（最大血的比例）—— 没观察过任何机制时用。
+    ///
+    /// ⚠️ 时间轴说"马上有机制"但我们没记录过它时，按这个估。
+    ///    40% 是常见 AOE 的量级。
+    /// </summary>
+    private const float 机制兜底比例 = 0.40f;
+
+    // ══════════════════════════════════════════════════════════════
+    //  采样状态
+    // ══════════════════════════════════════════════════════════════
+
+    private sealed class 采样
+    {
+        public long 时刻;
+        public float 有效比例;    // 含盾
+        public float 血量比例;    // 不含盾（算真实掉血）
+    }
+
+    private static readonly Dictionary<ulong, List<采样>> _历史 = new();
+    private static long _上次采样;
+
+    /// <summary>记录到的机制命中：最大血比例</summary>
+    private static readonly List<float> _机制样本 = new();
+
+    /// <summary>时间轴机制名 → 观察到的伤害比例（中位数）</summary>
+    private static readonly Dictionary<string, float> _机制伤害 = new();
+
+    // ══════════════════════════════════════════════════════════════
+    //  每帧更新（挂到 OnBattleUpdate）
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>每帧调一次 —— 采样全队血量。</summary>
+    public static void 每帧更新()
+    {
+        try
+        {
+            var 现在 = TimeHelper.Now();
+            if (现在 - _上次采样 < 采样间隔毫秒) return;
+            _上次采样 = 现在;
+
+            var 队伍 = HealTargetHelper.可治疗队友(50f);
+            var 见过的 = new HashSet<ulong>();
+
+            foreach (var r in 队伍)
+            {
+                if (r == null) continue;
+
+                var id = r.GameObjectId;
+                见过的.Add(id);
+
+                if (!_历史.TryGetValue(id, out var 表))
+                {
+                    表 = new List<采样>();
+                    _历史[id] = 表;
+                }
+
+                var 本次 = new 采样
+                {
+                    时刻 = 现在,
+                    有效比例 = r.有效血量比例(),
+                    血量比例 = r.血量比例(),
+                };
+
+                // ── 机制检测：和上一条采样比，掉血是否超过阈值 ──
+                if (表.Count > 0)
+                {
+                    var 上条 = 表[^1];
+                    var 掉 = 上条.血量比例 - 本次.血量比例;
+                    if (掉 >= 机制判定比例)
+                    {
+                        _机制样本.Add(掉);
+                        if (_机制样本.Count > 40) _机制样本.RemoveAt(0);
+
+                        // 关联时间轴上的机制名（如果有）
+                        //
+                        // ⚠️ 用 `下一条机制()` 而不是 `当前机制()`：
+                        //    后者返回 `List<...>`（同一时刻可能多个），
+                        //    前者返回"接下来那一个" —— 刚吃到伤害时，
+                        //    时间轴的下一条通常就是刚打过来的这个。
+                        try
+                        {
+                            var 机制 = TimelineManager.下一条机制();
+                            if (机制 != null && !string.IsNullOrEmpty(机制.Value.名称))
+                            {
+                                var 名 = 机制.Value.名称;
+                                // 同名机制取平均（多次遇到就越来越准）
+                                _机制伤害[名] = _机制伤害.TryGetValue(名, out var 旧)
+                                    ? (旧 + 掉) * 0.5f
+                                    : 掉;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                表.Add(本次);
+
+                // ── 裁掉过期采样 ──
+                var 最早 = 现在 - (long)(采样窗口秒 * 1000);
+                var 删到 = 0;
+                while (删到 < 表.Count && 表[删到].时刻 < 最早) 删到++;
+                if (删到 > 0) 表.RemoveRange(0, 删到);
+            }
+
+            // ── 清理离队/死亡的人 ──
+            if (_历史.Count > 见过的.Count + 4)
+            {
+                foreach (var k in _历史.Keys.Where(k => !见过的.Contains(k)).ToList())
+                    _历史.Remove(k);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>战斗重置 —— 换本 / 重新开怪时清空（旧数据会误导预测）</summary>
+    public static void 重置()
+    {
+        try
+        {
+            _历史.Clear();
+            _机制样本.Clear();
+            _机制伤害.Clear();
+            _上次采样 = 0;
+        }
+        catch { }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  预测
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// **预计未来 <paramref name="秒"/> 秒会掉多少血**（绝对值，不是比例）。
+    ///
+    /// = 平A 外推 + 机制预测
+    /// </summary>
+    public static float 预计掉血(IBattleChara 目标, float 秒)
+    {
+        try
+        {
+            if (目标 == null || 秒 <= 0f) return 0f;
+
+            var 上限 = 目标.MaxHp;
+            if (上限 <= 0) return 0f;
+
+            var 比例 = 平A速率(目标) * 秒 + 机制伤害(秒);
+            return 上限 * MathF.Max(0f, 比例);
+        }
+        catch
+        {
+            return 0f;
+        }
+    }
+
+    /// <summary>
+    /// **预计 <paramref name="秒"/> 秒后这个人的血量比例**（0~1，含盾）。
+    ///
+    /// ⚠️ 会**扣除**期间的预测治疗吗？**不会** ——
+    ///    这是"什么都不做会怎样"，治疗决策正是要用它来判断"需不需要做"。
+    /// </summary>
+    public static float 预计血量比例(IBattleChara 目标, float 秒)
+    {
+        try
+        {
+            if (目标 == null) return 1f;
+
+            var 上限 = 目标.MaxHp;
+            if (上限 <= 0) return 1f;
+
+            var 当前 = 目标.有效血量比例() * 上限;
+            var 之后 = 当前 - 预计掉血(目标, 秒);
+            return MathF.Max(0f, 之后 / 上限);
+        }
+        catch
+        {
+            return 1f;
+        }
+    }
+
+    /// <summary>
+    /// **未来 <paramref name="秒"/> 秒内最危险的那个人**（预计血量比例最低）。
+    ///
+    /// 没人低于 <paramref name="低于比例"/> 时返回 null。
+    /// </summary>
+    public static IBattleChara? 最危险( float 秒, float 低于比例 = 1f)
+    {
+        try
+        {
+            IBattleChara? 最 = null;
+            var 最低 = float.MaxValue;
+
+            foreach (var r in HealTargetHelper.可治疗队友(50f))
+            {
+                if (r == null) continue;
+                var p = 预计血量比例(r, 秒);
+                if (p < 最低) { 最低 = p; 最 = r; }
+            }
+
+            return 最低 <= 低于比例 ? 最 : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// **未来 <paramref name="秒"/> 秒内预计会掉血的人数**（掉超过 <paramref name="掉血比例"/>）。
+    ///
+    /// 用途：判断"群奶值不值得交" —— 比只看当前血量更早。
+    /// </summary>
+    public static int 预计掉血人数(float 秒, float 掉血比例 = 0.10f)
+    {
+        try
+        {
+            var 数 = 0;
+            foreach (var r in HealTargetHelper.可治疗队友(50f))
+            {
+                if (r == null) continue;
+
+                var 上限 = r.MaxHp;
+                if (上限 <= 0) continue;
+
+                if (预计掉血(r, 秒) / 上限 >= 掉血比例) 数++;
+            }
+            return 数;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// **未来 <paramref name="秒"/> 秒内会不会有"大到需要预铺"的伤害**。
+    ///
+    /// 两个来源任一成立即真：
+    ///   ① 时间轴预报（`TimelineManager.未来有减伤`）
+    ///   ② 观察到的机制样本很大（超过 <paramref name="比例"/>）
+    /// </summary>
+    public static bool 要预铺(float 秒 = 4f, float 比例 = 0.20f)
+    {
+        try
+        {
+            if (TimelineManager.未来有减伤(秒)) return true;
+            if (减伤Helper.即将来大伤害()) return true;
+
+            // 观察到的机制量级够大 → 即使时间轴没报也要预铺
+            return 机制伤害(秒) >= 比例;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  内部
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// **平A 速率**（每秒掉最大血的百分之多少）—— 从最近几秒的观察外推。
+    ///
+    /// ⚠️ 用**血量比例**（不含盾）而不是有效比例 ——
+    ///    盾抵消掉的伤害**没有真的打到人身上**，算进"掉血速率"会高估。
+    /// </summary>
+    private static float 平A速率(IBattleChara 目标)
+    {
+        try
+        {
+            if (!_历史.TryGetValue(目标.GameObjectId, out var 表) || 表.Count < 3)
+                return 兜底速率();
+
+            var 首 = 表[0];
+            var 末 = 表[^1];
+            var 秒 = (末.时刻 - 首.时刻) / 1000f;
+            if (秒 < 0.5f) return 兜底速率();
+
+            var 掉 = 首.血量比例 - 末.血量比例;
+            if (掉 <= 0f) return 0f;      // 没在掉血（或者被奶回来了）
+
+            // ⚠️ 把"机制造成的那部分"扣掉 —— 否则遇到一次大机制，
+            //    之后的平A 速率会被拉得虚高，导致过度治疗。
+            var 机制占 = 机制样本均值() * (表.Count / 3f);
+            var 平A掉 = MathF.Max(0f, 掉 - 机制占);
+
+            return 平A掉 / 秒;
+        }
+        catch
+        {
+            return 兜底速率();
+        }
+    }
+
+    /// <summary>没有观察数据时的兜底：按敌人数量估</summary>
+    private static float 兜底速率()
+    {
+        try
+        {
+            var 敌 = Math.Clamp(HealTargetHelper.附近敌人总数(30f), 1, 8);
+            return 平A兜底每敌每秒 * 敌;
+        }
+        catch
+        {
+            return 平A兜底每敌每秒;
+        }
+    }
+
+    /// <summary>
+    /// **机制伤害预测**（未来 <paramref name="秒"/> 秒内，最大血的比例）。
+    ///
+    /// ⚠️ 简化模型：不做"下次机制什么时候来"的精确推算 ——
+    ///    因为 `TimelineManager` 已经给了时机（`未来有减伤`），
+    ///    这里只负责**量级**。时间轴说有机制 → 按观察到的量级估。
+    /// </summary>
+    private static float 机制伤害(float 秒)
+    {
+        try
+        {
+            if (!TimelineManager.未来有减伤(秒) && !减伤Helper.即将来大伤害())
+                return 0f;
+
+            // 优先用"同名机制观察到的值"
+            try
+            {
+                var 机制 = TimelineManager.下一条机制();
+                if (机制 != null && !string.IsNullOrEmpty(机制.Value.名称)
+                    && _机制伤害.TryGetValue(机制.Value.名称, out var v))
+                    return v;
+            }
+            catch { }
+
+            var 均值 = 机制样本均值();
+            return 均值 > 0f ? 均值 : 机制兜底比例;
+        }
+        catch
+        {
+            return 0f;
+        }
+    }
+
+    private static float 机制样本均值()
+    {
+        if (_机制样本.Count == 0) return 0f;
+
+        var 和 = 0f;
+        foreach (var v in _机制样本) 和 += v;
+        return 和 / _机制样本.Count;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  诊断 / 给 AI 用
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>给 AI 看的一段描述（没有预测数据时返回空串）</summary>
+    public static string 状态描述()
+    {
+        try
+        {
+            var 样本数 = _机制样本.Count;
+            var 有观察 = _历史.Count > 0;
+
+            if (!有观察 && 样本数 == 0 && !TimelineManager.未来有减伤(8.0))
+                return "";
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("【伤害预测（本地推算，不是猜测结果）】");
+
+            var 平A = 0f;
+            try
+            {
+                var 我 = Core.Me;
+                平A = 平A速率(我);
+            }
+            catch { }
+
+            sb.AppendLine($"  平A 速率：约 {平A * 100f:F1}% 最大血/秒（从最近 {(int)采样窗口秒} 秒掉血外推）");
+
+            if (样本数 > 0)
+                sb.AppendLine($"  已记录 {样本数} 次机制命中，平均 {机制样本均值() * 100f:F0}% 最大血");
+            else
+                sb.AppendLine("  还没记录到机制（接怪太短或本场没吃过大伤害）");
+
+            var 人 = 预计掉血人数(6f);
+            if (人 > 0) sb.AppendLine($"  预计 6 秒内 {人} 人会掉 10% 以上");
+
+            var 危险 = 最危险(6f, 0.5f);
+            if (危险 != null)
+                sb.AppendLine($"  6 秒后最危险：{危险.Name} 预计 {预计血量比例(危险, 6f) * 100f:F0}%");
+
+            if (要预铺(6f)) sb.AppendLine("  → 短时间内有需要预铺的伤害");
+
+            return sb.ToString();
+        }
+        catch
+        {
+            return "";
+        }
+    }
+}
