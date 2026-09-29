@@ -176,7 +176,7 @@ public static class Ai初始化
                     ? "未知"
                     : DeepSeekClient.上次失败原因;
 
-                屏幕提示.警告($"AI 已熔断：{原因}", "ai-fuse-on");
+                屏幕提示.警告($"已熔断：{原因}", "ai-fuse-on");
             }
             else
             {

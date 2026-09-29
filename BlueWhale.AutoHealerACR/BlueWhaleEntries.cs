@@ -90,7 +90,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
@@ -204,7 +204,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
@@ -318,7 +318,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
@@ -432,7 +432,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
@@ -603,7 +603,7 @@ public static class AiSettingPage
         if (ImGui.Checkbox("调试模式（AI 日志上屏）", ref s.调试模式))
         {
             AiSettings.保存();
-            if (s.调试模式) 屏幕提示.成功("调试模式已开启 —— AI 日志会直接显示在屏幕上", "dbg-on");
+            if (s.调试模式) 屏幕提示.成功("调试模式已开启 —— 小鲸鱼的日志会直接显示在屏幕上", "dbg-on");
             else 屏幕提示.提示("🐋 小鲸鱼", "调试模式已关闭", "dbg-off");
         }
         ImGui.TextDisabled("  开启后 AI 的请求/回复/采纳都会打到屏幕上（日志文件照常写）");
@@ -823,7 +823,7 @@ public override Rotation Build(string settingFolder)
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
