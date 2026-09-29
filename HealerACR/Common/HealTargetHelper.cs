@@ -269,6 +269,53 @@ public static class HealTargetHelper
         return TargetHelper.GetNearbyEnemyCount((int)伤害范围);
     }
 
+    /// <summary>
+    /// **以玩家自己为中心**数敌人（用来判断"对自身周围"的 AOE 能打到几个）。
+    ///
+    /// ⚠️ 和 <see cref="周围敌人数量"/> 的关键区别：
+    ///    那个是**以当前目标为中心**数（奶妈站远程位时要靠它才数得到），
+    ///    这个**以自己为中心** —— 因为「破阵法 / 裂阵法」是
+    ///    `CastType=2 射程=0 效果范围=5` 的**自身圆形 AOE**，
+    ///    判定就是"我周围 5 米内有几个敌人"。
+    ///
+    /// ⚠️ 用法上必须按技能的 `EffectRange` 传半径 ——
+    ///    传错半径会得出错的命中数，进而选错技能。
+    ///
+    /// ⚠️ 用 `敌人.HitboxRadius` 放宽：Boss 的目标圈有大有小，
+    ///    严格按中心距会在"贴着大 Boss"时少数。
+    /// </summary>
+    public static int 自身周围敌人数量(float 半径 = 5f)
+    {
+        var 数 = 0;
+        try
+        {
+            var 我 = Core.Me.Position;
+
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null) continue;
+                if (敌人.CurrentHp <= 0) continue;
+
+                try
+                {
+                    if (!敌人.IsTargetable) continue;
+                    // 正在死的不算（0.1% 血线）
+                    if (敌人.MaxHp > 0 &&
+                        敌人.CurrentHp / (float)敌人.MaxHp <= 0.001f) continue;
+
+                    var 距 = Vector3.Distance(我, 敌人.Position) - 敌人.HitboxRadius;
+                    if (距 > 半径) continue;
+                }
+                catch { continue; }
+
+                数++;
+            }
+        }
+        catch { }
+
+        return 数;
+    }
+
     /// <summary>当前选中的敌人（挂 DoT / 打输出用）</summary>
     public static IBattleChara? 当前目标()
     {

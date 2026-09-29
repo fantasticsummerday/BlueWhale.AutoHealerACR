@@ -175,6 +175,40 @@ public class SCHSpellTable : JobSpellTable
     ///    必须按当前等级查。
     /// ══════════════════════════════════════════════════════════════
     /// </summary>
+    /// <summary>
+    /// **咏唱时间**（秒）—— 数据来自 `tools\CastProbe`（游戏 `Cast100ms` 字段）。
+    ///
+    /// ⚠️ 学者的读条填充技**全是 1.5 秒**，瞬发的全是 0 ——
+    ///    而复唱都是 2.5 秒，所以两者都只占一个 GCD，
+    ///    **咏唱时间在"选最优"的排序里约掉了**（比威力即可）。
+    ///    见 `JobSpellTable.咏唱时间表` 的说明。
+    /// </summary>
+    public override IReadOnlyDictionary<uint, float> 咏唱时间表 { get; } = new Dictionary<uint, float>
+    {
+        [SpellIds.取("毁灭")]   = 1.5f,
+        [SpellIds.取("毁坏")]   = 0f,      // 瞬发
+        [SpellIds.取("破阵法")] = 0f,      // 瞬发
+        [SpellIds.取("裂阵法")] = 0f,      // 瞬发
+        [SpellIds.取("气炎法")] = 1.5f,
+        [SpellIds.取("魔炎法")] = 1.5f,
+        [SpellIds.取("死炎法")] = 1.5f,
+        [SpellIds.取("极炎法")] = 1.5f,
+    };
+
+    /// <summary>
+    /// 哪些是**群体技**（对自身周围的 AOE）。
+    ///
+    /// ⚠️ 数据依据（`dump_actions.tsv` + `CastProbe`）：
+    ///       破阵法 16539  CastType=2  射程=0  效果范围=5
+    ///       裂阵法 25866  CastType=2  射程=0  效果范围=5
+    ///     ⇒ 两者都是"以自己为中心 5 米"的圆形 AOE。
+    ///
+    ///  ⇒ 单体目标时用它们是**亏的**（拿 AOE 威力打一个敌人），
+    ///    所以选技能时要按 `威力 × 命中数` 折算。
+    /// </summary>
+    public override bool 是群体技(uint 技能Id)
+        => 技能Id == SpellIds.取("破阵法") || 技能Id == SpellIds.取("裂阵法");
+
     protected override (int 等级, int 威力)[]? 威力表(uint 技能Id)
     {
         // 破阵法（46 级学）→ 54 级提升一档
