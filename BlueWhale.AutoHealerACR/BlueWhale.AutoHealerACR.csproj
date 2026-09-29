@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>BlueWhale</AssemblyName>
     <RootNamespace>BlueWhale.AutoHealerACR</RootNamespace>
-    <Version>1.32.0</Version>
+    <Version>1.33.0</Version>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -32,6 +32,22 @@
   <ItemGroup>
     <Compile Include="..\HealerACR\**\*.cs"
              Exclude="..\HealerACR\bin\**;..\HealerACR\obj\**" />
+  </ItemGroup>
+
+  <!--
+    ★ 副本名对照表要随 dll 一起部署 ★
+
+    记忆库提炼时要把"副本 ID"写成可读的副本名（`Data.CurrentContentFinderConditionId`
+    只给 ID）。读不到这张表**不会出错**（会退回"副本#123"），
+    但记忆库里全是 ID 就没法看了。
+
+    表由 tools\DutyDump 生成（读游戏 sqpack 的 ContentFinderCondition），
+    游戏大版本更新后重跑一次即可。
+  -->
+  <ItemGroup>
+    <None Include="..\DutyNames.json" Link="DutyNames.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

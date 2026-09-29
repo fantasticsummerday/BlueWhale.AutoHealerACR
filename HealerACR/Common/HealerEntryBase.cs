@@ -58,8 +58,45 @@ public abstract class HealerEntryBase : IRotationEntry
 
     // ==================== 核心 ====================
 
-    /// <summary>子类只需要给出决策队列，剩下的都在这</summary>
-    protected abstract List<SlotResolverData> 构建决策队列();
+    /// <summary>
+    /// 各职业提供**自己的**决策队列（不含基类的统一拦截）。
+    ///
+    /// ⚠️ 名称带 `_职业专属` 是为了和下面的 <see cref="构建决策队列"/> 区分开 ——
+    ///    子类**只该重写这一个**，不要再直接重写 <see cref="构建决策队列"/>：
+    ///    那会把记录模式的"停手"逻辑绕过去（见下）。
+    /// </summary>
+    protected abstract List<SlotResolverData> 构建决策队列_职业专属();
+
+    /// <summary>
+    /// **最终**决策队列 —— 基类在这里做统一拦截，子类不要重写。
+    ///
+    /// ★ 为什么要有这一层（设计要点，别拆掉）★
+    ///
+    ///   「记录模式」要求 **ACR 一个技能都不放**（见 记录模式.cs 的说明：
+    ///   只有完全停手，记录到的每一条才必然是玩家手动按的，归属才干净）。
+    ///
+    ///   而"停手"最干净的实现就是**返回空队列** —— 没有任何 resolver，
+    ///   ACR 自然什么都不会做（连心跳都没有，AI 也不会跑）。
+    ///
+    ///   ⚠️ 但这个判断**只能写在一处**：决策队列是在**每个职业入口**里
+    ///      各自构建的（5 个重写），如果把判断下发到那 5 处，
+    ///      就是"改一处漏四处"的经典隐患 ——
+    ///      漏掉的那个职业会**在记录模式下照常出手**，
+    ///      污染数据而且很难发现（它看起来只是"另一个职业"）。
+    ///
+    ///   所以：子类实现 `构建决策队列_职业专属()`，
+    ///        基类在这里统一决定"到底给不给队列"。
+    /// </summary>
+    protected virtual List<SlotResolverData> 构建决策队列()
+    {
+        // ── 记录模式：ACR 完全停手 ──
+        if (记录模式.开启 && !记录模式.保留保命兜底)
+        {
+            return new List<SlotResolverData>();
+        }
+
+        return 构建决策队列_职业专属();
+    }
 
     public virtual Rotation Build(string settingFolder)
     {
@@ -221,6 +258,10 @@ public abstract class HealerEntryBase : IRotationEntry
         //   勾上 = 战斗或木桩，只要条件满足就走爆发轴
         //   默认关（爆发轴会占 GCD，日随里不一定划算）
         加开关("一键爆发", false);
+        // ★ 记录模式 ★ —— 只观察玩家手动操作，ACR 完全停手
+        //   ⚠️ 默认关。开启后 **ACR 不会替你奶**，全程要自己操作 ——
+        //      详细说明和数据用途见 记录模式.cs
+        加开关("记录模式", false);
         // ★ 解除熔断 ★ —— HealQt 只提供 bool 开关，
         //   但 AEAssist 的 QT 控制台支持给开关绑快捷键 ——
         //   所以在 QT 面板里给这个开关设个键，就等于有了"解除熔断"快捷键。
@@ -266,6 +307,7 @@ public abstract class HealerEntryBase : IRotationEntry
         "群盾",         // 默认关，用户会想开
         "一键爆发",     // 默认关，用户会想试
         "解除熔断",     // 要绑快捷键，必须可见
+        "记录模式",     // ★ 新功能：只记录玩家手动操作（ACR 完全停手），必须可见
     };
 
     /// <summary>
@@ -612,7 +654,8 @@ public class HealRotationEventHandler : IRotationEventHandler
         //    之前漏了这里 —— 正是开发约定 F① 那类"有状态但没清"。
         try { 效果确认.重置(); } catch { }
         try { 技能诊断.重置(); } catch { }   // 诊断节流记录
-        try { Dot补判.重置(); } catch { }    // DoT 保险丝（跨战斗必须清，否则开场不补 DoT）
+        try { Dot补判.重置(); } catch { }
+        try { 记录模式.重置(); } catch { }    // DoT 保险丝（跨战斗必须清，否则开场不补 DoT）
     }
 
     public void OnSpellCastSuccess(Slot slot, Spell spell)
@@ -674,6 +717,26 @@ public class HealRotationEventHandler : IRotationEventHandler
 
         // 本地施放记录：清理过期条目
         本地施放记录.每帧更新();
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 一次性开关 / 状态开关的每帧处理（**本地层**）★
+        //
+        //  ⚠️ 原来这个只在 BlueWhale 的 `AiHeartbeat` 里调用 —— 那是个隐患：
+        //     `AiHeartbeat` 是插在**决策队列**里的 resolver，
+        //     一旦队列里没有它（记录模式停手、或者 AI 层出问题被摘掉），
+        //     这些开关就**永远不会被处理**：
+        //       · 「解除熔断」勾了没反应
+        //       · 「记录模式」勾了**启动不了**（而且是死锁：
+        //          勾上 → 想停手 → 心跳被移除 → 再没人读这个开关 → 永远开不起来）
+        //
+        //     移到本地层就与队列内容无关了 —— 这也符合 开发约定.md G 节
+        //     （AI 是增强层，这些开关不该依赖 AI 存活）。
+        // ══════════════════════════════════════════════════════════════
+        HealQt.每帧更新();
+
+        // ★ 记录模式：观察玩家手动操作 ★
+        //   非记录模式下这个方法第一行就 return，零开销。
+        记录模式.每帧更新();
     }
 
     public void OnEnterRotation()
@@ -702,7 +765,8 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 效果确认.重置(); } catch { }
         try { 技能诊断.重置(); } catch { }
         try { 屏幕提示.重置(); } catch { }      // 换职业后同 key 的提示应该能再弹一次
-        try { Dot补判.重置(); } catch { }        // DoT 保险丝（换职业后重新开始计时）
+        try { Dot补判.重置(); } catch { }
+        try { 记录模式.重置(); } catch { }        // DoT 保险丝（换职业后重新开始计时）
 
         // ② 队伍规模要重新判定（切职业常常伴随换队伍 / 换本）
         try { HealTargetHelper.刷新队伍规模(); } catch { }
@@ -745,7 +809,8 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 技能熔断.重置(); } catch { }
         try { 效果确认.重置(); } catch { }   // 同上：换本也要清
         try { 技能诊断.重置(); } catch { }
-        try { Dot补判.重置(); } catch { }    // DoT 保险丝
+        try { Dot补判.重置(); } catch { }
+        try { 记录模式.重置(); } catch { }    // DoT 保险丝
 
         // ★ 通知 AI 层：局面完全变了 ★
         //   不通知的话，AI 的"倾向"和阈值偏移会从上个副本带过来 ——

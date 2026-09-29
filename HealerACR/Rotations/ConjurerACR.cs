@@ -80,7 +80,7 @@ public class 幻术师RotationEntry : HealerEntryBase
         "注意：幻术师没有神圣、节制、天赐祝福 —— 那些是白魔技能。";
     public override JobSpellTable Spells => _spells;
 
-    protected override List<SlotResolverData> 构建决策队列()
+    protected override List<SlotResolverData> 构建决策队列_职业专属()
     {
         return new List<SlotResolverData>
         {

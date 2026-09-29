@@ -56,7 +56,15 @@ public static class DeepSeekClient
     ///     测试连接 0.5 秒能通，策略层 3 秒不够 —— 日志里全是"请求失败（超时）"。
     /// </summary>
     /// <param name="超时毫秒">0 = 用设置里的值</param>
-    public static async Task<string?> 提问(string systemPrompt, string userPrompt, int 超时毫秒 = 0)
+    /// <param name="最大Token">
+    /// 输出上限。0 = 用默认的 800（决策类够用）。
+    ///
+    /// ⚠️ **提炼记忆库必须调大** —— 那是"总结一场完整副本"，
+    ///    输出是多条结构化结论，800 token 会**被截断**，
+    ///    而且截断点可能正好在句子中间，导致存进记忆库的是半句话。
+    /// </param>
+    public static async Task<string?> 提问(string systemPrompt, string userPrompt,
+                                           int 超时毫秒 = 0, int 最大Token = 0)
     {
         var s = AiSettings.Instance;
 
@@ -75,7 +83,7 @@ public static class DeepSeekClient
                 },
                 // 低温度：我们要的是稳定决策，不是创意
                 temperature = 0.2,
-                max_tokens = 800,
+                max_tokens = 最大Token > 0 ? 最大Token : 800,
                 stream = false,
             };
 

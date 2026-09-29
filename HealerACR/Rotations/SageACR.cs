@@ -79,7 +79,7 @@ public class SGERotationEntry : HealerEntryBase
         "贤者 70 级转职，实际可用 70-100；脱战自动补蛇胆。";
     public override JobSpellTable Spells => _spells;
 
-    protected override List<SlotResolverData> 构建决策队列()
+    protected override List<SlotResolverData> 构建决策队列_职业专属()
     {
         return new List<SlotResolverData>
         {

@@ -76,7 +76,7 @@ public class WHMRotationEntry : HealerEntryBase
         "百合技 / 节制减伤 / cactbot 时间轴 / 木桩最优输出 都接好了。";
     public override JobSpellTable Spells => _spells;
 
-    protected override List<SlotResolverData> 构建决策队列()
+    protected override List<SlotResolverData> 构建决策队列_职业专属()
     {
         return new List<SlotResolverData>
         {

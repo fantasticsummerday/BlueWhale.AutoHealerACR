@@ -71,6 +71,38 @@ internal static class Ai层挂载
             Ai初始化.开始();
         };
 
+        // ══════════════════════════════════════════════════════════════
+        //  ── ③ 记录模式：观察玩家手动操作 + 对局收尾 ──
+        //
+        //  链路：记录模式（本地层观察）→ 对局记录（本层存盘）
+        //        → 对局收尾（判结束）→ 记忆库（AI 提炼）
+        //        → AiSituation（喂回给 AI）
+        //
+        //  ⚠️ 这里只负责**采集侧**。"停手"是本地层做的
+        //     （HealerEntryBase.构建决策队列 返回空队列）——
+        //     符合 开发约定.md G 节：判断和行为在本地，AI 只做增强。
+        // ══════════════════════════════════════════════════════════════
+        记录模式.记录一次 = 对局记录.记一次;
+
+        // 关闭记录模式时，把没记完的残局丢掉（不算一局完整的）
+        记录模式.进入记录模式 = 开 =>
+        {
+            try
+            {
+                if (!开 && 对局记录.有记录)
+                {
+                    Ai调试.日志($"记录模式关闭 -> 丢弃未完成的记录（{对局记录.本局条数} 条）");
+                    对局记录.丢弃();
+                    对局收尾.重置();
+                }
+                else if (开)
+                {
+                    对局收尾.重置();
+                }
+            }
+            catch { }
+        };
+
         // ── 启动初始化 ──
         //   加载后立刻跑一次完整请求，否则前 10 秒它是"哑"的。
         Ai初始化.开始();
@@ -95,6 +127,7 @@ internal static class Ai层挂载
         try { AiThresholdAdapter.重置平滑(); } catch { }
         try { 坦克压力.重置(); } catch { }
         try { 局面监控.重置(); } catch { }   // 血量/目标基准必须归零
+        try { 对局收尾.重置(); } catch { }   // 副本收尾计时（换本后重新算）
     }
 
     /// <summary>退出时卸载，避免影响其他 ACR</summary>
@@ -104,6 +137,12 @@ internal static class Ai层挂载
         记忆钩子.卸载();
         状态重置钩子.卸载();
         HealQt.解除熔断请求 = null;
+
+        // 记录模式的钩子也要摘掉 —— 否则关掉 ACR 之后
+        // 本地层还会往一个已经没人管的采集器里塞数据
+        记录模式.记录一次 = null;
+        记录模式.进入记录模式 = null;
+        记录模式.设置(false);   // 顺手关掉，别留着"停手"状态
     }
 }
 
@@ -132,6 +171,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
     {
         base.OnDrawSetting();     // 原版全部设置（治疗/输出/资源/时间轴…）
         AiSettingPage.画();        // 叠加 AI 部分
+        记忆库页面.画();           // 叠加记忆库（记录模式状态 + 库管理）
     }
 
     /// <summary>
@@ -175,6 +215,26 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
     protected override List<AEAssist.CombatRoutine.Module.SlotResolverData> 构建决策队列()
     {
         var 队列 = base.构建决策队列();
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 记录模式：AI 层也要停手 ★
+        //
+        //  基类在 `构建决策队列()` 里已经对**职业专属队列**做了拦截
+        //  （记录模式返回空队列）。但那里拦不到这一段 ——
+        //  因为下面两个 resolver 是**在这里手动插进去的**。
+        //
+        //  不拦的话后果很严重：
+        //    ① AI 照样出手 → 污染记录（记忆库里混入 ACR 的操作）
+        //    ② 心跳还在跑 → **白白烧 API 额度**，而记录模式根本不需要 AI 决策
+        //       （它只需要"观察 + 最后提炼一次"）
+        //
+        //  ⚠️ 这段守卫在 4 个职业入口里各有一份 ——
+        //     加新的 resolver 时**别忘了它**。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.记录模式.开启 && !HealerACR.Common.记录模式.保留保命兜底)
+        {
+            return 队列;
+        }
 
         // ★ 心跳必须在队列里 —— 没有它 AI 层永远不刷新 ★
         队列.Insert(0, new AEAssist.CombatRoutine.Module.SlotResolverData(
@@ -214,6 +274,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
     {
         base.OnDrawSetting();     // 原版全部设置（治疗/输出/资源/时间轴…）
         AiSettingPage.画();        // 叠加 AI 部分
+        记忆库页面.画();           // 叠加记忆库（记录模式状态 + 库管理）
     }
 
     /// <summary>
@@ -257,6 +318,26 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
     protected override List<AEAssist.CombatRoutine.Module.SlotResolverData> 构建决策队列()
     {
         var 队列 = base.构建决策队列();
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 记录模式：AI 层也要停手 ★
+        //
+        //  基类在 `构建决策队列()` 里已经对**职业专属队列**做了拦截
+        //  （记录模式返回空队列）。但那里拦不到这一段 ——
+        //  因为下面两个 resolver 是**在这里手动插进去的**。
+        //
+        //  不拦的话后果很严重：
+        //    ① AI 照样出手 → 污染记录（记忆库里混入 ACR 的操作）
+        //    ② 心跳还在跑 → **白白烧 API 额度**，而记录模式根本不需要 AI 决策
+        //       （它只需要"观察 + 最后提炼一次"）
+        //
+        //  ⚠️ 这段守卫在 4 个职业入口里各有一份 ——
+        //     加新的 resolver 时**别忘了它**。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.记录模式.开启 && !HealerACR.Common.记录模式.保留保命兜底)
+        {
+            return 队列;
+        }
 
         // ★ 心跳必须在队列里 —— 没有它 AI 层永远不刷新 ★
         队列.Insert(0, new AEAssist.CombatRoutine.Module.SlotResolverData(
@@ -296,6 +377,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
     {
         base.OnDrawSetting();     // 原版全部设置（治疗/输出/资源/时间轴…）
         AiSettingPage.画();        // 叠加 AI 部分
+        记忆库页面.画();           // 叠加记忆库（记录模式状态 + 库管理）
     }
 
     /// <summary>
@@ -339,6 +421,26 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
     protected override List<AEAssist.CombatRoutine.Module.SlotResolverData> 构建决策队列()
     {
         var 队列 = base.构建决策队列();
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 记录模式：AI 层也要停手 ★
+        //
+        //  基类在 `构建决策队列()` 里已经对**职业专属队列**做了拦截
+        //  （记录模式返回空队列）。但那里拦不到这一段 ——
+        //  因为下面两个 resolver 是**在这里手动插进去的**。
+        //
+        //  不拦的话后果很严重：
+        //    ① AI 照样出手 → 污染记录（记忆库里混入 ACR 的操作）
+        //    ② 心跳还在跑 → **白白烧 API 额度**，而记录模式根本不需要 AI 决策
+        //       （它只需要"观察 + 最后提炼一次"）
+        //
+        //  ⚠️ 这段守卫在 4 个职业入口里各有一份 ——
+        //     加新的 resolver 时**别忘了它**。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.记录模式.开启 && !HealerACR.Common.记录模式.保留保命兜底)
+        {
+            return 队列;
+        }
 
         // ★ 心跳必须在队列里 —— 没有它 AI 层永远不刷新 ★
         队列.Insert(0, new AEAssist.CombatRoutine.Module.SlotResolverData(
@@ -378,6 +480,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
     {
         base.OnDrawSetting();     // 原版全部设置（治疗/输出/资源/时间轴…）
         AiSettingPage.画();        // 叠加 AI 部分
+        记忆库页面.画();           // 叠加记忆库（记录模式状态 + 库管理）
     }
 
     /// <summary>
@@ -421,6 +524,26 @@ public class BlueWhaleSageEntry : SGERotationEntry
     protected override List<AEAssist.CombatRoutine.Module.SlotResolverData> 构建决策队列()
     {
         var 队列 = base.构建决策队列();
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 记录模式：AI 层也要停手 ★
+        //
+        //  基类在 `构建决策队列()` 里已经对**职业专属队列**做了拦截
+        //  （记录模式返回空队列）。但那里拦不到这一段 ——
+        //  因为下面两个 resolver 是**在这里手动插进去的**。
+        //
+        //  不拦的话后果很严重：
+        //    ① AI 照样出手 → 污染记录（记忆库里混入 ACR 的操作）
+        //    ② 心跳还在跑 → **白白烧 API 额度**，而记录模式根本不需要 AI 决策
+        //       （它只需要"观察 + 最后提炼一次"）
+        //
+        //  ⚠️ 这段守卫在 4 个职业入口里各有一份 ——
+        //     加新的 resolver 时**别忘了它**。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.记录模式.开启 && !HealerACR.Common.记录模式.保留保命兜底)
+        {
+            return 队列;
+        }
 
         // ★ 心跳必须在队列里 —— 没有它 AI 层永远不刷新 ★
         队列.Insert(0, new AEAssist.CombatRoutine.Module.SlotResolverData(
@@ -697,10 +820,18 @@ public class AiHeartbeat : ISlotResolver
             局面监控.每帧更新();          // ★ 检测局面剧变 → 作废预取队列（原先写了没人调）
             Ai初始化.每帧更新();          // 初始化超时检查
             Ai初始化.检查熔断提示();      // 熔断状态变化 → 屏幕横幅告知
-            HealerACR.Common.HealQt.每帧更新();   // 一次性开关（解除熔断）
+
+            // ⚠️ `HealQt.每帧更新()` 已经**移到本地层**了
+            //    （HealerEntryBase.OnBattleUpdate）—— 别在这里再调一次。
+            //    原因见那里的注释：它原来只跟着 AI 心跳跑，
+            //    而记录模式下心跳会被移出队列，那些开关就永远处理不到。
 
             // 以太管理：通过观察以太数量变化检测"用掉了豆子"
             HealerACR.Common.以太管理.每帧更新();
+
+            // 对局收尾：判断"这场打完了" → 落盘 + AI 提炼成记忆
+            //   ⚠️ 只在记录模式里真正干活（内部第一行就检查），非记录模式零开销
+            对局收尾.每帧更新();
 
             // 战斗记忆采集（阶段 1：只写不读，不影响任何决策）
             战斗记忆.每帧更新();

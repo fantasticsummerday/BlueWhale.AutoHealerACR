@@ -56,7 +56,7 @@ public class ASTRotationEntry : HealerEntryBase
         "占星 30 级转职，实际可用 30-100；木桩模式打最优输出。";
     public override JobSpellTable Spells => _spells;
 
-    protected override List<SlotResolverData> 构建决策队列()
+    protected override List<SlotResolverData> 构建决策队列_职业专属()
     {
         return new List<SlotResolverData>
         {
