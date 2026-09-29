@@ -70,20 +70,48 @@ public abstract class HealerEntryBase : IRotationEntry
             Description = Description,
         };
 
-        return rotation
+        var rot = rotation
             .SetRotationEventHandler(new HealRotationEventHandler())
             // 日随用的"起手"其实只会做开怪倒计时预铺，序列是空的
             .AddOpener(level => new 预铺起手(Spells))
-            // ── Trigger 入口（对照 鍚岀被 ACR 用的 AddTriggerAction）──
-            //   这让"铺减伤 / 攒资源"能从 AEAssist 的时间轴编辑器里直接触发，
-            //   不用只依赖我自己的轮询。
+            // ── Trigger Action（对照 鍚岀被 ACR 用的 AddTriggerAction）──
+            //   让"铺减伤 / 攒资源"能从 AEAssist 的时间轴编辑器里直接触发。
             //   两者并存：轮询还在跑，Trigger 是额外的触发源。
             .AddTriggerAction(new AEAssist.CombatRoutine.Trigger.ITriggerAction[]
             {
                 new 减伤触发器(),
                 new 攒资源触发器(),
+            })
+            // ── Trigger Condition（对照 鍚岀被 ACR 用的 AddTriggerCondition）──
+            //   时间轴编辑器里可选的"条件"，配合 Action 用。
+            .AddTriggerCondition(new AEAssist.CombatRoutine.Trigger.ITriggerCond[]
+            {
+                new 血量低于条件(),
+                new 死亡人数条件(),
+                new 资源条件(),
             });
+
+        // ── 爆发轴（对照 鍚岀被 ACR 用的 AddSlotSequences）──
+        //   爆发期按固定套路走，不被优先级逻辑打断。
+        //   **默认关闭** —— 爆发轴会占 GCD，日随里不一定划算。
+        try
+        {
+            var 轴 = 构建爆发轴();
+            if (轴 != null && 轴.Length > 0) rot.AddSlotSequences(轴);
+        }
+        catch { }
+
+        return rot;
     }
+
+    /// <summary>
+    /// 子类返回自己的爆发轴（返回空数组 = 不用）。
+    ///
+    /// 爆发轴的意义：爆发期有固定套路，不该被优先级逻辑打断 ——
+    /// 比如连环计刚放完，优先级队列可能因为"有人掉血"就转头去治疗。
+    /// </summary>
+    protected virtual AEAssist.CombatRoutine.Module.ISlotSequence[] 构建爆发轴()
+        => Array.Empty<AEAssist.CombatRoutine.Module.ISlotSequence>();
 
     /// <summary>把开关暴露到 QT 面板。子类可以 override 之后往里面加职业专属开关。</summary>
     protected virtual void 构建QT()
