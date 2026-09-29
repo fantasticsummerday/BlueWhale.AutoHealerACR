@@ -115,6 +115,10 @@ public class WHMRotationEntry : HealerEntryBase
         base.构建QT();
         加职业开关("神速魔", true);
     }
+
+    /// <summary>爆发轴（勾上「一键爆发」才生效）</summary>
+    protected override AEAssist.CombatRoutine.Module.ISlotSequence[] 构建爆发轴()
+        => new AEAssist.CombatRoutine.Module.ISlotSequence[] { new 白魔爆发轴(Spells) };
 }
 
 // ============================================================================

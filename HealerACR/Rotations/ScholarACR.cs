@@ -189,6 +189,10 @@ public class SCHRotationEntry : HealerEntryBase
         加职业开关("小仙女", true);
         加职业开关("炽天使", true);
     }
+
+    /// <summary>爆发轴（勾上「一键爆发」才生效）</summary>
+    protected override AEAssist.CombatRoutine.Module.ISlotSequence[] 构建爆发轴()
+        => new AEAssist.CombatRoutine.Module.ISlotSequence[] { new 学者爆发轴(Spells) };
 }
 
 // ============================================================================

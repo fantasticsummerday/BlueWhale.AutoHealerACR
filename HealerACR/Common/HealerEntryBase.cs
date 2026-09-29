@@ -181,8 +181,10 @@ public abstract class HealerEntryBase : IRotationEntry
         加开关("极限技", true);      // 治疗极限技（LB3）
         加开关("自动疾跑", true);    // 脱战自动疾跑
         加开关("自动以太", true);    // 学者：以太不够时自动补
-        加开关("爆发轴", false);     // 爆发期按固定套路走（占 GCD，默认关）
-        加开关("木桩爆发", false);   // 木桩环境下也走爆发轴
+        // ★ 「一键爆发」★ —— 合并了原来的「爆发轴」和「木桩爆发」
+        //   勾上 = 战斗或木桩，只要条件满足就走爆发轴
+        //   默认关（爆发轴会占 GCD，日随里不一定划算）
+        加开关("一键爆发", false);
 
         // 每个职业自己的页（参考同类 ACR 的 XXXOverlay / XXXSettingView 做法）
         视图窗口.AddTab("职业", w => 职业面板.画(TargetJob, w));
