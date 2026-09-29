@@ -680,6 +680,20 @@ public static class AiSituation
                 return;
             }
 
+            // ⚠️ 这份列表**包含自己** —— 必须在表头说清楚，
+            //    并且逐行标出来（见循环里的 [自己]）。
+            //
+            //    不标的话 AI 会凭空多数出一个人：
+            //    实测回复"只有两名治疗（我学者 + 月時計）"，
+            //    而"月時計"就是玩家自己 —— 报告里
+            //    `月時計 [治疗]：100%` 看起来就像另一个治疗。
+            //
+            //    比"人数算错"更糟的是：AI 会据此判断"还有一个治疗能兜底"，
+            //    于是倾向于少交技能 —— 这是会影响实际治疗的错。
+            var 我 = Core.Me;
+            var 表头自己数 = 队友.Count(r => r != null && r.GameObjectId == 我.GameObjectId);
+            sb.AppendLine($"（共 {队友.Count} 行，**包含你自己**{(表头自己数 > 0 ? "，标了 [自己]" : "")}）");
+
             var 低血 = 0;
             var 危急 = 0;
 
@@ -689,6 +703,11 @@ public static class AiSituation
 
                 var 比例 = r.MaxHp > 0 ? r.CurrentHp * 100f / r.MaxHp : 100f;
 
+                // ⚠️ **先判自己** —— 自己是治疗的话，
+                //    光看 `[治疗]` 标记 AI 会以为是"另一个治疗"。
+                var 是自己 = false;
+                try { 是自己 = r.GameObjectId == 我.GameObjectId; } catch { }
+
                 var 标记 = "";
                 try
                 {
@@ -696,6 +715,8 @@ public static class AiSituation
                     else if (r.IsHealer()) 标记 = "[治疗]";
                 }
                 catch { }
+
+                if (是自己) 标记 = "[自己]" + 标记;
 
                 // ══════════════════════════════════════════════════════
                 //  ★★ 无敌 / 假死标记 —— **不标会害 AI 犯错** ★★
@@ -745,13 +766,20 @@ public static class AiSituation
 
                 sb.AppendLine($"  {r.Name}{标记}：{比例:F0}%{无敌标记}{状态文本}");
 
-                if (比例 <= 70f) 低血++;
-                if (比例 <= 35f) 危急++;
+                // ⚠️ **不把自己算进人数** ——
+                //    这两个数是给 AI 判断"压力多大"用的，
+                //    把自己算进去会显得队伍更危险（凭空多一个低血的人），
+                //    而自己的血量在【我】那一段里已经单独给过了。
+                if (!是自己)
+                {
+                    if (比例 <= 70f) 低血++;
+                    if (比例 <= 35f) 危急++;
+                }
             }
 
             sb.AppendLine();
-            sb.AppendLine($"低于 70%：{低血} 人");
-            sb.AppendLine($"低于 35%：{危急} 人");
+            sb.AppendLine($"低于 70%：{低血} 人（不含自己）");
+            sb.AppendLine($"低于 35%：{危急} 人（不含自己）");
 
             // 坦克单独列 —— 治疗最关心它
             var 坦克 = HealTargetHelper.血量最低的坦克();
