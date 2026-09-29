@@ -1,3 +1,4 @@
+using System.Reflection;
 using AEAssist.CombatRoutine;
 using AEAssist.CombatRoutine.View.JobView;
 using AEAssist.Helper;
@@ -9,30 +10,28 @@ namespace HealerACR.Common;
 /// **界面控制器** —— 一个 `IRotationUI`，内部按开关分流到两种界面。
 ///
 /// ══════════════════════════════════════════════════════════════════
-///  ★ 为什么要有这一层（而不是直接换掉窗口）★
+///  ★ 框架的窗口结构（决定了这里能做什么）★
 ///
-///    框架通过 `IRotationEntry.GetRotationUI()` 拿一个 `IRotationUI`
-///    来驱动界面。那个接口只有三个成员：
-///        bool IsCustomMain();   // 是不是自绘主窗口
-///        void OnDrawUI();       // 每帧画
-///        void Update();         // 每帧更新
+///    `JobViewWindow` 内部是**四个独立对象**：
+///        mainWindow    —— 主窗口（页签 + 内容）  ← **无法嵌入**（没有公开 Draw）
+///        qtWindow      —— QT 开关面板            ← **能单独画**（DrawQtWindow 公开）
+///        hotkeyWindow  —— 快捷键面板
+///        style         —— 样式
 ///
-///    所以"换界面"= **换这个接口的实现**，不用碰框架。
+///  ── 所以分成两条路 ──
+///    ① **主面板**：自绘主题外壳，内容用 `OnDrawSetting()` ——
+///       那正是 ACR 设置的绘制入口（原版设置 + AI 设置 + 记忆库），
+///       **复用**而不是重写，两边就不可能不一致。
 ///
-///  ── 分流的意义 ──
-///    · `使用主题界面` 开 → `IsCustomMain()` 返回 true，框架让开，
-///      我们自己画主窗口 + QT 面板
-///    · 关 → 全部转发给 `JobViewWindow`，**行为跟以前完全一样**
+///    ② **QT 面板**：**用框架自己的 `DrawQtWindow`** ——
+///       保持原来的样式（绿色按钮那套）。
 ///
-///    ⇒ 自绘万一哪里不对，用户拨一下开关就回到原样，不必等我修。
-///      对"自己画窗口"这种事来说，这个退路是必要的 ——
-///      窗口行为（拖动/缩放/滚动/贴边）出问题会直接影响能不能用。
+///       ⚠️ 我第一版自己重画了 QT（复选框列表），**这是错的** ——
+///          QT 面板有它自己的既定外观，用户认的是那个。
+///          重画 = 白白多一套要维护的样式，而且和框架其他地方不一致。
 ///
-///  ⚠️ **Qt 的登记转发到 `JobViewWindow`**：
-///      `HealQt` 依赖 `AddQt` / `RemoveAllQt` / `SetQt` / `GetQt`，
-///      而这些在框架窗口上是现成且经过验证的。
-///      自绘窗口只**读**开关的值来画界面，不自己存 ——
-///      自己存一份会立刻变成"两个真相"，那是这个项目反复踩过的坑。
+///  ⚠️ `qtWindow` / `style` 是 `private` 字段，只能反射取。
+///     取不到就**不画 QT**（框架会自己处理），不要抛异常。
 /// ══════════════════════════════════════════════════════════════════
 /// </summary>
 public sealed class 界面控制器 : IRotationUI
@@ -42,32 +41,53 @@ public sealed class 界面控制器 : IRotationUI
     /// <summary>自绘主窗口</summary>
     private readonly 小鲸鱼面板 _主窗口;
 
-    /// <summary>自绘 QT 面板（开关）</summary>
-    private readonly 小鲸鱼面板 _Qt面板;
+    /// <summary>画 ACR 设置内容（由入口类注入 = `OnDrawSetting`）</summary>
+    private readonly Action? _画设置;
 
-    /// <summary>内容装配（页签、标题栏按钮）—— 由入口类注入</summary>
-    private readonly Action<小鲸鱼面板> _装内容;
+    /// <summary>触发"保存设置"（由入口类注入）</summary>
+    private readonly Action? _保存;
 
-    public 界面控制器(JobViewWindow 框架窗口, Action<小鲸鱼面板> 装内容)
+    // 反射拿到的框架内部对象（取不到就是 null）
+    private readonly object? _qt窗口;
+    private readonly object? _样式;
+
+    public 界面控制器(JobViewWindow 框架窗口, Action? 画设置 = null, Action? 保存 = null)
     {
         _框架窗口 = 框架窗口;
-        _装内容 = 装内容;
+        _画设置 = 画设置;
+        _保存 = 保存;
 
         _主窗口 = new 小鲸鱼面板("小鲸鱼##主", "小鲸鱼")
         {
             初始位置 = new System.Numerics.Vector2(120f, 140f),
-            尺寸 = new System.Numerics.Vector2(600f, 520f),
+            尺寸 = new System.Numerics.Vector2(620f, 540f),
         };
 
-        _Qt面板 = new 小鲸鱼面板("小鲸鱼##QT", "快捷开关")
+        // 标题栏按钮：保存设置 / 重载提示
+        if (_保存 != null)
+            _主窗口.标题栏按钮.Add(("保存设置", () => { try { _保存(); } catch { } }));
+
+        // 反射取框架的 qtWindow（用于把 QT 面板按原样画出来）
+        try
         {
-            初始位置 = new System.Numerics.Vector2(760f, 140f),
-            尺寸 = new System.Numerics.Vector2(300f, 420f),
-        };
+            var 类型 = 框架窗口.GetType();
+            const BindingFlags 旗 = BindingFlags.NonPublic | BindingFlags.Instance;
 
-        _主窗口.标题栏按钮.Add(("开关", () => _Qt面板.可见 = !_Qt面板.可见));
+            _qt窗口 = 类型.GetField("qtWindow", 旗)?.GetValue(框架窗口);
 
-        try { 装内容?.Invoke(_主窗口); } catch (Exception e) { LogHelper.Error("[界面] 装内容失败：" + e.Message); }
+            // ⚠️ `style` 是 **public 字段**，直接访问 —— 不用反射。
+            //    我第一版用 `GetField("style", NonPublic)` 取它，
+            //    结果是**永远拿到 null**（因为它是 public），
+            //    而 `DrawQtWindow(null)` 会把 QT 面板画崩或画不出来。
+            _样式 = 框架窗口.style;
+
+            LogHelper.Info($"[界面] 框架内部对象：qtWindow={(_qt窗口 != null ? "有" : "无")} " +
+                           $"style={(_样式 != null ? "有" : "无")}");
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[界面] 反射取框架内部对象失败：" + e.Message);
+        }
     }
 
     /// <summary>当前是不是走自绘界面</summary>
@@ -85,10 +105,10 @@ public sealed class 界面控制器 : IRotationUI
     // ══════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// **是不是自绘主窗口** —— 框架靠这个决定要不要画它自己的职业窗口。
+    /// **是不是自绘主窗口** —— 框架靠这个决定要不要画它自己的职业主窗口。
     ///
-    /// ⚠️ 返回 true 时框架**完全让开** —— 所以我们必须把该画的都画了，
-    ///     否则用户会看到"面板不见了"。
+    /// ⚠️ 返回 true 时框架**不画主窗口**（但 QT / 快捷键窗口它照画）——
+    ///     所以我们必须把设置内容画出来，否则用户会觉得"面板空了"。
     /// </summary>
     public bool IsCustomMain() => 用主题;
 
@@ -123,8 +143,17 @@ public sealed class 界面控制器 : IRotationUI
                 return;
             }
 
-            // ── 自绘：主窗口 + QT 面板 ──
-            画Qt面板();
+            // ── ① QT 面板：**用框架自己的画法**（保持原样式）──
+            //
+            //   ⚠️ 顺序在自绘主窗口**之前** —— 主窗口是本 ACR 的主体，
+            //      画在后面让它压在 QT 面板之上（QT 是"工具箱"，不该抢焦点）。
+            画Qt原样();
+
+            // ── ② 自绘主面板（里面是 ACR 设置）──
+            _主窗口.页签.Clear();
+            if (_画设置 != null)
+                _主窗口.页签.Add(("设置", () => 画设置内容()));
+
             _主窗口.画();
         }
         catch (Exception e)
@@ -136,67 +165,58 @@ public sealed class 界面控制器 : IRotationUI
     }
 
     /// <summary>
-    /// 画 QT 面板 —— **一行两个开关**的紧凑排布。
+    /// **把 ACR 设置画进主题面板的子窗口**。
     ///
-    /// ⚠️ 开关的**值**从 `HealQt` 读、**写**回 `HealQt`，
-    ///     不碰框架窗口的内部状态 —— 保证只有一个真相。
+    /// ⚠️ 必须用 `BeginChild` 包起来 ——
+    ///     设置内容里有很多 `CollapsingHeader` 和控件，
+    ///     直接画在面板里会撑破自绘的边框、滚动也不受控。
+    ///     子窗口把滚动交给 ImGui 管，边框永远是我们的。
     /// </summary>
-    private void 画Qt面板()
+    private void 画设置内容()
     {
-        if (!_Qt面板.可见) return;
+        try
+        {
+            ImGui.BeginChild("##设置内容", new System.Numerics.Vector2(0, 0), false,
+                             ImGuiWindowFlags.AlwaysVerticalScrollbar);
+            try
+            {
+                _画设置?.Invoke();
+            }
+            finally
+            {
+                ImGui.EndChild();
+            }
+        }
+        catch (Exception e)
+        {
+            try { ImGui.TextColored(主题.危险, "设置绘制异常：" + e.Message); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// **QT 面板：调框架的 `DrawQtWindow(style)`** —— 原样式，零维护。
+    ///
+    /// ⚠️ 拿不到 qtWindow / style 时**什么都不做** ——
+    ///     那种情况下框架自己会把 QT 画出来（它没被我们挡掉），
+    ///     我们再画一次就重了。
+    /// </summary>
+    private void 画Qt原样()
+    {
+        if (_qt窗口 == null) return;
 
         try
         {
-            _Qt面板.页签.Clear();
+            var 方法 = _qt窗口.GetType().GetMethod("DrawQtWindow",
+                BindingFlags.Public | BindingFlags.Instance);
 
-            var 全部 = HealQt.全部开关();
-            if (全部 == null || 全部.Length == 0)
-            {
-                _Qt面板.页签.Add(("开关", () => ImGui.TextDisabled("（这个职业没有注册开关）")));
-            }
-            else
-            {
-                _Qt面板.页签.Add(("开关", () =>
-                {
-                    try
-                    {
-                        var 缩放 = 主题.缩放();
-                        var 可用宽 = ImGui.GetContentRegionAvail().X;
-                        var 列宽 = Math.Max(80f, (可用宽 - 8f * 缩放) * 0.5f);
+            if (方法 == null) return;
 
-                        var 列 = 0;
-
-                        foreach (var 名 in 全部)
-                        {
-                            if (string.IsNullOrWhiteSpace(名)) continue;
-
-                            // ⚠️ 用 `SameLine(列宽)` 手动定位第二列 ——
-                            //     不用 `SameLine()`（它接在上一个控件后面，
-                            //     而复选框宽度随文字长度变，两列会参差不齐）。
-                            if (列 == 1)
-                            {
-                                ImGui.SameLine(列宽 + 8f * 缩放);
-                            }
-
-                            var v = HealQt.GetQt(名);
-                            if (ImGui.Checkbox(名 + "##qt", ref v))
-                                HealQt.SetQt(名, v);
-
-                            if (ImGui.IsItemHovered())
-                                ImGui.SetTooltip(名);
-
-                            // 满两列换行
-                            列++;
-                            if (列 >= 2) 列 = 0;
-                        }
-                    }
-                    catch { }
-                }));
-            }
-
-            _Qt面板.副标题 = $"共 {全部?.Length ?? 0} 个";
-            _Qt面板.画();
+            // ⚠️ `style` 可能为 null（构造早期）—— 传 null 进去框架自己会处理
+            方法.Invoke(_qt窗口, new[] { _样式 });
         }
-        catch { }
+        catch (Exception e)
+        {
+            LogHelper.Info("[界面] 画 QT 面板失败（已忽略）：" + e.Message);
+        }
     }
 }

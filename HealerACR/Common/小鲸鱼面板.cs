@@ -79,7 +79,7 @@ public sealed class 小鲸鱼面板
     /// <summary>
     /// **每帧调用一次** —— 画整个窗口。
     ///
-    /// 调用点：`HealerEntryBase.OnDrawUI`（框架每帧回调）。
+    /// 调用点：由 `界面控制器.OnDrawUI` 每帧调。
     /// </summary>
     public void 画()
     {
@@ -93,9 +93,39 @@ public sealed class 小鲸鱼面板
             if (初始位置 != Vector2.Zero)
                 ImGui.SetNextWindowPos(初始位置, ImGuiCond.Once);
 
-            ImGui.SetNextWindowSize(new Vector2(尺寸.X * 缩放, 尺寸.Y * 缩放), ImGuiCond.FirstUseEver);
+            // ══════════════════════════════════════════════════════
+            //  ★ 折叠：尺寸和最小约束**必须一起改** ★
+            //
+            //   ⚠️ 这是个真 bug（实测现象：点折叠后面板变成一个空框，什么都没有）：
+            //
+            //     原因不是"没画标题栏"，而是**尺寸被约束钳住了** ——
+            //       折叠时想把高度设成 `标题栏高 + 8` ≈ 38px，
+            //       但 `SetNextWindowSizeConstraints` 的**最小高是 120px**，
+            //       ImGui 把 38 钳回 120 → 窗口还是一大块，
+            //       而内容区因为 `折叠` 为 true 不画 → **一大片空白**。
+            //
+            //     ⇒ 两件事必须一起做：
+            //        ① 折叠时把目标尺寸设成标题栏高度
+            //        ② **同时把最小约束也降到标题栏高度**，否则 ① 会被钳掉
+            // ══════════════════════════════════════════════════════
+            var 最小高 = 折叠 ? 主题.标题栏高 + 8f * 缩放
+                              : 120f * 缩放;
+
+            if (折叠)
+            {
+                ImGui.SetNextWindowSize(
+                    new Vector2(ImGui.GetWindowWidth() > 0 ? ImGui.GetWindowWidth() : 尺寸.X * 缩放,
+                                主题.标题栏高 + 8f * 缩放),
+                    ImGuiCond.Always);
+            }
+            else
+            {
+                ImGui.SetNextWindowSize(new Vector2(尺寸.X * 缩放, 尺寸.Y * 缩放),
+                                        ImGuiCond.FirstUseEver);
+            }
+
             ImGui.SetNextWindowSizeConstraints(
-                new Vector2(320f * 缩放, 120f * 缩放),          // 最小：再小就排版崩了
+                new Vector2(320f * 缩放, 最小高),
                 new Vector2(float.MaxValue, float.MaxValue));
 
             // ══════════════════════════════════════════════════════

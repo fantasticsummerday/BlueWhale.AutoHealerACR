@@ -371,7 +371,10 @@ public abstract class HealerEntryBase : IRotationEntry
         //     顺序反了就会把控制器刚登记的开关清掉。
         try
         {
-            界面 = new 界面控制器(视图窗口, 装主题页签);
+            //  把「画设置」和「保存」两个动作传进去 ——
+            //  主面板的内容就是 `OnDrawSetting()`（即 ACR 设置），
+            //  复用而不重写，两边不可能不一致。
+            界面 = new 界面控制器(视图窗口, OnDrawSetting, 视图窗口保存);
         }
         catch (Exception e)
         {
@@ -381,17 +384,26 @@ public abstract class HealerEntryBase : IRotationEntry
     }
 
     /// <summary>
-    /// **装配主题界面的页签** —— 内容和框架窗口**完全一致**。
+    /// **保存设置**（主题面板的标题栏按钮调）。
     ///
-    /// ⚠️ 两边必须调**同一批画法**（`职业优先级.画` / `职业面板.画` / `画阈值设置`）——
-    ///     各写一套会立刻变成“两个界面能改的东西不一样”，
-    ///     而且改一处忘另一处的错很难发现。
+    /// ⚠️ 调的是 `HealSettings.Save()` —— 也就是传给 `JobViewWindow` 的
+    ///     那个**同一个回调**（`HealSettings.保存回调 => Save`）。
+    ///
+    ///     **不要**用 `JobViewWindow.SetDefaultFromNow()` ——
+    ///     那个的语义是"把当前 QT 值固化成新的默认值"，**不写文件**。
+    ///     用它的话现象是：按了保存、重启后设置又回到旧值。
     /// </summary>
-    private void 装主题页签(小鲸鱼面板 面板)
+    private void 视图窗口保存()
     {
-        面板.页签.Add(("优先级", () => 职业优先级.画()));
-        面板.页签.Add(("职业", () => 职业面板.画(TargetJob, 视图窗口!)));
-        面板.页签.Add(("阈值", () => 画阈值设置(视图窗口!)));
+        try
+        {
+            HealSettings.Instance.Save();
+            LogHelper.Info("[界面] 设置已保存");
+        }
+        catch (Exception e)
+        {
+            LogHelper.Error("[界面] 保存失败：" + e.Message);
+        }
     }
 
     /// <summary>子类加职业专属开关时用这个，顺带把默认值登记上</summary>
