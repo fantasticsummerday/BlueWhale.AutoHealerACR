@@ -82,3 +82,8 @@ emoji_*.txt
 
 # 一次性日志分析产物（本地用）
 log_analysis.txt
+
+# cactbot 时间轴提取产物（用 tools\CactbotTimelineDump.py 生成，不入库）
+cactbot_timelines/
+zoneid_look.txt
+verify.txt
