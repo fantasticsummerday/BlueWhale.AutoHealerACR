@@ -293,6 +293,18 @@ Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.p
 $duty = Join-Path $仓库根 "DutyNames.json"
 if (Test-Path $duty) { Copy-Item $duty $B包 -Force }
 
+# 地名表（TerritoryType -> 人话名字）
+#
+# ⚠️ 这两份是**必须打进去**的，缺了不会报错、只会静默退化：
+#    插件找不到文件时，副本名会退化成 `区域#979` 这种「看起来像名字的 ID」。
+#    用户实测踩过一次（站在雪都房区显示了错误的副本名），
+#    所以下面校验段还会再查一遍在不在包里。
+foreach ($n in @("TerritoryNames.json", "TerritoryPlaces.json")) {
+    $f = Join-Path $仓库根 $n
+    if (Test-Path $f) { Copy-Item $f $B包 -Force }
+    else { 坏 "缺少 $n（先跑 tools\TerritoryDump 生成）" }
+}
+
 好 "包目录组装完成"
 
 # ══════════════════════════════════════════════════════════════════
@@ -322,6 +334,23 @@ foreach ($pair in @(@($H包, "HealerACR"), @($B包, "BlueWhale"))) {
     if (-not (Test-Path (Join-Path $dir "$名.dll"))) {
         坏 "$名 ： 没有 $名.dll"
         $失败 = $true
+    }
+}
+
+# ── BlueWhale 的数据表必须都在包里 ──
+#
+# ⚠️ 为什么单独查：这三份文件**缺了不会报错** ——
+#    插件读不到时会静默退化（副本名变成 `区域#979` 这种"看起来像名字的 ID"）。
+#    用户实测踩过一次（站在雪都房区显示了完全错误的副本名），
+#    所以这里挡住，不让这种退化静默发出去。
+foreach ($n in @("DutyNames.json", "TerritoryNames.json", "TerritoryPlaces.json")) {
+    $f = Join-Path $B包 $n
+    if (-not (Test-Path $f)) {
+        坏 "BlueWhale ： 包里缺 $n（副本名/地名会静默退化）"
+        $失败 = $true
+    } else {
+        $kb = [math]::Round((Get-Item $f).Length / 1KB)
+        好 "BlueWhale ： $n 已打包（$kb KB）"
     }
 }
 

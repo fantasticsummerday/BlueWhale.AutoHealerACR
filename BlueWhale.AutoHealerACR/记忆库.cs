@@ -132,7 +132,7 @@ public static class 记忆库
                 职业 = 头.职业,
                 等级 = 头.等级,
                 副本类型 = 头.副本类型,
-                副本名 = Resolve副本名(头.地图),
+                副本名 = 地名.解析(头.地图, 是副本: true),
                 样本条数 = 条目.Count,
                 结论 = 结论.Trim(),
             });
@@ -541,6 +541,78 @@ public static class 记忆库
     ///
     /// 读不到就退回 "副本#ID" —— **绝不因为缺表就不记录**。
     /// </summary>
+    /// <summary>
+    /// **找到 `DutyNames.json`** —— 多候选路径，逐个试。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么不能只用 `AppContext.BaseDirectory`（用户实测报的问题）★
+    ///
+    ///  ── 现象 ──
+    ///    用户进本后横幅显示 **`副本#979`** 而不是"异闻阿罗阿罗岛"。
+    ///    日志里 `副本#` 出现 7 次、**成功 0 次**。
+    ///
+    ///  ── 排查结论（都验证过，不是猜）──
+    ///    · `D:\FF14\ACR\BlueWhale\DutyNames.json` **存在**（50KB / 863 条）
+    ///    · 用 .NET 实测 `JsonSerializer.Deserialize` **成功**，
+    ///      `979 -> 异闻阿罗阿罗岛` 查得到
+    ///    ⇒ 所以**不是文件坏、不是内容缺**，而是**根本没找到文件** ——
+    ///      `Path.Combine(AppContext.BaseDirectory, "DutyNames.json")`
+    ///      的那个 `BaseDirectory` 指向了别处（宿主/临时加载目录都可能）。
+    ///
+    ///  ── 修法：按"最可能对"的顺序排候选，命中即用 ──
+    ///    ① 程序集自己的位置（`Assembly.Location`）—— **最可靠**，
+    ///       它就是 DLL 所在的物理路径，`DutyNames.json` 就在旁边
+    ///    ② `AppContext.BaseDirectory` —— 原来那个，留着兼容
+    ///    ③ 加上 `Timelines` 的上一级（打包结构所致，见下面说明）
+    ///
+    ///  ⚠️ 找到之后**记住是哪个路径**（`_副本名表路径`）——
+    ///     下次直接查那个，不再重复试一圈（这是热路径）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static string? 找副本名文件()
+    {
+        var 候选 = new List<string>();
+
+        try
+        {
+            // ① 程序集位置 —— 最可靠
+            var 程序集 = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (!string.IsNullOrWhiteSpace(程序集))
+            {
+                var 目录 = Path.GetDirectoryName(程序集);
+                if (!string.IsNullOrWhiteSpace(目录)) 候选.Add(Path.Combine(目录, "DutyNames.json"));
+            }
+        }
+        catch { }
+
+        try
+        {
+            // ② 宿主给的基目录（原来的写法）
+            候选.Add(Path.Combine(AppContext.BaseDirectory, "DutyNames.json"));
+        }
+        catch { }
+
+        try
+        {
+            // ③ `Timelines` 的上一级 —— 打包时资源在插件目录下的 Timelines 里，
+            //    万一 DLL 被放在子目录、json 在上一层，这条能兜住
+            var 目录 = Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(目录)) 候选.Add(Path.Combine(目录, "DutyNames.json"));
+        }
+        catch { }
+
+        foreach (var p in 候选)
+        {
+            try { if (File.Exists(p)) return p; } catch { }
+        }
+
+        return null;
+    }
+
+    /// <summary>上次成功用过的路径（避免每次都在候选里转一圈）</summary>
+    private static string? _副本名表路径;
+
     public static string Resolve副本名(uint id)
     {
         if (id == 0) return "未知副本";
@@ -550,12 +622,26 @@ public static class 记忆库
             // 表缓存 10 分钟（文件可能被工具更新）
             if (_副本名表 == null || TimeHelper.Now() - _副本名表时间 > 600_000)
             {
-                var 路径 = Path.Combine(AppContext.BaseDirectory, "DutyNames.json");
-                if (File.Exists(路径))
+                var 路径 = _副本名表路径 ?? 找副本名文件();
+
+                if (路径 != null)
                 {
                     _副本名表 = JsonSerializer.Deserialize<Dictionary<string, string>>(
                         File.ReadAllText(路径));
-                    _副本名表时间 = TimeHelper.Now();
+
+                    if (_副本名表 != null)
+                    {
+                        _副本名表路径 = 路径;      // 记住，下次直接用
+                        _副本名表时间 = TimeHelper.Now();
+                    }
+                }
+                else
+                {
+                    // ⚠️ 找不到文件时**打一次日志** ——
+                    //    不然用户只看到"副本#979"，完全不知道是缺文件。
+                    //    这是本次排查最花时间的地方：现象里看不出原因。
+                    LogHelper.Info("[记忆库] 找不到 DutyNames.json，副本名将退化为「副本#ID」" +
+                                   "（应该和 BlueWhale.dll 放在同一个目录）");
                 }
             }
 
@@ -563,7 +649,10 @@ public static class 记忆库
                 && !string.IsNullOrWhiteSpace(名))
                 return 名;
         }
-        catch { }
+        catch (Exception e)
+        {
+            LogHelper.Info("[记忆库] 读 DutyNames.json 失败：" + e.Message);
+        }
 
         return $"副本#{id}";
     }
