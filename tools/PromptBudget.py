@@ -251,6 +251,19 @@ def main():
             print(f"    {cnt:>5} 字符  {安全(name)}")
         print()
 
+        # ── 编号连续性 ──
+        #    删规则时很容易留下空洞（删了 16，后面还是 17~26），
+        #    那会让提示词里"第 N 条"这种引用指错地方。
+        nums = [int(m.group(1)) for m in re.finditer(r"(?m)^\s+(\d+)\.\s", 提示词正文)]
+        if nums:
+            期望 = list(range(1, len(nums) + 1))
+            if nums == 期望:
+                print(f"  [OK] 规则编号连续：1..{len(nums)}")
+            else:
+                print(f"  [!] 规则编号不连续：{nums}")
+                print(f"      期望：{期望}")
+            print()
+
     print(f"BUDGET_TOTAL={合计}")
     print(f"BUDGET_LIMIT={最大长度}")
     print(f"BUDGET_PERCENT={占比}")
