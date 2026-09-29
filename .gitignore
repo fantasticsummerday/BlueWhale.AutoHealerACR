@@ -87,6 +87,7 @@ AEAssist*.md
 #    必须先"取消忽略目录"，再把里面的内容逐个忽略：
 tools/*
 !tools/CactbotTimelineDump.py
+!tools/IdAudit.py
 
 # 一次性扫描产物（本地分析用）
 emoji_*.txt

@@ -307,7 +307,7 @@ public class Res_HealShield : ISlotResolver
         if (!SpellUtil.已解锁(_t.单体盾)) return -2;
 
         var 该铺 = 减伤Helper.即将来大伤害();
-        var 坦克 = HealTargetHelper.血量最低的坦克(该铺 ? 1f : 0.7f);
+        var 坦克 = 选目标(该铺);
         if (坦克 == null) return -1;
 
         // ⚠️ **盾的剩余时间**判断：鼓舞的盾有 30 秒，快过期的盾等于没有。
@@ -337,11 +337,64 @@ public class Res_HealShield : ISlotResolver
         return SpellUtil.可用(_t.单体盾) ? 3 : -1;
     }
 
+    /// <summary>
+    /// 选盾的目标。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 修正说明（与 Res_SingleHoT 同一类问题）★
+    ///
+    ///  原来**只给坦克**：
+    ///      var 坦克 = HealTargetHelper.血量最低的坦克(该铺 ? 1f : 0.7f);
+    ///      if (坦克 == null) return -1;        // ← 没坦克就整个不触发
+    ///
+    ///  但 `_t.单体盾` 配的是：
+    ///      · 学者 → **鼓舞激励之策**（学者核心单盾）
+    ///      · 贤者 → **诊断**
+    ///  这两个技能在游戏里都是给**任何要挨打的人**的，不是坦克专属。
+    ///  于是没坦克的场景（单人 / 特殊内容）**学者核心单盾永远不放** ——
+    ///  静默失效，不报错。
+    ///
+    ///  ── 为什么这个"坦克替身"写法反复出问题 ──
+    ///    上面那条盾判断的注释里已经记过一次：
+    ///    "曾经写成'血量最低的坦克有盾 -> return -3'，那是个真 bug"。
+    ///    同一个思路（拿坦克当全队的替身）错了两次，所以这次彻底按
+    ///    "**先坦克、后其他人**"的两层来写，而不是只留坦克。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private IBattleChara? 选目标(bool 该铺)
+    {
+        try
+        {
+            // ── ① 坦克优先（盾给坦克收益最稳）──
+            var 坦克 = HealTargetHelper.血量最低的坦克(该铺 ? 1f : 0.7f);
+            if (坦克 != null) return 坦克;
+
+            // ── ② 没有坦克 / 坦克不需要 → 给血线最低的那个人 ──
+            //
+            //   ⚠️ 这一层原来缺了。没它的话，学者在无坦克场景下
+            //      **一次鼓舞都放不出来**。
+            var 阈值 = 该铺 ? 0.95f : HealSettings.Instance.单体治疗阈值;
+            var 队友 = HealTargetHelper.最低血量队友(阈值);
+
+            if (队友 != null && 队友.GameObjectId != Core.Me.GameObjectId && 队友.可以治())
+                return 队友;
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public void Build(Slot slot)
     {
         var 该铺 = 减伤Helper.即将来大伤害();
-        var 坦克 = HealTargetHelper.血量最低的坦克(该铺 ? 1f : 0.7f);
-        if (坦克 == null) return;
+
+        // ⚠️ **必须和 Check 同源**（开发约定 F③）：判谁就放谁，
+        //    否则会出现"Check 说该给 A 放盾，Build 却给了 B"。
+        var 目标 = 选目标(该铺);
+        if (目标 == null) return;
 
         if (_t.护盾前置 != 0 && !JobApiHelper.均衡中)
         {
@@ -352,6 +405,6 @@ public class Res_HealShield : ISlotResolver
         // 用当前形态：贤者的"诊断"在均衡状态下会变成"均衡诊断"
         var 盾 = SpellUtil.当前形态(_t.单体盾);
         if (盾 == null) return;
-        slot.Add(new Spell(盾.Id, 坦克));
+        slot.Add(new Spell(盾.Id, 目标));
     }
 }
