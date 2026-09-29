@@ -266,10 +266,16 @@ public static class 记忆库
         // ── 已知局限（必须写进去，否则 AI 会过度解读）──
         sb.AppendLine();
         sb.AppendLine("【已知局限 —— 解读时必须考虑】");
-        sb.AppendLine("  · 记录方式：轮询游戏读条状态，**只有带读条的技能会被记录**");
-        sb.AppendLine("  · 因此**瞬发能力技（减伤、爆发药、部分治疗）大量缺失** ——");
-        sb.AppendLine("    统计里「没出现」不等于「没用过」，**不要据此下「他从不 XX」的结论**");
-        sb.AppendLine("  · 反过来，GCD 技能（治疗、输出、DoT）的记录是**完整可靠**的");
+        sb.AppendLine("  · 记录方式：监听施法成功事件 + 轮询读条状态（双通道）");
+        sb.AppendLine("  · **读条技能（治疗/输出/DoT/复活）记录完整可靠**");
+        sb.AppendLine("  · **瞬发能力技（减伤/爆发/瞬发治疗）由事件通道记录**，");
+        sb.AppendLine("    但它的**归属**依赖冷却验证：");
+        sb.AppendLine("      「冷却刚转过」= 确定是你放的；");
+        sb.AppendLine("      验证不了的（GCD、极瞬发）会标为不确定 ——");
+        sb.AppendLine("      **八人本里可能混入另一个奶妈的同职业技能**");
+        sb.AppendLine("  · 因此：**不要写「他从不使用 XX」这类结论** ——");
+        sb.AppendLine("    没出现可能只是没记录到或验证失败");
+        sb.AppendLine("  · 但**出现过的**技能和它的时机是可信的，可以据它分析");
 
         return sb.ToString();
     }
