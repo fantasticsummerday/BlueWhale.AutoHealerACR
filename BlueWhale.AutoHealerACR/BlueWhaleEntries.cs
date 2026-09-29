@@ -279,14 +279,6 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
         //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
         Ai层挂载.挂载();
 
-        // ★ 给主题面板补上 AI / 记忆库两页 ★
-        //
-        //   ⚠️ 为什么要在这里补而不是在基类：
-        //      `AiSettingPage` / `记忆库页面` 在 BlueWhale 里，
-        //      基类（HealerACR）**不能引用** 它们 ——
-        //      引用了原版 HealerACR 就编译不过（开发约定 G）。
-        //      所以基类只留一个动作入口，子类把自己的画法塞进去。
-        补主题Ai页(AiSettingPage.画, 记忆库页面.画);
 
         return rot;
     }
@@ -391,14 +383,6 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
         //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
         Ai层挂载.挂载();
 
-        // ★ 给主题面板补上 AI / 记忆库两页 ★
-        //
-        //   ⚠️ 为什么要在这里补而不是在基类：
-        //      `AiSettingPage` / `记忆库页面` 在 BlueWhale 里，
-        //      基类（HealerACR）**不能引用** 它们 ——
-        //      引用了原版 HealerACR 就编译不过（开发约定 G）。
-        //      所以基类只留一个动作入口，子类把自己的画法塞进去。
-        补主题Ai页(AiSettingPage.画, 记忆库页面.画);
 
         return rot;
     }
@@ -503,14 +487,6 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
         //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
         Ai层挂载.挂载();
 
-        // ★ 给主题面板补上 AI / 记忆库两页 ★
-        //
-        //   ⚠️ 为什么要在这里补而不是在基类：
-        //      `AiSettingPage` / `记忆库页面` 在 BlueWhale 里，
-        //      基类（HealerACR）**不能引用** 它们 ——
-        //      引用了原版 HealerACR 就编译不过（开发约定 G）。
-        //      所以基类只留一个动作入口，子类把自己的画法塞进去。
-        补主题Ai页(AiSettingPage.画, 记忆库页面.画);
 
         return rot;
     }
@@ -615,14 +591,6 @@ public class BlueWhaleSageEntry : SGERotationEntry
         //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
         Ai层挂载.挂载();
 
-        // ★ 给主题面板补上 AI / 记忆库两页 ★
-        //
-        //   ⚠️ 为什么要在这里补而不是在基类：
-        //      `AiSettingPage` / `记忆库页面` 在 BlueWhale 里，
-        //      基类（HealerACR）**不能引用** 它们 ——
-        //      引用了原版 HealerACR 就编译不过（开发约定 G）。
-        //      所以基类只留一个动作入口，子类把自己的画法塞进去。
-        补主题Ai页(AiSettingPage.画, 记忆库页面.画);
 
         return rot;
     }
@@ -1020,14 +988,6 @@ public override Rotation Build(string settingFolder)
         //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
         Ai层挂载.挂载();
 
-        // ★ 给主题面板补上 AI / 记忆库两页 ★
-        //
-        //   ⚠️ 为什么要在这里补而不是在基类：
-        //      `AiSettingPage` / `记忆库页面` 在 BlueWhale 里，
-        //      基类（HealerACR）**不能引用** 它们 ——
-        //      引用了原版 HealerACR 就编译不过（开发约定 G）。
-        //      所以基类只留一个动作入口，子类把自己的画法塞进去。
-        补主题Ai页(AiSettingPage.画, 记忆库页面.画);
 
         return rot;
     }

@@ -56,14 +56,6 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>QT 窗口。所有 resolver 通过 HealerACR.Common.HealQt 读开关。</summary>
     public JobViewWindow? 视图窗口 { get; protected set; }
 
-    /// <summary>
-    /// **界面控制器** —— 实现 `IRotationUI`，内部按开关分流到
-    /// 自绘主题界面 / 框架 `JobViewWindow`。
-    ///
-    /// ⚠️ 可能为 null（创建失败时）——
-    ///     那时 `GetRotationUI()` 回退到 `视图窗口`，行为跟以前一样。
-    /// </summary>
-    protected 界面控制器? 界面 { get; set; }
 
     // ==================== 时间轴目录输入框的缓冲 ====================
 
@@ -362,74 +354,6 @@ public abstract class HealerEntryBase : IRotationEntry
         视图窗口.AddTab("阈值", 画阈值设置);
 
         HealQt.绑定(视图窗口);
-
-        // ★ 界面控制器：内部按「使用主题界面」开关分流 ★
-        //
-        //  ⚠️ 必须在 `HealQt.绑定` **之后** 建 ——
-        //     控制器要把 Qt 登记转发给 `视图窗口`，
-        //     而绑定会 `RemoveAllQt()` 清空窗口上的开关。
-        //     顺序反了就会把控制器刚登记的开关清掉。
-        try
-        {
-            //  把「画设置」和「保存」两个动作传进去 ——
-            //  主面板的内容就是 `OnDrawSetting()`（即 ACR 设置），
-            //  复用而不重写，两边不可能不一致。
-            //  各页的"画法"从这里注入 —— 控制器不认识具体页面，
-            //  加页只改这里。顺序就是页签顺序。
-            //
-            //  ⚠️ 三个都要包成 lambda ——
-            //     `画阈值设置` / `职业面板.画` 都**带窗口参数**，
-            //     方法组转不成无参的 `Action`。
-            界面 = new 界面控制器(
-                视图窗口,
-                画阈值: () => 画阈值设置(视图窗口!),
-                保存: 视图窗口保存,
-                画优先级: () => 职业优先级.画(),
-                画职业: () => 职业面板.画(TargetJob, 视图窗口!));
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[界面] 创建控制器失败（退回框架窗口）：" + e.Message);
-            界面 = null;
-        }
-    }
-
-    /// <summary>
-    /// **保存设置**（主题面板的标题栏按钮调）。
-    ///
-    /// ⚠️ 调的是 `HealSettings.Save()` —— 也就是传给 `JobViewWindow` 的
-    ///     那个**同一个回调**（`HealSettings.保存回调 => Save`）。
-    ///
-    ///     **不要**用 `JobViewWindow.SetDefaultFromNow()` ——
-    ///     那个的语义是"把当前 QT 值固化成新的默认值"，**不写文件**。
-    ///     用它的话现象是：按了保存、重启后设置又回到旧值。
-    /// </summary>
-    private void 视图窗口保存()
-    {
-        try
-        {
-            HealSettings.Instance.Save();
-            LogHelper.Info("[界面] 设置已保存");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[界面] 保存失败：" + e.Message);
-        }
-    }
-
-    /// <summary>
-    /// **给主题面板补上 AI / 记忆库两页**（子类在 `Build` 里调）。
-    ///
-    /// ⚠️ 为什么需要这个入口：
-    ///     那两个页在 `BlueWhale` 里，而本类在 `HealerACR` ——
-    ///     本类**不能引用** BlueWhale 的类型（那样原版 HealerACR 就编译不过）。
-    ///     所以留一个动作入口，由子类把自己的画法塞进来。
-    ///
-    ///     不调也完全没问题：那两页就不显示，其余页照常。
-    /// </summary>
-    protected void 补主题Ai页(Action? 画Ai, Action? 画记忆库 = null)
-    {
-        try { 界面?.补Ai页(画Ai, 画记忆库); } catch { }
     }
 
     /// <summary>子类加职业专属开关时用这个，顺带把默认值登记上</summary>
@@ -669,7 +593,7 @@ public abstract class HealerEntryBase : IRotationEntry
     ///     只有创建失败时才直接给框架窗口 ——
     ///     那样行为完全等于改动之前。
     /// </summary>
-    public virtual IRotationUI GetRotationUI() => (界面 as IRotationUI) ?? 视图窗口!;
+    public virtual IRotationUI GetRotationUI() => 视图窗口!;
 
     public virtual void OnDrawSetting()
     {
@@ -772,27 +696,6 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("占星");
             ImGui.Checkbox("出卡优先近战", ref s.出卡优先近战);
             ImGui.SliderFloat("地星提前秒", ref s.地星提前秒, 0f, 10f, "%.1f 秒");
-        }
-
-        // ═════════════════════════════════════════════════════════════
-        //  ★ 界面（独立一欄，因为它影响"面板长什么样"）★
-        // ═════════════════════════════════════════════════════════════
-        if (ImGui.CollapsingHeader("界面", ImGuiTreeNodeFlags.DefaultOpen))
-        {
-            ImGui.Checkbox("使用小鲸鱼主题界面（实验）", ref s.使用主题界面);
-            ImGui.TextDisabled("  自绘带边框的主窗口（鲸蓝主题 + 小鲸鱼背景）。");
-            ImGui.TextDisabled("  默认关 —— 保持框架原生界面。");
-            ImGui.TextDisabled("  切换后需要重载 ACR 或切一次职业才生效。");
-            ImGui.TextColored(主题.警告,
-                "  注意：主题界面里没有可用的启动按钮，请用框架窗口的启动按钮或快捷键。");
-
-            ImGui.Spacing();
-            ImGui.SliderFloat("界面缩放", ref s.界面缩放, 0.8f, 1.6f, "%.2f");
-            ImGui.TextDisabled("  字太小或太大时调这个（只缩放布局，不模糊字体）。");
-
-            ImGui.Spacing();
-            ImGui.SliderFloat("背景透明度", ref s.背景透明度, 0f, 1f, "%.2f");
-            ImGui.TextDisabled("  背景小鲸鱼立绘的淡淡程度，0 = 关掉。太高会影响读小字。");
         }
 
         if (ImGui.CollapsingHeader("其他"))
