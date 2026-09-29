@@ -305,8 +305,8 @@ public class Res_BaseDamage : ISlotResolver
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
         if (_t.有特殊输出形态) return -5;
 
-        // ⚠️ 和 Build **同源**：同一个 `选填充技()` + `输出目标.选()`
-        var spell = 选填充技();
+        // ⚠️ 和 Build **同源**：同一个目标 + 同一个 `选填充技(目标)`
+        var spell = 选填充技(目标);
         // ⚠️ **移动守卫**：移动中不要放读条技能。
         //    不加这条的后果：读条被移动打断 → 下一帧再塞 → 再断，
         //    表现成"反复尝试读条"，GCD 全空转。
@@ -335,87 +335,111 @@ public class Res_BaseDamage : ISlotResolver
     ///     而不是"空放一个打不到的技能"。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
-    /// <summary>【临时诊断】选填充技的判据逐条结果，每 3 秒一条、最多 12 条</summary>
-    private static int _诊断次数;
-    private static long _上次诊断;
-
-    private Spell? 选填充技()
+    /// <summary>
+    /// **挑这一发打什么** —— 近距离时用「近战填充技」，否则用基础输出。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么 Check 和 Build 必须走同一个方法（开发约定 F③）★
+    ///
+    ///    如果 Check 判"该用破阵法"、Build 却 `Add(基础输出)`，
+    ///    结果就是**判 A 放 B** —— 白白多花 100 威力，而且日志上完全看不出来。
+    ///
+    ///  ★★ 距离判定：**交给游戏，不要自己算中心距** ★★
+    ///
+    ///  ── 原来的错（实测报的）──
+    ///      `Vector3.Distance(我, 目标.Position) <= 近战填充距离`
+    ///      那是**中心到中心**。而破阵法是**以我为中心 5 米**的圆形，
+    ///      判定应该看"能不能够到**目标圈**"。
+    ///
+    ///      大型 Boss 的目标圈半径有 5~10 米 —— 人站在圈上时，
+    ///      中心距轻松超过 5 米，于是**永远判"够不着"**，一直打毁坏。
+    ///
+    ///  ── 正确做法（框架 IL 直证）──
+    ///      `SpellHelper.CanCast(spell)` 内部是：
+    ///          目标 = SpellHelper.GetTarget(spell)
+    ///          return 射程与视线检查(spell.Id, 目标)   // CheckActionInRangeOrLoS
+    ///      后者读 Lumina 的 `Action.TargetArea` + 游戏自己的判定 ——
+    ///      **天然含 hitbox**，正是我们想要的语义。
+    ///
+    ///      ⚠️ 而且这**顺带修好了视线** —— 中心距判定完全没管柱子/墙。
+    ///
+    ///  ⚠️ 前提：**必须显式带目标**。
+    ///     `GetTarget(spell)` 在没带目标时取 `Core.Me.GetCurrTarget()`
+    ///     （玩家选中的那个），不是我们要打的目标 ——
+    ///     所以要 `new Spell(id, 目标)` 之后再判。
+    ///
+    ///  ⚠️ 兜底：拿不到框架判定时，退回 `距离 - 目标.HitboxRadius <= 半径`
+    ///     —— 这是"够到目标圈"的近似。宁可偏乐观（多打一次高威力技能），
+    ///     也不要偏保守（永远打低威力那个，那正是这个 bug）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private Spell? 选填充技(IBattleChara? 目标)
     {
         try
         {
-            if (_t.近战填充技 != 0)
+            if (_t.近战填充技 != 0 && 目标 != null && SpellUtil.已解锁(_t.近战填充技))
             {
-                var 已解锁 = SpellUtil.已解锁(_t.近战填充技);
-                var 目标 = 输出目标.选();
-                var 距离 = -1f;
-                if (目标 != null)
-                    距离 = Vector3.Distance(Core.Me.Position, 目标.Position);
-
-                if (已解锁 && 目标 != null && 距离 <= _t.近战填充距离)
+                // `当前形态` 会自动升级（破阵法 → 裂阵法），
+                // 和 `群体输出` 走同一套形态表
+                var 近战 = SpellUtil.当前形态(_t.近战填充技);
+                if (近战 != null)
                 {
-                    // `当前形态` 会自动升级（破阵法 → 裂阵法），
-                    // 和 `群体输出` 走同一套形态表
-                    var 近战 = SpellUtil.当前形态(_t.近战填充技);
-                    if (近战 != null && 近战.IsReadyWithCanCast())
-                    {
-                        诊断(已解锁, 距离, 近战, "用近战填充技");
-                        return 近战;
-                    }
+                    // ★ 构造**带目标**的 Spell 再判 ——
+                    //   这样游戏判的就是"这个技能能不能打到这个目标"
+                    var 带目标 = new Spell(近战.Id, 目标);
+                    if (带目标.IsReadyWithCanCast()) return 带目标;
 
-                    诊断(已解锁, 距离, 近战,
-                        "形态拿不到/不ready（近战=" + (近战?.Id.ToString() ?? "null") + "）");
-                }
-                else
-                {
-                    诊断(已解锁, 距离, null,
-                        !已解锁 ? "没解锁"
-                        : 目标 == null ? "没目标"
-                        : "距离超出（" + 距离.ToString("F2") + " > " + _t.近战填充距离.ToString("F1") + "）");
+                    // 兜底：够得到目标圈就算（见方法注释）
+                    //
+                    // ⚠️ 这里**不能**再判一次 `近战.IsReadyWithCanCast()` ——
+                    //    那个不带目标，`GetTarget` 会取**玩家选中**的目标，
+                    //    等于把刚修掉的"判错目标"又引回来。
+                    //    只判我们自己的"够得到圈"，CD 由框架在真正施放时把关。
+                    if (够得到目标圈(目标, _t.近战填充距离))
+                        return new Spell(近战.Id, 目标);
                 }
             }
         }
-        catch (Exception e)
-        {
-            try { LogHelper.Info("[填充诊断] 异常：" + e.Message); } catch { }
-        }
+        catch { }
 
         return SpellUtil.当前形态(_t.基础输出);
     }
 
-    /// <summary>【临时诊断】</summary>
-    private void 诊断(bool 已解锁, float 距离, Spell? 近战, string 结论)
+    /// <summary>
+    /// **够不够得到目标的"圈"** —— 用 `距离 - 目标碰撞半径` 近似。
+    ///
+    /// ⚠️ 这是**兜底**，主判据是游戏的 `CheckActionInRangeOrLoS`。
+    ///    用它是因为：拿不到框架判定时，"中心距超了但站在圈上"这种情况
+    ///    会让我们永远打低威力技能 —— 比偶尔多打一次更糟。
+    /// </summary>
+    private static bool 够得到目标圈(IBattleChara 目标, float 半径)
     {
         try
         {
-            if (_诊断次数 >= 12) return;
-            var 现在 = TimeHelper.Now();
-            if (现在 - _上次诊断 < 3000) return;
-            _上次诊断 = 现在;
-            _诊断次数++;
-
-            LogHelper.Info(
-                $"[填充诊断] {_t.近战填充技} 解锁={已解锁} " +
-                $"距离={(距离 < 0 ? "无目标" : 距离.ToString("F2"))} " +
-                $"门槛={_t.近战填充距离:F1} " +
-                $"形态={(近战?.Id.ToString() ?? "null")} " +
-                $"可用={(近战?.IsReadyWithCanCast().ToString() ?? "-")} " +
-                $"｜ {结论}");
+            var 中心距 = Vector3.Distance(Core.Me.Position, 目标.Position);
+            var 有效距 = 中心距 - 目标.HitboxRadius;
+            return 有效距 <= 半径;
         }
-        catch { }
+        catch
+        {
+            return false;
+        }
     }
 
     public void Build(Slot slot)
     {
-        // ⚠️ 和 Check 同源
-        var spell = 选填充技();
+        // ⚠️ 和 Check 同源：**同一个目标只取一次**，再喂给 选填充技
+        //    （原来两处各调一次 `输出目标.选()`，理论上可能取到不同目标）
+        var 目标 = 输出目标.选();
+        if (目标 == null) return;
+
+        var spell = 选填充技(目标);
         if (spell == null) return;
 
         // ⚠️ **必须显式带目标** ——
         //    `slot.Add(spell)` 打的是**玩家选中**那个，
         //    而 Check 判的是 `输出目标.选()` 的结果 —— 不带目标就是"判 A 放 B"。
-        var 目标 = 输出目标.选();
-        if (目标 != null) slot.Add(new Spell(spell.Id, 目标));
-        else slot.Add(spell);
+        slot.Add(new Spell(spell.Id, 目标));
     }
 }
 
