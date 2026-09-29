@@ -231,6 +231,93 @@ public static class DeepSeekClient
         return systemPrompt + 语言要求;
     }
 
+    // ==================== 缓存命中统计 ====================
+
+    /// <summary>累计命中的输入 token（便宜的那部分）</summary>
+    public static long 缓存命中Token { get; private set; }
+
+    /// <summary>累计未命中的输入 token（贵的那部分）</summary>
+    public static long 缓存未命中Token { get; private set; }
+
+    /// <summary>命中率（0~1）。两个计数都为 0 时返回 -1（还没数据）。</summary>
+    public static double 缓存命中率
+    {
+        get
+        {
+            var 总 = 缓存命中Token + 缓存未命中Token;
+            return 总 <= 0 ? -1 : 缓存命中Token * 1.0 / 总;
+        }
+    }
+
+    /// <summary>一句话描述缓存情况（给面板/日志）</summary>
+    public static string 缓存描述()
+    {
+        var r = 缓存命中率;
+        if (r < 0) return "缓存：暂无数据";
+        return $"缓存命中 {缓存命中Token:N0} / 未命中 {缓存未命中Token:N0}" +
+               $"（命中率 {r * 100:F0}%）";
+    }
+
+    private static long _上次缓存日志;
+
+    /// <summary>
+    /// 从响应的 `usage` 里累加缓存命中/未命中。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要盯这个数（官方文档《API 上线硬盘缓存》）★
+    ///
+    ///    「只有当两个请求的**前缀内容相同**时（从第 0 个 token 开始相同），
+    ///      才算重复。**中间开始的重复不能被缓存命中**。」
+    ///
+    ///    DeepSeek 的硬盘缓存**自动运行、无需改代码**，
+    ///    命中的部分 **0.1 元/百万 tokens**，未命中 **1 元/百万** ——
+    ///    **差 10 倍**。所以这是最值得盯的一个数。
+    ///
+    ///    返回的 `usage` 里有：
+    ///      · prompt_cache_hit_tokens  —— 命中（便宜）
+    ///      · prompt_cache_miss_tokens —— 未命中（贵）
+    ///
+    ///  ⚠️ 我们的请求结构是 `system`（规则，**固定**）+ `user`（局面，每轮变），
+    ///     所以那 7000+ 字符的规则**天然是稳定前缀**，应该命中。
+    ///     如果实测命中率低，说明**局面报告/规则的开头不稳定** ——
+    ///     那才是要修的地方（**不是**把规则从报告里删掉）。
+    ///
+    ///  每 60 秒往日志打一次，用户能直接看出缓存有没有生效。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static void 记缓存用量(JsonElement 根)
+    {
+        try
+        {
+            if (!根.TryGetProperty("usage", out var usage)) return;
+
+            long 取(string 名)
+            {
+                if (usage.TryGetProperty(名, out var v) &&
+                    v.ValueKind == JsonValueKind.Number &&
+                    v.TryGetInt64(out var n)) return n;
+                return 0;
+            }
+
+            缓存命中Token += 取("prompt_cache_hit_tokens");
+            缓存未命中Token += 取("prompt_cache_miss_tokens");
+
+            if (TimeHelper.Now() - _上次缓存日志 > 60_000)
+            {
+                _上次缓存日志 = TimeHelper.Now();
+                LogHelper.Info("[BlueWhale.AI] " + 缓存描述());
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>重置缓存统计（换职业 / 换本时调，便于分段观察）</summary>
+    public static void 重置缓存统计()
+    {
+        缓存命中Token = 0;
+        缓存未命中Token = 0;
+    }
+
     // ==================== 请求 ====================
 
     /// <param name="超时毫秒">0 = 用设置里的值</param>
@@ -293,6 +380,31 @@ public static class DeepSeekClient
             var json = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
 
             using var doc = JsonDocument.Parse(json);
+
+            // ══════════════════════════════════════════════════════════
+            //  ★ 读缓存命中统计 ★
+            //
+            //  ⚠️ 为什么要读（官方文档《API 上线硬盘缓存》的原文）：
+            //
+            //    「只有当两个请求的**前缀内容相同**时（从第 0 个 token 开始相同），
+            //      才算重复。中间开始的重复不能被缓存命中。」
+            //
+            //    DeepSeek 的硬盘缓存**自动运行、无需改代码**，
+            //    命中的部分按 **0.1 元/百万 tokens**（未命中 1 元/百万）——
+            //    命中与否差 **10 倍**。所以这是最值得盯的一个数。
+            //
+            //    返回的 `usage` 里有：
+            //      · prompt_cache_hit_tokens  —— 命中（便宜）
+            //      · prompt_cache_miss_tokens —— 未命中（贵）
+            //
+            //  ⚠️ 命中率的**唯一**前提是"从第 0 个 token 起前缀一致"。
+            //     我们的请求结构是 `system`(规则，固定) + `user`(局面，每轮变)，
+            //     所以规则的 7000+ 字符**天然是稳定前缀**，应该命中。
+            //     如果实测命中率低，就说明**局面报告的开头不稳定** ——
+            //     那正是要修的地方（而不是把规则从报告里删掉）。
+            // ══════════════════════════════════════════════════════════
+            记缓存用量(doc.RootElement);
+
             var 消息 = doc.RootElement.GetProperty("choices")[0].GetProperty("message");
 
             // ⚠️ 推理型模型的正文可能在 reasoning_content，content 会是空字符串。
