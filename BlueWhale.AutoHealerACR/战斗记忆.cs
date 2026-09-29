@@ -376,37 +376,62 @@ public static class 战斗记忆
 
     // ==================== 落盘 ====================
 
+    /// <summary>
+    /// 把采集到的数据写盘。
+    ///
+    /// ⚠️ **必须异步**（官方错题集第 5 条：Update/UI 里做同步 IO 会卡顿）。
+    ///
+    ///   `File.AppendAllText` 是同步阻塞的 —— 数据多的时候能卡住几百毫秒，
+    ///   在战斗里就是明显的掉帧甚至技能延迟。
+    ///
+    ///   做法：先把数据搬到局部变量、清空列表（主线程只做内存操作），
+    ///   然后丢到线程池去写文件。
+    /// </summary>
     private static void 落盘()
     {
         if (_已采集.Count == 0) return;
 
         try
         {
-            var 设置文件 = AiSettings.当前路径();
-            var 目录 = Path.Combine(Path.GetDirectoryName(设置文件) ?? ".", "记忆");
-            Directory.CreateDirectory(目录);
-
-            var 文件 = Path.Combine(目录, $"战斗记忆_{DateTime.Now:yyyyMMdd}.jsonl");
-
-            var sb = new StringBuilder();
-            foreach (var r in _已采集)
-            {
-                sb.AppendLine(JsonSerializer.Serialize(r, JsonOpts));
-            }
-
-            File.AppendAllText(文件, sb.ToString(), Encoding.UTF8);
-
-            累计条数 += _已采集.Count;
-            最后文件 = 文件;
-
-            LogHelper.Info($"[BlueWhale.记忆] 落盘 {_已采集.Count} 条 → {文件}（累计 {累计条数}）");
-
+            // ── 主线程只做这些：取数据 + 清列表 ──
+            var 数据 = _已采集.ToList();
             _已采集.Clear();
             _待回填.Clear();
+
+            var 设置文件 = AiSettings.当前路径();
+            var 目录 = Path.Combine(Path.GetDirectoryName(设置文件) ?? ".", "记忆");
+
+            // ── 写文件丢到后台 ──
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    Directory.CreateDirectory(目录);
+
+                    var 文件 = Path.Combine(目录, $"战斗记忆_{DateTime.Now:yyyyMMdd}.jsonl");
+
+                    var sb = new StringBuilder();
+                    foreach (var r in 数据)
+                    {
+                        sb.AppendLine(JsonSerializer.Serialize(r, JsonOpts));
+                    }
+
+                    File.AppendAllText(文件, sb.ToString(), Encoding.UTF8);
+
+                    累计条数 += 数据.Count;
+                    最后文件 = 文件;
+
+                    LogHelper.Info($"[BlueWhale.记忆] 落盘 {数据.Count} 条 → {文件}（累计 {累计条数}）");
+                }
+                catch (Exception e)
+                {
+                    LogHelper.Error($"[BlueWhale.记忆] 落盘失败：{e.Message}");
+                }
+            });
         }
         catch (Exception e)
         {
-            LogHelper.Error($"[BlueWhale.记忆] 落盘失败：{e.Message}");
+            LogHelper.Error($"[BlueWhale.记忆] 落盘准备失败：{e.Message}");
         }
     }
 

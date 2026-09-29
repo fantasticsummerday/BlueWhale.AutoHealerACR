@@ -120,7 +120,47 @@ public class AiSettings
         }
     }
 
+    /// <summary>战斗中攒下的保存请求，脱战后补写</summary>
+    private static bool _待保存;
+
+    /// <summary>
+    /// 每帧调用（从心跳里驱动）：脱战后把攒下的保存补上。
+    ///
+    /// ⚠️ 官方错题集第 5 条：**Update/UI 里做同步 IO 会导致卡顿**。
+    ///    用户在战斗中打开设置改一下就会触发写盘 ——
+    ///    所以战斗中的保存请求先攒着，脱战后统一写。
+    /// </summary>
+    public static void 每帧更新()
+    {
+        if (!_待保存) return;
+
+        try
+        {
+            if (AEAssist.Core.Me.InCombat()) return;
+
+            _待保存 = false;
+            真正保存();
+        }
+        catch { }
+    }
+
     public static void 保存()
+    {
+        // 战斗中不写盘，先记着（错题集第 5 条）
+        try
+        {
+            if (AEAssist.Core.Me.InCombat())
+            {
+                _待保存 = true;
+                return;
+            }
+        }
+        catch { }
+
+        真正保存();
+    }
+
+    private static void 真正保存()
     {
         try
         {

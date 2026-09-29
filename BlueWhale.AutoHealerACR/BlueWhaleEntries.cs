@@ -581,6 +581,7 @@ public class AiHeartbeat : ISlotResolver
             AiStrategyLayer.每帧更新();   // 阶段 A
             AiDecisionLayer.每帧更新();   // 阶段 B
             AiSettingPage.每帧更新();     // 收集"测试连接"的异步结果
+            AiSettings.每帧更新();        // 脱战后补写攒下的设置保存（避免战斗中做 IO）
 
             // 以太管理：通过观察以太数量变化检测"用掉了豆子"
             HealerACR.Common.以太管理.每帧更新();
