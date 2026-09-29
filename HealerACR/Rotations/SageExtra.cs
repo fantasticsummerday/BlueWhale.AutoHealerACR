@@ -89,3 +89,43 @@ public class SGE_Psyche : ISlotResolver
         if (spell != null) slot.Add(spell);
     }
 }
+
+/// <summary>
+/// 智慧之爱（Lv100）—— 贤者的群疗大招。
+///
+/// 数据（dump_actions.tsv）：id=37035，Lv100，CD 180s，
+///   CastType=2（圆形，目标中心），Range=0（自身），EffectRange=30。
+///
+/// 定位：**180 秒 CD 的大招**，只在真正需要的时候放 ——
+///   不是"有人掉血就放"，那太浪费。
+/// </summary>
+public class SGE_Philosophia : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("智慧之爱");
+
+    public int Check()
+    {
+        if (技能 == 0) return -101;
+        if (!HealQt.GetQt("群奶", true)) return -101;     // 属于群奶范畴
+        if (!SpellUtil.已解锁(技能)) return -2;
+
+        // 大招不能滥用 —— 门槛抬到"群体治疗阈值"以下的人数 ≥ 2
+        var 阈值 = HealSettings.Instance.群体治疗阈值;
+        if (HealTargetHelper.低于阈值人数(阈值) < 2) return -4;
+
+        if (低蓝停手()) return -5;
+
+        return SpellUtil.可用(技能) ? 4 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        var spell = SpellUtil.Get(技能);
+        if (spell != null) slot.Add(spell);   // 以自身为中心
+    }
+
+    private static bool 低蓝停手()
+    {
+        try { return HealerACR.Common.蓝量.低蓝停手(); } catch { return false; }
+    }
+}

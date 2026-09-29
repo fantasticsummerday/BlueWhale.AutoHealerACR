@@ -99,6 +99,7 @@ public class SGERotationEntry : HealerEntryBase
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new SGE_Philosophia(), SlotMode.OffGcd),            // 智慧之爱（Lv100 群疗大招）
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_Kardia(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_CholeOverflow(), SlotMode.OffGcd),

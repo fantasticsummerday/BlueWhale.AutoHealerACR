@@ -98,3 +98,39 @@ public class SCH_ForceAetherflow : ISlotResolver
         if (spell != null) slot.Add(spell);
     }
 }
+
+/// <summary>
+/// 降临之章 —— 炽天附体期间的强化群疗。
+///
+/// 数据（dump_actions.tsv）：id=41501，CD 20s，
+///   CastType=2（圆形），Range=0（自身），EffectRange=15。
+///
+/// ⚠️ 这是**炽天附体形态下才会变成可用**的技能（Lv0 说明它是形态技能）。
+///   `SpellUtil.可用()` 会处理形态判断 —— 不在形态里它就不可用，
+///   所以这里不需要额外判形态。
+/// </summary>
+public class SCH_Accession : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("降临之章");
+
+    public int Check()
+    {
+        if (技能 == 0) return -101;
+        if (!HealQt.GetQt("群奶", true)) return -101;
+        if (!SpellUtil.已解锁(技能)) return -2;
+
+        // 和普通群疗同一个门槛（它本身就是群疗的一种形态）
+        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值)
+            < HealTargetHelper.群奶人数要求(2)) return -4;
+
+        if (蓝量.低蓝停手()) return -5;
+
+        return SpellUtil.可用(技能) ? 4 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        var spell = SpellUtil.Get(技能);
+        if (spell != null) slot.Add(spell);
+    }
+}
