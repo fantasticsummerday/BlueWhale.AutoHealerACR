@@ -398,8 +398,10 @@ public static class 战斗记忆
             _已采集.Clear();
             _待回填.Clear();
 
-            var 设置文件 = AiSettings.当前路径();
-            var 目录 = Path.Combine(Path.GetDirectoryName(设置文件) ?? ".", "记忆");
+            // ⚠️ 统一走 AiSettings.记忆根目录() —— 别在这里自己拼路径
+            //    （记录 / 记忆库 / 战斗记忆 三处必须读同一个来源，
+            //      否则用户改了保存位置会出现"半生效"）
+            var 目录 = AiSettings.记忆根目录();
 
             // ── 写文件丢到后台 ──
             _ = Task.Run(() =>

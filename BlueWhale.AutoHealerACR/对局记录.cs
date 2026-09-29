@@ -310,20 +310,14 @@ public static class 对局记录
     /// <summary>当前等级</summary>
     public static int 当前等级() => _等级 > 0 ? _等级 : 1;
 
-    /// <summary>记忆根目录（和 战斗记忆 用同一层，便于一起管理）</summary>
-    public static string 记忆路径()
-    {
-        try
-        {
-            var 设置文件 = AiSettings.当前路径();
-            var 根 = Path.GetDirectoryName(设置文件) ?? ".";
-            return Path.Combine(根, "记忆");
-        }
-        catch
-        {
-            return "记忆";
-        }
-    }
+    /// <summary>
+    /// 记忆根目录 —— **统一走 AiSettings.记忆根目录()**。
+    ///
+    /// ⚠️ 不要在这里自己拼路径：记忆/记录/记忆库三个模块必须读同一个来源，
+    ///    否则用户改了保存位置之后，会出现"记录写到新位置、
+    ///    但记忆库还在读老位置"这种半生效的怪状态。
+    /// </summary>
+    public static string 记忆路径() => AiSettings.记忆根目录();
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {

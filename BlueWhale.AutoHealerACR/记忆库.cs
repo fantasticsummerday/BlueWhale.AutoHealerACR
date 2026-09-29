@@ -40,17 +40,10 @@ public static class 记忆库
 {
     // ==================== 存储位置 ====================
 
-    /// <summary>记忆库根目录（和记录文件同层）</summary>
-    private static string 根目录()
-    {
-        try
-        {
-            var 设置文件 = AiSettings.当前路径();
-            var 根 = Path.GetDirectoryName(设置文件) ?? ".";
-            return Path.Combine(根, "记忆");
-        }
-        catch { return "记忆"; }
-    }
+    /// <summary>
+    /// 记忆库根目录 —— **统一走 AiSettings.记忆根目录()**（见那里的说明）。
+    /// </summary>
+    private static string 根目录() => AiSettings.记忆根目录();
 
     /// <summary>记忆条目文件（追加式，一行一条结论）</summary>
     private static string 库文件() => Path.Combine(根目录(), "记忆库.jsonl");

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AEAssist.Helper;
+using HealerACR.Common;
 
 namespace BlueWhale.AutoHealerACR;
 
@@ -67,6 +68,141 @@ public class AiSettings
 
     /// <summary>把 AI 的原始回复打进日志（调试用，平时关掉免得刷屏）</summary>
     public bool 记录原始回复 = false;
+
+    // ==================== 记忆库位置 ====================
+
+    /// <summary>
+    /// 战斗记忆 / 记录 / 记忆库的保存目录。**留空 = 用默认位置**。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要独立出来（用户提的问题）★
+    ///
+    ///    原来它跟着"ACR 设置目录"走，实际落在：
+    ///      `D:\FF14\Settings\Plugins\记忆`
+    ///
+    ///    三个问题：
+    ///      ① **难找** —— 埋在 Settings\Plugins 里，
+    ///         那个目录下还塞着各种 ACR 的文件夹，一眼看不出来是我们的
+    ///      ② **容易被误删** —— 重装 ACR、清理插件设置时会被顺手清掉，
+    ///         而记忆库是**长期积累**的东西，攒几十场才有价值
+    ///      ③ **换 ACR 目录就丢** —— 路径跟着设置目录走，设置目录一变，
+    ///         老记忆就找不到了（用户会以为"全没了"）
+    ///
+    ///  ── 默认位置 ──
+    ///    `我的文档\BlueWhale记忆库`
+    ///    · 在"我的文档"下 → **好找**（资源管理器左栏就有）
+    ///    · **不在游戏目录里** → 重装游戏/ACR 都不会动它
+    ///    · 和 AEAssist 的目录结构解耦 → 换目录也不丢
+    ///
+    ///  ⚠️ 留空 ≠ 不保存：留空用的是**默认位置**，
+    ///     而不是"退回旧位置" —— 否则新旧行为不一致会更混乱。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public string 记忆目录 = "";
+
+    /// <summary>
+    /// 默认记忆目录：`我的文档\BlueWhale记忆库`
+    /// </summary>
+    public static string 默认记忆目录()
+    {
+        try
+        {
+            var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (!string.IsNullOrWhiteSpace(文档))
+                return Path.Combine(文档, "BlueWhale记忆库");
+        }
+        catch { }
+
+        // 兜底：dll 旁边的"记忆"
+        try { return Path.Combine(AppContext.BaseDirectory, "记忆"); }
+        catch { return "记忆"; }
+    }
+
+    /// <summary>
+    /// 实际使用的记忆目录 —— **所有记忆/记录都走这里**。
+    ///
+    /// 这是唯一的权威入口：对局记录 / 记忆库 / 战斗记忆 三处都调它，
+    /// 不要在别处自己拼路径（否则改了设置有的地方生效有的不生效）。
+    /// </summary>
+    public static string 记忆根目录()
+    {
+        try
+        {
+            var 设置值 = Instance?.记忆目录;
+            if (!string.IsNullOrWhiteSpace(设置值))
+                return 设置值.Trim();
+        }
+        catch { }
+
+        var 目录 = 默认记忆目录();
+        尝试迁移旧数据(目录);
+        return 目录;
+    }
+
+    /// <summary>
+    /// 把旧位置（ACR 设置目录下的"记忆"）里的数据搬到新位置。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么需要迁移 ★
+    ///
+    ///    记忆原来存在 `Settings\Plugins\记忆`。改成"我的文档"之后，
+    ///    **老用户的记忆会"凭空消失"** —— 文件还在，但程序不看那里了，
+    ///    用户会觉得"升级把数据弄丢了"。
+    ///
+    ///    ⚠️ 用**复制**而不是移动：
+    ///       万一新逻辑有问题，旧位置的原件还在，可以人工找回来。
+    ///       搬完不删原件 = 多花一点磁盘，换一次可回退的机会，值。
+    ///
+    ///  ⚠️ 只在**新位置还没有数据时**才搬 ——
+    ///     否则每次启动都覆盖用户在新位置积累的东西。
+    ///
+    ///  ⚠️ 全程 try/catch：迁移失败绝不能影响 ACR 启动。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static void 尝试迁移旧数据(string 新目录)
+    {
+        if (_已尝试迁移) return;
+        _已尝试迁移 = true;   // 一个进程只试一次，别每帧都查磁盘
+
+        try
+        {
+            var 旧目录 = Path.Combine(_设置目录 ?? "", "记忆");
+            if (string.IsNullOrWhiteSpace(_设置目录) || !Directory.Exists(旧目录)) return;
+
+            // 新位置已经有东西 → 不搬（保住用户在新位置的积累）
+            if (Directory.Exists(新目录) &&
+                Directory.EnumerateFileSystemEntries(新目录).Any())
+            {
+                LogHelper.Info($"[BlueWhale.AI] 记忆目录：{新目录}（新位置已有数据，不迁移）");
+                return;
+            }
+
+            Directory.CreateDirectory(新目录);
+
+            var 搬了几份 = 0;
+            foreach (var 文件 in Directory.GetFiles(旧目录))
+            {
+                try
+                {
+                    var 目标 = Path.Combine(新目录, Path.GetFileName(文件));
+                    // 不覆盖已有文件
+                    if (!File.Exists(目标)) { File.Copy(文件, 目标); 搬了几份++; }
+                }
+                catch { }
+            }
+
+            if (搬了几份 > 0)
+            {
+                LogHelper.Info(
+                    $"[BlueWhale.AI] 已从旧位置迁移 {搬了几份} 个记忆文件：" +
+                    $"{旧目录} -> {新目录}（旧文件保留，可随时回退）");
+                屏幕提示.成功($"记忆已迁移到：{新目录}", "mem-moved");
+            }
+        }
+        catch { }
+    }
+
+    private static bool _已尝试迁移;
 
     /// <summary>
     /// 调试模式 —— 启用后 AI 的关键日志**直接显示在游戏里**
