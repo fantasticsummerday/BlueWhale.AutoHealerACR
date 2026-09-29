@@ -62,22 +62,7 @@ public sealed class 界面控制器 : IRotationUI
     // 反射拿到的框架内部对象（取不到就是 null）
     private readonly object? _qt窗口;
     private readonly object? _样式;
-    private readonly object? _主窗口对象;      // MainWindow
 
-    /// <summary>
-    /// 「启动」按钮的状态 —— 传给框架的 `MainControlView`。
-    ///
-    /// ⚠️ 这个 bool **必须留在这里跨帧保留**，不能每帧从别处重算：
-    ///     `MainControlView` 用 `ref` 收它、按它决定按钮画成什么样，
-    ///     用户点了之后**改的也是它**。每帧重置 = 点了没反应。
-    /// </summary>
-    private bool _启动按钮;
-
-    /// <summary>「停手」按钮的状态（同上）</summary>
-    private bool _停手按钮;
-
-    /// <summary>第一次画的时候从框架状态初始化一次</summary>
-    private bool _启动初值取过了;
 
     /// <summary>
     /// 构造。
@@ -111,18 +96,6 @@ public sealed class 界面控制器 : IRotationUI
         if (_保存 != null)
             _主窗口.标题栏按钮.Add(("保存设置", () => { try { _保存(); } catch { } }));
 
-        // ★ 顶部常驻控件：启动 / 停手 ★
-        //
-        //  ⚠️ 这两个**必须自己做** ——
-        //     它们原来画在框架主窗口里，而 `IsCustomMain()` 返回 true 时
-        //     框架**不画主窗口** → 启动/停手就跟着消失了。
-        //
-        //  状态存在框架的 `AEAssist.Share` 里（public 静态字段，可读可写）：
-        //     `Share.Pull`         —— 启动（开怪）
-        //     `Share.TrustStopACR` —— 停手
-        //  ⇒ 直接读写它们 = **和框架共用同一个状态**，
-        //     不会出现"面板说停手了、实际还在打"这种两个真相。
-        _主窗口.顶部控件 = 画启动停手;
 
         // 反射取框架的 qtWindow（用于把 QT 面板按原样画出来）
         try
@@ -131,7 +104,6 @@ public sealed class 界面控制器 : IRotationUI
             const BindingFlags 旗 = BindingFlags.NonPublic | BindingFlags.Instance;
 
             _qt窗口 = 类型.GetField("qtWindow", 旗)?.GetValue(框架窗口);
-            _主窗口对象 = 类型.GetField("mainWindow", 旗)?.GetValue(框架窗口);
 
             // ⚠️ `style` 是 **public 字段**，直接访问 —— 不用反射。
             //    我第一版用 `GetField("style", NonPublic)` 取它，
@@ -324,140 +296,6 @@ public sealed class 界面控制器 : IRotationUI
             try { ImGui.TextColored(主题.危险, $"{页名} 页绘制异常：{e.Message}"); } catch { }
         }
     }
-
-    /// <summary>
-    /// **启动 / 停手** —— 找回框架主窗口里那两个按钮。
-    ///
-    /// ══════════════════════════════════════════════════════════════════
-    ///  ★ 为什么状态用 `Share` 而不是自己存 ★
-    ///
-    ///    `AEAssist.Share.Pull` / `TrustStopACR` 是框架的 **public 静态字段**。
-    ///    如果自己再存一份 `bool _已启动`，会出现：
-    ///      · 按快捷键启动 → 框架改了 Share，我们的 bool 还是 false
-    ///        → 面板显示"未启动"，但实际在打
-    ///      · 按面板按钮 → 只改我们的 bool，框架不知道 → 点了没反应
-    ///
-    ///    ⇒ **直接读写 Share**，只有一个真相。
-    ///
-    ///  ⚠️ 按钮文案带状态（"启动"/"已启动"）而不是做成 toggle 外观 ——
-    ///     这是**战斗中的关键开关**，一眼能看出当前状态比好看重要。
-    ///     用颜色区分：未启用=灰、已启用=绿。
-    ///
-    ///  ⚠️ **每次点击都打一行日志**，把四个相关字段全打出来：
-    ///     `Pull` / `TrustStopACR` / `CombatRun` / `StopNormalACR`。
-    ///
-    ///     为什么必须打：框架的 `MainControlView` **看不到内部实现**，
-    ///     光靠签名猜不出它到底按哪个字段判断"启动了没有"。
-    ///     点了没反应时，这行日志能直接指出：
-    ///       · 字段根本没变        → 我们写失败了（或被框架每帧重置）
-    ///       · 字段变了但没启动    → 我们写错了字段
-    ///     没有这行日志，就只能继续猜。
-    /// ══════════════════════════════════════════════════════════════════
-    /// </summary>
-    private void 画启动停手()
-    {
-        try
-        {
-            // ══════════════════════════════════════════════════════════
-            //  ★ 用框架自己的 `MainWindow.MainControlView` ★
-            //
-            //  ── 为什么不自绘（IL 实证，第一版错在这）──
-            //    自绘按钮 + 直接写 `AEAssist.Share.Pull` → 点了没反应。
-            //    扫 AEAssist 全量 IL 才看清：
-            //      · `MainControlView` **完全没读写** `Share.*`
-            //      · `Share.CombatRun` 有 9 处写，`JobViewWindow.OnDrawUI` **读**它
-            //    ⇒ "启动开关是哪个字段"从签名推不出来，不能猜。
-            //
-            //  ── `MainControlView` 的实际行为（IL 调用清单）──
-            //      ImGui.Button / IsRightMouseClicked / SameLine /
-            //      BeginChild / TextDisabled / EndChild / SetWindowSize
-            //    ⇒ 它**只画按钮和提示文字**（"右键"启动"可停手"），
-            //      **点击只改 ref 参数，自己不做启动动作**。
-            //
-            //  ⚠️ 所以两个 bool **必须跨帧保留** ——
-            //     每帧重置等于把用户的点击丢掉。
-            // ══════════════════════════════════════════════════════════
-            if (_主窗口对象 == null)
-            {
-                ImGui.TextColored(主题.警告, "拿不到框架的启动控件（mainWindow）");
-                return;
-            }
-
-            var 方法 = _主窗口对象.GetType().GetMethod("MainControlView",
-                BindingFlags.Public | BindingFlags.Instance);
-
-            if (方法 == null)
-            {
-                ImGui.TextColored(主题.警告, "框架没有 MainControlView 方法");
-                return;
-            }
-
-            if (!_启动初值取过了)
-            {
-                _启动初值取过了 = true;
-                try { _启动按钮 = AEAssist.Share.CombatRun; } catch { }
-                try { _停手按钮 = AEAssist.Share.TrustStopACR; } catch { }
-                LogHelper.Info($"[界面] 启动控件初值：启动={_启动按钮} 停手={_停手按钮}");
-            }
-
-            var 旧启动 = _启动按钮;
-            var 旧停手 = _停手按钮;
-
-            object?[] 参数 = { _启动按钮, _停手按钮, (Action)(() => { try { _保存?.Invoke(); } catch { } }) };
-
-            try
-            {
-                // ⚠️ `MainControlView` 内部会 `SetWindowSize` ——
-                //    在子窗口里调用可能改变窗口尺寸。观察一下有没有副作用。
-                方法.Invoke(_主窗口对象, 参数);
-            }
-            catch (Exception e)
-            {
-                ImGui.TextColored(主题.警告, "启动控件绘制失败：" + e.Message);
-                return;
-            }
-
-            var 新启动 = 参数[0] is bool b1 ? b1 : _启动按钮;
-            var 新停手 = 参数[1] is bool b2 ? b2 : _停手按钮;
-
-            // ⚠️ 无论变没变都打一行 —— 这样才能判断
-            //    "是没点到"还是"点到了但框架没反应"。
-            if (新启动 != 旧启动 || 新停手 != 旧停手)
-            {
-                _启动按钮 = 新启动;
-                _停手按钮 = 新停手;
-                记启动状态($"框架按钮变化 启动 {旧启动}->{新启动} 停手 {旧停手}->{新停手}");
-            }
-        }
-        catch (Exception e)
-        {
-            try { ImGui.TextColored(主题.危险, "启动控件异常：" + e.Message); } catch { }
-        }
-    }
-    /// <summary>
-    /// 把启动相关的**四个字段全打出来**（诊断用）。
-    ///
-    /// ⚠️ 为什么四个都打：不知道框架按哪个判断，
-    ///     全打出来才能反推 —— 点了哪个字段变了、哪个没变，一目了然。
-    /// </summary>
-    private static void 记启动状态(string 来源)
-    {
-        try
-        {
-            string 读(string 名, Func<bool> 取)
-            {
-                try { return 取() ? "真" : "假"; } catch { return "?"; }
-            }
-
-            LogHelper.Info($"[界面] {来源} → " +
-                           $"Pull={读("Pull", () => AEAssist.Share.Pull)} " +
-                           $"TrustStop={读("TrustStop", () => AEAssist.Share.TrustStopACR)} " +
-                           $"CombatRun={读("CombatRun", () => AEAssist.Share.CombatRun)} " +
-                           $"StopNormal={读("StopNormal", () => AEAssist.Share.StopNormalACR)}");
-        }
-        catch { }
-    }
-
 
     /// <summary>
     /// **QT 面板：调框架的 `DrawQtWindow(style)`** —— 原样式，零维护。

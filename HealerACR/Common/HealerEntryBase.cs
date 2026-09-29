@@ -779,9 +779,12 @@ public abstract class HealerEntryBase : IRotationEntry
         // ═════════════════════════════════════════════════════════════
         if (ImGui.CollapsingHeader("界面", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            ImGui.Checkbox("使用小鲸鱼主题界面", ref s.使用主题界面);
-            ImGui.TextDisabled("  自绘带边框的主窗口（鲸蓝主题）。取消勾选回到框架窗口。");
-            ImGui.TextDisabled("  ⚠ 切换后需要**重载 ACR 或切一次职业**才生效。");
+            ImGui.Checkbox("使用小鲸鱼主题界面（实验）", ref s.使用主题界面);
+            ImGui.TextDisabled("  自绘带边框的主窗口（鲸蓝主题 + 小鲸鱼背景）。");
+            ImGui.TextDisabled("  默认关 —— 保持框架原生界面。");
+            ImGui.TextDisabled("  切换后需要重载 ACR 或切一次职业才生效。");
+            ImGui.TextColored(主题.警告,
+                "  注意：主题界面里没有可用的启动按钮，请用框架窗口的启动按钮或快捷键。");
 
             ImGui.Spacing();
             ImGui.SliderFloat("界面缩放", ref s.界面缩放, 0.8f, 1.6f, "%.2f");
