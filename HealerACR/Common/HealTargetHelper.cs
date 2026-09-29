@@ -291,7 +291,7 @@ public static class HealTargetHelper
         return !目标快死了(血线, ttk秒) && !敌人波次要结束();
     }
 
-    // ==================== 整波判断（对照 鍚岀被 ACR 的 ShouldHoldForDyingTrash）====================
+    // ==================== 整波判断（对照同类 ACR 的 ShouldHoldForDyingTrash）====================
 
     /// <summary>
     /// **当前这一波小怪是不是快清完了** —— 是的话不该交爆发。
@@ -306,7 +306,7 @@ public static class HealTargetHelper
     ///
     ///    所以判据要从"这个怪快死了"升级成"**这一波快没了**"。
     ///
-    ///  ★ 判据（对照 鍚岀被 ACR 的 `BurstHoldControl.ShouldHoldForDyingTrash`）★
+    ///  ★ 判据（对照同类 ACR 的 `BurstHoldControl.ShouldHoldForDyingTrash`）★
     ///
     ///    取 25 米内的**非 Boss** 敌人：
     ///      · 数量为 0 → 不算（没有波次概念）
@@ -324,7 +324,7 @@ public static class HealTargetHelper
     ///
     ///    Boss 战只有一只怪，它的血量降到 30% 时**正是该爆发的时候**
     ///    （最后阶段通常有伤害加成机制）。把 Boss 算进来会把爆发憋死。
-    ///    这一条和 鍚岀被 ACR 的"非 Boss 战"门控是同一个意思。
+    ///    这一条和同类 ACR 的"非 Boss 战"门控是同一个意思。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     /// <param name="合计血线">整波合计血量低于这个比例 → 判定快清完</param>

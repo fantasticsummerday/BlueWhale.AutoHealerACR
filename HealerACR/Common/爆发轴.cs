@@ -9,7 +9,7 @@ using Dalamud.Bindings.ImGui;
 namespace HealerACR.Common;
 
 /// <summary>
-/// 爆发轴 —— 对照 鍚岀被 ACR 用的 `Rotation.AddSlotSequences`。
+/// 爆发轴 —— 对照同类 ACR 用的 `Rotation.AddSlotSequences`。
 ///
 /// ══════════════════════════════════════════════════════════════════
 ///  官方文档（ACR开发 L55-74）对 SlotSequence 的定义：
