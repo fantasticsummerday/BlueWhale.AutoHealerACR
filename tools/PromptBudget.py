@@ -176,9 +176,85 @@ def main():
     #  => 给脚本读的只用 ASCII，给人看的才用中文。
     #     （同一个坑的另一面：脚本里也不能有 GBK 编不了的字符，见 IdAudit 第 ⑦ 项。）
     # ══════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
+    #  ★ 决策层提示词 —— 之前**没有任何工具盯住它** ★
+    #
+    #  [!] 为什么要补这一段：
+    #     上面量的是 `AiSituation.cs`（局面报告）。
+    #     但每次请求还带一份 `AiDecisionLayer.cs` 里的**决策层提示词**
+    #     （那些规则），也有 3000+ 字符 ——
+    #     而且它才是真正"**每轮一字不变**"的静态大头。
+    #
+    #     只盯局面报告会让"预算"这个说法失真：
+    #     改了提示词、删了 800 字符，上面的数字**一动不动**，
+    #     看起来像"压缩没生效"。实际是**量错了对象**。
+    # ══════════════════════════════════════════════════════════════
+    提示词长 = 0
+    提示词文本 = ""
+    提示词文件 = SRC / "AiDecisionLayer.cs"
+    if 提示词文件.exists():
+        提示词文本 = 提示词文件.read_text(encoding="utf-8")
+        m2 = re.search(r'"""(.*?)"""', 提示词文本, re.S)
+        if m2:
+            提示词长 = len(m2.group(1))
+            提示词正文 = m2.group(1)
+        else:
+            提示词正文 = ""
+    else:
+        提示词正文 = ""
+
+    print("=" * 66)
+    print("  决策层提示词（每轮发送，但是稳定前缀）")
+    print("=" * 66)
+    print()
+    print(f"  字符数：{提示词长}")
+    print()
+    print("  [!] 它**不受**上面那个 6000 约束 ——")
+    print("      那是 `AiSituation.最大长度`，只管局面报告。")
+    print("      提示词走 `system` 消息，两块分开算。")
+    print("      但它同样是每轮都发，所以也要盯住别无限膨胀。")
+    print()
+
+    # ── 逐条成本：加规则前先看这个，别等超了才发现 ──
+    if 提示词长 > 0:
+        print("  各条规则的成本（贵的排前面）：")
+        条 = []
+        cur, n = None, 0
+        for l in 提示词正文.split("\n"):
+            m3 = re.match(r"\s*(\d+)\.\s*(.*)", l)
+            if m3:
+                if cur:
+                    条.append((cur, n))
+                cur = m3.group(1) + ". " + m3.group(2)[:32]
+                n = len(l)
+            else:
+                if cur is None:
+                    cur = "(标题/格式/示例)"
+                n += len(l) + 1
+        if cur:
+            条.append((cur, n))
+
+        条.sort(key=lambda x: -x[1])
+        # [!] 规则名里可能带提示符 / ** 这类字符，中文控制台（GBK）打不出来会直接崩。
+        #     只留 GBK 能编码的字符 —— 和 IdAudit 第 7 项同一个道理。
+        def 安全(s: str) -> str:
+            out = []
+            for ch in s:
+                try:
+                    ch.encode("gbk")
+                    out.append(ch)
+                except UnicodeEncodeError:
+                    pass
+            return "".join(out).replace("*", "")
+
+        for name, cnt in 条[:8]:
+            print(f"    {cnt:>5} 字符  {安全(name)}")
+        print()
+
     print(f"BUDGET_TOTAL={合计}")
     print(f"BUDGET_LIMIT={最大长度}")
     print(f"BUDGET_PERCENT={占比}")
+    print(f"PROMPT_CHARS={提示词长}")
     print()
 
     if 合计 > 最大长度:
