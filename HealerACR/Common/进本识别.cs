@@ -1,4 +1,6 @@
+using AEAssist;
 using AEAssist.Helper;
+using AEAssist.MemoryApi;
 using HealerACR.Timeline;
 
 namespace HealerACR.Common;
@@ -55,6 +57,27 @@ public static class 进本识别
     /// </summary>
     private static uint _上次地图;
 
+    /// <summary>本次地图变化是什么时候观察到的（稳定计时起点）</summary>
+    private static long _变化时刻;
+
+    /// <summary>这一轮是否已经通知过（防止稳定期内反复通知）</summary>
+    private static bool _本轮已通知;
+
+    /// <summary>
+    /// 地图要稳定这么久（毫秒）才认为"落地了"。
+    ///
+    /// ⚠️ 为什么需要它（实测）：
+    ///     切地图过程中 `GetCurrTerrId()` 会**先返回旧值**再返回新值 ——
+    ///     日志里 `地图变化 1048 -> 979` 报的其实是**上一个地图**（房区），
+    ///     那一刻游戏还在黑屏读条，场上没有敌人、没有队友。
+    ///     AI 在那种状态下初始化，第一印象就是"空场、单人、无战斗"，
+    ///     而它**不会自己纠正** —— 那份报告会一直用到下一次重建。
+    ///
+    /// ⚠️ 1500ms 的依据：切图黑屏通常 1~3 秒，
+    ///     加上下面的 `IsBetweenAreas` 双保险，宁晚勿早。
+    /// </summary>
+    private const int 稳定毫秒 = 1500;
+
     /// <summary>
     /// 每帧调用一次 —— **地图 ID 一变就通知**（比原来的"在不在副本"判据更宽）。
     ///
@@ -79,10 +102,38 @@ public static class 进本识别
             if (地图 == 0) return;               // 读不到 → 不当成"换图"
 
             // ★ 判据：**地图 ID 变了**（不是"在不在副本"）★
-            if (地图 == _上次地图) return;
+            if (地图 != _上次地图)
+            {
+                var 旧地图0 = _上次地图;
+                _上次地图 = 地图;
+                _变化时刻 = TimeHelper.Now();
+                _本轮已通知 = false;
 
-            var 旧地图 = _上次地图;
-            _上次地图 = 地图;
+                LogHelper.Info($"[HealerACR] 地图变化 {旧地图0} -> {地图}" +
+                               $"（等落地稳定 {稳定毫秒}ms 后再重建上下文）");
+
+                // ⚠️ 这里**先不通知** —— 等下面的稳定闸门放行。
+                //    切图过程中这一刻的场景是"黑屏 + 空场"，
+                //    拿它去初始化 AI 会让第一印象完全错。
+                return;
+            }
+
+            // ★ 稳定闸门 ★
+            if (_本轮已通知) return;
+            if (地图 == 0) return;
+
+            // ① 游戏自己说"不在切图状态"
+            try
+            {
+                if (Core.Resolve<MemApiCondition>().IsBetweenAreas()) return;
+            }
+            catch { }
+
+            // ② 地图 ID 稳定够久
+            if (TimeHelper.Now() - _变化时刻 < 稳定毫秒) return;
+
+            _本轮已通知 = true;
+            var 旧地图 = _变化时刻 > 0 ? _上次地图 : 0;
 
             // 不在副本表里的地图（房区 / 野外）也重建上下文 ——
             // 至少要让它知道"现在在哪"，而不是继续用上一个地图的局面。
@@ -99,9 +150,7 @@ public static class 进本识别
             TimelineManager.现在加载();
 
             // ★ 第二步：输出"本地看到了什么"（日志兜底，不依赖 AI 层）★
-            var 前缀 = 旧地图 == 0
-                ? "进入地图"
-                : $"地图变化 {旧地图} -> {地图}";
+            var 前缀 = $"落地完成 {地图}";
 
             LogHelper.Info($"[HealerACR] {前缀}：TerritoryType {地图}" +
                            $"（{地名.解析(地图, 是副本: 是副本)}）" +
@@ -115,5 +164,10 @@ public static class 进本识别
     }
 
     /// <summary>重置边沿状态（换职业 / 重载时用）</summary>
-    public static void 重置() => _上次地图 = 0;
+    public static void 重置()
+    {
+        _上次地图 = 0;
+        _变化时刻 = 0;
+        _本轮已通知 = false;
+    }
 }
