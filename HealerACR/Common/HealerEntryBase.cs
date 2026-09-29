@@ -37,7 +37,19 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>职业技能表：本职业所有技能 ID 的唯一来源</summary>
     public abstract JobSpellTable Spells { get; }
 
-    public AcrType AcrType { get; set; } = AcrType.Both;
+    /// <summary>
+    /// ACR 类型 —— 决定在 AEAssist 的 ACR 列表里怎么归类。
+    ///
+    /// **本项目定位是日随**（四人本为主、随机副本、省心优先），
+    /// 所以默认 `Normal`（只显示"日常"），不是 `Both`。
+    ///
+    /// 改成 `Both` 会让它在"高难"分类里也出现 ——
+    /// 但我们没有针对高难做优化（没有精细的减伤轴编排、
+    /// 没有 Trigger 条件体系），挂个"高难"标签容易误导。
+    ///
+    /// 子类可以覆盖（比如以后真做了高难特化版）。
+    /// </summary>
+    public AcrType AcrType { get; set; } = AcrType.Normal;
 
     // ==================== UI ====================
 
