@@ -21,7 +21,11 @@ public static class 职业表
     public const uint 占星 = 33;
     public const uint 贤者 = 40;
 
-    public static readonly uint[] 奶妈 = { 白魔, 学者, 占星, 贤者 };
+    // 幻术师（6）是白魔的前置职业 —— 也算奶妈，
+    // 复活优先级、队伍规模判断这些都要认得它。
+    public const uint 幻术师 = 6;
+
+    public static readonly uint[] 奶妈 = { 白魔, 学者, 占星, 贤者, 幻术师 };
 
     // ── 坦克 ──
     public const uint 骑士 = 19;
@@ -42,7 +46,7 @@ public static class 职业表
     public static readonly uint[] 远程物理 = { 23, 31, 38 };   // 弓术/机工/舞者
 
     // ── 法系 ──
-    public static readonly uint[] 法系 = { 25, 27, 35, 36, 42 };  // 咒术/秘术/召喚/黑魔/绘灵
+    public static readonly uint[] 法系 = { 6, 25, 26, 27, 35, 36, 42 };  // 幻术/咒术/秘术/召喚/黑魔/绘灵
 
     /// <summary>这个玩家是不是治疗职业</summary>
     public static bool 是奶妈(IBattleChara? c)

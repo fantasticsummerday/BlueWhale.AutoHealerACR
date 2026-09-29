@@ -600,4 +600,50 @@ public class AiHeartbeat : ISlotResolver
     {
         // 空实现
     }
+
+// ============================================================================
+//  幻术师入口（白魔的前置职业）
+// ============================================================================
+
+/// <summary>
+/// 幻术师（Conjurer）—— 白魔的前置职业，等级上限 50。
+///
+/// 直接继承 <see cref="HealerACR.Rotations.幻术师RotationEntry"/>，
+/// 所以白魔那套治疗/输出逻辑、AI 双阶段、记忆采集全部自动获得。
+/// </summary>
+public class BlueWhale幻术师Entry : HealerACR.Rotations.幻术师RotationEntry
+{
+    public BlueWhale幻术师Entry()
+    {
+        AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
+    }
+
+    public override string OverlayTitle => "小鲸鱼统治世界 · 幻术师";
+    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管治疗输出决策（幻术师 1-50 级）";
+
+    public override void OnDrawSetting()
+    {
+        base.OnDrawSetting();
+        AiSettingPage.画();
+    }
+
+public override Rotation Build(string settingFolder)
+    {
+        var rot = base.Build(settingFolder);   // 原版全部构建流程（队列/事件/起手）
+
+        // AcrType 枚举：Both=日常&高难 / Normal=日常 / HighEnd=高难 / PVP
+        // 基类默认是 Both，这里覆盖成 Normal —— 列表里只显示「日常」
+        rot.AcrType = AcrType.Normal;
+
+        AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
+
+        // 挂上记忆采集钩子（原版不挂 → 什么也不发生）
+        HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
+            战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
+        HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
+        AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
+
+        return rot;
+    }
+}
 }
