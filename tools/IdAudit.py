@@ -241,6 +241,93 @@ for cs in (ROOT / "HealerACR").rglob("*.cs"):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  ⑤ 技能 ID 当 buff ID 用（会静默失效）
+# ══════════════════════════════════════════════════════════════════
+报("")
+报("=== ⑤ 技能 ID vs buff ID（技能转Buff 映射的缺口）===")
+报("    技能 ID 和 buff ID 常常不同。拿技能 ID 去查 buff")
+报("    （HasAura(技能ID)）会永远 false —— 静默失效。")
+报("    实例：吉星相位技能 3595，buff 是 835；")
+报("          3595 在官方表里其实是「般若汤」(食物)。")
+报("          贤者诊断技能 24284，buff 是 2607（24284 根本不是状态）。")
+
+if status:
+    f = 找文件(r"HealerACR\Common\AuraIds.cs")
+    if f:
+        text = f.read_text(encoding="utf-8")
+        blk = re.search(r"技能转Buff\(uint 技能Id\).*?switch\s*\{(.*?)\};", text, re.S)
+        mapped = set()
+        if blk:
+            for a, _b in re.findall(r"(\d+)\s*=>\s*(\w+)", blk.group(1)):
+                mapped.add(int(a))
+
+        # 这些技能会被 有该技能的Buff / HasAura 查，必须登记
+        必须登记 = {
+            "再生": 137, "吉星相位": 3595, "鼓舞激励之策": 185,
+            "诊断": 24284, "均衡预后": 24286, "水流幕": 25861,
+            "生命回生法": 25867, "天星交错": 16556, "秘策": 16542,
+            "活化": 24300, "混合": 24317, "无中生有": 7430,
+            "星位合图": 3612, "拯救": 24294, "天宫图": 16557,
+        }
+        缺口 = []
+        for 名, id_ in sorted(必须登记.items()):
+            if id_ in mapped:
+                continue
+            # 技能 ID 恰好等于官方表里同名状态 → 安全
+            if 规范化(status.get(id_, "")) == 规范化(名):
+                continue
+            缺口.append((名, id_))
+
+        if 缺口:
+            for 名, id_ in 缺口:
+                报("    [!] " + 名 + " = " + str(id_) + " 不在 技能转Buff 映射表里")
+                off = status.get(id_)
+                if off:
+                    报("        -> 官方表里 " + str(id_) + " 是「" + off + "」，不是「" + 名 + "」")
+                    报("        -> HasAura(" + str(id_) + ") 查到的是别的东西，判断会失效")
+                else:
+                    报("        -> " + str(id_) + " 不是状态 ID，HasAura 恒为 false")
+        else:
+            报("    全部已登记")
+
+
+# ══════════════════════════════════════════════════════════════════
+#  ⑥ 「用返回值表达优先级」（无效代码）
+# ══════════════════════════════════════════════════════════════════
+报("")
+报("=== ⑥ 用返回值表达优先级的写法 ===")
+报("    反汇编 AEAssist 实测（PVE_RunSlotHelper+<CheckNext>d__4::MoveNext）：")
+报("        IL_0013 callvirt ISlotResolver::Check")
+报("        IL_0066 ldc.i4.0 ; IL_0067 blt   <- 只看 < 0，无比大小的指令")
+报("        IL_0054 AppendFormatted<int>      <- 分值只进日志")
+报("    而 <RunSlotResolvers>d__2 是 foreach 顺序试、第一个 >=0 的就 leave 退出。")
+报("    => 优先级 = 在决策队列里的行号，分值不参与仲裁。")
+报("    => 想表达让路必须 return -1，写小分值无效。")
+报("    （官方指南写的 higher priority wins 是误导性的。）")
+
+_hits6 = 0
+for cs in (ROOT / "HealerACR").rglob("*.cs"):
+    if "\\obj\\" in str(cs) or "\\bin\\" in str(cs):
+        continue
+    try:
+        lines = cs.read_text(encoding="utf-8").split("\n")
+    except Exception:
+        continue
+    for i, line in enumerate(lines, 1):
+        if 是注释(line):
+            continue
+        if not re.search(r"return \d+;", line):
+            continue
+        ctx = "\n".join(lines[max(0, i - 5):i])
+        if re.search(r"让路|让位|高于|提前于", ctx):
+            报("    " + cs.name + ":" + str(i) + "  " + line.strip())
+            报("        -> 上方注释提到让路/高于，但返回正数 = 仍会抢先；要真让路得 return -1")
+            _hits6 += 1
+if _hits6 == 0:
+    报("    没有发现这类写法")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  输出
 # ══════════════════════════════════════════════════════════════════
 print("\n".join(信息))

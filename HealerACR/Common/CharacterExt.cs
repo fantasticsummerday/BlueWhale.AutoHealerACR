@@ -433,19 +433,95 @@ public static class CharacterExt
 
         try
         {
-            // 学者护盾技能（鼓舞 185 / 鼓舞激励之策）→ 鼓舞 + 激励 任一中即算有盾
-            if (技能Id == 185 || 技能Id == AuraIds.鼓舞)
-            {
-                if (AuraIds.鼓舞 != 0 && c.HasAura(AuraIds.鼓舞)) return true;
-                if (AuraIds.激励 != 0 && c.HasAura(AuraIds.激励)) return true;
-            }
+            foreach (var b in 该技能对应的所有Buff(技能Id))
+                if (b != 0 && c.HasAura(b)) return true;
 
-            return c.HasAura(AuraIds.技能转Buff(技能Id));
+            return false;
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 一个技能可能挂出的**全部** buff —— 多档位的情况。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ⚠️ 为什么需要"一张表"而不是单个 ID
+    ///
+    ///  官方表里同一个技能名往往有**好几个状态 ID**（日/夜版本、特性升级版、
+    ///  暴击版…）。只登记一个的后果是**"已有就不重复给"的判断在某些档位下失效**
+    ///  → 技能被反复放。
+    ///
+    ///  已经踩过/审计出来的多档：
+    ///    · 鼓舞 297 / 3087     激励 1918 / 3088      （学者盾，暴击版）
+    ///    · 天星交错 1888(日) / 1889 / 4040
+    ///    · 均衡诊断 2607 / 2865 / 3109               （贤者盾，等级档）
+    ///    · 再生 158 / 1330
+    ///    · 吉星相位 835 / 3099 / 3100                （日/夜版本）
+    ///
+    ///  ⚠️ 这里**只列审计确认过存在的档位**，不猜。
+    ///     多列一个不存在的 ID 是无害的（HasAura 恒 false），
+    ///     但少列一个就会静默失效 —— 所以宁可多列已核实的。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static IEnumerable<uint> 该技能对应的所有Buff(uint 技能Id)
+    {
+        // 学者盾：鼓舞 185 / 鼓舞激励之策 + 暴击版激励
+        if (技能Id == 185 || 技能Id == AuraIds.鼓舞 || 技能Id == 297)
+        {
+            yield return AuraIds.鼓舞;       // 297
+            yield return AuraIds.激励;       // 1918
+            yield return 3087;               // 鼓舞（另一档）
+            yield return 3088;               // 激励（另一档）
+            yield break;
+        }
+
+        // 贤者盾：诊断 24284 / 均衡诊断
+        if (技能Id == 24284 || 技能Id == AuraIds.均衡诊断)
+        {
+            yield return AuraIds.均衡诊断;   // 2607
+            yield return 2865;
+            yield return 3109;
+            yield break;
+        }
+
+        // 贤者群盾：均衡预后 24286
+        if (技能Id == 24286 || 技能Id == AuraIds.均衡预后)
+        {
+            yield return AuraIds.均衡预后;   // 2609
+            yield break;
+        }
+
+        // 再生 137 / 158：两个档位都算
+        if (技能Id == 137 || 技能Id == AuraIds.再生)
+        {
+            yield return AuraIds.再生;       // 158
+            yield return AuraIds.再生2;      // 1330
+            yield break;
+        }
+
+        // 吉星相位 3595 / 835：日/夜版本
+        if (技能Id == 3595 || 技能Id == AuraIds.吉星相位)
+        {
+            yield return AuraIds.吉星相位;   // 835
+            yield return 3099;
+            yield return 3100;
+            yield break;
+        }
+
+        // 天星交错 16556 / 1889：另有 1888(日) / 4040
+        if (技能Id == 16556 || 技能Id == AuraIds.天星交错)
+        {
+            yield return AuraIds.天星交错;   // 1889
+            yield return 1888;
+            yield return 4040;
+            yield break;
+        }
+
+        // 其余技能：走映射表，取到谁查谁
+        yield return AuraIds.技能转Buff(技能Id);
     }
 
     /// <summary>

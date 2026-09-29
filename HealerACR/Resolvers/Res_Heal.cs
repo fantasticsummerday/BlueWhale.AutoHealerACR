@@ -14,6 +14,101 @@ namespace HealerACR.Resolvers;
 //      把资源留给更急的时候
 // ============================================================================
 
+/// <summary>
+/// 「必须奶满」—— 独立的高优先 GCD 治疗。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 为什么要独立成一个 resolver（审计发现的问题）★
+///
+///  这段逻辑原来写在 `Res_HealSingleGcd` 里（返回 30，注释写"优先级高于一切"）。
+///  但 **`Check()` 的返回值不参与仲裁** —— 真正决定顺序的是它在队列里的**行号**
+///  （反汇编证据见 `Res_SingleHoT` 的注释）。
+///
+///  而 `Res_HealSingleGcd` 在各职业队列里排在**几乎最后**：
+///      再生 → 狂喜之心 → 安慰之心 → 医济 → **单体治疗**
+///  于是中「塞壬的歌声(370)」「渐渐石化(1628)」「混沌之泥土(1604)」的人，
+///  只要场上①有 1 人 <52%（被再生抢走 GCD）或②≥2 人 <62%（被医济抢走），
+///  这个"必须奶满"就**永远拿不到 GCD** —— 倒计时归零人直接没了。
+///
+///  ⇒ 拆成独立 resolver，插到决策队列**最前面**（复活/驱散之后），
+///    这样才配得上"优先级高于一切"这句话。
+///
+///  ⚠️ 它只在**真的有人中机制**时才返回 >=0，
+///     平时完全不占位（返回 -1，框架继续试后面的）。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class Res_MustFullHeal : ISlotResolver
+{
+    private readonly JobSpellTable _t;
+
+    public Res_MustFullHeal(JobSpellTable table) => _t = table;
+
+    public int Check()
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+        if (!HealQt.GetQt("奶人")) return -100;
+        if (!HealQt.GetQt("单奶")) return -101;
+
+        // 没有人为"必须奶满"机制时立刻让位（常态路径，不占 GCD）
+        if (必须奶满.找目标() == null) return -1;
+
+        var 技 = 治疗量最大的单体();
+        if (技 == 0) return -1;
+
+        // ⚠️ 不加重移动守卫的判断：中这类机制时**不能因为走位就放弃救人**
+        //    （这条是有意为之，和 `Res_HealSingleGcd` 里那句注释一致）
+        return SpellUtil.可用(技) ? 40 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        var 目标 = 必须奶满.找目标();
+        if (目标 == null) return;
+
+        var 技 = 治疗量最大的单体();
+        if (技 == 0) return;
+
+        slot.Add(new Spell(技, 目标));
+    }
+
+    /// <summary>
+    /// 「必须奶满」时该用的单体治疗 —— 挑**治疗量最大**的那个。
+    ///
+    /// ⚠️ 不能直接用 <c>_t.单体治疗GCD</c>："最低级优先"是它给普通掉血用的，
+    ///    而中继发症状病时**每一秒都在倒计时**，需要用最高效的治疗尽快奶满。
+    ///
+    /// 白魔的候选顺序：**救疗(135) → 治疗(120)**（治疗量从高到低）。
+    ///
+    ///   ⚠️ 这里原来还列了「愈疗(131)」并注释"治疗量从高到低"。**那是错的**：
+    ///      已核实 dump_actions.tsv —— 131 愈疗 = `CastType=2 / EffectRange=10`，
+    ///      它是**群疗**（以目标为中心 10 米），不是单体，治疗量也不是最高档。
+    ///      而且它 Lv40 比救疗 Lv30 后解锁，`取已解锁` 永远选不到它（死代码）。
+    ///
+    /// 其余职业目前只有单档单体 GCD 治疗，直接用表里的值。
+    /// 拿不到任何候选时退回 <c>_t.单体治疗GCD</c>（宁可放一个弱治疗，也别不放）。
+    /// </summary>
+    private uint 治疗量最大的单体()
+    {
+        try
+        {
+            if (_t.Job == Jobs.WhiteMage)
+            {
+                var 最优 = SpellUtil.取已解锁(
+                    SpellIds.取("救疗"),
+                    SpellIds.取("治疗"));
+
+                if (最优 != 0) return 最优;
+            }
+
+            return _t.单体治疗GCD;
+        }
+        catch
+        {
+            return _t.单体治疗GCD;
+        }
+    }
+}
+
 /// <summary>紧急单奶（OffGcd）：天赐祝福 / 深谋远虑之策 / 先天禀赋 / 输血 这类。</summary>
 public class Res_HealEmergency : ISlotResolver
 {
@@ -51,9 +146,21 @@ public class Res_HealEmergency : ISlotResolver
         if (奶满目标 != null)
         {
             var 技 = 奶满技能;
-            // 没有"一次到满"的能力技（如占星）→ 让位给 GCD 治疗链
+
             if (技 != 0 && SpellUtil.已解锁(技) && SpellUtil.可用(技)) return 35;
-            return -1;
+
+            // ⚠️ 没有"一次到满"的能力技时，**不要 return -1** ——
+            //    那会把**整个 resolver**（包括下面的常规急救）一起否掉。
+            //
+            //    审计发现的后果：只要场上有**任何一个人**中 370/1604/1628
+            //    （最长 20 秒），而一次性到满的技能在 CD
+            //    （占星永远返回 0 / 白魔天赐 180s / 学者贤者的对应技能转 CD），
+            //    这条 `return -1` 会让**另一个濒死队友也拿不到常规急救** ——
+            //    因为 :62 那条路被跳过，整条能力技急救链全部失效。
+            //
+            //    ⇒ 正确做法：**落下去走常规急救**。机制那个人交给 GCD 治疗链
+            //      （`Res_HealSingleGcd` 里有"必须奶满"分支，不会被血线挡住），
+            //      而这条能力技留给真正濒死的另一个人。
         }
 
         if (_t.紧急单奶 == 0) return -102;
@@ -67,13 +174,23 @@ public class Res_HealEmergency : ISlotResolver
 
     public void Build(Slot slot)
     {
-        // ⚠️ 必须和 Check 同源（开发约定 F③）：Check 判的是奶满目标，
-        //    Build 也得放同一个人 + 同一个技能。
+        // ⚠️ 必须和 Check 同源（开发约定 F③）。
+        //
+        //    ⚠️ 这里曾经**不同源**：Build 一看到「有奶满目标」就 return，
+        //       但 Check 在"没有一次性到满技能"时会**落到常规急救**。
+        //       结果：Check 返回 30（走常规急救那条路），Build 却因为
+        //       奶满目标 != null 直接 return → **slot 是空的** →
+        //       框架看到 Build 没产出就继续试下一个 resolver →
+        //       这条能力技急救**静默失效**。
+        //
+        //    ⇒ 两边用**同一个判断**：只有在"奶满目标存在**且**奶满技能真的可用"时
+        //      才走奶满分支，否则一致地落到常规急救。
         var 奶满目标 = 必须奶满.找目标();
-        if (奶满目标 != null)
+        var 技 = 奶满技能;
+
+        if (奶满目标 != null && 技 != 0 && SpellUtil.已解锁(技) && SpellUtil.可用(技))
         {
-            var 技 = 奶满技能;
-            if (技 != 0) slot.Add(new Spell(技, 奶满目标));
+            slot.Add(new Spell(技, 奶满目标));
             return;
         }
 
@@ -179,10 +296,6 @@ public class Res_HealSingleGcd : ISlotResolver
 
     public int Check()
     {
-        // 先算出"必须奶满"的那个人（没有就是 null）。
-        // ⚠️ Check 和 Build 都用这一个变量，保证判谁就放谁（开发约定 F③）。
-        var 奶满目标 = 必须奶满.找目标();
-
         // ★ 木桩 / 开关仍然要尊重 —— 用户关掉治疗就该真的不治
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
@@ -191,21 +304,21 @@ public class Res_HealSingleGcd : ISlotResolver
         if (!SpellUtil.已解锁(_t.单体治疗GCD)) return -2;
 
         // ══════════════════════════════════════════════════════════════
-        //  ★★ 「必须奶满」机制 —— 优先级高于一切血线判断，且**绕过盾判断** ★★
+        //  ⚠️ 「必须奶满」已经**移出去**了 —— 见 `Res_MustFullHeal`
         //
-        //    这类 debuff 的解除条件是"把血奶到 100%"，
-        //    而**不是"血量低"** —— 所以绝对不能走下面的血线判断。
-        //    如果按血线走，一个 80% 血但中了「塞壬的歌声」的队友
-        //    会被判成"没事" → 效果结束 → 直接变僵尸。
+        //  这里原来是：
+        //      if (奶满目标 != null) return 治疗量最大的单体() != 0 ? 30 : -1;
+        //  注释写"优先级高于一切血线判断"。**但返回值不参与仲裁** ——
+        //  决定顺序的是**队列行号**，而本 resolver 在各职业队列里排**几乎最后**
+        //  （再生 → 狂喜 → 安慰 → 医济 → 单体治疗）。
         //
-        //    ⚠️ 还必须**绕过下面那条"有盾就不再治"**：
-        //       盾不等于满血，状态照样解不掉。
-        //       所以这里直接 return，不走后面的盾判断。
+        //  后果：中「塞壬的歌声」的人只要场上有 1 人 <52%（被再生抢）
+        //  或 ≥2 人 <62%（被医济抢），这条"必须奶满"就**拿不到 GCD**。
+        //
+        //  ⇒ 现在由 `Res_MustFullHeal` 承担，它插在决策队列**最前面**。
+        //    本 resolver 只负责普通血线治疗。
+        //    （历史教训见 `Res_SingleHoT` 的注释：**别再用返回值表达优先级**。）
         // ══════════════════════════════════════════════════════════════
-        if (奶满目标 != null)
-        {
-            return 治疗量最大的单体() != 0 ? 30 : -1;
-        }
 
         // ⚠️ 先锁定"该奶谁"，再判断"这个人还需要奶吗" —— 顺序不能反。
         var target = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
@@ -245,47 +358,11 @@ public class Res_HealSingleGcd : ISlotResolver
         return SpellUtil.可用(_t.单体治疗GCD) ? 10 : -1;
     }
 
-    /// <summary>
-    /// 「必须奶满」时该用的单体治疗 —— 挑**治疗量最大**的那个。
-    ///
-    /// ⚠️ 不能直接用 <c>_t.单体治疗GCD</c>："最低级优先"是它给普通掉血用的，
-    ///    而中继发症状病时**每一秒都在倒计时**，需要用最高效的治疗尽快奶满。
-    ///
-    /// 白魔的候选顺序：**救疗(135) → 愈疗(131) → 治疗(120)**（治疗量从高到低）。
-    /// 其余职业目前只有单档单体 GCD 治疗，直接用表里的值。
-    ///
-    /// 拿不到任何候选时退回 <c>_t.单体治疗GCD</c>（宁可放一个弱治疗，也别不放）。
-    /// </summary>
-    private uint 治疗量最大的单体()
-    {
-        try
-        {
-            if (_t.Job == Jobs.WhiteMage)
-            {
-                var 最优 = SpellUtil.取已解锁(
-                    SpellIds.取("救疗"),
-                    SpellIds.取("愈疗"),
-                    SpellIds.取("治疗"));
-                if (最优 != 0) return 最优;
-            }
-        }
-        catch { }
-
-        return _t.单体治疗GCD;
-    }
-
     public void Build(Slot slot)
     {
-        // ⚠️ 必须和 Check 用**同一套**选目标逻辑（开发约定 F③）：
-        //    Check 判的是"必须奶满那个人"，Build 也得放同一个人，
-        //    否则就是"判 A 放 B" —— 那会让机制解不掉、人直接没了。
-        var 奶满目标 = 必须奶满.找目标();
-        if (奶满目标 != null)
-        {
-            slot.Add(new Spell(治疗量最大的单体(), 奶满目标));
-            return;
-        }
-
+        // ⚠️ 必须和 Check 用**同一套**选目标逻辑（开发约定 F③）。
+        //    「必须奶满」那条已经移给 `Res_MustFullHeal`，
+        //    这里只管普通血线治疗 —— 两边都统一才不会有"判 A 放 B"。
         var target = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
         if (target == null) return;
         slot.Add(new Spell(_t.单体治疗GCD, target));
@@ -333,6 +410,15 @@ public class Res_HealShield : ISlotResolver
         {
             return -3;
         }
+
+        // ⚠️ **移动守卫**：护盾 GCD 基本都读条
+        //    （学者鼓舞激励之策 2 秒读条；贤者诊断是瞬发，这条对它自动放行）。
+        //
+        //    审计发现这里**漏了**这一行 —— 同文件的 Res_HealAoEGcd 和
+        //    Res_HealSingleGcd 都加了，只有单体盾漏掉。
+        //    后果：学者移动中反复把读条盾塞进 slot、被中断、再塞
+        //    （正是 `SpellUtil.移动中能放` 那段注释里记的用户实测问题）。
+        if (!SpellUtil.移动中可用(_t.单体盾)) return -7;
 
         return SpellUtil.可用(_t.单体盾) ? 3 : -1;
     }

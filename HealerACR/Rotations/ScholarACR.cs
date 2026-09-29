@@ -159,6 +159,12 @@ public class SCHRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_PrepareResources(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_Raise(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Esuna(_spells), SlotMode.Gcd),
+            // ★ 「必须奶满」机制 —— 插在最前面，理由是行号才是优先级。
+            //   这类 debuff 是“奶到 100% 才解除”，晚一个 GCD 人就没了；
+            //   而 Check() 的返回值**不参与仲裁**（反汇编已证），只有行号算数。
+            //   原来它排在所有治疗 GCD 之后 —— 场上有人被再生/医济抢走 GCD 时，
+            //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
+            new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
             new SlotResolverData(new SCH_Accession(), SlotMode.Gcd),                 // 降临之章（炽天附体期间）
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),

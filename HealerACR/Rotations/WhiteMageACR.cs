@@ -36,15 +36,32 @@ public class WHMSpellTable : JobSpellTable
         AuraIds.白魔Dot, AuraIds.白魔DotAlt, AuraIds.白魔Dot2, AuraIds.白魔Dot1
     };
 
-    // ⚠️ 「愈疗」是 40 级后救疗的**同级替代**（数据里 131=Lv40 愈疗，
-//    137=再生，救疗是 29224 的形态版）——
-//    之前只写了救疗/治疗，等于 40 级以后少了一个主力单奶。
-public override uint 单体治疗GCD => SpellUtil.取已解锁(
+    // ⚠️ **「愈疗」不能当单体治疗用** —— 已核实（dump_actions.tsv）：
+    //      131 愈疗 = Lv40 / **CastType=2 / EffectRange=10** → 它是**群疗**（以目标为中心 10 米）
+    //      135 救疗 = Lv30 / CastType=1 / EffectRange=0   → 这才是真·单体（Cure II）
+    //
+    //    原来写成 `取已解锁(救疗, 愈疗, 治疗)` 并注释"40 级后救疗的同级替代"——
+    //    两处都错：① 愈疗不是单体；② 救疗 Lv30 比愈疗 Lv40 **先解锁**，
+    //    所以 `取已解锁` 永远返回救疗，**愈疗那一项是死代码**，从来没生效过。
+    //    删掉它是**行为不变**的清理，但避免后人照着错注释去"修一个不存在的缺口"。
+    public override uint 单体治疗GCD => SpellUtil.取已解锁(
         SpellIds.取("救疗"),
-        SpellIds.取("愈疗"),
         SpellIds.取("治疗"));
     public override uint 群体治疗GCD => SpellUtil.取已解锁(SpellIds.取("医养"), SpellIds.取("医济"), SpellIds.取("医治"));
-    public override uint 紧急单奶 => SpellUtil.取已解锁(SpellIds.取("天赐祝福"), SpellIds.取("神名"));
+
+    // ⚠️ 顺序**不能反**（这里踩过，审计发现）：
+    //
+    //    `取已解锁` 是"从前往后挑第一个**已解锁**的"。
+    //    天赐祝福 = Lv50 / CD 180s / 无充能
+    //    神名     = Lv60 / CD 60s / **1 充能**
+    //
+    //    原来写成 `取已解锁(天赐祝福, 神名)` → 60 级以后两个都解锁
+    //    → **永远返回天赐祝福** → 神名一次都放不出来（死代码）。
+    //    而且常规 <30% 急救会把 180 秒 CD 的保命大直接交掉。
+    //
+    //    ⇒ 常规急救先用**能攒充能的神名**；天赐祝福留给真正要命的时候
+    //      （「必须奶满」机制走 `必须奶满.最该用的能力技`，那里直接取天赐，不受这里影响）。
+    public override uint 紧急单奶 => SpellUtil.取已解锁(SpellIds.取("神名"), SpellIds.取("天赐祝福"));
     public override uint 群体治疗能力技 => SpellIds.取("法令");
     public override bool 群体治疗能力技是输出型 => true;   // 法令要卡 CD
     public override uint 团队减伤 => SpellIds.取("节制");
@@ -85,6 +102,12 @@ public class WHMRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_PrepareResources(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_Raise(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Esuna(_spells), SlotMode.Gcd),
+            // ★ 「必须奶满」机制 —— 插在最前面，理由是行号才是优先级。
+            //   这类 debuff 是“奶到 100% 才解除”，晚一个 GCD 人就没了；
+            //   而 Check() 的返回值**不参与仲裁**（反汇编已证），只有行号算数。
+            //   原来它排在所有治疗 GCD 之后 —— 场上有人被再生/医济抢走 GCD 时，
+            //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
+            new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 再生
             new SlotResolverData(new WHM_AfflatusRapture(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_AfflatusSolace(_spells), SlotMode.Gcd),
@@ -151,14 +174,29 @@ public class WHM_AfflatusSolace : ISlotResolver
         if (JobApiHelper.百合 >= 3)
         {
             // 兜底到自己：打木桩是单人环境，可能一个"队友"都没有（包括自己没被算进去），
-            // 那样就永远找不到目标，百合也就永远卸不掉
+            // 那样就永远找不到目标，百合也就永远卸不掉。
+            //
+            // ⚠️ 这个兜底**只在溢出分支**才允许 —— 见下面非溢出分支的说明。
             return HealTargetHelper.最危险队友()
                    ?? HealTargetHelper.血量最低的坦克()
                    ?? AEAssist.Core.Me;
         }
 
         var 血线 = Math.Min(HealSettings.Instance.单体治疗阈值, HealSettings.Instance.百合使用血线);
-        return HealTargetHelper.最低血量队友(血线) ?? AEAssist.Core.Me;
+
+        // ⚠️ **非溢出分支不能写 `?? Core.Me`** —— 审计发现的真 bug。
+        //
+        //    原来这里是 `return 最低血量队友(血线) ?? AEAssist.Core.Me;`，
+        //    于是**全员都在血线以上时也会返回自己** →
+        //    选目标**永不返回 null** → Check 只要"百合>=1 且技能可用"就成立 →
+        //    白魔会在**没人掉血的时候对满血的自己交百合**
+        //    （它的位置在 HoT 之后、所有输出 resolver 之前）。
+        //
+        //    结果：① 百合被提前花掉（本该攒着）；② 白拿一个 GCD 不打输出。
+        //    而上面注释写的"只在血线更低时才动"被这一行彻底抵消了。
+        //
+        //    ⇒ 非溢出时就**老老实实返回 null**，让别的 resolver 去干活。
+        return HealTargetHelper.最低血量队友(血线);
     }
 
     public int Check()
