@@ -62,6 +62,22 @@ public sealed class 界面控制器 : IRotationUI
     // 反射拿到的框架内部对象（取不到就是 null）
     private readonly object? _qt窗口;
     private readonly object? _样式;
+    private readonly object? _主窗口对象;      // MainWindow
+
+    /// <summary>
+    /// 「启动」按钮的状态 —— 传给框架的 `MainControlView`。
+    ///
+    /// ⚠️ 这个 bool **必须留在这里跨帧保留**，不能每帧从别处重算：
+    ///     `MainControlView` 用 `ref` 收它、按它决定按钮画成什么样，
+    ///     用户点了之后**改的也是它**。每帧重置 = 点了没反应。
+    /// </summary>
+    private bool _启动按钮;
+
+    /// <summary>「停手」按钮的状态（同上）</summary>
+    private bool _停手按钮;
+
+    /// <summary>第一次画的时候从框架状态初始化一次</summary>
+    private bool _启动初值取过了;
 
     /// <summary>
     /// 构造。
@@ -115,6 +131,7 @@ public sealed class 界面控制器 : IRotationUI
             const BindingFlags 旗 = BindingFlags.NonPublic | BindingFlags.Instance;
 
             _qt窗口 = 类型.GetField("qtWindow", 旗)?.GetValue(框架窗口);
+            _主窗口对象 = 类型.GetField("mainWindow", 旗)?.GetValue(框架窗口);
 
             // ⚠️ `style` 是 **public 字段**，直接访问 —— 不用反射。
             //    我第一版用 `GetField("style", NonPublic)` 取它，
@@ -314,122 +331,133 @@ public sealed class 界面控制器 : IRotationUI
     /// ══════════════════════════════════════════════════════════════════
     ///  ★ 为什么状态用 `Share` 而不是自己存 ★
     ///
-    ///    `AEAssist.Share.Pull` / `TrustStopACR` 是框架的 **public 静态字段** ——
-    ///    框架自己的主窗口、快捷键、IPC、时间轴动作**全都读写这两个字段**。
-    ///
-    ///    如果我们在自己这边再存一份 `bool _已启动`，会出现：
-    ///      · 用户按快捷键启动 → 框架改了 Share，我们的 bool 还是 false
+    ///    `AEAssist.Share.Pull` / `TrustStopACR` 是框架的 **public 静态字段**。
+    ///    如果自己再存一份 `bool _已启动`，会出现：
+    ///      · 按快捷键启动 → 框架改了 Share，我们的 bool 还是 false
     ///        → 面板显示"未启动"，但实际在打
-    ///      · 用户按我们的按钮 → 只改了我们的 bool，框架不知道
-    ///        → 点了没反应
+    ///      · 按面板按钮 → 只改我们的 bool，框架不知道 → 点了没反应
     ///
     ///    ⇒ **直接读写 Share**，只有一个真相。
     ///
     ///  ⚠️ 按钮文案带状态（"启动"/"已启动"）而不是做成 toggle 外观 ——
     ///     这是**战斗中的关键开关**，一眼能看出当前状态比好看重要。
     ///     用颜色区分：未启用=灰、已启用=绿。
+    ///
+    ///  ⚠️ **每次点击都打一行日志**，把四个相关字段全打出来：
+    ///     `Pull` / `TrustStopACR` / `CombatRun` / `StopNormalACR`。
+    ///
+    ///     为什么必须打：框架的 `MainControlView` **看不到内部实现**，
+    ///     光靠签名猜不出它到底按哪个字段判断"启动了没有"。
+    ///     点了没反应时，这行日志能直接指出：
+    ///       · 字段根本没变        → 我们写失败了（或被框架每帧重置）
+    ///       · 字段变了但没启动    → 我们写错了字段
+    ///     没有这行日志，就只能继续猜。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     private void 画启动停手()
     {
         try
         {
-            var 缩放 = 主题.缩放();
-
-            // ── 启动 / 停止 ──
-            bool 启动中;
-            try { 启动中 = AEAssist.Share.Pull; } catch { 启动中 = false; }
-
-            var 启动色 = 启动中 ? 主题.成功 : 主题.卡片悬停;
-            if (画状态按钮(启动中 ? "已启动" : "启 动", 启动色, 90f * 缩放))
-            {
-                try { AEAssist.Share.Pull = !启动中; } catch { }
-            }
-
-            ImGui.SameLine(0, 8f * 缩放);
-
-            // ── 停手 ──
-            bool 停手中;
-            try { 停手中 = AEAssist.Share.TrustStopACR; } catch { 停手中 = false; }
-
-            var 停手色 = 停手中 ? 主题.危险 : 主题.卡片悬停;
-            if (画状态按钮(停手中 ? "已停手" : "停 手", 停手色, 90f * 缩放))
-            {
-                try { AEAssist.Share.TrustStopACR = !停手中; } catch { }
-            }
-
-            // ── 右边补一句状态说明 ──
+            // ══════════════════════════════════════════════════════════
+            //  ★ 用框架自己的 `MainWindow.MainControlView` ★
             //
-            //  ⚠️ 为什么要有文字说明：这两个开关**决定了 ACR 动不动**，
-            //     但按钮本身只能表达"开/关"。加一句白话，
-            //     让"为什么它不动"一眼可查。
-            ImGui.SameLine(0, 12f * 缩放);
+            //  ── 为什么不用自己画的按钮（IL 实证）──
+            //    我第一版自绘了两个按钮、直接读写 `AEAssist.Share.Pull`。
+            //    实测**点了没反应** —— 因为那个假设是错的：
+            //
+            //      · 扫 AEAssist 全量 IL：`MainWindow.MainControlView`
+            //        **完全没有**读写过 `Share.Pull` / `CombatRun`
+            //      · `Share.CombatRun` 有 9 处写，其中 `JobViewWindow.OnDrawUI`
+            //        **读**它来显示状态 —— 说明界面显示的状态另有来源
+            //      · 框架真正按什么判断"启动了没有"，从签名猜不出来
+            //
+            //    ⇒ **别再猜**。`MainControlView` 是公开方法，而且：
+            //        · 里面 `ImGui.Begin` 调用 **0 次** → 它不自己开窗口，
+            //          只画按钮，正好能放进我们的面板
+            //        · 它**完全不碰 `Share.*`** → 按钮状态走两个 `ref` 参数
+            //      让框架自己画、自己管状态，语义就不可能错。
+            //
+            //  ⚠️ 两个 bool **必须跨帧保留**（见字段说明）：
+            //     每帧重置的话，用户点了下一帧就被覆盖 → 还是"点了没反应"。
+            // ══════════════════════════════════════════════════════════
+            if (_主窗口对象 == null)
+            {
+                ImGui.TextColored(主题.警告, "拿不到框架的启动控件（mainWindow）");
+                return;
+            }
+
+            var 方法 = _主窗口对象.GetType().GetMethod("MainControlView",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            if (方法 == null)
+            {
+                ImGui.TextColored(主题.警告, "框架没有 MainControlView 方法");
+                return;
+            }
+
+            // ── 第一次画的时候，从框架状态取初值 ──
+            //
+            //  ⚠️ 只在**第一次**取 —— 之后就以按钮自己为准。
+            //     每帧都从 Share 重算会把用户的点击覆盖掉。
+            if (!_启动初值取过了)
+            {
+                _启动初值取过了 = true;
+                try { _启动按钮 = AEAssist.Share.CombatRun; } catch { }
+                try { _停手按钮 = AEAssist.Share.TrustStopACR; } catch { }
+            }
+
+            object?[] 参数 = { _启动按钮, _停手按钮, (Action)(() => { try { _保存?.Invoke(); } catch { } }) };
+
             try
             {
-                var 说明 = 停手中 ? "ACR 已停手（不会出手）"
-                         : 启动中 ? "运行中"
-                         : "未启动（需点启动）";
-                ImGui.TextColored(主题.文字弱, 说明);
+                方法.Invoke(_主窗口对象, 参数);
             }
-            catch { }
+            catch (Exception e)
+            {
+                ImGui.TextColored(主题.警告, "启动控件绘制失败：" + e.Message);
+                return;
+            }
+
+            // ── 把框架改过的值收回来 ──
+            //
+            //  ⚠️ `ref` 参数在反射里就是"传进去、拿回来" ——
+            //     `Invoke` 之后 `参数` 数组里的值已经是框架写过的新值。
+            var 新启动 = 参数[0] is bool b1 ? b1 : _启动按钮;
+            var 新停手 = 参数[1] is bool b2 ? b2 : _停手按钮;
+
+            if (新启动 != _启动按钮 || 新停手 != _停手按钮)
+            {
+                _启动按钮 = 新启动;
+                _停手按钮 = 新停手;
+                记启动状态("框架按钮被点击");
+            }
+        }
+        catch { }
+    }
+    /// <summary>
+    /// 把启动相关的**四个字段全打出来**（诊断用）。
+    ///
+    /// ⚠️ 为什么四个都打：不知道框架按哪个判断，
+    ///     全打出来才能反推 —— 点了哪个字段变了、哪个没变，一目了然。
+    /// </summary>
+    private static void 记启动状态(string 来源)
+    {
+        try
+        {
+            string 读(string 名, Func<bool> 取)
+            {
+                try { return 取() ? "真" : "假"; } catch { return "?"; }
+            }
+
+            LogHelper.Info($"[界面] {来源} → " +
+                           $"Pull={读("Pull", () => AEAssist.Share.Pull)} " +
+                           $"TrustStop={读("TrustStop", () => AEAssist.Share.TrustStopACR)} " +
+                           $"CombatRun={读("CombatRun", () => AEAssist.Share.CombatRun)} " +
+                           $"StopNormal={读("StopNormal", () => AEAssist.Share.StopNormalACR)}");
         }
         catch { }
     }
 
-    /// <summary>
-    /// 画一个**带状态底色**的按钮。
-    ///
-    /// ⚠️ 不用 `ImGui.PushStyleColor(Button, ...)` 包一层再 Button ——
-    ///     那样要推弹 3 个颜色 × 2 个按钮 = 12 次调用，还容易漏弹。
-    ///     这里用一个 `InvisibleButton` + 自绘外观，和标题栏按钮同一套做法。
-    /// </summary>
-    /// <returns>是否被点击</returns>
-    private static bool 画状态按钮(string 文本, System.Numerics.Vector4 底色, float 宽)
-    {
-        try
-        {
-            var 缩放 = 主题.缩放();
-            var 高 = ImGui.GetFrameHeight();
-            var 起点 = ImGui.GetCursorScreenPos();
-
-            var 命中 = ImGui.InvisibleButton("##btn" + 文本, new System.Numerics.Vector2(宽, 高));
-            var 悬停 = ImGui.IsItemHovered();
-
-            var 绘制 = ImGui.GetWindowDrawList();
-            var 左上 = 起点;
-            var 右下 = new System.Numerics.Vector2(起点.X + 宽, 起点.Y + 高);
-
-            // 底色（悬停时提亮一点，给点击反馈）
-            var 实际 = 悬停
-                ? new System.Numerics.Vector4(
-                    Math.Min(1f, 底色.X + 0.12f),
-                    Math.Min(1f, 底色.Y + 0.12f),
-                    Math.Min(1f, 底色.Z + 0.12f),
-                    底色.W)
-                : 底色;
-
-            绘制.AddRectFilled(左上, 右下,
-                ImGui.ColorConvertFloat4ToU32(实际), 主题.圆角);
-
-            // 描边（让灰底按钮在深色背景上也看得见轮廓）
-            绘制.AddRect(左上, 右下, ImGui.ColorConvertFloat4ToU32(主题.边框),
-                         主题.圆角, ImDrawFlags.None, 1f);
-
-            // 文字居中
-            var 文字尺寸 = ImGui.CalcTextSize(文本);
-            var 文字位 = new System.Numerics.Vector2(
-                起点.X + (宽 - 文字尺寸.X) * 0.5f,
-                起点.Y + (高 - 文字尺寸.Y) * 0.5f);
-
-            绘制.AddText(文字位, ImGui.ColorConvertFloat4ToU32(主题.文字强), 文本);
-
-            return 命中;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     /// <summary>
     /// **QT 面板：调框架的 `DrawQtWindow(style)`** —— 原样式，零维护。
