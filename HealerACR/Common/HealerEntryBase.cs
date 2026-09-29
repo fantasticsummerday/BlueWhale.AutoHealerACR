@@ -369,6 +369,16 @@ public class HealRotationEventHandler : IRotationEventHandler
 
     public void AfterSpell(Slot slot, Spell spell)
     {
+        // ── 本地施放记录（对付服务器状态滞后）──
+        //   官方文档 L129：buff 是技能成功的 0.x 秒后才在内存里出现。
+        //   先记本地一笔，判断时优先问它，能盖住那段空窗期，
+        //   避免"刚放完盾，因为还没看到 buff 又放一次"。
+        try
+        {
+            本地施放记录.记(spell?.Id ?? 0);
+        }
+        catch { }
+
         // ★ 记忆采集（通过钩子转出去，本类不知道采集器是谁）★
         //   原版 HealerACR 没挂这个钩子 → 什么也不发生。
         try
@@ -409,6 +419,9 @@ public class HealRotationEventHandler : IRotationEventHandler
 
         // 死亡追踪：记录"谁躺下了、躺了多久"（复活时判断该不该等）
         死亡追踪.每帧更新();
+
+        // 本地施放记录：清理过期条目
+        本地施放记录.每帧更新();
     }
 
     public void OnEnterRotation()
