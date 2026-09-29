@@ -108,7 +108,11 @@ public class SCHSpellTable : JobSpellTable
 
             if (!是Boss && HealQt.GetQt("小怪卸豆", true))
             {
-                var 小怪保留 = Math.Max(1, Math.Clamp(HealSettings.Instance.以太保留数, 1, 2));
+                // ★ 按队伍规模调整保留数（四人本单奶要留更多，八人本有搭档可以少留）★
+                //   以前这里是直接读设置的，导致 `HealTargetHelper.资源保留调整()`
+                //   写了**却没有任何调用点**（死代码，对照分析时查出来的）。
+                var 小怪保留 = Math.Max(1, Math.Clamp(
+                    HealTargetHelper.资源保留调整(HealSettings.Instance.以太保留数), 1, 2));
                 if (以太管理.可以打豆子(JobApiHelper.以太, 小怪保留)) return new[] { 能量吸收 };
             }
 
@@ -119,7 +123,9 @@ public class SCHSpellTable : JobSpellTable
             if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值) == 0)
             {
                 // ★ 保底 + 动态抑制一起判 ★
-                var 保留 = Math.Clamp(HealSettings.Instance.以太保留数, 0, 2);
+                //   保留数同样按队伍规模调整（见上面 小怪保留 的说明）
+                var 保留 = Math.Clamp(
+                    HealTargetHelper.资源保留调整(HealSettings.Instance.以太保留数), 0, 2);
                 //   刚用过豆子（7 秒内）→ 说明有压力 → 不卸，留着应急
                 if (以太管理.可以打豆子(以太, 保留)) return new[] { 能量吸收 };
             }

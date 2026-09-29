@@ -84,20 +84,34 @@ public static class SpellUtil
     /// 等级变换：把"最初形态"的技能换成当前等级该用的那个。
     /// 白魔 Stone(1) → StoneII → Glare → GlareIII，学者 Ruin → Broil IV …
     ///
-    /// ⚠️ 如果你的 AEAssist 版本里 MemApiSpell 没有 CheckActionChange，
-    ///    把这里改成 return Get(id); 就行（代价是低等级技能不会自动升级）。
+    /// ⚠️ **返回值可能是 null，调用方必须判空**（现有调用方都判了）。
+    ///
+    /// ⚠️ 这里做了**双重保险**，因为"闪飒放不出来"这类 bug 的嫌疑点就在这：
+    ///    `CheckActionChange(id)` 对**没有形态变化**的技能会返回 0
+    ///    （而不是原样返回 id）—— 这时 `0.GetSpell()` 拿到的是 null，
+    ///    技能就**静默不放**了。
+    ///    所以：结果 id 为 0 → 退回原 id；换出来的 Spell 也是 null → 再退一次。
+    ///    这样"没有形态变化"的技能永远走 `Get(id)`，不会因为多包一层而失效。
     /// </summary>
     public static Spell? 当前形态(uint id)
     {
         if (id == 0) return null;
+
+        uint 形态Id = 0;
         try
         {
-            return Core.Resolve<MemApiSpell>().CheckActionChange(id).GetSpell();
+            形态Id = Core.Resolve<MemApiSpell>().CheckActionChange(id);
         }
         catch
         {
+            // 这个 AEAssist 版本没有 CheckActionChange → 直接用原 id
             return Get(id);
         }
+
+        // 没有形态变化（返回 0）→ 按原 id 处理，别让它变成"放不出来"
+        if (形态Id == 0) return Get(id);
+
+        return Get(形态Id) ?? Get(id);
     }
 
     /// <summary>从高到低挑第一个已解锁的技能（等级降级用），都没解锁返回 0</summary>

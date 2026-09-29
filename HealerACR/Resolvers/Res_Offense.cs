@@ -24,8 +24,17 @@ public class Res_OffensiveAbility : ISlotResolver
         if (_t.输出能力技.Length == 0) return -102;
         if (HealTargetHelper.当前目标() == null) return -1;
 
-        // 残血小怪不交（木桩模式例外）
+        // 视线被挡就别交 —— 输出能力技是对敌人的，打不出去等于白按
+        // （诊断日志里"所有条件都 True 但技能不放"的成因之一就是这个）
+        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+
+        // 残血小怪不交（木桩模式例外）——
+        // 和 Res_Dot / Res_BaseDamage / 苦难之心 保持同一套判断。
+        // 能力技 CD 长，砸在快死的小怪上是最亏的浪费。
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -4;
+
+        // 整波快清完时也不交（对照同类 ACR 的 ShouldHoldForDyingTrash）
+        if (!HealTargetHelper.木桩模式 && HealTargetHelper.敌人波次要结束()) return -4;
 
         // ---- 诊断：每 5 秒打一次，看能量吸收到底卡在哪 ----
         var 候选 = _t.输出能力技;

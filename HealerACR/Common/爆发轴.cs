@@ -257,6 +257,121 @@ public abstract class 爆发轴基类 : ISlotSequence
         });
     }
 
+    // ==================== 爆发药 ====================
+
+    /// <summary>
+    /// 爆发药能不能吃（有没有配 / 够不够 / CD 好没好）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 药水 ID 从哪来 —— **不问用户，也不硬编码** ★
+    ///
+    ///    用 AEAssist 自带的 `ItemHelper.CheckCurrJobPotion(isHq)` ——
+    ///    它内部自己去查 `PotionSetting`（用户在 AEAssist 的「爆发药设置」
+    ///    里按职业配的，四个奶妈都绑在「意力」药上）。
+    ///    我这边只负责"什么时候吃"，不负责"吃什么"。
+    ///
+    ///  ★ 为什么不自己写 GetPotionId ★
+    ///
+    ///    `PotionSetting.GetPotionId(Jobs)` 是**实例方法**，
+    ///    而公开 API 里没有拿这个实例的入口（反射查过整个程序集：
+    ///    `ChoosedPotion` / `Job2Potions` 也都是实例字段）。
+    ///    硬去拿实例就等于依赖没公开的实现细节 —— 不如用现成的包装方法。
+    ///
+    ///  ★ 为什么不自己记时间 ★
+    ///
+    ///    `CheckCurrJobPotion` 已经含「数量够 + CD 好」，
+    ///    而且**不引入任何需要清理的新状态** —— 按开发约定，
+    ///    自带状态的模块必须在 OnResetBattle / OnTerritoryChanged
+    ///    各加一行清理，少一行就是跨战斗脏数据。
+    ///    这里一个状态都不加，也就没有"忘了清"的风险。
+    ///
+    ///  ★ isHq 为什么先 true 再 false ★
+    ///
+    ///    药水分 HQ / NQ（同一物品 ID，品质不同）。我**没有**找到
+    ///    "用户想用哪种"的可读设置项，所以两种都问一遍 ——
+    ///    代价只是多一次判断，好处是**不会因为猜错品质而永远吃不上药**。
+    ///    （宁可多问一次，也不要"以为修好了"的静默失效。）
+    ///
+    ///  ── 和 AEAssist 自身「自动吃药」的关系（重要）──
+    ///
+    ///    AEAssist 自己也会吃药，受两个设置约束（XML 文档原文）：
+    ///      · `NotAutoPotion3`                      = 「副本外不吃爆发药」
+    ///      · `NotAutoPotionWithoutHighEndTerritory3` = 「非高难本不吃爆发药」
+    ///    用户当前两个都是 false（= 都允许自动吃）。
+    ///
+    ///    所以这里**不是重复造轮子，而是补"时机"**：
+    ///      · AEAssist 管"能不能吃"（受上面两个开关约束）
+    ///      · 这里管"在爆发窗口的第一步吃"（这才是爆发药该有的时机）
+    ///    两者不会吃两次 —— `CheckCurrJobPotion` 会看 CD，CD 内直接跳过。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    protected static bool 能吃爆发药()
+    {
+        try
+        {
+            if (!HealQt.GetQt("爆发药", false)) return false;
+
+            // HQ 优先，没有再试 NQ（见上面 isHq 的说明）
+            return ItemHelper.CheckCurrJobPotion(true)
+                || ItemHelper.CheckCurrJobPotion(false);
+        }
+        catch
+        {
+            return false;   // 拿不到就当没有，绝不影响爆发轴其余部分
+        }
+    }
+
+    /// <summary>
+    /// 把"吃爆发药"加成爆发的第一步。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么放在爆发轴里，而不是新写一个 resolver ★
+    ///
+    ///    爆发药是**给爆发期服务的**，早了晚了都白吃。而"什么时候开爆发"
+    ///    这个判断已经由 `StartCheck()` 做好了（濒死不开 / 血量在掉不开 /
+    ///    资源不齐不开），**直接复用就是最准的时机** ——
+    ///    再写一套判断只会和它不一致。
+    ///
+    ///  ★ 和倒计时那条路的关系 ★
+    ///
+    ///    `预铺起手.InitCountDown` 里也注册了 `AddPotionAction(2000)`，
+    ///    那条**只在打 /countdown 时生效**（高难场景）。
+    ///    两条路不会重复吃：`CheckCurrJobPotion` 会看 CD，CD 内第二次直接跳过。
+    ///    而且两条路共用同一个「爆发药」开关，用户关掉就都不吃。
+    ///
+    ///  ★ Spell.CreatePotion() 无参 ★
+    ///
+    ///    签名是从 AEAssist.dll 反射确认过的：`Spell CreatePotion()`，
+    ///    没有参数 —— 它内部自己去查 PotionSetting。
+    ///    所以**构造失败时返回 null**，这里必须判空，否则空引用进 slot。
+    ///
+    ///    用法照抄 AEAssist 自己的 `HotKeyResolver_Potion.Run`：
+    ///        Check → PotionSetting.GetPotionId + ItemHelper.CheckPotion
+    ///        Run   → Spell.CreatePotion() + Slot.Add(...)
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    protected void 使用爆发药()
+    {
+        Sequence.Add(slot =>
+        {
+            try
+            {
+                if (!能吃爆发药()) return;
+
+                var 药 = Spell.CreatePotion();
+                if (药 == null) return;
+
+                slot.Add(药);
+                LogHelper.Info($"[HealerACR] 爆发轴：吃爆发药（{药.Id}）");
+            }
+            catch (Exception e)
+            {
+                // 吃不上药绝不能影响爆发轴剩下的技能
+                LogHelper.Info("[HealerACR] 爆发药跳过：" + e.Message);
+            }
+        });
+    }
+
     /// <summary>重置内部计时（换本时用）</summary>
     public void 重置()
     {
@@ -274,6 +389,10 @@ public class 学者爆发轴 : 爆发轴基类
 
     protected override void 构建()
     {
+        // ★ 第一步：爆发药（需要「一键爆发」+「爆发药」都开，且药够、CD 好）★
+        //   放在最前面 —— 爆发轴的增益要在所有输出之前吃。
+        使用爆发药();
+
         加能力技(SpellIds.取("连环计"));
         加Gcd(表.群体治疗GCD);              // 士气高扬之策
         加能力技(SpellIds.取("能量吸收"));
@@ -305,6 +424,9 @@ public class 白魔爆发轴 : 爆发轴基类
 
     protected override void 构建()
     {
+        // ★ 第一步：爆发药（同 学者爆发轴 的说明）★
+        使用爆发药();
+
         加能力技(SpellIds.取("神速咏唱"));
         加Gcd(表.基础输出);
         加Gcd(表.基础输出);

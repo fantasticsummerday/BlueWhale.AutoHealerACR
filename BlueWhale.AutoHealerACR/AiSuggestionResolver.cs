@@ -30,10 +30,14 @@ public class AiSuggestionResolver : ISlotResolver
 
     public static uint 本帧技能 { get; private set; }
 
+    /// <summary>本帧没采纳的话，是被哪一条终审拦下的（给统计用）</summary>
+    public static string 本帧拦截原因 { get; private set; } = "";
+
     public int Check()
     {
         本帧采纳 = false;
         本帧技能 = 0;
+        本帧拦截原因 = "";
 
         try
         {
@@ -58,6 +62,7 @@ public class AiSuggestionResolver : ISlotResolver
             // ---- 终审第一步：这个技能在当前职业真的存在吗 ----
             if (!SpellUtil.已解锁(id))
             {
+                拦截("未解锁（等级/职业任务没到）");
                 Ai调试.日志($"建议 {id} 未解锁，放弃（改用原逻辑）");
                 return -1;
             }
@@ -70,12 +75,30 @@ public class AiSuggestionResolver : ISlotResolver
             if (!SpellUtil.可用(id))
             {
                 // 这个很常见（AI 建议了一个 CD 中的技能），不打日志免得刷屏
+                // ★ 但它是最值得看的一类拦截 ★
+                //   "不可用"占比高 = AI 建议的技能 CD 还没转好，
+                //   说明预取提前量太大或者提示词没把 CD 状态说清楚。
+                拦截("技能不可用（CD中/形态不对）");
                 return -1;
             }
 
             // ---- 终审第三步：需要目标的技能必须有目标 ----
             var 需目标 = 需要目标(id);
-            if (需目标 && HealTargetHelper.当前目标() == null) return -1;
+            if (需目标 && HealTargetHelper.当前目标() == null)
+            {
+                拦截("需要目标但没有目标");
+                return -1;
+            }
+
+            // ---- 终审第三步半：打得到的吗（视线/射程）----
+            //   只在"需要目标"的技能上判：治疗类是以自己为原点的，
+            //   硬套视线检查会把"柱子后面的队友治不了"变成"不治了" —— 那是致命的。
+            if (需目标 && !技能数据.打得到(HealTargetHelper.当前目标()))
+            {
+                拦截("视线被挡 / 超出射程");
+                Ai调试.调试($"建议 {id} 的当前目标被挡住或太远 → 放弃（改用原逻辑）");
+                return -1;
+            }
 
             // ══════════════════════════════════════════════════════════
             //  ★ 终审第四步：治疗优先于输出 ★
@@ -96,6 +119,7 @@ public class AiSuggestionResolver : ISlotResolver
             // ══════════════════════════════════════════════════════════
             if (是输出技能(id) && 有人需要治疗())
             {
+                拦截("让位给治疗（AI 建议的是输出）");
                 Ai调试.调试($"建议 {id} 是输出技能，但当前有治疗需求 → 让位给原队列");
                 return -1;
             }
@@ -133,7 +157,9 @@ public class AiSuggestionResolver : ISlotResolver
                 slot.Add(new Spell(id, SpellTargetType.Self));
             }
 
-            Ai调试.日志($"采纳建议：{id} = {SpellIds.反查(id)}（{建议.理由}）");
+            Ai调试.日志($"采纳建议：{id} = {SpellIds.反查(id)}（{建议.理由}）" +
+                        $"｜出生排队第 {建议.出生时队列位置 + 1} 位 / 批次 {建议.批次}" +
+                        $" / 等了 {建议.已等毫秒}ms");
 
             // ★ 技能真的进了 slot，才消费掉这条建议 ★
             //   放在最后：如果上面任何一步失败（目标为空、Spell 构造异常），
@@ -144,6 +170,20 @@ public class AiSuggestionResolver : ISlotResolver
         {
             Ai调试.日志("建议构建失败（已忽略）：" + e.Message);
         }
+    }
+
+    /// <summary>
+    /// 记一次"建议被终审拦下"。
+    ///
+    /// 术语用"拦截"而不是"拒绝"，是为了和"AI 幻觉被白名单丢弃"区分开：
+    ///   · 丢弃 = 建议本身就是错的（AI 编的）
+    ///   · 拦截 = 建议合法，但**当前时机不合适**（原有逻辑说了算）
+    /// 后者占比高不是坏事，说明"AI 给建议、原逻辑终审"这套设计在干活。
+    /// </summary>
+    private static void 拦截(string 原因)
+    {
+        本帧拦截原因 = 原因;
+        AiDecisionLayer.记拦截(原因);
     }
 
     /// <summary>

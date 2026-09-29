@@ -74,6 +74,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
+            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -187,6 +188,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
+            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -300,6 +302,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
+            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -413,6 +416,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
+            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
@@ -682,8 +686,24 @@ public static class AiSettingPage
         }
         else
         {
-            ImGui.TextDisabled($"  决策建议：无（命中 {AiDecisionLayer.命中次数} / 过期 {AiDecisionLayer.过期次数}）");
+            ImGui.TextDisabled("  决策建议：无");
         }
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 阶段 B 命中率统计（用户实测要用的一屏）★
+        //
+        //    旧版只显示「命中 X / 过期 Y」，看不出**为什么**没命中 ——
+        //    所以装上实测时只能看到一个难看的数字，不知道该调哪里。
+        //    现在把"被终审拦下的原因"也列出来，一次就能定位。
+        // ══════════════════════════════════════════════════════════════
+        ImGui.Separator();
+        ImGui.TextDisabled("阶段 B 命中率统计");
+        ImGui.TextWrapped("  " + AiDecisionLayer.状态描述());
+        ImGui.TextWrapped("  被终审拦下：" + AiDecisionLayer.拦截摘要());
+        ImGui.TextDisabled($"  其中排在队列第 2 位之后才过期的：{AiDecisionLayer.排队过期条数} 条");
+        ImGui.TextDisabled("  " + 局面监控.状态描述());
+        ImGui.TextDisabled("  说明：『过期』= 生成后在队列里放着没人用就超时了；");
+        ImGui.TextDisabled("        命中率 = 命中 /(命中 + 过期)，被局面剧变清空的条数不计入分母。");
     }
 }
 
@@ -713,6 +733,7 @@ public class AiHeartbeat : ISlotResolver
             AiSettings.每帧更新();        // 脱战后补写攒下的设置保存（避免战斗中做 IO）
 
             坦克压力.每帧更新();          // 采样 T 的血量波动
+            局面监控.每帧更新();          // ★ 检测局面剧变 → 作废预取队列（原先写了没人调）
             Ai初始化.每帧更新();          // 初始化超时检查
             Ai初始化.检查熔断提示();      // 熔断状态变化 → 屏幕横幅告知
             HealerACR.Common.HealQt.每帧更新();   // 一次性开关（解除熔断）
@@ -786,6 +807,7 @@ public override Rotation Build(string settingFolder)
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
+            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
             Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 

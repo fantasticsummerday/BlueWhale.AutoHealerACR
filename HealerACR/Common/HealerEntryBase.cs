@@ -227,6 +227,12 @@ public abstract class HealerEntryBase : IRotationEntry
         //   勾上即解除，下一帧自动弹回（见 HealQt.每帧更新）。
         加开关("解除熔断", false);
 
+        // ★ 爆发药 ★ —— 默认关。
+        //   药水 ID 不在这里填 —— 用 AEAssist 自带的「爆发药设置」，
+        //   所以只判断"有没有配 + 够不够 + CD 好没好"。
+        //   实际消耗点见 爆发轴.cs 的 使用爆发药()（挂在爆发轴第一步）。
+        加开关("爆发药", false);
+
         // 每个职业自己的页（参考同类 ACR 的 XXXOverlay / XXXSettingView 做法）
         视图窗口.AddTab("职业", w => 职业面板.画(TargetJob, w));
         // 通用页：阈值 + 时间轴
@@ -292,7 +298,7 @@ public abstract class HealerEntryBase : IRotationEntry
                 "能量吸收", "小怪卸豆", "强制以太",
                 "自动转化", "脚下放罩",
                 "HoT", "应急", "脱战准备", "极限技",
-                "自动疾跑", "自动以太", "一键爆发", "解除熔断",
+                "自动疾跑", "自动以太", "一键爆发", "解除熔断", "爆发药",
                 // 职业专属（各职业注册各自的，这里一并列上，没注册的无害）
                 "以太超流", "链式策略", "小仙女", "炽天使",
                 "神速魔", "光速", "占卜", "抽卡", "地星",
@@ -602,6 +608,9 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 敌人移动检测.重置(); } catch { }
         try { Dot黑名单.重置自适应(); } catch { }
         try { 技能熔断.重置(); } catch { }
+        // ⚠️ 效果确认也有静态状态（_待确认技能 / _确认记录），
+        //    之前漏了这里 —— 正是开发约定 F① 那类"有状态但没清"。
+        try { 效果确认.重置(); } catch { }
     }
 
     public void OnSpellCastSuccess(Slot slot, Spell spell)
@@ -699,6 +708,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 敌人移动检测.重置(); } catch { }
         try { Dot黑名单.重置自适应(); } catch { }
         try { 技能熔断.重置(); } catch { }
+        try { 效果确认.重置(); } catch { }   // 同上：换本也要清
 
         // ★ 通知 AI 层：局面完全变了 ★
         //   不通知的话，AI 的"倾向"和阈值偏移会从上个副本带过来 ——

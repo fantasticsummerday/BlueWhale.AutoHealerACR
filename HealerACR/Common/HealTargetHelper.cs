@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Numerics;
 using AEAssist;
 using AEAssist.Extension;
 using AEAssist.Helper;
@@ -189,8 +190,13 @@ public static class HealTargetHelper
         // ── 优先顺序：奶妈 > 坦克 > 其他人 ──
         //    参考同类 ACR 的 ShouldPrioritizeHealerResurrect：
         //    奶妈躺了 → 全队治疗断档 → 最容易连锁崩盘，所以优先救。
+        //
+        // ⚠️ 过滤两类，**含义完全不同，别搞混**：
+        //    · 复活等待(148)  —— 别人已经在拉了 → 防"两个奶妈抢同一个尸体"
+        //    · 限制复活(5 个) —— 这个尸体**根本拉不起来** → 防"白交即刻和 GCD"
+        //    对照分析之前只做了前者，后者漏了。
         var 躺着的 = PartyHelper.DeadAllies
-            .Where(r => r != null && !r.HasAura(AuraIds.复活等待))
+            .Where(r => r != null && !r.被禁止复活())
             .ToList();
 
         if (躺着的.Count == 0) return null;
@@ -282,7 +288,83 @@ public static class HealTargetHelper
     /// <summary>值不值得对当前目标交爆发（需求 2 的统一入口）</summary>
     public static bool 值得交爆发(float 血线 = 0.25f, int ttk秒 = 12)
     {
-        return !目标快死了(血线, ttk秒);
+        return !目标快死了(血线, ttk秒) && !敌人波次要结束();
+    }
+
+    // ==================== 整波判断（对照 鍚岀被 ACR 的 ShouldHoldForDyingTrash）====================
+
+    /// <summary>
+    /// **当前这一波小怪是不是快清完了** —— 是的话不该交爆发。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要单独做"整波"判断 ★
+    ///
+    ///    <see cref="目标快死了"/> 只看 `当前目标()` 一个怪。
+    ///    但日随的主场景不是"打一个残血 Boss"，而是**一波 3~5 只小怪**：
+    ///      · 当前目标满血，可整波合计只剩 20% 血
+    ///      · 这时候开爆发/吃爆发药 → 爆发打空，纯浪费
+    ///
+    ///    所以判据要从"这个怪快死了"升级成"**这一波快没了**"。
+    ///
+    ///  ★ 判据（对照 鍚岀被 ACR 的 `BurstHoldControl.ShouldHoldForDyingTrash`）★
+    ///
+    ///    取 25 米内的**非 Boss** 敌人：
+    ///      · 数量为 0 → 不算（没有波次概念）
+    ///      · 合计血量 < 阈值（默认 30%）→ 整波快清完了 → true
+    ///
+    ///  ★ 我**没有**照抄它的"平均 TTK < 15 秒"那半条 ★
+    ///
+    ///    它的 TTK 用的是 `TargetStat.DeathPrediction` ——
+    ///    我反射查过，**这个成员在我们引用的 AEAssist.NET 1.2.16 里不是公开的**，
+    ///    拿不到。按《开发约定》E 节：**语义没吃透 / 拿不到的 API 不用**。
+    ///    所以这里只用能确定算出来的"合计血量"，宁可少一个判据，
+    ///    也不要写一个"看着更有依据、实际恒为 false"的条件。
+    ///
+    ///  ★ 为什么排除 Boss ★
+    ///
+    ///    Boss 战只有一只怪，它的血量降到 30% 时**正是该爆发的时候**
+    ///    （最后阶段通常有伤害加成机制）。把 Boss 算进来会把爆发憋死。
+    ///    这一条和 鍚岀被 ACR 的"非 Boss 战"门控是同一个意思。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    /// <param name="合计血线">整波合计血量低于这个比例 → 判定快清完</param>
+    /// <param name="搜索半径">只看这个距离内的敌人（避免把下一波算进来）</param>
+    public static bool 敌人波次要结束(float 合计血线 = 0.30f, float 搜索半径 = 25f)
+    {
+        try
+        {
+            var 我 = Core.Me.Position;
+
+            float 合计当前 = 0f;
+            float 合计上限 = 0f;
+            var 数量 = 0;
+
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null) continue;
+
+                try
+                {
+                    if (敌人.CurrentHp <= 0) continue;
+                    if (敌人.IsBoss()) continue;                       // Boss 不算"波次"
+                    if (Vector3.Distance(我, 敌人.Position) > 搜索半径) continue;
+
+                    合计当前 += 敌人.CurrentHp;
+                    合计上限 += Math.Max(1u, 敌人.MaxHp);
+                    数量++;
+                }
+                catch { }
+            }
+
+            // 没有小怪 → 不适用（可能是纯 Boss 战，或还没接怪）
+            if (数量 == 0 || 合计上限 <= 0f) return false;
+
+            return 合计当前 / 合计上限 < 合计血线;
+        }
+        catch
+        {
+            return false;   // 判断不了就当"没结束"，别憋着爆发
+        }
     }
 
     /// <summary>

@@ -47,7 +47,28 @@ public class 预铺起手 : IOpener
         // ---- 爆发药：开怪前 2 秒 ----
         // 之前这行被注释掉了。现在打开 —— CountDownHandler 是实例方法，
         // 由 AEAssist 在倒计时时传进来，这才是吃药的正确入口。
-        try { countDownHandler.AddPotionAction(2000); } catch { }
+        //
+        // ⚠️ 两条吃药的路径，别重复理解：
+        //    · 这里 = **只在打 /countdown 时**生效（高难场景）
+        //    · 爆发轴.cs 的 使用爆发药() = 日常开「一键爆发」时生效
+        //    两边共用「爆发药」开关，且 CheckPotion 会看 CD，
+        //    所以就算都走也不会吃两次。
+        try
+        {
+            if (HealQt.GetQt("爆发药", false))
+            {
+                countDownHandler.AddPotionAction(2000);
+                LogHelper.Info("[HealerACR] 倒计时：已注册爆发药（开怪前 2 秒）");
+            }
+            else
+            {
+                LogHelper.Info("[HealerACR] 倒计时：爆发药未开启（QT 开关『爆发药』= 关），跳过");
+            }
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[HealerACR] 倒计时：注册爆发药失败（已忽略）：" + e.Message);
+        }
 
         // ---- 15 秒：给主坦预铺单体盾（有盾职业才有意义）----
         if (_t.单体盾 != 0)

@@ -31,6 +31,16 @@ public static class SpellIds
         ["疾风"] = 121,
         ["医治"] = 124,
         ["复活"] = 125,
+        // ⚠️ 康复 = 126（**不要再改成 16560**，那是个已踩过的坑）
+        //
+        //   中文客户端里「康复」有三个容易混的 ID：
+        //     126    Animation = magic/cnj_white/esuna  → **幻术/白魔专属**，当前版本在用 ✅
+        //     7568   Animation = rol_common/rol038，Lv10 IsRoleAction → 共用职能技能版
+        //     16560  中文名其实是「**沉静**」（不是康复）
+        //
+        //   AEAssist 的 `SpellsDefine.R repose = 16560` 用的是**英文名 Repose**，
+        //   在中文客户端里对应的是「沉静」，**不能拿来当"康复"用**。
+        //   数据来源：官方 `Action.csv`（逐字段核对 Name / Animation / ClassJobCategory）。
         ["康复"] = 126,
         ["坚石"] = 127,
         ["救疗"] = 135,

@@ -59,7 +59,9 @@ public class SGESpellTable : JobSpellTable
     public override uint 醒梦 => SpellsDefine.LucidDreaming;
 
     // 需求 3：蛇胆就是贤者的"群奶能力技资源"，没蛇胆就退回 GCD 群奶
-    public override bool 治疗资源充足 => JobApiHelper.蛇胆 >= HealSettings.Instance.蛇胆保留数;
+    // ★ 保留数按队伍规模调整：四人本（单奶）留更多，八人本有搭档可以少留 ★
+    public override bool 治疗资源充足 => JobApiHelper.蛇胆 >=
+        HealTargetHelper.资源保留调整(HealSettings.Instance.蛇胆保留数);
 
     // 需求 4：脱战补蛇胆
     public override uint[] 脱战准备技能 => new[] { SpellIds.取("根素") };
@@ -164,11 +166,18 @@ public class SGE_Dot : ISlotResolver
         foreach (var b in _t.所有DotBuff)
         {
             if (b == 0) continue;
-            // ⚠️ 顺序不能反：先判"有没有"，再判"快没快"
-            //    （HasMyAuraWithTimeleft 对"没这个 buff"的返回值不可靠）
+
+            // ⚠️ 顺序不能反：先判"有没有"，再判"快没快"。
+            //    必须先用 HasLocalPlayerAura 挡一道 ——
+            //    因为"剩余时间"接口对"根本没这个 buff"返回 0，
+            //    如果直接拿剩余时间判断，会把"没 buff"误判成"快没了"。
             if (!target.HasLocalPlayerAura(b)) continue;   // 这档不在身上 → 看下一档
-            if (!target.我的Buff快没了(b, 7)) return -4;    // 还很足 → 不补
-            return -4;                                     // 还很足 → 不补
+
+            // 这一档在身上、而且**还剩超过 2 个 GCD** → 确实不用补
+            if (target.我的Buff还剩超过N秒(b, 2 * 2.5f)) return -4;
+
+            // 在身上但快没了 → 该补，跳出循环去放
+            break;
         }
 
         return SpellUtil.可用(均衡) ? 6 : -1;

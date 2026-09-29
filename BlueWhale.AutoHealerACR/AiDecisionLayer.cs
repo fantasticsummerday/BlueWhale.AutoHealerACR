@@ -38,7 +38,23 @@ public static class AiDecisionLayer
         /// </summary>
         public const long 有效期毫秒 = 5000;
 
+        /// <summary>
+        /// 这条建议"被预取出来的那一刻"，队列里已经排了几条。
+        ///
+        /// 用途：**判断命中率低是不是"排队排太久"造成的** ——
+        /// 一次请求给 3 步，第 3 步天然要等 2 个 GCD 才轮得到，
+        /// 本来就更容易过期。有这个字段才能把"排太后面"和
+        /// "AI 建议得不对"两种情况分开。
+        /// </summary>
+        public int 出生时队列位置;
+
+        /// <summary>被 AI 建议时，这一批是第几批发出来的</summary>
+        public int 批次;
+
         public bool 还新鲜 => TimeHelper.Now() - 生成时间 <= 有效期毫秒;
+
+        /// <summary>已经等了多久（毫秒）</summary>
+        public long 已等毫秒 => TimeHelper.Now() - 生成时间;
     }
 
     /// <summary>预取队列（先进先出）</summary>
@@ -70,9 +86,143 @@ public static class AiDecisionLayer
         }
     }
 
-    /// <summary>命中率统计</summary>
+    // ==================== 统计（给"阶段 B 命中率"看） ====================
+    //
+    // ══════════════════════════════════════════════════════════════════
+    //  ⚠️ 旧统计只有一个「过期」计数，它把**两件完全不同的事**混在了一起：
+    //
+    //     · 建议被采纳入 slot 之后，用完了 → 正常损耗
+    //     · 建议躺在队列里没人用，等到过期 → **真正的浪费**
+    //
+    //    所以"命中 681 / 过期 875"这个 44% 里，有一部分其实是
+    //    "用过了但也被算进过期"，真实的浪费比例是**看不出来的**。
+    //
+    //  现在按"为什么没被用上"分开记，才能定位到底卡在哪一环：
+    //    解析失败  → 提示词/格式问题
+    //    幻觉丢弃  → AI 编了清单外的技能
+    //    局面清空  → 建议是对的，但战场变了（这是**好**的，说明保护生效）
+    //    排队过期  → 预取节奏 vs GCD 节奏不匹配
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>被采纳并放进 slot 的次数（= 真正用上的）</summary>
     public static int 命中次数 { get; private set; }
+
+    /// <summary>躺在队列里没人用、等到过期的条数（= 真正的浪费）</summary>
     public static int 过期次数 { get; private set; }
+
+    /// <summary>其中"因为排在其他建议后面才等到过期"的条数（预取节奏问题）</summary>
+    public static int 排队过期条数 { get; private set; }
+
+    /// <summary>AI 返回了但解析不出技能 ID 的行数（格式问题）</summary>
+    public static int 解析失败次数 { get; private set; }
+
+    /// <summary>因不在白名单被丢弃的条数（疑似幻觉）</summary>
+    public static int 丢弃幻觉次数 { get; private set; }
+
+    /// <summary>因局面剧变被清空的条数（保护性丢弃，不算浪费）</summary>
+    public static int 清空丢弃条数 { get; private set; }
+
+    /// <summary>局面剧变清空队列的次数</summary>
+    public static int 清空次数 { get; private set; }
+
+    /// <summary>成功拿到 AI 回复并填进队列的次数</summary>
+    public static int 预取成功次数 { get; private set; }
+
+    /// <summary>预取请求失败的次数（超时 / 网络 / 熔断）</summary>
+    public static int 预取失败次数 { get; private set; }
+
+    /// <summary>已经发出多少批预取请求（批次号）</summary>
+    private static int _批次号;
+
+    /// <summary>上一次统计汇总打印的时间（每 30 秒打一条，日志别刷屏）</summary>
+    private static long _上次汇总;
+
+    /// <summary>
+    /// 「建议被终审拦下」的原因计数（原因 → 次数）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么还要这一层 —— 命中率只告诉你"多少用上了"，
+    ///    但**不告诉你"没用上的卡在哪"**。
+    ///
+    ///    阶段 B 的链条是：AI 出建议 → 白名单 → 终审（解锁/可用/目标/治疗优先）
+    ///    → 进 slot → 真的放出去。
+    ///    任何一个环节断掉，表现都是"命中率低"，但修法完全不同：
+    ///      · 全是"未解锁" → 技能表里配了当前等级拿不到的东西
+    ///      · 全是"不可用" → 预取提前量太大，AI 建议的 CD 还没转好
+    ///      · 全是"让位给治疗" → AI 偏输出，而队伍一直在掉血
+    ///      · 全是"视线被挡" → 站位问题
+    ///    有了这个字典，看面板就知道该调哪一环。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static readonly Dictionary<string, int> _拦截原因 = new();
+
+    /// <summary>记一次"建议被终审拦下"</summary>
+    public static void 记拦截(string 原因)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(原因)) return;
+            _拦截原因.TryGetValue(原因, out var 旧);
+            _拦截原因[原因] = 旧 + 1;
+        }
+        catch { }
+    }
+
+    /// <summary>拦截原因的一行摘要（按次数从多到少）</summary>
+    public static string 拦截摘要()
+    {
+        try
+        {
+            if (_拦截原因.Count == 0) return "（还没有建议被拦下）";
+
+            var 排序 = new List<KeyValuePair<string, int>>(_拦截原因);
+            排序.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+            var 段 = new List<string>();
+            foreach (var kv in 排序) 段.Add($"{kv.Key} {kv.Value}");
+
+            return string.Join("｜", 段);
+        }
+        catch
+        {
+            return "（读取失败）";
+        }
+    }
+
+    /// <summary>
+    /// 命中率 —— **分母只算"有机会被用的"**。
+    ///
+    /// 不清空的条数不计入分母：它们不是"没用上"，是"局面变了不该用"。
+    /// 这个口径比"命中 /(命中+过期)"更能反映真实水平。
+    /// </summary>
+    public static float 命中率
+    {
+        get
+        {
+            var 有机会 = 命中次数 + 过期次数;
+            return 有机会 == 0 ? 0f : 命中次数 * 100f / 有机会;
+        }
+    }
+
+    /// <summary>一行状态描述（设置页 + 日志汇总共用）</summary>
+    public static string 状态描述()
+    {
+        return $"命中 {命中次数} / 过期 {过期次数}（命中率 {命中率:F0}%）" +
+               $"｜预取成功 {预取成功次数} 失败 {预取失败次数}" +
+               $"｜幻觉丢弃 {丢弃幻觉次数} 解析失败 {解析失败次数}" +
+               $"｜局面清空 {清空次数} 次({清空丢弃条数} 条)" +
+               $"｜队列 {_队列.Count}/{目标长度}";
+    }
+
+    /// <summary>给"装上实测"看的两行完整统计</summary>
+    public static string 详细统计()
+    {
+        return 状态描述()
+               + Environment.NewLine
+               + $"被终审拦下：{拦截摘要()}"
+               + Environment.NewLine
+               + $"其中排在队列第 2 位之后才过期的：{排队过期条数} 条";
+    }
 
     // ==================== 每帧驱动 ====================
 
@@ -85,6 +235,9 @@ public static class AiDecisionLayer
 
         // ① 清掉队首的过期建议
         清理过期();
+
+        // ①.5 定期把统计打一条日志（装上去实测时靠这个看命中率）
+        定期汇总();
 
         if (_预取中) return;
         if (DeepSeekClient.熔断中) return;
@@ -110,7 +263,40 @@ public static class AiDecisionLayer
 
             _队列.Dequeue();
             过期次数++;
+
+            // ★ 区分"排太后面等过期"和"AI 建议得不对" ★
+            //   出生时队列位置 > 0 = 它前面还排着别的建议 → 轮到它时已经晚了，
+            //   属于**预取节奏问题**，不是 AI 判断错误。
+            if (头.出生时队列位置 > 0)
+            {
+                排队过期条数++;
+                Ai调试.调试(
+                    $"建议 {头.技能Id} 过期未用（排在第 {头.出生时队列位置 + 1} 位，" +
+                    $"等了 {头.已等毫秒}ms，批次 {头.批次}）");
+            }
         }
+    }
+
+    /// <summary>
+    /// 每 30 秒把统计打一条日志。
+    ///
+    /// **为什么要定期汇总**：单条日志看不出"命中率"这种比率，
+    /// 而装上去实测时不可能一直盯着面板 —— 事后翻日志要能直接看到结论。
+    /// </summary>
+    private static void 定期汇总()
+    {
+        try
+        {
+            var 现在 = TimeHelper.Now();
+            if (现在 - _上次汇总 < 30000) return;
+            _上次汇总 = 现在;
+
+            // 一次都没跑过就不刷（没开 AI / 没配 Key）
+            if (命中次数 + 过期次数 + 预取成功次数 == 0) return;
+
+            Ai调试.日志("【阶段B统计】" + 状态描述());
+        }
+        catch { }
     }
 
     /// <summary>
@@ -126,8 +312,50 @@ public static class AiDecisionLayer
         {
             if (_队列.Count == 0) return;
 
+            var 丢掉 = _队列.Count;
             _队列.Clear();
             _上次局面变化 = TimeHelper.Now();
+
+            // ★ 计入统计 ★
+            //   不记的话，"命中率低"到底是被丢弃、过期，还是被局面剧变清掉，
+            //   在事后完全分不出来 —— 那样统计就没法用来定位问题。
+            清空次数++;
+            清空丢弃条数 += 丢掉;
+
+            Ai调试.日志($"局面剧变 → 清空 {丢掉} 条待用建议（队列归零，下一帧重新预取）");
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 局面剧变 + **立刻重新预取**。
+    ///
+    /// ⚠️ 这是给"战斗中局面真的变了"用的（换目标 / 团血骤降）。
+    ///
+    ///    只调 <see cref="局面剧变"/> 的话，队列是空的，但仍要等
+    ///    「决策预取毫秒」节流过去才会补货 —— 在日随里这个空窗期
+    ///    正好是"最需要建议的时候"，等于没帮上忙。
+    ///    所以这里顺手把节流时间戳也一起重置，让下一帧就补货。
+    ///
+    ///    不会因此打爆 API：`_预取中` 保证同一时刻只有一个请求在飞，
+    ///    熔断检查和队列长度检查也都还在。
+    /// </summary>
+    public static void 局面剧变并重取()
+    {
+        try
+        {
+            局面剧变();
+
+            // 把节流时间戳清掉 → 下一帧就能补货（但 _预取中 仍然挡住并发）
+            _上次预取 = 0;
+
+            var s = AiSettings.Instance;
+            if (!s.启用决策层 || !s.已配置) return;
+            if (_预取中) return;
+            if (DeepSeekClient.熔断中) return;
+
+            Ai调试.日志("局面剧变 → 立刻重新预取");
+            _ = 预取();
         }
         catch { }
     }
@@ -137,6 +365,7 @@ public static class AiDecisionLayer
     private static async Task 预取()
     {
         _预取中 = true;
+        var 本批 = ++_批次号;
         try
         {
             var 局面 = AiSituation.采集();
@@ -147,17 +376,33 @@ public static class AiDecisionLayer
             // 反正是预取备货，慢一点没关系：备好了等着用，比"快但总超时"强。
             var 回复 = await DeepSeekClient.提问(系统提示, 局面, 8000).ConfigureAwait(false);
 
-            if (回复 == null) return;
+            if (回复 == null)
+            {
+                // ★ 失败要计数 ★
+                //   原来只是静默 return —— 于是"命中率低"到底是
+                //   AI 建议不好、还是请求根本一直在失败，事后分不出来。
+                预取失败次数++;
+                Ai调试.日志($"预取失败（批次 {本批}，无回复）" +
+                            $"｜累计 成功 {预取成功次数} / 失败 {预取失败次数}");
+                return;
+            }
 
-            var 条数 = 解析并填充(回复);
+            var 条数 = 解析并填充(回复, 本批);
 
             if (条数 > 0)
             {
-                Ai调试.日志($"预取 {条数} 步（队列 {_队列.Count}/{目标长度}）");
+                预取成功次数++;
+                Ai调试.日志($"预取 {条数} 步（批次 {本批}，队列 {_队列.Count}/{目标长度}）");
+            }
+            else
+            {
+                预取失败次数++;
+                Ai调试.日志($"预取解析出 0 条（批次 {本批}）—— 看下面『解析失败/疑似幻觉』的明细");
             }
         }
         catch (Exception e)
         {
+            预取失败次数++;
             Ai调试.日志("决策预取异常（已忽略）：" + e.Message);
         }
         finally
@@ -199,7 +444,7 @@ public static class AiDecisionLayer
 
     // ==================== 解析 + 白名单 ====================
 
-    private static int 解析并填充(string 回复)
+    private static int 解析并填充(string 回复, int 批次 = 0)
     {
         var 条数 = 0;
 
@@ -214,12 +459,25 @@ public static class AiDecisionLayer
                 var 段 = 原始行.Trim().Split('|', 2);
                 if (段.Length == 0) continue;
 
-                if (!uint.TryParse(段[0].Trim(), out var id)) continue;
-                if (id == 0) continue;   // AI 说"数据不足"，跳过这行
+                if (!uint.TryParse(段[0].Trim(), out var id))
+                {
+                    // ★ 记下来：这是"AI 没按格式回" ★
+                    //   原来直接 continue，统计上看不见 ——
+                    //   而格式问题恰恰是提示词要调的最常见原因。
+                    解析失败次数++;
+                    if (!string.IsNullOrWhiteSpace(原始行))
+                    {
+                        Ai调试.调试($"解析失败（批次 {批次}）：『{原始行.Trim()}』不是 `技能ID|理由` 格式");
+                    }
+                    continue;
+                }
+
+                if (id == 0) continue;   // AI 说"数据不足"，跳过这行（这是**合规**回复，不算失败）
 
                 // ★ 白名单校验：防幻觉的最后一道闸 ★
                 if (!在可选清单里(id))
                 {
+                    丢弃幻觉次数++;
                     Ai调试.日志($"建议的技能 {id} 不在可选清单里，已丢弃（疑似幻觉）");
                     continue;
                 }
@@ -229,6 +487,8 @@ public static class AiDecisionLayer
                     技能Id = id,
                     理由 = 段.Length > 1 ? 段[1].Trim() : "",
                     生成时间 = TimeHelper.Now(),
+                    出生时队列位置 = _队列.Count,   // 排在它前面的已有几条
+                    批次 = 批次,
                 });
 
                 条数++;
@@ -268,7 +528,14 @@ public static class AiDecisionLayer
         if (_队列.Count == 0) return null;
 
         var s = _队列.Dequeue();
-        命中次数++;
+
+        // ⚠️ 这里**不**加命中计数 —— 命中只应由 消费() 记。
+        //
+        //    原因：这个方法是"出队"，它无条件把建议拿走，
+        //    **不保证技能真的放出去了**（可能被更高优先级抢掉）。
+        //    如果这里也 ++ 命中次数，命中率会被虚高 ——
+        //    统计一旦不可信，就没法用来判断"预取队列重写到底有没有效"。
+        //    所以计数口径统一收敛到 消费()。
         return s;
     }
 
@@ -296,9 +563,21 @@ public static class AiDecisionLayer
     {
         _队列.Clear();
         _上次预取 = 0;
+        _上次局面变化 = 0;
+        _上次汇总 = 0;
         _预取中 = false;
+        _批次号 = 0;
+
         命中次数 = 0;
         过期次数 = 0;
+        排队过期条数 = 0;
+        解析失败次数 = 0;
+        丢弃幻觉次数 = 0;
+        清空丢弃条数 = 0;
+        清空次数 = 0;
+        预取成功次数 = 0;
+        预取失败次数 = 0;
+        _拦截原因.Clear();
     }
 
     /// <summary>

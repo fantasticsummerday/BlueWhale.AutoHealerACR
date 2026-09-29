@@ -41,6 +41,11 @@ public class Res_Dot : ISlotResolver
         var target = HealTargetHelper.当前目标();
         if (target == null) return -1;
 
+        // ── 视线检查：目标在柱子/墙后面时距离够也打不到 ──
+        //    不检查的话会一直"选中了技能但打不出去"，表现为输出卡住。
+        //    （兜底偏向放行，见 技能数据.打得到 的说明）
+        if (!技能数据.打得到(target)) return -6;
+
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
 
         // ── DoT 黑名单（参考同类 ACR 的 DotBlacklistHelper）──
@@ -112,8 +117,14 @@ public class Res_Dot : ISlotResolver
                   //   急速高的时候 GCD 变短，固定秒数会补得太晚导致断档。
                   if (!target.撑不过N个Gcd(b, 2, 1.5f)) return false;
 
-                  // ③ 在身上但快没了 → 该补（继续循环，最后返回 true）
-                return false;                                  // 这档还很足 → 不用补
+                  // ③ 在身上、而且**撑不过 2 个 GCD** → 该补了，放行
+                  //
+                  // ⚠️ 这里曾经写成 `return false` —— 和上面那行注释（"该补"）
+                  //    **自相矛盾**，等于把唯一能提前续 DoT 的路径也堵死了。
+                  //    后果：**DoT 只在彻底掉光之后才补，从不提前续**，
+                  //    每轮白丢约一个 GCD 的覆盖时间。
+                  //    （纯逻辑 bug，不报错、不崩溃，只能靠对着注释读代码发现。）
+                  return true;
             }
 
             if (有配置) return true;
@@ -175,6 +186,9 @@ public class Res_AoEDamage : ISlotResolver
 
         if (最佳 == null) return -1;
 
+        // 落点也得看得见（AOE 是打在地上的，视线被墙挡住同样打不到）
+        if (!技能数据.打得到(最佳)) return -6;
+
         return spell.IsReadyWithCanCast() ? 5 : -1;
     }
 
@@ -207,6 +221,9 @@ public class Res_BaseDamage : ISlotResolver
         if (蓝量.低蓝停手()) return -9;   // 蓝留给治疗
         if (!SpellUtil.已解锁(_t.基础输出)) return -2;
         if (HealTargetHelper.当前目标() == null) return -1;
+
+        // 视线被挡就别按了 —— 按了也放不出去，白白占着 GCD 让循环卡住
+        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
 
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
         if (_t.有特殊输出形态) return -5;

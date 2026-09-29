@@ -250,6 +250,9 @@ public class WHM_AfflatusMisery : ISlotResolver
         if (JobApiHelper.血百合 < 3) return -3;
         if (HealTargetHelper.当前目标() == null) return -1;
 
+        // 视线/射程：和别的输出技同一套判断（对着柱子放等于白按）
+        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+
         // 需求 2 + 5：残血小怪不交，但木桩模式不省
         if (!HealTargetHelper.木桩模式)
         {
@@ -257,7 +260,11 @@ public class WHM_AfflatusMisery : ISlotResolver
             if (HealSettings.Instance.时间轴攒资源 && TimelineManager.未来有减伤(8.0)) return -5;
         }
 
-        return SpellUtil.可用(技能) ? 7 : -1;
+        // ⚠️ 苦难之心 = 血百合满 3 的**免费大伤害**，不该被任何限时窗口挤掉。
+        //    优先级给 9，**高于闪飒(8)** —— 闪飒是神速的 proc、过了会浪费，
+        //    但苦难之心是"迟早要打、打了不花蓝"的资源，堵在窗口后面纯亏。
+        //    （两者都可用时会先打这个，然后闪飒接着打，GCD 排得下。）
+        return SpellUtil.可用(技能) ? 9 : -1;
     }
 
     public void Build(Slot slot)
@@ -298,36 +305,76 @@ public class WHM_PresenceOfMind : ISlotResolver
 /// <summary>
 /// 闪飒（Glare IV）。
 ///
-/// 这是"神速咏唱期间"的强化闪耀 —— 游戏里只有在神速 buff 下才可用，
-/// 所以不需要额外判断 buff，<c>SpellUtil.可用</c> 自己就会在非神速期间返回 false。
+/// 这是"神速咏唱期间"的强化闪耀 —— 游戏里只有在神速 buff 下才可用。
 /// 优先级放在普通输出之前，神速一转好就能打上。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ⚠️ 用户实测反馈："白魔起手神速后不打闪飒"。这里做了两处针对性加固。
+///
+///  ① **判定顺序反过来**：先看 buff（「闪飒预备」= 神速给的 proc），
+///     再看 IsReadyWithCanCast。
+///
+///     原来的写法是「buff 有 && 可用(闪飒)」两个都必须成立 ——
+///     如果 `IsReadyWithCanCast()` 对闪飒返回了 false（语义没吃透的 API，
+///     开发约定 E 节反复警告的那类），整个技能就**静默不放**，
+///     而且表现正好是"神速开了、闪飒就是不出去"。
+///
+///     现在：**buff 在 = 该打**（proc 的存在本身就是"这个技能现在能放"的最强证据），
+///     `可用()` 只作为二次确认，不通过时打一条节流日志，方便事后定位。
+///
+///  ② **闪飒需要目标**（数据：CastType=2 / Range=25 / EffectRange=5）——
+///     没目标时明确不给（不能对着空气放）。
+/// ══════════════════════════════════════════════════════════════════
 /// </summary>
 public class WHM_GlareIV : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("闪飒");
 
+    /// <summary>诊断节流：5 秒最多打一条，避免刷爆日志</summary>
+    private static long 上次诊断;
+
+    /// <summary>神速给的「闪飒预备」proc 在不在身上</summary>
+    private static bool 有闪飒预备()
+    {
+        return (AuraIds.闪飒预备 != 0 && Core.Me.HasAura(AuraIds.闪飒预备))
+               || (AuraIds.闪飒预备2 != 0 && Core.Me.HasAura(AuraIds.闪飒预备2));
+    }
+
     public int Check()
     {
         if (!HealQt.GetQt("输出")) return -100;
+        if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
+
+        // 没 proc 就完全不是这个技能的场合
+        if (!有闪飒预备()) return -1;
+
+        // 闪飒要目标（Range=25）
         if (HealTargetHelper.当前目标() == null) return -1;
 
-        // 精确判断：闪飒只在"闪飒预备"buff 下可用。
-        // 不能只靠 SpellUtil.可用() —— 万一它不检查 buff 条件，
-        // 非神速期间就会一直尝试放一个放不出来的技能，白占 GCD。
-        // 两个 id 都查，防御版本差异。
-        var 有预备 = (AuraIds.闪飒预备 != 0 && Core.Me.HasAura(AuraIds.闪飒预备))
-                     || (AuraIds.闪飒预备2 != 0 && Core.Me.HasAura(AuraIds.闪飒预备2));
-        if (!有预备) return -1;
+        // 视线/射程（和别的输出技同一套判断）
+        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
 
-        if (!SpellUtil.可用(技能)) return -1;
+        // 二次确认：按 开发约定 E 节，不拿没吃透的 API 当**唯一**依据，
+        // 但也不让它把已经确定该放的技能挡掉 —— 挡掉时留下证据。
+        if (!SpellUtil.可用(技能))
+        {
+            if (TimeHelper.Now() - 上次诊断 > 5000)
+            {
+                上次诊断 = TimeHelper.Now();
+                LogHelper.Info(
+                    "[HealerACR] 闪飒预备在身，但 可用(闪飒) = false → 仍然放。" +
+                    "（若这条日志反复出现且闪飒没打出去，说明 IsReadyWithCanCast 对闪飒不可靠）" +
+                    " id=" + 技能 + " 已解锁=" + SpellUtil.已解锁(技能));
+            }
+        }
 
         return 8;   // 高于普通输出（普通输出是 1）
     }
 
     public void Build(Slot slot)
     {
-        var spell = SpellUtil.Get(技能);
+        var spell = SpellUtil.当前形态(技能);
         if (spell != null) slot.Add(spell);
     }
 }
