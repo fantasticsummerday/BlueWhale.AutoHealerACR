@@ -40,7 +40,16 @@ public class AiSuggestionResolver : ISlotResolver
             var s = AiSettings.Instance;
             if (!s.启用决策层) return -1;
 
-            var 建议 = AiDecisionLayer.取建议();
+            // ⚠️ 这里必须用 当前建议（Peek，只看不动队列）
+            //
+            //    原来用的是 取建议()（Dequeue，出队）—— 那是个逻辑陷阱：
+            //      · Check 出队后如果被更高优先级抢先，Build 不会被调用
+            //        → 建议**永久丢失**
+            //      · 而且 Build 里再 Peek 时已经是下一条
+            //        → **Check 判 A，Build 放 B**
+            //
+            //    正确做法：Check 只看，Build 放成功了再调 消费()。
+            var 建议 = AiDecisionLayer.当前建议;
             if (建议 == null) return -1;
 
             var id = 建议.技能Id;
@@ -102,6 +111,11 @@ public class AiSuggestionResolver : ISlotResolver
             }
 
             LogHelper.Info($"[BlueWhale.AI] 采纳建议：{id} = {SpellIds.反查(id)}（{建议.理由}）");
+
+            // ★ 技能真的进了 slot，才消费掉这条建议 ★
+            //   放在最后：如果上面任何一步失败（目标为空、Spell 构造异常），
+            //   建议不会被消费，下一帧还能再用 —— 比"判了不用"更合理。
+            AiDecisionLayer.消费();
         }
         catch (Exception e)
         {

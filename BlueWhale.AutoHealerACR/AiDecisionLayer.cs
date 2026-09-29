@@ -245,8 +245,21 @@ public static class AiDecisionLayer
     // ==================== 消费 ====================
 
     /// <summary>
-    /// 取建议拿去做决策。
-    /// 返回 null 表示"没有可用建议" —— **调用方必须退回原逻辑**。
+    /// 取建议（**出队**）。返回 null 表示"没有可用建议"。
+    ///
+    /// ⚠️ **不要在 Check() 里调这个** —— 会导致逻辑陷阱：
+    ///
+    ///    Check 出队 A → 返回高分
+    ///      ↓
+    ///    如果这一帧被更高优先级的 resolver 抢先，Build 没被调用
+    ///      → **A 已经出队，永久丢失** ❌
+    ///
+    ///    而且 Build 里再读"当前建议"（Peek）时已经不是 A 了
+    ///      → **Check 判的是 A，Build 放的可能是 B** ❌
+    ///
+    ///  正确用法：
+    ///    Check → 用 当前建议（只看）
+    ///    Build → 用 当前建议 + 放完之后调 消费()
     /// </summary>
     public static 建议? 取建议()
     {
@@ -257,6 +270,26 @@ public static class AiDecisionLayer
         var s = _队列.Dequeue();
         命中次数++;
         return s;
+    }
+
+    /// <summary>
+    /// 消费队首建议（**技能真的放出去了才调**）。
+    ///
+    /// 这是 Check/Build 分离的正确做法：
+    ///   Check 只看（Peek）→ 不动队列
+    ///   Build 放成功后 → 调这个出队
+    /// </summary>
+    public static void 消费()
+    {
+        try
+        {
+            清理过期();
+            if (_队列.Count == 0) return;
+
+            _队列.Dequeue();
+            命中次数++;
+        }
+        catch { }
     }
 
     public static void 重置()

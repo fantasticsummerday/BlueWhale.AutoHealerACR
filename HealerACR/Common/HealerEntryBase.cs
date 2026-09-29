@@ -385,10 +385,36 @@ public class HealRotationEventHandler : IRotationEventHandler
 
     public Task OnNoTarget() => Task.CompletedTask;
 
+    /// <summary>
+    /// 战斗结束 / 重置。
+    ///
+    /// ⚠️ **这里必须把每一个"有状态"的模块都清一遍。**
+    ///
+    ///    之前只清了 HealQt 和 TimelineManager，结果 6 个静态状态类
+    ///    跨战斗带着上一场的数据 —— 这类 bug 很隐蔽，因为：
+    ///      · 不会报错，只是"行为有点怪"
+    ///      · 而且只在"连打两场"时才出现，单独测一场发现不了
+    ///
+    ///    具体后果：
+    ///      以太管理     → 以为"刚用过豆子" → 下一场开场不卸豆
+    ///      本地施放记录 → 以为"刚放过盾"   → 开场不放盾
+    ///      死亡追踪     → 带着过期尸体记录 → 复活判断错
+    ///      敌人移动检测 → 旧副本的位置数据 → 地面技能选位错
+    ///      Dot黑名单    → 带上一场的怪种类 → 误拦正常目标
+    ///    </summary>
     public void OnResetBattle()
     {
         HealQt.Reset();
-        TimelineManager.战斗重置();
+        TimelineManager.战斗重置();   // 内部会清 减伤信号
+
+        // ── 下面这些是后加的模块，每个都得在这里清 ──
+        //    新增带状态的模块时，**别忘了往这里加一行**。
+        try { 以太管理.重置(); } catch { }
+        try { 本地施放记录.重置(); } catch { }
+        try { 死亡追踪.重置(); } catch { }
+        try { 敌人移动检测.重置(); } catch { }
+        try { Dot黑名单.重置自适应(); } catch { }
+        try { 技能熔断.重置(); } catch { }
     }
 
     public void OnSpellCastSuccess(Slot slot, Spell spell)
@@ -473,5 +499,23 @@ public class HealRotationEventHandler : IRotationEventHandler
 
         // 换副本了，让时间轴重新匹配
         TimelineManager.战斗重置();
+
+        // ── 换本时把所有带状态的模块也清一遍 ──
+        //   理由和 OnResetBattle 一样：旧地图的状态在新地图里全是错的。
+        //   尤其是：
+        //     · 敌人移动检测 —— 位置数据是上一个副本的敌人
+        //     · DoT 黑名单     —— 上个别本的怪种类
+        //     · 死亡追踪       —— 上场的尸体记录
+        try { 以太管理.重置(); } catch { }
+        try { 本地施放记录.重置(); } catch { }
+        try { 死亡追踪.重置(); } catch { }
+        try { 敌人移动检测.重置(); } catch { }
+        try { Dot黑名单.重置自适应(); } catch { }
+        try { 技能熔断.重置(); } catch { }
+
+        // ★ 通知 AI 层：局面完全变了 ★
+        //   不通知的话，AI 的"倾向"和阈值偏移会从上个副本带过来 ——
+        //   比如上个本一直在打小怪（激进），进 Boss 本还保持激进。
+        try { 状态重置钩子.通知(); } catch { }
     }
 }

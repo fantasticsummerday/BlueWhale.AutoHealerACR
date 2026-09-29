@@ -64,6 +64,18 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
         HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
             战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
         HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
+
+        // ★ 挂上状态重置钩子 ★
+        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
+        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
+        HealerACR.Common.状态重置钩子.重置 = () =>
+        {
+            AiStrategyLayer.重置();
+            AiDecisionLayer.重置();
+            AiThresholdAdapter.重置平滑();
+            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
@@ -72,6 +84,8 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
     public override void Dispose()
     {
         AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
+        HealerACR.Common.记忆钩子.卸载();
+        HealerACR.Common.状态重置钩子.卸载();
         base.Dispose();
     }
 
@@ -147,6 +161,18 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
         HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
             战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
         HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
+
+        // ★ 挂上状态重置钩子 ★
+        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
+        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
+        HealerACR.Common.状态重置钩子.重置 = () =>
+        {
+            AiStrategyLayer.重置();
+            AiDecisionLayer.重置();
+            AiThresholdAdapter.重置平滑();
+            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
@@ -155,6 +181,8 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
     public override void Dispose()
     {
         AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
+        HealerACR.Common.记忆钩子.卸载();
+        HealerACR.Common.状态重置钩子.卸载();
         base.Dispose();
     }
 
@@ -230,6 +258,18 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
         HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
             战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
         HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
+
+        // ★ 挂上状态重置钩子 ★
+        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
+        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
+        HealerACR.Common.状态重置钩子.重置 = () =>
+        {
+            AiStrategyLayer.重置();
+            AiDecisionLayer.重置();
+            AiThresholdAdapter.重置平滑();
+            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
@@ -238,6 +278,8 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
     public override void Dispose()
     {
         AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
+        HealerACR.Common.记忆钩子.卸载();
+        HealerACR.Common.状态重置钩子.卸载();
         base.Dispose();
     }
 
@@ -313,6 +355,18 @@ public class BlueWhaleSageEntry : SGERotationEntry
         HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
             战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
         HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
+
+        // ★ 挂上状态重置钩子 ★
+        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
+        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
+        HealerACR.Common.状态重置钩子.重置 = () =>
+        {
+            AiStrategyLayer.重置();
+            AiDecisionLayer.重置();
+            AiThresholdAdapter.重置平滑();
+            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
@@ -321,6 +375,8 @@ public class BlueWhaleSageEntry : SGERotationEntry
     public override void Dispose()
     {
         AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
+        HealerACR.Common.记忆钩子.卸载();
+        HealerACR.Common.状态重置钩子.卸载();
         base.Dispose();
     }
 
@@ -642,9 +698,29 @@ public override Rotation Build(string settingFolder)
         HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
             战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
         HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
+
+        // ★ 挂上状态重置钩子 ★
+        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
+        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
+        HealerACR.Common.状态重置钩子.重置 = () =>
+        {
+            AiStrategyLayer.重置();
+            AiDecisionLayer.重置();
+            AiThresholdAdapter.重置平滑();
+            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
         AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
 
         return rot;
+    }
+
+    public override void Dispose()
+    {
+        AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
+        HealerACR.Common.记忆钩子.卸载();
+        HealerACR.Common.状态重置钩子.卸载();
+        base.Dispose();
     }
 }
 }
