@@ -190,12 +190,10 @@ internal static class Ai层挂载
             HealQt.写回("强制熔断", false);
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            // ★ 彩蛋：同「初始化成功」★
-            var 彩蛋 = HealerACR.Common.屏幕提示.唱歌();
-            if (彩蛋 != null) Ai调试.日志("彩蛋触发：解除熔断");
+            // ★ 彩蛋：同「初始化成功」—— 排队，之后逐句发 ★
+            HealerACR.Common.彩蛋.试试();
 
-            屏幕提示.成功("熔断已手动解除" + (彩蛋 != null ? "  " + 彩蛋 : ""),
-                          "ai-manual-unfuse");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();     // 挂上 AI 阈值钩子

@@ -1164,6 +1164,12 @@ public class HealRotationEventHandler : IRotationEventHandler
         //     没挂回调时（原版 HealerACR）本方法只是空转，不影响任何东西。
         // ══════════════════════════════════════════════════════════════
         进本识别.每帧检查();
+
+        // ★ 彩蛋：把"逐句唱"往前推 ★
+        //
+        //  ⚠️ 必须放**本地层** —— 记录模式下 `AiHeartbeat` 会被移出队列，
+        //     放 AI 层的话歌唱到一半就永远卡住了。
+        彩蛋.每帧更新();
     }
 
     public void OnEnterRotation()
@@ -1255,6 +1261,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         //     `_上次在副本` 一直是 true → 边沿判据认为"没变化" → 不输出。
         //     清了之后，下一个副本会被当成"新的一次进入"，正常输出。
         try { 进本识别.重置(); } catch { }
+        try { 彩蛋.重置(); } catch { }        // 换本别把没唱完的句子带过去
     }
 
 
