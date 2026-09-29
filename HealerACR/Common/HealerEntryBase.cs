@@ -611,6 +611,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ⚠️ 效果确认也有静态状态（_待确认技能 / _确认记录），
         //    之前漏了这里 —— 正是开发约定 F① 那类"有状态但没清"。
         try { 效果确认.重置(); } catch { }
+        try { 技能诊断.重置(); } catch { }   // 诊断节流记录
     }
 
     public void OnSpellCastSuccess(Slot slot, Spell spell)
@@ -709,6 +710,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { Dot黑名单.重置自适应(); } catch { }
         try { 技能熔断.重置(); } catch { }
         try { 效果确认.重置(); } catch { }   // 同上：换本也要清
+        try { 技能诊断.重置(); } catch { }
 
         // ★ 通知 AI 层：局面完全变了 ★
         //   不通知的话，AI 的"倾向"和阈值偏移会从上个副本带过来 ——
