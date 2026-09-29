@@ -66,25 +66,63 @@ public static class 地名
     /// </summary>
     private static string? 找目录()
     {
+        // ⚠️ 两个分支的失败原因都要打出来 ——
+        //    原来两个 catch 都是空的，于是"找不到目录"这件事在日志里
+        //    **完全不可见**：既没有"已加载"也没有"加载失败"，只有一片沉默。
+        //    实测就是这样：跑了几十场，`[地名]` 一次都没出现过，
+        //    而 `是副本()` 对**所有**地图都返回 false
+        //    （连 1048「究极神兵破坏作战」都判成"不是副本"）。
+        string 程序集 = "";
+        string 基准 = "";
+        string 比1 = "?", 比2 = "?";
+
         try
         {
-            var 程序集 = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            程序集 = System.Reflection.Assembly.GetExecutingAssembly().Location ?? "";
+        }
+        catch (Exception e) { 程序集 = "（读取异常：" + e.Message + "）"; }
+
+        try
+        {
+            基准 = AppContext.BaseDirectory ?? "";
+        }
+        catch { }
+
+        try
+        {
             if (!string.IsNullOrWhiteSpace(程序集))
             {
                 var d = Path.GetDirectoryName(程序集);
-                if (!string.IsNullOrWhiteSpace(d) && File.Exists(Path.Combine(d, "TerritoryNames.json")))
-                    return d;
+                if (!string.IsNullOrWhiteSpace(d))
+                {
+                    比1 = Path.Combine(d, "TerritoryNames.json");
+                    if (File.Exists(比1))
+                    {
+                        LogHelper.Info("[地名] 数据目录（取自程序集位置）：" + d);
+                        return d;
+                    }
+                }
             }
         }
-        catch { }
+        catch (Exception e) { 比1 = "（异常：" + e.Message + "）"; }
 
         try
         {
-            if (File.Exists(Path.Combine(AppContext.BaseDirectory, "TerritoryNames.json")))
-                return AppContext.BaseDirectory;
+            if (!string.IsNullOrWhiteSpace(基准))
+            {
+                比2 = Path.Combine(基准, "TerritoryNames.json");
+                if (File.Exists(比2))
+                {
+                    LogHelper.Info("[地名] 数据目录（取自 BaseDirectory）：" + 基准);
+                    return 基准;
+                }
+            }
         }
-        catch { }
+        catch (Exception e) { 比2 = "（异常：" + e.Message + "）"; }
 
+        // ★ 两个都失败 → 把**实际试过的路径**打出来（这是原来缺的那条信息）★
+        LogHelper.Info($"[地名] 找不到数据目录 ｜ 程序集={程序集} ｜ BaseDirectory={基准} " +
+                       $"｜ 试过：{比1} ／ {比2}");
         return null;
     }
 
