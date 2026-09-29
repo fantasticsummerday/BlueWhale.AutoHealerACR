@@ -97,6 +97,15 @@ public class SCHSpellTable : JobSpellTable
             //   比血量阈值更直接（血线可能涨回来了，但花掉的资源还没补上）。
             //
             //   所以刚用过豆子的 7 秒内，一律不卸豆。
+            // ★ 低蓝停手（对照同类 ACR 的 ScholarSpellHelper.IsLowMpStopActive）★
+            //
+            //   它的卸豆和补豆 Check 里**都**有这个检查。
+            //   我原来漏了 —— 后果是蓝量见底时还在卸豆换输出，
+            //   把该留给治疗的蓝花掉了。
+            //
+            //   注意：这里**同时管住卸豆和补豆**，因为两者都在这个方法里。
+            if (蓝量.低蓝停手()) return Array.Empty<uint>();
+
             if (!是Boss && HealQt.GetQt("小怪卸豆", true))
             {
                 var 小怪保留 = Math.Max(1, Math.Clamp(HealSettings.Instance.以太保留数, 1, 2));
@@ -219,6 +228,11 @@ public class SCH_Aetherflow : ISlotResolver
             //
             //    正确规则：只有**已经满了**（3 颗）才不开，否则 CD 好了就补。
             if (JobApiHelper.读得到("以太") && JobApiHelper.以太 >= 3) return -3;
+
+        // ★ 低蓝时不补豆（对照同类 ACR：它的补豆 Check 里也有 IsLowMpStopActive）★
+        //   理由：补豆是为了卸豆换输出，低蓝时该做的是省蓝治疗。
+        if (蓝量.低蓝停手()) return -4;
+
         if (!CharacterExt.可以插能力技()) return -6;
 
         if (HealSettings.Instance.时间轴攒资源 && TimelineManager.未来有减伤(4.0)) return -5;

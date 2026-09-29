@@ -267,6 +267,11 @@ public class SGE_Rhizomata : ISlotResolver
         if (!HealQt.GetQt("根素", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.蛇胆 >= 1) return -3;
+
+        // ★ 低蓝时不补蛇胆（和学者的补豆同一个道理）★
+        //   补资源是为了花出去换治疗/输出，低蓝时该省蓝。
+        if (蓝量.低蓝停手()) return -4;
+
         if (!CharacterExt.可以插能力技()) return -6;
 
         return SpellUtil.可用(技能) ? 2 : -1;
