@@ -88,7 +88,11 @@ public static class AiStrategyLayer
         try
         {
             var 局面 = 收集局面();
-            var 回复 = await DeepSeekClient.提问(系统提示, 局面, 10000).ConfigureAwait(false);   // 策略层：提示词长，给足 10 秒
+            var 回复 = await DeepSeekClient.提问(系统提示, 局面, 10000,
+                // ⚠️ 原来只传了 `10000`（那是**超时**），`最大Token` 走了默认 2000。
+                //    策略层输出是**大段正文**，而推理型模型的思考也占 max_tokens ——
+                //    2000 会把正文挤成空。这和初始化那次失败是**同一个错**。
+                最大Token: 6000).ConfigureAwait(false);
 
             if (回复 == null)
             {

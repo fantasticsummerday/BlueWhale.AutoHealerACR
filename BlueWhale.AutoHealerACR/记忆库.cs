@@ -319,7 +319,7 @@ public static class 记忆库
             //    超时也要放宽：提炼比决策慢得多，用 30 秒。
             return await DeepSeekClient.提问(提炼提示词, 统计,
                 超时毫秒: 30000,
-                最大Token: 2500);
+                最大Token: 5000);   // 总结一场完整副本：2500 偏紧，会截在句子中间
         }
         catch (Exception e)
         {
