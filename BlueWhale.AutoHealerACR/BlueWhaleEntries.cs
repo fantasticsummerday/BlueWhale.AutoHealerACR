@@ -170,7 +170,7 @@ internal static class Ai层挂载
 
         // ── 「强制熔断」QT 开关 —— **状态型**，不弹回 ──
         //
-        //   苧上 = 停掉所有 AI 请求；取消 = 恢复。
+        //   勾上 = 停掉所有 AI 请求；取消 = 恢复。
         //  ⚠️ 参数是 bool（开还是关）—— 不能像下面那个一样无参。
         HealQt.强制熔断请求 = 开 =>
         {
@@ -190,7 +190,12 @@ internal static class Ai层挂载
             HealQt.写回("强制熔断", false);
             Ai初始化.重置();
             Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
+            // ★ 彩蛋：同「初始化成功」★
+            var 彩蛋 = HealerACR.Common.屏幕提示.唱歌();
+            if (彩蛋 != null) Ai调试.日志("彩蛋触发：解除熔断");
+
+            屏幕提示.成功("熔断已手动解除" + (彩蛋 != null ? "  " + 彩蛋 : ""),
+                          "ai-manual-unfuse");
         };
 
         AiHookInstaller.挂载();     // 挂上 AI 阈值钩子
