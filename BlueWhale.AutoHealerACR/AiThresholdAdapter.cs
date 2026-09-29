@@ -220,7 +220,7 @@ public static class AiHookInstaller
         {
             HealerACR.Common.阈值钩子.治疗阈值调整 = AiThresholdAdapter.单体治疗阈值;
             _已挂 = true;
-            LogHelper.Info("[BlueWhale.AI] 阈值钩子已挂载 —— AI 的保守/激进会影响实际治疗阈值");
+            Ai调试.日志("阈值钩子已挂载 —— AI 的保守/激进会影响实际治疗阈值");
         }
         catch (Exception e)
         {

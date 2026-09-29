@@ -73,7 +73,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
-            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -87,7 +87,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
         {
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
-            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            Ai调试.日志("手动解除熔断");
             屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
@@ -185,7 +185,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
-            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -199,7 +199,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
         {
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
-            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            Ai调试.日志("手动解除熔断");
             屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
@@ -297,7 +297,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
-            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -311,7 +311,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
         {
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
-            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            Ai调试.日志("手动解除熔断");
             屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
@@ -409,7 +409,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
-            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -423,7 +423,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
         {
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
-            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            Ai调试.日志("手动解除熔断");
             屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 
@@ -590,6 +590,15 @@ public static class AiSettingPage
         ImGui.SliderInt("失败冷却（秒）", ref s.失败冷却秒, 10, 300);
 
         ImGui.Checkbox("记录原始回复（调试）", ref s.记录原始回复);
+
+        // ★ 调试模式 ★ —— 开启后 AI 日志直接显示在游戏里
+        if (ImGui.Checkbox("调试模式（AI 日志上屏）", ref s.调试模式))
+        {
+            AiSettings.保存();
+            if (s.调试模式) 屏幕提示.成功("调试模式已开启 —— AI 日志会直接显示在屏幕上", "dbg-on");
+            else 屏幕提示.提示("🐋 小鲸鱼", "调试模式已关闭", "dbg-off");
+        }
+        ImGui.TextDisabled("  开启后 AI 的请求/回复/采纳都会打到屏幕上（日志文件照常写）");
 
         if (ImGui.Button("解除熔断")) DeepSeekClient.解除熔断();
 
@@ -771,7 +780,7 @@ public override Rotation Build(string settingFolder)
             AiStrategyLayer.重置();
             AiDecisionLayer.重置();
             AiThresholdAdapter.重置平滑();
-            LogHelper.Info("[BlueWhale.AI] 换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -785,7 +794,7 @@ public override Rotation Build(string settingFolder)
         {
             DeepSeekClient.解除熔断();
             Ai初始化.重置();
-            LogHelper.Info("[BlueWhale.AI] 手动解除熔断");
+            Ai调试.日志("手动解除熔断");
             屏幕提示.成功("AI 熔断已手动解除", "ai-manual-unfuse");
         };
 

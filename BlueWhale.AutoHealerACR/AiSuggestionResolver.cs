@@ -58,7 +58,7 @@ public class AiSuggestionResolver : ISlotResolver
             // ---- 终审第一步：这个技能在当前职业真的存在吗 ----
             if (!SpellUtil.已解锁(id))
             {
-                LogHelper.Info($"[BlueWhale.AI] 建议 {id} 未解锁，放弃（改用原逻辑）");
+                Ai调试.日志($"建议 {id} 未解锁，放弃（改用原逻辑）");
                 return -1;
             }
 
@@ -83,7 +83,7 @@ public class AiSuggestionResolver : ISlotResolver
         }
         catch (Exception e)
         {
-            LogHelper.Info("[BlueWhale.AI] 建议执行器异常（已忽略）：" + e.Message);
+            Ai调试.日志("建议执行器异常（已忽略）：" + e.Message);
             return -1;
         }
     }
@@ -110,7 +110,7 @@ public class AiSuggestionResolver : ISlotResolver
                 slot.Add(new Spell(id, SpellTargetType.Self));
             }
 
-            LogHelper.Info($"[BlueWhale.AI] 采纳建议：{id} = {SpellIds.反查(id)}（{建议.理由}）");
+            Ai调试.日志($"采纳建议：{id} = {SpellIds.反查(id)}（{建议.理由}）");
 
             // ★ 技能真的进了 slot，才消费掉这条建议 ★
             //   放在最后：如果上面任何一步失败（目标为空、Spell 构造异常），
@@ -119,7 +119,7 @@ public class AiSuggestionResolver : ISlotResolver
         }
         catch (Exception e)
         {
-            LogHelper.Info("[BlueWhale.AI] 建议构建失败（已忽略）：" + e.Message);
+            Ai调试.日志("建议构建失败（已忽略）：" + e.Message);
         }
     }
 

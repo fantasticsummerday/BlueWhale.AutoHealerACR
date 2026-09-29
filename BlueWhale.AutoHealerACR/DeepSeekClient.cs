@@ -123,7 +123,7 @@ public static class DeepSeekClient
                 文本 = rc.GetString();
                 if (!string.IsNullOrWhiteSpace(文本))
                 {
-                    LogHelper.Info("[BlueWhale.AI] 注意：正文来自 reasoning_content（推理型模型）");
+                    Ai调试.日志("注意：正文来自 reasoning_content（推理型模型）");
                 }
             }
 
@@ -139,7 +139,7 @@ public static class DeepSeekClient
 
             if (s.记录原始回复)
             {
-                LogHelper.Info("[BlueWhale.AI] 原始回复：" + 文本.Trim());
+                Ai调试.日志("原始回复：" + 文本.Trim());
             }
 
             return 文本.Trim();
@@ -195,7 +195,7 @@ public static class DeepSeekClient
         }
         else
         {
-            LogHelper.Info($"[BlueWhale.AI] 请求失败（{原因}），第 {_连续失败} 次，走降级。" +
+            Ai调试.日志($"请求失败（{原因}），第 {_连续失败} 次，走降级。" +
                 (是超时 ? $"（超时上限 {上限} 次，属预期行为）" : ""));
         }
     }

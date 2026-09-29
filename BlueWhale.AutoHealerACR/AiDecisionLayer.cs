@@ -153,12 +153,12 @@ public static class AiDecisionLayer
 
             if (条数 > 0)
             {
-                LogHelper.Info($"[BlueWhale.AI] 预取 {条数} 步（队列 {_队列.Count}/{目标长度}）");
+                Ai调试.日志($"预取 {条数} 步（队列 {_队列.Count}/{目标长度}）");
             }
         }
         catch (Exception e)
         {
-            LogHelper.Info("[BlueWhale.AI] 决策预取异常（已忽略）：" + e.Message);
+            Ai调试.日志("决策预取异常（已忽略）：" + e.Message);
         }
         finally
         {
@@ -220,7 +220,7 @@ public static class AiDecisionLayer
                 // ★ 白名单校验：防幻觉的最后一道闸 ★
                 if (!在可选清单里(id))
                 {
-                    LogHelper.Info($"[BlueWhale.AI] 建议的技能 {id} 不在可选清单里，已丢弃（疑似幻觉）");
+                    Ai调试.日志($"建议的技能 {id} 不在可选清单里，已丢弃（疑似幻觉）");
                     continue;
                 }
 
@@ -236,7 +236,7 @@ public static class AiDecisionLayer
         }
         catch (Exception e)
         {
-            LogHelper.Info("[BlueWhale.AI] 建议解析异常：" + e.Message);
+            Ai调试.日志("建议解析异常：" + e.Message);
         }
 
         return 条数;

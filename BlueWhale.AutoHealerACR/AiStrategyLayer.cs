@@ -102,7 +102,7 @@ public static class AiStrategyLayer
             {
                 if (倾向 != _当前倾向)
                 {
-                    LogHelper.Info($"[BlueWhale.AI] 策略切换：{_当前倾向} → {倾向}（{说明}）");
+                    Ai调试.日志($"策略切换：{_当前倾向} → {倾向}（{说明}）");
                 }
 
                 _当前倾向 = 倾向;
@@ -115,7 +115,7 @@ public static class AiStrategyLayer
         }
         catch (Exception e)
         {
-            LogHelper.Info("[BlueWhale.AI] 策略刷新异常（已忽略）：" + e.Message);
+            Ai调试.日志("策略刷新异常（已忽略）：" + e.Message);
         }
         finally
         {

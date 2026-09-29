@@ -75,7 +75,7 @@ public static class Ai初始化
             开始时间 = TimeHelper.Now();
             结果 = "初始化中…";
 
-            LogHelper.Info("[BlueWhale.AI] 开始初始化 —— 让 AI 先把当前局面过一遍");
+            Ai调试.日志("开始初始化 —— 让 AI 先把当前局面过一遍");
             屏幕提示.提示("🐋 小鲸鱼", "初始化中…", "ai-init-start");
 
             _ = 跑一次();
@@ -84,7 +84,7 @@ public static class Ai初始化
         {
             进行中 = false;
             结果 = "初始化异常：" + e.Message;
-            LogHelper.Error("[BlueWhale.AI] 初始化异常：" + e.Message);
+            Ai调试.错误("初始化异常：" + e.Message);
         }
     }
 
@@ -106,14 +106,14 @@ public static class Ai初始化
             if (回复 != null)
             {
                 结果 = "就绪";
-                LogHelper.Info("[BlueWhale.AI] 初始化完成");
+                Ai调试.日志("初始化完成");
 
                 屏幕提示.成功("初始化成功", "ai-init-done");
             }
             else
             {
                 结果 = DeepSeekClient.熔断中 ? "熔断中（走原版逻辑）" : "请求失败（走原版逻辑）";
-                LogHelper.Info("[BlueWhale.AI] 初始化未拿到回复：" + 结果);
+                Ai调试.日志("初始化未拿到回复：" + 结果);
 
                 // ★ 失败时必须给出**具体原因** ★
                 //   只说"失败了"用户没法排查 —— 得让他知道
@@ -129,7 +129,7 @@ public static class Ai初始化
         {
             已完成 = true;
             结果 = "初始化异常：" + e.Message;
-            LogHelper.Error("[BlueWhale.AI] 初始化异常：" + e.Message);
+            Ai调试.错误("初始化异常：" + e.Message);
 
             屏幕提示.警告($"初始化失败：{e.Message}", "ai-init-ex");
         }
@@ -150,7 +150,7 @@ public static class Ai初始化
             进行中 = false;
             已完成 = true;
             结果 = "初始化超时（走原版逻辑）";
-            LogHelper.Info("[BlueWhale.AI] 初始化超时");
+            Ai调试.日志("初始化超时");
 
             屏幕提示.警告("初始化失败：超时（15 秒没响应）", "ai-init-timeout");
         }

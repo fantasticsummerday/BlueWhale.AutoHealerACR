@@ -68,6 +68,15 @@ public class AiSettings
     /// <summary>把 AI 的原始回复打进日志（调试用，平时关掉免得刷屏）</summary>
     public bool 记录原始回复 = false;
 
+    /// <summary>
+    /// 调试模式 —— 启用后 AI 的关键日志**直接显示在游戏里**
+    /// （走屏幕横幅，和"AI 初始化中"同一个通道）。
+    ///
+    /// 用途：调提示词的时候不用开日志文件翻来翻去。
+    /// 关掉它日志照样写文件，只是不上屏。
+    /// </summary>
+    public bool 调试模式 = false;
+
     // ==================== 存取 ====================
 
     private static readonly JsonSerializerOptions JsonOpts = new()
