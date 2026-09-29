@@ -63,7 +63,18 @@ public class Res_Dot : ISlotResolver
             return -4;
 
         var spell = SpellUtil.当前形态(_t.Dot技能);
-        return spell != null && spell.IsReadyWithCanCast() ? 6 : -1;
+        if (spell == null) return -1;
+
+        // ⚠️ **移动守卫**：DoT 多数是读条的（天辉 / 焚灼…）。
+        //
+        //    ⚠️ 但这条要小心 —— 用户实测报过"移动时没有自动补 DoT"。
+        //       挡住读条 DoT 之后，**必须有瞬发替代**顶上，否则就是"该补却不补"。
+        //       白魔的 天辉 是读条，所以移动中确实放不了 ——
+        //       这时正确的降级是转去放瞬发的 安慰之心/闪飒，而不是硬读天辉。
+        //       （AI 那条路也走 Dot补判，同样会被这里挡住。）
+        if (!SpellUtil.移动中可用(spell.Id)) return -7;
+
+        return spell.IsReadyWithCanCast() ? 6 : -1;
     }
 
     /// <summary>
@@ -160,6 +171,14 @@ public class Res_AoEDamage : ISlotResolver
         var spell = SpellUtil.当前形态(_t.群体输出);
         if (spell == null) return -1;
 
+        // ⚠️ **移动守卫（放在智能选目标之前）**：
+        //    AOE 基本都是读条的（神圣 / 重力 / 蚀魂…），移动中硬放会一直被打断。
+        //
+        //    ⚠️ 位置很重要：**必须放在下面"智能选目标"之前** ——
+        //       那一步会遍历敌人算"哪个落点能打到最多"，
+        //       移动中算完再否决纯属白费（而且那是每帧都在跑的热路径）。
+        if (!SpellUtil.移动中可用(spell.Id)) return -7;
+
         // ⚠️ 直接用 GetMostCanTargetObjects 找"能打到最多敌人"的目标，
         //    而不是"数当前目标周围有几个"。
         //
@@ -234,6 +253,12 @@ public class Res_BaseDamage : ISlotResolver
         if (_t.有特殊输出形态) return -5;
 
         var spell = SpellUtil.当前形态(_t.基础输出);
+        // ⚠️ **移动守卫**：移动中不要放读条技能。
+        //    不加这条的后果（用户实测）：读条被移动打断 → 下一帧再塞 → 再断，
+        //    表现成"反复尝试读条"，GCD 全空转。
+        //    挡住之后，瞬发技能（学者的毁坏 / 白魔的安慰之心…）自然轮到前面。
+        //    ⚠️ 用 当前形态 之后的 spell.Id —— 形态可能被游戏换掉。
+        if (spell != null && !SpellUtil.移动中可用(spell.Id)) return -7;
         return spell != null && spell.IsReadyWithCanCast() ? 1 : -1;
     }
 

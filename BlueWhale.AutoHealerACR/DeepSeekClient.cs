@@ -55,6 +55,81 @@ public static class DeepSeekClient
     /// ⚠️ 原来两层共用一个 3000ms，结果策略层每次都超时：
     ///     测试连接 0.5 秒能通，策略层 3 秒不够 —— 日志里全是"请求失败（超时）"。
     /// </summary>
+    // ==================== 推理型模型的回复处理 ====================
+
+    /// <summary>
+    /// 处理"正文为空、只有思考内容"的情况。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 这是一个**真实且严重**的问题（日志实测）★
+    ///
+    ///    原来这里是无条件兜底：content 空就拿 reasoning_content 当答案。
+    ///    后果（用户截图里的"解析失败"刷屏）：
+    ///
+    ///      小鲸鱼原始回复：We need answer in Chinese, FF14 healer decision.
+    ///                     Need pick up to 3 GCDs. Data: ...
+    ///      解析失败：『Need consider "能否插能力技：否"...』不是 `技能ID|理由` 格式
+    ///
+    ///    `deepseek-flash` 是**推理型模型**：它先产出大段思考，
+    ///    有时思考还没结束就返回了（token 用尽 / 超时），**正文是空的**。
+    ///    那份思考是英文的、也不是 `ID|理由` 格式 ——
+    ///    拿去解析必然 100% 失败，一次有效建议都拿不到。
+    ///
+    ///  ── 现在的处理：**从思考里捞，捞不到就认失败** ──
+    ///
+    ///    ① 逐行找形如 `数字|任意内容` 的行 —— 那是我们真正要的格式。
+    ///       推理型模型在思考里**经常已经把结论写出来了**（比如
+    ///       "So 25871|..."），捞出来能救回一部分请求。
+    ///    ② 一行都捞不到 → 返回空 → 上层记失败并走降级。
+    ///
+    ///    ⚠️ **为什么不再原样返回思考内容**：
+    ///       那样上层会把它当"AI 的建议"去解析，产生**成百上千条
+    ///       "解析失败"日志**（实测 692 条），既污染统计又让人误以为
+    ///       "AI 一直在乱回"，而真相是"它根本还没开始回"。
+    ///       认失败反而更诚实：统计数字反映真实可用率。
+    ///
+    ///  ⚠️ 治本的方向是**别让正文为空**（加大 max_tokens、
+    ///     或者用非推理型模型）。这里只是止损，不是根治。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static string? 处理推理型回复(string? 推理)
+    {
+        if (string.IsNullOrWhiteSpace(推理)) return null;
+
+        try
+        {
+            var 捞出来的 = new List<string>();
+
+            foreach (var 行 in 推理.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var 段 = 行.Trim().Split('|', 2);
+                if (段.Length < 2) continue;
+
+                // 必须严格是"纯数字|内容"——避免把思考里的普通句子误捞进来
+                if (!uint.TryParse(段[0].Trim(), out var id)) continue;
+                if (id == 0) continue;
+
+                捞出来的.Add($"{id}|{段[1].Trim()}");
+
+                if (捞出来的.Count >= 每次最多捞几条) break;
+            }
+
+            if (捞出来的.Count == 0) return null;
+
+            Ai调试.日志(
+                $"注意：正文为空，从 reasoning_content 里捞到 {捞出来的.Count} 条 `ID|理由`" +
+                "（推理型模型没输出正文就返回了 —— 建议加大 max_tokens 或换非推理模型）");
+
+            return string.Join('\n', 捞出来的);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private const int 每次最多捞几条 = 3;
+
     // ==================== 语言限定 ====================
 
     /// <summary>
@@ -172,9 +247,10 @@ public static class DeepSeekClient
             using var doc = JsonDocument.Parse(json);
             var 消息 = doc.RootElement.GetProperty("choices")[0].GetProperty("message");
 
-            // ⚠️ 推理型模型的正文可能在 reasoning_content，
-            //    content 会是空字符串 —— 只读 content 就会误判成"回复为空"。
-            //    （日志里那一串"连续失败（回复为空）"就是这么来的。）
+            // ⚠️ 推理型模型的正文可能在 reasoning_content，content 会是空字符串。
+            //    但**不能无条件拿 reasoning_content 当答案** —— 那是"思考过程"，
+            //    格式和语言都不对，直接拿去解析会全军覆没。
+            //    详见下面 处理推理型回复 的说明。
             string? 文本 = null;
 
             if (消息.TryGetProperty("content", out var c))
@@ -182,19 +258,23 @@ public static class DeepSeekClient
                 文本 = c.GetString();
             }
 
-            if (string.IsNullOrWhiteSpace(文本) && 消息.TryGetProperty("reasoning_content", out var rc))
+            string? 推理 = null;
+            if (消息.TryGetProperty("reasoning_content", out var rc))
             {
-                文本 = rc.GetString();
-                if (!string.IsNullOrWhiteSpace(文本))
-                {
-                    Ai调试.日志("注意：正文来自 reasoning_content（推理型模型）");
-                }
+                推理 = rc.GetString();
             }
 
             if (string.IsNullOrWhiteSpace(文本))
             {
-                记失败($"回复为空（HTTP 200，但 content 和 reasoning_content 都空。原始：{json.Substring(0, Math.Min(200, json.Length))}）");
-                return null;
+                // 正文为空、但有思考内容 → 尝试从思考里**捞**可用的回复
+                文本 = 处理推理型回复(推理);
+
+                if (string.IsNullOrWhiteSpace(文本))
+                {
+                    // 捞不出来 → 记失败（**不要**把思考过程当答案塞给上层）
+                    记失败("正文为空，且思考过程里没有可用的 `ID|理由` 行");
+                    return null;
+                }
             }
 
             // 成功 → 清空失败计数

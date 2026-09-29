@@ -153,6 +153,14 @@ public class Res_HealAoEGcd : ISlotResolver
         var s = HealSettings.Instance;
         if (HealTargetHelper.低于阈值人数(s.群体治疗阈值) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
 
+        // ⚠️ **移动守卫**：群体治疗 GCD 基本都是读条的（阳星 / 医治 / 预后…），
+        //    移动中硬读会一直被打断。
+        //    ⚠️ 但要注意：**能力技群奶不受影响**（天星冲日 / 不屈不挠之策 /
+        //       法令…），它们走 Res_HealAoEAbility，没有移动限制 ——
+        //       所以移动中的群体治疗**不会完全没有**，只是从 GCD 版
+        //       降级到能力技版。这正是想要的行为。
+        if (!SpellUtil.移动中可用(_t.群体治疗GCD)) return -7;
+
         return SpellUtil.可用(_t.群体治疗GCD) ? 12 : -1;
     }
 
@@ -223,6 +231,16 @@ public class Res_HealSingleGcd : ISlotResolver
             }
         }
         catch { }
+
+        // ⚠️ **移动守卫**：单体治疗 GCD 基本都读条（治疗 / 救疗 / 鼓舞…），
+        //    移动中硬读会被打断。
+        //
+        //    ⚠️ 注意它**只挡 GCD 治疗** —— 上面「必须奶满」那条已经提前 return 了
+        //       （中继死机制时不能因为走位就放弃救人），
+        //       而能力技治疗（天赐祝福 / 神名 / 活性法…）走
+        //       Res_HealEmergency，不受这条限制。
+        //       所以移动中**仍然有救急手段**，只是不用读条那条路。
+        if (!SpellUtil.移动中可用(_t.单体治疗GCD)) return -7;
 
         return SpellUtil.可用(_t.单体治疗GCD) ? 10 : -1;
     }

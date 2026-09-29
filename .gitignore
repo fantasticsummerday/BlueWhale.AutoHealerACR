@@ -79,3 +79,6 @@ tools/
 
 # 一次性扫描产物（本地分析用）
 emoji_*.txt
+
+# 一次性日志分析产物（本地用）
+log_analysis.txt
