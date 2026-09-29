@@ -73,10 +73,16 @@ public abstract class HealerEntryBase : IRotationEntry
         return rotation
             .SetRotationEventHandler(new HealRotationEventHandler())
             // 日随用的"起手"其实只会做开怪倒计时预铺，序列是空的
-            .AddOpener(level => new 预铺起手(Spells));
-        // 需要固定循环时再补：
-        // .AddSlotSequences(...)
-        // .AddTriggerAction(...)
+            .AddOpener(level => new 预铺起手(Spells))
+            // ── Trigger 入口（对照 鍚岀被 ACR 用的 AddTriggerAction）──
+            //   这让"铺减伤 / 攒资源"能从 AEAssist 的时间轴编辑器里直接触发，
+            //   不用只依赖我自己的轮询。
+            //   两者并存：轮询还在跑，Trigger 是额外的触发源。
+            .AddTriggerAction(new AEAssist.CombatRoutine.Trigger.ITriggerAction[]
+            {
+                new 减伤触发器(),
+                new 攒资源触发器(),
+            });
     }
 
     /// <summary>把开关暴露到 QT 面板。子类可以 override 之后往里面加职业专属开关。</summary>
@@ -90,6 +96,14 @@ public abstract class HealerEntryBase : IRotationEntry
         效果确认.尝试挂载();
         var s = HealSettings.Instance;
         视图窗口 = new JobViewWindow(s.职业视图保存, s.保存回调, OverlayTitle);
+
+        // ── 加一个「优先级」页签（对照 鍚岀被 ACR 的 JobPriorityUI）──
+        //   决定血线接近时先救谁。用 JobViewWindow.AddTab 挂进去。
+        try
+        {
+            视图窗口.AddTab("优先级", _ => 职业优先级.画());
+        }
+        catch { }
 
         void 加开关(string 名称, bool 默认)
         {
