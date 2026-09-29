@@ -63,6 +63,13 @@ public class SCH_AdloquiumUpgrade : ISlotResolver
 
         if (!TimelineManager.未来有减伤(4.0) && !减伤Helper.即将来大伤害()) return -1;
 
+        // ⚠️ 移动守卫（审计发现漏了）——
+        //    意气轩昂之策（盾）是 **GCD 读条**技能，
+        //    移动中塞进去必然被打断（日志里 SelfCastCancel 就有一条 185 的）。
+        //    ⚠️ 但**不硬挡**：如果有瞬发盾可用（学者没有，留给以后）……
+        //       这里先按标准做法放守卫 —— 让路给别的瞬发盾/治疗。
+        if (!SpellUtil.移动中可用(技能)) return -7;
+
         return SpellUtil.可用(技能) ? 15 : -1;
     }
 

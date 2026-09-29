@@ -55,9 +55,61 @@ public class Res_MustFullHeal : ISlotResolver
         var 技 = 治疗量最大的单体();
         if (技 == 0) return -1;
 
-        // ⚠️ 不加重移动守卫的判断：中这类机制时**不能因为走位就放弃救人**
-        //    （这条是有意为之，和 `Res_HealSingleGcd` 里那句注释一致）
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 移动中**改走瞬发** —— 不是放弃救人（审计 + 用户实测）★
+        //
+        //  ── 原来的注释说 ──
+        //    "不加重移动守卫的判断：中这类机制时**不能因为走位就放弃救人**"
+        //    **这个顾虑是对的，但解法是错的**：
+        //    移动中读条**必然被打断**（日志里 SelfCastCancel 87 条为证），
+        //    结果不是"救到了"，而是"读条被打断 + 这一发白费"。
+        //
+        //  ── 正确解法 ──
+        //    移动中**改用瞬发能力技**（神名 / 天赐祝福 / 生命活性法 / 先天禀赋）——
+        //    它们不读条，能真的把这一口给出去。
+        //    这些技能**治疗量够大**（天赐直接到满），救急完全够用。
+        //
+        //  ⚠️ 顺序：**先瞬发，再读条**。
+        //     站定时读条的那个治疗量更大（比如救疗 > 神名），所以站定优先读条；
+        //     移动时读条必然失败，所以必须换成瞬发。
+        // ══════════════════════════════════════════════════════════════
+        var 移动中 = SpellUtil.在移动();
+
+        if (移动中)
+        {
+            // 移动中：只要有一个瞬发可用就交给它 —— 本 resolver 让路，
+            // 因为 `Res_InstantHealAbility` / `Res_HealEmergency` 排在后面，
+            // 它们会接住（而且它们的目标选择更精确）。
+            if (有瞬发可用()) return -1;
+
+            // 连瞬发都没有 → 读条在移动中也放不出，这一发只能放弃。
+            //   ⚠️ 不要"硬读" —— 那是白费 GCD（日志里就发生过）。
+            if (!SpellUtil.移动中可用(技)) return -1;
+        }
+
         return SpellUtil.可用(技) ? 40 : -1;
+    }
+
+    /// <summary>
+    /// 现在有没有**可用的瞬发单体治疗能力技**（移动中救急用）。
+    ///
+    /// 检查顺序：瞬发单奶能力技 → 预铺单奶能力技 → 紧急单奶。
+    /// 任一可用就返回 true —— 本 resolver 好让路给它们。
+    /// </summary>
+    private bool 有瞬发可用()
+    {
+        try
+        {
+            foreach (var id in new[] { _t.瞬发单奶能力技, _t.预铺单奶能力技, _t.紧急单奶 })
+            {
+                if (id == 0) continue;
+                if (!SpellUtil.已解锁(id)) continue;
+                if (SpellUtil.可用(id)) return true;
+            }
+        }
+        catch { }
+
+        return false;
     }
 
     public void Build(Slot slot)
@@ -423,6 +475,17 @@ public class Res_HealShield : ISlotResolver
         //    （正是 `SpellUtil.移动中能放` 那段注释里记的用户实测问题）。
         if (!SpellUtil.移动中可用(_t.单体盾)) return -7;
 
+        // ⚠️ **护盾前置（贤者「均衡」）也必须在这里判**（审计发现）——
+        //    原来只有 Build 里无条件加它，Check 里完全没有这一句。
+        //    ⇒ 均衡在 CD 时 Build 照样把它塞进 slot 第一个位置，
+        //      那个动作无效，而且盾**可能因此根本出不来**
+        //      （贤者靠盾吃饭；`SGE_Dot` 注释也写过"同一帧按完均衡
+        //        就立刻放均衡诊断是放不出来的"）。
+        if (_t.护盾前置 != 0 && !JobApiHelper.均衡中 && !SpellUtil.可用(_t.护盾前置))
+        {
+            return -1;
+        }
+
         return SpellUtil.可用(_t.单体盾) ? 3 : -1;
     }
 
@@ -485,7 +548,7 @@ public class Res_HealShield : ISlotResolver
         var 目标 = 选目标(该铺);
         if (目标 == null) return;
 
-        if (_t.护盾前置 != 0 && !JobApiHelper.均衡中)
+        if (_t.护盾前置 != 0 && !JobApiHelper.均衡中 && SpellUtil.可用(_t.护盾前置))
         {
             var pre = SpellUtil.Get(_t.护盾前置);
             if (pre != null) slot.Add(pre);
