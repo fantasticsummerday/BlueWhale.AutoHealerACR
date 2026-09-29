@@ -42,9 +42,35 @@ public class Res_SummonPet : ISlotResolver
 
     public Res_SummonPet(JobSpellTable table) => _t = table;
 
+    /// <summary>【临时诊断】每 2 秒最多一条</summary>
+    private static long _上次诊断;
+
+    private void 诊断(string 说明)
+    {
+        try
+        {
+            var 现在 = AEAssist.Helper.TimeHelper.Now();
+            if (现在 - _上次诊断 < 2000) return;
+            _上次诊断 = 现在;
+
+            var 有宠 = JobApiHelper.有小仙女;
+            var 转化 = false;
+            try { 转化 = Core.Me.HasAura(AuraIds.转化中); } catch { }
+
+            AEAssist.Helper.LogHelper.Info(
+                $"[召唤诊断] {说明} ｜ 有小仙女={有宠} 转化中={转化} " +
+                $"在移动={SpellUtil.在移动()} 在副本={进本识别.在副本里()} " +
+                $"解锁={SpellUtil.已解锁(_t.召唤宠物)} 可用={SpellUtil.可用(_t.召唤宠物)} " +
+                $"QT={HealQt.GetQt("自动召唤", true)}");
+        }
+        catch { }
+    }
+
     public int Check()
     {
         if (_t.召唤宠物 == 0) return -102;                  // 这个职业没有宠物
+
+        诊断("Check 进入");
 
         // ★ Qt 开关 —— 用户能关掉（和「小仙女」那个开关分开：
         //   那个管"用不用小仙女的技能"，这个管"召不召唤"）
@@ -100,6 +126,17 @@ public class Res_SummonPet : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.Get(_t.召唤宠物);
+
+        // 【临时诊断】Build 有没有拿到技能对象
+        try
+        {
+            AEAssist.Helper.LogHelper.Info(
+                $"[召唤诊断] Build ｜ id={_t.召唤宠物} " +
+                $"spell={(spell == null ? "null" : spell.Id.ToString())} " +
+                $"形态={SpellUtil.当前形态(_t.召唤宠物)?.Id.ToString() ?? "null"}");
+        }
+        catch { }
+
         if (spell == null) return;
 
         // ⚠️ 「朝日召唤」是**对自己放**的（`Range = 0`，查官方技能表），
