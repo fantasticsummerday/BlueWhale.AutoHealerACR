@@ -43,6 +43,11 @@ public class Res_Dot : ISlotResolver
 
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
 
+        // ── DoT 黑名单（对照 鍚岀被 ACR 的 DotBlacklistHelper）──
+        //   有些怪免疫 DoT 或者吃不上，往它们身上补 = 每 30 秒白费一个 GCD，
+        //   而且因为 buff 永远上不去，DoT 会反复触发、把输出循环卡死。
+        if (!Dot黑名单.可以上Dot(target)) return -5;
+
         if (!该补Dot(target)) return -4;
 
         var spell = SpellUtil.当前形态(_t.Dot技能);

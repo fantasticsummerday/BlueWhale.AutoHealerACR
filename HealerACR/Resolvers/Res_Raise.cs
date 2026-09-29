@@ -36,6 +36,12 @@ public class Res_Raise : ISlotResolver
 
         var 有即刻 = Core.Me.HasAura(AuraIds.即刻);
 
+        // ── 躺够久了才拉（对照 鍚岀被 ACR 的 IsTargetDeadLongEnough）──
+        //   战斗中刚躺下的人可能马上被战复，或者下一秒就被 AOE 打死。
+        //   等 2.5 秒更省资源。
+        //   **但有即刻时不等** —— 即刻是瞬发，没有读条风险，早点拉起来多打一会儿。
+        if (!有即刻 && !死亡追踪.躺够久了(target)) return -11;
+
         // 有即刻：随时拉，最高优先级
         if (有即刻) return 20;
 

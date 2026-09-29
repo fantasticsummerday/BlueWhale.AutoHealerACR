@@ -392,6 +392,9 @@ public class HealRotationEventHandler : IRotationEventHandler
     public void OnBattleUpdate(int currTimeInMs)
     {
         TimelineManager.更新(currTimeInMs);
+
+        // 死亡追踪：记录"谁躺下了、躺了多久"（复活时判断该不该等）
+        死亡追踪.每帧更新();
     }
 
     public void OnEnterRotation()
