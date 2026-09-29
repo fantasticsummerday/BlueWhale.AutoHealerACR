@@ -42,7 +42,7 @@ public class ASTSpellTable : JobSpellTable
     ///
     /// ⚠️ 它原来只在 `Res_SingleMitigation` 里用（靠"伤害要来"触发），
     ///    这里同时登记为预铺单奶能力技，让 `Res_InstantHealAbility` 在
-    ///    坦克掉血时也能主动交 —— 用户要求"优先用不读条的"。
+    ///    坦克掉血时也能主动交 —— "优先用不读条的"。
     /// </summary>
     /// <summary>单体 HoT：吉星相位（3595）—— 注意它是**读条**的（和白魔再生不同）。</summary>
     public override uint 单体HoT => SpellIds.取("吉星相位");
@@ -96,7 +96,7 @@ public class ASTRotationEntry : HealerEntryBase
             //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
             new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
             // ★ 预铺 / 瞬发治疗能力技 —— **必须在所有治疗 GCD 之前**。
-            //   用户实测报过“治疗应该优先能力技 / 不读条的技能”，
+            //   需求是“治疗应该优先能力技 / 不读条的技能”，
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。

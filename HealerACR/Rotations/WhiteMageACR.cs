@@ -145,7 +145,7 @@ public class WHMRotationEntry : HealerEntryBase
             //   就永远轮不到它。详见 Res_MustFullHeal 的类注释。
             new SlotResolverData(new Res_MustFullHeal(_spells), SlotMode.Gcd),
             // ★ 预铺 / 瞬发治疗能力技 —— **必须在所有治疗 GCD 之前**。
-            //   用户实测报过“治疗应该优先能力技 / 不读条的技能”，
+            //   需求是“治疗应该优先能力技 / 不读条的技能”，
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。
@@ -396,7 +396,7 @@ public class WHM_PresenceOfMind : ISlotResolver
 /// 优先级放在普通输出之前，神速一转好就能打上。
 ///
 /// ══════════════════════════════════════════════════════════════════
-///  ⚠️ 用户实测反馈："白魔起手神速后不打闪飒"。这里做了两处针对性加固。
+///  ⚠️ 现象："白魔起手神速后不打闪飒"。这里做了两处针对性加固。
 ///
 ///  ① **判定顺序反过来**：先看 buff（「闪飒预备」= 神速给的 proc），
 ///     再看 IsReadyWithCanCast。
