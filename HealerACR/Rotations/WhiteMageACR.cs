@@ -72,6 +72,9 @@ public class WHMSpellTable : JobSpellTable
     public override uint 紧急单奶 => SpellIds.取("天赐祝福");
 
     /// <summary>水流幕：单体减伤/护盾，86 级 —— 预铺类（伤害来之前给）。</summary>
+    /// <summary>单体 HoT：再生（137，瞬发）—— 移动中唯一能给出的治疗。</summary>
+    public override uint 单体HoT => SpellIds.取("再生");
+
     public override uint 预铺单奶能力技 => SpellUtil.取已解锁(SpellIds.取("水流幕"));
 
     /// <summary>

@@ -41,6 +41,9 @@ public class ASTSpellTable : JobSpellTable
     ///    这里同时登记为预铺单奶能力技，让 `Res_InstantHealAbility` 在
     ///    坦克掉血时也能主动交 —— 用户要求"优先用不读条的"。
     /// </summary>
+    /// <summary>单体 HoT：吉星相位（3595）—— 注意它是**读条**的（和白魔再生不同）。</summary>
+    public override uint 单体HoT => SpellIds.取("吉星相位");
+
     public override uint 预铺单奶能力技 => SpellIds.取("天星交错");
 
     /// <summary>先天禀赋：瞬发、不读条的单体治疗（血量越低效果越强）。</summary>
