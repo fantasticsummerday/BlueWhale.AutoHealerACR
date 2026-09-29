@@ -393,7 +393,17 @@ public sealed class 小鲸鱼面板
         }
     }
 
-    /// <summary>页签栏 —— 自绘下划线式页签（比系统的方块页签清爽）</summary>
+    /// <summary>
+    /// 页签栏 —— 自绘下划线式页签（比系统的方块页签清爽）。
+    ///
+    /// ⚠️ **必须自动换行**：页签有 8 个（优先级/职业/阈值/Qt/Hotkey/风格/AI/记忆库），
+    ///     窗口拉窄时一行排不下 —— 不换行的话后面的会被画到窗口外面，
+    ///     表现是"页签少了一半，而且点不到"。
+    ///
+    ///  ⚠️ 换行的判定用 `ImGui.GetWindowSize().X`（窗口宽度），
+    ///     不是 `GetContentRegionAvail()` —— 后者在这一步还没扣掉
+    ///     我们手动加的缩进，会算宽。
+    /// </summary>
     private void 画页签栏()
     {
         try
@@ -401,28 +411,41 @@ public sealed class 小鲸鱼面板
             var 缩放 = 主题.缩放();
             var draw = ImGui.GetWindowDrawList();
 
-            // 先量一遍宽度，才知道下划线画多长
             var 起点 = ImGui.GetCursorScreenPos();
+            var 行高 = ImGui.GetTextLineHeight() + 10f * 缩放;
+
+            // 可用宽度：窗口宽 - 左右内边距
+            var 可用右 = 起点.X + ImGui.GetWindowSize().X - 主题.内边距;
+
             var x = 起点.X;
-            var 高 = ImGui.GetTextLineHeight() + 10f * 缩放;
+            var y = 起点.Y;
+            var 行数 = 1;
 
             for (var i = 0; i < 页签.Count; i++)
             {
                 var 名 = 页签[i].名字;
                 var 宽 = ImGui.CalcTextSize(名).X + 20f * 缩放;
 
+                // 这一行放不下 → 换行（且不是行首，避免空行）
+                if (x + 宽 > 可用右 && x > 起点.X)
+                {
+                    x = 起点.X;
+                    y += 行高;
+                    行数++;
+                }
+
                 var 选中 = i == _当前页;
 
                 // 命中区
-                ImGui.SetCursorScreenPos(new Vector2(x, 起点.Y));
+                ImGui.SetCursorScreenPos(new Vector2(x, y));
                 ImGui.PushID("tab" + i + 标识);
-                if (ImGui.InvisibleButton("##t", new Vector2(宽, 高))) _当前页 = i;
+                if (ImGui.InvisibleButton("##t", new Vector2(宽, 行高))) _当前页 = i;
                 var 悬停 = ImGui.IsItemHovered();
                 ImGui.PopID();
 
                 // 文字
                 var 文字高 = ImGui.GetTextLineHeight();
-                draw.AddText(new Vector2(x + 10f * 缩放, 起点.Y + 5f * 缩放),
+                draw.AddText(new Vector2(x + 10f * 缩放, y + 5f * 缩放),
                              转U32(选中 ? 主题.主色亮 : (悬停 ? 主题.文字 : 主题.文字弱)),
                              名);
 
@@ -430,22 +453,22 @@ public sealed class 小鲸鱼面板
                 //    色块和背景的对比太强，一排页签会很吵。
                 if (选中)
                 {
-                    draw.AddLine(new Vector2(x + 6f * 缩放, 起点.Y + 高 - 1f),
-                                 new Vector2(x + 宽 - 6f * 缩放, 起点.Y + 高 - 1f),
+                    draw.AddLine(new Vector2(x + 6f * 缩放, y + 行高 - 1f),
+                                 new Vector2(x + 宽 - 6f * 缩放, y + 行高 - 1f),
                                  转U32(主题.主色), 2f * 缩放);
                 }
 
                 x += 宽;
             }
 
-            // 页签栏下面一条很淡的分隔线
-            var 宽总 = ImGui.GetWindowSize().X;
-            draw.AddLine(new Vector2(起点.X, 起点.Y + 高),
-                         new Vector2(起点.X + 宽总 - 主题.内边距 * 2f, 起点.Y + 高),
+            // 页签栏下面一条很淡的分隔线（画在**最后一行**底下）
+            var 底线 = y + 行高;
+            draw.AddLine(new Vector2(起点.X, 底线),
+                         new Vector2(可用右, 底线),
                          转U32(主题.分隔线), 1f);
 
-            // 让出页签栏占的高度
-            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 高 + 主题.行距);
+            // 让出页签栏占的**总高度**（可能多行）
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 行高 * 行数 + 主题.行距);
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 主题.内边距 - 8f);
         }
         catch { }

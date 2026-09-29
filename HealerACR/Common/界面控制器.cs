@@ -41,8 +41,20 @@ public sealed class 界面控制器 : IRotationUI
     /// <summary>自绘主窗口</summary>
     private readonly 小鲸鱼面板 _主窗口;
 
-    /// <summary>画 ACR 设置内容（由入口类注入 = `OnDrawSetting`）</summary>
+    /// <summary>画「阈值」页（由入口类注入 = `画阈值设置`）</summary>
     private readonly Action? _画设置;
+
+    /// <summary>画「优先级」页</summary>
+    private readonly Action? _画优先级;
+
+    /// <summary>画「职业」页（职业资源设置）</summary>
+    private readonly Action? _画职业;
+
+    /// <summary>画「AI」页（BlueWhale 注入）</summary>
+    private readonly Action? _画Ai;
+
+    /// <summary>画「记忆库」页（BlueWhale 注入）</summary>
+    private readonly Action? _画记忆库;
 
     /// <summary>触发"保存设置"（由入口类注入）</summary>
     private readonly Action? _保存;
@@ -51,11 +63,27 @@ public sealed class 界面控制器 : IRotationUI
     private readonly object? _qt窗口;
     private readonly object? _样式;
 
-    public 界面控制器(JobViewWindow 框架窗口, Action? 画设置 = null, Action? 保存 = null)
+    /// <summary>
+    /// 构造。
+    ///
+    /// ⚠️ 各个"画法"**由入口类注入**，控制器不认识具体的页面 ——
+    ///     这样它不用知道 ACR 有哪些页，加页只改入口类。
+    /// </summary>
+    public 界面控制器(JobViewWindow 框架窗口,
+                       Action? 画阈值 = null,
+                       Action? 保存 = null,
+                       Action? 画优先级 = null,
+                       Action? 画职业 = null,
+                       Action? 画Ai = null,
+                       Action? 画记忆库 = null)
     {
         _框架窗口 = 框架窗口;
-        _画设置 = 画设置;
+        _画设置 = 画阈值;
         _保存 = 保存;
+        _画优先级 = 画优先级;
+        _画职业 = 画职业;
+        _画Ai = 画Ai;
+        _画记忆库 = 画记忆库;
 
         _主窗口 = new 小鲸鱼面板("小鲸鱼##主", "小鲸鱼")
         {
@@ -102,6 +130,30 @@ public sealed class 界面控制器 : IRotationUI
             LogHelper.Info("[界面] 反射取框架内部对象失败：" + e.Message);
         }
     }
+
+    /// <summary>
+    /// **补上 AI / 记忆库两页**（BlueWhale 在构建时调）。
+    ///
+    /// ⚠️ 为什么不在构造里传：
+    ///     那两个页在 `BlueWhale` 里，而控制器在 `HealerACR`。
+    ///     构造时机在 `HealerEntryBase.Build`，
+    ///     那时候子类（蓝鲸入口）还没走到自己的注入代码，
+    ///     所以留一个入口给子类后补。
+    /// </summary>
+    public void 补Ai页(Action? 画Ai, Action? 画记忆库)
+    {
+        try
+        {
+            // ⚠️ 字段是 readonly，所以这里用**可变的回调包一层**
+            //   —— 直接改 readonly 字段编译不过。
+            if (画Ai != null) _画Ai额外 = 画Ai;
+            if (画记忆库 != null) _画记忆库额外 = 画记忆库;
+        }
+        catch { }
+    }
+
+    private Action? _画Ai额外;
+    private Action? _画记忆库额外;
 
     /// <summary>当前是不是走自绘界面</summary>
     private static bool 用主题
@@ -166,11 +218,18 @@ public sealed class 界面控制器 : IRotationUI
             //      画在后面让它压在 QT 面板之上（QT 是"工具箱"，不该抢焦点）。
             画Qt原样();
 
-            // ── ② 自绘主面板（里面是 ACR 设置）──
-            _主窗口.页签.Clear();
-            if (_画设置 != null)
-                _主窗口.页签.Add(("设置", () => 画设置内容()));
-
+            // ── ② 自绘主面板：**每个页签调一个对应的绘制方法** ──
+            //
+            //  ⚠️ 我上一版只加了**一个**「设置」页，把所有东西挤在一起 ——
+            //     那是错的：原来框架窗口里是**七个页签**
+            //     （优先级 / 职业 / 阈值 / 时间轴 / Qt / Hotkey / 风格），
+            //     挤成一坨之后既难找、又和用户熟悉的布局不一样。
+            //
+            //  ⇒ 按页签拆开，**每页调它自己的绘制方法**（全是框架/项目里现成的）：
+            //       · 优先级 / 职业 / 阈值 / AI / 记忆库 → 我们自己的画法
+            //       · Qt / Hotkey / 风格                → 框架的公开方法
+            //     这样既复用代码，布局也和原来对得上。
+            装页签();
             _主窗口.画();
         }
         catch (Exception e)
@@ -182,22 +241,61 @@ public sealed class 界面控制器 : IRotationUI
     }
 
     /// <summary>
-    /// **把 ACR 设置画进主题面板的子窗口**。
+    /// **装页签** —— 每页对应一个绘制方法。
     ///
-    /// ⚠️ 必须用 `BeginChild` 包起来 ——
-    ///     设置内容里有很多 `CollapsingHeader` 和控件，
-    ///     直接画在面板里会撑破自绘的边框、滚动也不受控。
-    ///     子窗口把滚动交给 ImGui 管，边框永远是我们的。
+    /// ⚠️ 页签**每帧重建**：因为 `HealQt.绑定()` 会在切职业时换窗口，
+    ///     而页签列表如果只在构造时装一次，切完职业内容就没了。
+    ///     重建的开销是几个委托分配，可以忽略。
+    ///
+    /// ⚠️ 顺序是**刻意排的**：常用的（优先级/职业/阈值）放前面，
+    ///     配置性的（Qt/Hotkey/风格）放后面 —— 和框架原来的顺序一致。
     /// </summary>
-    private void 画设置内容()
+    private void 装页签()
+    {
+        _主窗口.页签.Clear();
+
+        // ── 我们自己的页 ──
+        if (_画优先级 != null) _主窗口.页签.Add(("优先级", () => 包一层("优先级", _画优先级)));
+        if (_画职业 != null) _主窗口.页签.Add(("职业", () => 包一层("职业", _画职业)));
+
+        if (_画设置 != null) _主窗口.页签.Add(("阈值", () => 包一层("阈值", _画设置)));
+
+        // ── 框架的页（公开方法）──
+        //
+        //  ⚠️ 这三个是框架自带的：
+        //     `QtSettingView` / `HotkeySettingView` / `ChangeStyleView`
+        //     它们**只画内容**，不自己开窗口 —— 正好放进我们的子窗口。
+        //
+        //  ⚠️ **没有「时间轴」页**：时间轴在框架那边是 AEAssist 的
+        //     时间轴编辑器（宿主插件的页面），不在 ACR 窗口里。
+        //     我们的时间轴设置走「阈值」页里的「减伤 / 时间轴」折叠段。
+        _主窗口.页签.Add(("Qt", () => 包一层("Qt", () => _框架窗口.QtSettingView())));
+        _主窗口.页签.Add(("Hotkey", () => 包一层("Hotkey", () => _框架窗口.HotkeySettingView())));
+        _主窗口.页签.Add(("风格", () => 包一层("风格", () => _框架窗口.ChangeStyleView())));
+
+        // ── AI 相关（由 BlueWhale 注入）──
+        var AI画 = _画Ai ?? _画Ai额外;
+        if (AI画 != null) _主窗口.页签.Add(("AI", () => 包一层("AI", AI画)));
+        var 记忆画 = _画记忆库 ?? _画记忆库额外;
+        if (记忆画 != null) _主窗口.页签.Add(("记忆库", () => 包一层("记忆库", 记忆画)));
+    }
+
+    /// <summary>
+    /// **把一页的内容包进子窗口** —— 滚动交给 ImGui 管，边框永远是我们的。
+    ///
+    /// ⚠️ 每页必须有自己的子窗口 ID（用页签名），
+    ///     否则两页共用一个 ID 时 ImGui 会把滚动位置串起来 ——
+    ///     现象是"切到下一页，滚动条停在上一页的位置"。
+    /// </summary>
+    private void 包一层(string 页名, Action 画)
     {
         try
         {
-            ImGui.BeginChild("##设置内容", new System.Numerics.Vector2(0, 0), false,
+            ImGui.BeginChild("##页_" + 页名, new System.Numerics.Vector2(0, 0), false,
                              ImGuiWindowFlags.AlwaysVerticalScrollbar);
             try
             {
-                _画设置?.Invoke();
+                画();
             }
             finally
             {
@@ -206,7 +304,7 @@ public sealed class 界面控制器 : IRotationUI
         }
         catch (Exception e)
         {
-            try { ImGui.TextColored(主题.危险, "设置绘制异常：" + e.Message); } catch { }
+            try { ImGui.TextColored(主题.危险, $"{页名} 页绘制异常：{e.Message}"); } catch { }
         }
     }
 

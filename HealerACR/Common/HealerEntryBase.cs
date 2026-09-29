@@ -374,7 +374,18 @@ public abstract class HealerEntryBase : IRotationEntry
             //  把「画设置」和「保存」两个动作传进去 ——
             //  主面板的内容就是 `OnDrawSetting()`（即 ACR 设置），
             //  复用而不重写，两边不可能不一致。
-            界面 = new 界面控制器(视图窗口, OnDrawSetting, 视图窗口保存);
+            //  各页的"画法"从这里注入 —— 控制器不认识具体页面，
+            //  加页只改这里。顺序就是页签顺序。
+            //
+            //  ⚠️ 三个都要包成 lambda ——
+            //     `画阈值设置` / `职业面板.画` 都**带窗口参数**，
+            //     方法组转不成无参的 `Action`。
+            界面 = new 界面控制器(
+                视图窗口,
+                画阈值: () => 画阈值设置(视图窗口!),
+                保存: 视图窗口保存,
+                画优先级: () => 职业优先级.画(),
+                画职业: () => 职业面板.画(TargetJob, 视图窗口!));
         }
         catch (Exception e)
         {
@@ -404,6 +415,21 @@ public abstract class HealerEntryBase : IRotationEntry
         {
             LogHelper.Error("[界面] 保存失败：" + e.Message);
         }
+    }
+
+    /// <summary>
+    /// **给主题面板补上 AI / 记忆库两页**（子类在 `Build` 里调）。
+    ///
+    /// ⚠️ 为什么需要这个入口：
+    ///     那两个页在 `BlueWhale` 里，而本类在 `HealerACR` ——
+    ///     本类**不能引用** BlueWhale 的类型（那样原版 HealerACR 就编译不过）。
+    ///     所以留一个动作入口，由子类把自己的画法塞进来。
+    ///
+    ///     不调也完全没问题：那两页就不显示，其余页照常。
+    /// </summary>
+    protected void 补主题Ai页(Action? 画Ai, Action? 画记忆库 = null)
+    {
+        try { 界面?.补Ai页(画Ai, 画记忆库); } catch { }
     }
 
     /// <summary>子类加职业专属开关时用这个，顺带把默认值登记上</summary>
