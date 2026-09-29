@@ -374,6 +374,78 @@ public abstract class JobSpellTable
         }
     }
 
+    /// <summary>
+    /// **这张表是不是当前职业的**。
+    ///
+    /// ⚠️ 为什么需要（踩过的坑）：
+    ///     六个职业表都是静态的，找"当前这个"如果没有权威判据，
+    ///     就会拿到**最后加载的那个**（现象：玩学者却收到幻术师的技能清单）。
+    ///
+    /// 判据：表的 <see cref="Job"/> 和 `Core.Me.ClassJob` 一致。
+    /// 白魔/学者/占星/贤者都有对应的**基础职业**（幻术/秘术…），
+    /// 所以再比一次转职前的职业 —— 低等级时 `ClassJob` 是基础职业。
+    /// </summary>
+    public virtual bool 是当前职业
+    {
+        get
+        {
+            try
+            {
+                // ⚠️ `Core.Me.ClassJob` 是 `RowRef<ClassJob>`，要取 `.RowId`
+                //    （直接和 uint 比会编译不过 —— 见 `取当前职业技能表` 同款写法）
+                var 我 = AEAssist.Core.Me.ClassJob.RowId;
+                if (我 == (uint)Job) return true;
+
+                // 基础职业 → 特职的映射（低等级时读到的是基础职业）
+                return Job switch
+                {
+                    Jobs.WhiteMage => 我 == 6,      // 幻术
+                    Jobs.Scholar => 我 == 26,       // 秘术
+                    _ => false,
+                };
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// **公开的威力查询**（给 AI 清单用）。
+    ///
+    /// ⚠️ `威力表` 是 protected 的（子类填），这里转发一个 public 版本，
+    ///    不暴露内部结构。查不到返回 0（调用方**不要写占位符**）。
+    /// </summary>
+    public int 查威力(uint 技能Id, int 等级)
+    {
+        try
+        {
+            return 当前威力(技能Id, 等级);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// **这个技能是不是治疗类**（威力含义是"恢复力"而不是"伤害"）。
+    ///
+    /// ⚠️ 为什么需要区分：治疗候选集里同时有伤害技（贤者注药）和
+    ///    治疗技（诊断），显示时要说清楚数字是什么含义。
+    /// </summary>
+    public bool 是治疗技能(uint 技能Id)
+    {
+        try
+        {
+            foreach (var h in 治疗候选.全部)
+                if (h.Id == 技能Id) return true;
+        }
+        catch { }
+        return false;
+    }
+
     /// <summary>子类重写：给出某个技能的威力档位（按提升等级降序）</summary>
     protected virtual (int 等级, int 威力)[]? 威力表(uint 技能Id) => null;
 
