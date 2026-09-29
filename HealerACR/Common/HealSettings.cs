@@ -18,6 +18,14 @@ public class HealSettings
 
     private static string _filePath = string.Empty;
 
+    /// <summary>
+    /// 设置 json 的完整路径。**给"反推目录"用**（时间轴探测）。
+    ///
+    /// ⚠️ 它的价值在于：这是 AEAssist **实际传给我们**的路径，
+    ///    一定有效 —— 不像 `Assembly.Location` 在 Dalamud 插件里是空的。
+    /// </summary>
+    public static string 当前文件路径 => _filePath;
+
     private static readonly JsonSerializerOptions JsonOpt = new()
     {
         WriteIndented = true,
@@ -28,6 +36,11 @@ public class HealSettings
     public static void Build(string settingFolder, string jobName)
     {
         _filePath = Path.Combine(settingFolder, $"奶妈设置_{jobName}.json");
+
+        // ★ 读共享的"时间轴目录"设置 ★
+        //   ⚠️ 必须在 _filePath 赋值**之后**调 —— 它要靠这个路径反推共享文件位置
+        //      （见 时间轴设置路径 的说明）。
+        读时间轴目录();
 
         if (!File.Exists(_filePath))
         {
@@ -194,6 +207,108 @@ public class HealSettings
 
     /// <summary>贤者：毒刺攒到几个就泄掉（避免溢出浪费）</summary>
     public int 箭毒泄刺阈值 = 2;
+
+    // ================== 时间轴目录（共享，不是每职业一份）==================
+
+    /// <summary>
+    /// cactbot 时间轴目录。**留空 = 自动探测**。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么需要手动指定（用户实测的问题）★
+    ///
+    ///    时间轴原来靠"dll 旁边的 Timelines"找，而那条**失效了**：
+    ///    Dalamud 从内存加载 ACR，`Assembly.Location` **是空的** ——
+    ///    于是最可靠的候选直接落空，只能靠猜目录。
+    ///
+    ///    而猜的那些也都不对，因为**目录名和程序集名不一致**：
+    ///      · ACR 目录叫 `BlueWhale`（这是 dll 名）
+    ///      · 但 `AuthorName` 是"小鲸鱼统治世界"（AEAssist 拿它当设置目录名）
+    ///    代码按程序集名拼路径，自然找不到。
+    ///
+    ///  ── 所以给一个**显式指定**的入口 ──
+    ///
+    ///    这是这个问题的**根治手段**：不再猜，让用户直接指定。
+    ///    自动探测保留作为兜底（万一以后 `Assembly.Location` 可用了）。
+    ///
+    ///  ⚠️ 存**共享文件**（AEAssist 根目录下），不是每职业 json：
+    ///     时间轴跟职业无关，四个奶妈应该共用一份设置 ——
+    ///     存进职业 json 的话用户得**设置四次**，而且换职业会发现"又没生效"。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static string 时间轴目录 { get; private set; } = "";
+
+    /// <summary>共享设置文件名（放在 AEAssist 根目录，跨职业共用）</summary>
+    private const string 时间轴设置文件 = "小鲸鱼_时间轴目录.txt";
+
+    /// <summary>
+    /// 共享设置文件的完整路径。
+    ///
+    /// 优先放 AEAssist 根目录（= 各 ACR 的上一级），
+    /// 这样**重装 ACR 也不会丢**；拿不到就退回设置目录。
+    /// </summary>
+    private static string 时间轴设置路径()
+    {
+        try
+        {
+            // _filePath 形如 <根>\Settings\Plugins\<作者>\奶妈设置_WhiteMage.json
+            // 往上四层就是 AEAssist 根（Settings\Plugins\<作者> -> Plugins -> Settings -> 根）
+            var 作者目录 = Path.GetDirectoryName(_filePath);
+            var 根 = 作者目录;
+            for (var i = 0; i < 3 && !string.IsNullOrEmpty(根); i++)
+                根 = Path.GetDirectoryName(根);
+
+            if (!string.IsNullOrEmpty(根) && Directory.Exists(根))
+                return Path.Combine(根, 时间轴设置文件);
+        }
+        catch { }
+
+        try
+        {
+            var 同目录 = Path.GetDirectoryName(_filePath) ?? ".";
+            return Path.Combine(同目录, 时间轴设置文件);
+        }
+        catch { return 时间轴设置文件; }
+    }
+
+    /// <summary>从磁盘读共享的时间轴目录设置（Build 时调一次）</summary>
+    public static void 读时间轴目录()
+    {
+        try
+        {
+            var p = 时间轴设置路径();
+            if (!File.Exists(p)) { 时间轴目录 = ""; return; }
+
+            var 值 = File.ReadAllText(p, System.Text.Encoding.UTF8).Trim();
+            时间轴目录 = 值;
+
+            if (!string.IsNullOrEmpty(值))
+                LogHelper.Info($"[HealerACR] 时间轴目录（用户指定）：{值}");
+        }
+        catch (Exception e)
+        {
+            LogHelper.Error("[HealerACR] 读时间轴目录设置失败：" + e.Message);
+        }
+    }
+
+    /// <summary>写共享的时间轴目录设置（留空 = 恢复自动探测）</summary>
+    public static void 写时间轴目录(string 值)
+    {
+        try
+        {
+            时间轴目录 = (值 ?? "").Trim();
+
+            var p = 时间轴设置路径();
+            File.WriteAllText(p, 时间轴目录, System.Text.Encoding.UTF8);
+
+            LogHelper.Info(string.IsNullOrEmpty(时间轴目录)
+                ? "[HealerACR] 时间轴目录已清空（恢复自动探测）"
+                : $"[HealerACR] 时间轴目录已设为：{时间轴目录}（写入 {p}）");
+        }
+        catch (Exception e)
+        {
+            LogHelper.Error("[HealerACR] 写时间轴目录设置失败：" + e.Message);
+        }
+    }
 
     // ================== 占星卡牌 ==================
 

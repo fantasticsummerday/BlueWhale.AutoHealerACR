@@ -56,6 +56,31 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>QT 窗口。所有 resolver 通过 HealerACR.Common.HealQt 读开关。</summary>
     public JobViewWindow? 视图窗口 { get; protected set; }
 
+    // ==================== 时间轴目录输入框的缓冲 ====================
+
+    /// <summary>
+    /// 时间轴目录输入框的缓冲。
+    ///
+    /// ⚠️ ImGui 的 InputText 需要一个**稳定**的 string 引用 ——
+    ///    每帧新建字符串会让**光标每帧跳到末尾**（根本没法编辑）。
+    ///
+    /// ⚠️ 但**用户打字时不能刷新**（那会把刚敲的字冲掉）：
+    ///    所以打字时要同步 `时间轴目录来源`（见调用处）。
+    /// </summary>
+    private static string _时间轴目录缓冲 = "";
+    private static string 时间轴目录来源 = "";
+
+    private static string 时间轴目录缓冲(string 当前值)
+    {
+        if (当前值 != 时间轴目录来源)
+        {
+            _时间轴目录缓冲 = 当前值;
+            时间轴目录来源 = 当前值;
+        }
+
+        return _时间轴目录缓冲;
+    }
+
     // ==================== 核心 ====================
 
     /// <summary>
@@ -410,6 +435,43 @@ public abstract class HealerEntryBase : IRotationEntry
         ImGui.Checkbox("启用时间轴", ref s.启用时间轴);
         ImGui.SetNextItemWidth(240);
         ImGui.SliderFloat("提前秒数", ref s.时间轴提前秒, 0f, 5f, "%.1f");
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 时间轴目录（用户要求的选择器）★
+        //
+        //  为什么必须能手动指定：
+        //    自动探测**失效了** —— Dalamud 从内存加载 ACR，
+        //    `Assembly.Location` 是空的；而目录名又和程序集名不一致
+        //    （ACR 目录叫 BlueWhale，AuthorName 是"小鲸鱼统治世界"）。
+        //    所以给一个显式入口，别让用户干瞪眼。
+        // ══════════════════════════════════════════════════════════════
+        ImGui.TextDisabled("  Timelines 目录（留空 = 自动探测；填了就用你指定的）");
+
+        ImGui.SetNextItemWidth(-190);
+        var 缓冲 = 时间轴目录缓冲(HealSettings.时间轴目录);
+        if (ImGui.InputText("##时间轴目录", ref 缓冲, 512))
+        {
+            // ⚠️ 打字时要同步"来源"，否则下一帧会被旧值冲掉（见方法说明）
+            时间轴目录来源 = 缓冲;
+            HealSettings.写时间轴目录(缓冲);
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("重扫时间轴"))
+        {
+            TimelineManager.初始化();
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("自动探测"))
+        {
+            HealSettings.写时间轴目录("");
+            时间轴目录来源 = "\u0000";   // 强制下一帧刷新缓冲
+            TimelineManager.初始化();
+        }
+
+        ImGui.TextDisabled("  当前使用：" + TimelineManager.实际使用的目录);
+
         ImGui.TextDisabled("额外技能Id / 技能Id覆盖 / BuffId覆盖 都改 json 文件（这里只读）");
 
         ImGui.Separator();

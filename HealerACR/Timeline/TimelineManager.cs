@@ -30,13 +30,30 @@ public static class TimelineManager
 
     public static int 条目数 => Runner.有数据 ? 1 : 0;
 
-    /// <summary>时间轴目录：dll 旁边的 Timelines 文件夹</summary>
     /// <summary>
-    /// 时间轴目录：优先找 dll 旁边的 Timelines，找不到再依次兜底。
+    /// **实际扫描到的**时间轴目录。
     ///
-    /// ⚠️ 不能只用 Assembly.Location —— AEAssist 是用字节流加载 ACR 的，
-    ///    这种情况下 Location 可能是空串，退化成当前目录后就永远找不到时间轴
+    /// ⚠️ 和 <see cref="时间轴目录"/> 的区别：那个是"候选里第一个存在的"，
+    ///    即使**一个都不存在**也会返回第一个候选（看起来像找到了）。
+    ///    这个是"真的存在、真的扫了"—— **没有就返回空串**。
+    ///
+    ///    设置界面显示它，用户才能一眼看出"到底扫没扫到"。
+    /// </summary>
+    public static string 实际使用的目录 { get; private set; } = "";
+
+    /// <summary>
+    /// 时间轴目录：**优先用用户指定的**，否则依次兜底探测。
+    ///
+    /// ⚠️ 不能只用 Assembly.Location —— Dalamud 是**从内存加载** ACR 的，
+    ///    这种情况下 Location 是**空串**，退化成当前目录后就永远找不到时间轴
     ///    （日志里"没有 Timelines 目录"就是这么来的）。
+    ///
+    ///    而且**目录名和程序集名不一致**：
+    ///      ACR 目录叫 `BlueWhale`，但 AuthorName 是"小鲸鱼统治世界" ——
+    ///      代码按程序集名拼路径，自然对不上。
+    ///
+    ///    所以最终的可靠手段是**用户显式指定**
+    ///    （设置界面里的「Timelines 目录」输入框）。
     /// </summary>
     public static string 时间轴目录
     {
@@ -53,13 +70,34 @@ public static class TimelineManager
     }
 
     /// <summary>候选目录，按优先级排列</summary>
-    /// <summary>候选目录，按优先级排列</summary>
     private static IEnumerable<string> 候选目录()
     {
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 0) 用户**显式指定**的目录 —— 优先级最高 ★
+        //
+        //    这一条是**根治手段**：下面那些自动探测全都不可靠
+        //    （`Assembly.Location` 在 Dalamud 插件里是空的，
+        //      目录名又和程序集名不一致 —— 详见 HealSettings.时间轴目录 的说明）。
+        //
+        //    用户指定了就**先用它**，不再猜。
+        // ══════════════════════════════════════════════════════════════
+        var 指定 = HealSettings.时间轴目录;
+        if (!string.IsNullOrWhiteSpace(指定))
+        {
+            // 允许用户直接填到 Timelines 本身，或者填它的上一级
+            yield return 指定;
+            yield return Path.Combine(指定, "Timelines");
+        }
+
         var 名字 = "HealerACR";
         try { 名字 = typeof(TimelineManager).Assembly.GetName().Name ?? 名字; } catch { }
 
         // 1) dll 旁边（正常情况下就是这个）
+        //
+        //    ⚠️ **这条在 Dalamud 插件里是失效的**：
+        //       ACR 从内存加载，`Assembly.Location` 返回空字符串，
+        //       于是拿不到目录 —— 这正是"找不到 Timelines"的根因。
+        //       保留它是因为**万一**以后版本能拿到，就能自动生效。
         string dll目录 = null;
         try
         {
@@ -71,6 +109,8 @@ public static class TimelineManager
         if (!string.IsNullOrEmpty(dll目录)) yield return Path.Combine(dll目录, "Timelines");
 
         // 2) 从 AEAssist.dll 的位置反推 —— ACR 一般就在它附近
+        //
+        //    ⚠️ 同样依赖 `Assembly.Location`，同样可能拿不到。
         foreach (var ae in AppDomain.CurrentDomain.GetAssemblies())
         {
             string ae目录 = null;
@@ -90,6 +130,11 @@ public static class TimelineManager
         }
 
         // 3) 已知的常见布局
+        //
+        //    ⚠️ 这里是"猜"，而且**猜错过**：目录名和程序集名不一致
+        //       （ACR 目录叫 BlueWhale，AuthorName 是"小鲸鱼统治世界"），
+        //       所以下面这些组合大概率都不存在。
+        //       留着是为了覆盖"作者名恰好等于文件夹名"的情况。
         foreach (var 根 in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
         {
             if (string.IsNullOrEmpty(根)) continue;
@@ -98,8 +143,43 @@ public static class TimelineManager
             yield return Path.Combine(根, "..", "ACR", 名字, "Timelines");
         }
 
-        // 4) 当前目录下
+        // 4) 从设置目录反推 —— 这条**不依赖 Assembly.Location**，
+        //    是自动探测里最可能命中的一条：
+        //      设置路径 <根>\Settings\Plugins\<作者>\xxx.json
+        //      ACR 一般在  <根>\ACR\<名字>\Timelines
+        foreach (var 候选 in 从设置目录反推())
+            yield return 候选;
+
+        // 5) 当前目录下
         yield return Path.Combine(".", "Timelines");
+    }
+
+    /// <summary>
+    /// 从"设置文件所在目录"往上推 ACR 目录。
+    ///
+    /// ⚠️ 这条的价值在于：它**不依赖 `Assembly.Location`** ——
+    ///    而后者在 Dalamud 插件里是空的，导致前几条候选全部失效。
+    ///    设置目录是 AEAssist 实际传给我们的，一定拿得到。
+    /// </summary>
+    private static IEnumerable<string> 从设置目录反推()
+    {
+        string 作者目录 = null;
+        try { 作者目录 = Path.GetDirectoryName(HealSettings.当前文件路径); } catch { }
+
+        if (string.IsNullOrEmpty(作者目录)) yield break;
+
+        var 名字 = "HealerACR";
+        try { 名字 = typeof(TimelineManager).Assembly.GetName().Name ?? 名字; } catch { }
+
+        // 往上找若干层，每层都试 ACR\<名字>\Timelines 和 <名字>\Timelines
+        var 当前 = 作者目录;
+        for (var i = 0; i < 4 && !string.IsNullOrEmpty(当前); i++)
+        {
+            yield return Path.Combine(当前, "ACR", 名字, "Timelines");
+            yield return Path.Combine(当前, 名字, "Timelines");
+
+            当前 = Path.GetDirectoryName(当前);
+        }
     }
 
     /// <summary>启动 / 重载时调用一次</summary>
@@ -124,6 +204,8 @@ public static class TimelineManager
         {
             if (Directory.Exists(时间轴目录))
             {
+                实际使用的目录 = 时间轴目录;
+
                 foreach (var 文件 in Directory.GetFiles(时间轴目录, "*.txt", SearchOption.AllDirectories))
                 {
                     try
@@ -137,7 +219,11 @@ public static class TimelineManager
                     }
                 }
 
-                提示 = $"已索引 {索引.Count} 份时间轴";
+                提示 = $"已索引 {索引.Count} 份时间轴（{实际使用的目录}）";
+            }
+            else
+            {
+                实际使用的目录 = "";
             }
         }
         catch (Exception e)
