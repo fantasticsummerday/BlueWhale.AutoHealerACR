@@ -185,34 +185,9 @@ public class Res_AoEDamage : ISlotResolver
         //       移动中算完再否决纯属白费（而且那是每帧都在跑的热路径）。
         if (!SpellUtil.移动中可用(spell.Id)) return -7;
 
-        // ⚠️ 直接用 GetMostCanTargetObjects 找"能打到最多敌人"的目标，
-        //    而不是"数当前目标周围有几个"。
-        //
-        //    这个差别在本内小怪场景里很致命：当前目标常常站在怪群**边缘**，
-        //    以它为中心数只能数到 2 个 → 判定"不够 3 个"→ 不放 AOE；
-        //    而实际上换个目标（怪群中心）能一次打到 5 个。
-        //    表现出来就是"明明一群小怪，却在打单体"。
-        //
-        //    另外这样 Check 和 Build 用的是同一个判断，
-        //    不会再出现"Check 说不够、Build 却找到了最佳目标"的不一致。
-        IBattleChara? 最佳 = null;
-        try
-        {
-            if (智能选目标.是直线技能(spell.Id))
-            {
-                最佳 = 智能选目标.按形状选最优(spell.Id, _t.AOE伤害范围, _t.AOE最少敌人数);
-            }
-            else
-            {
-            最佳 = TargetHelper.GetMostCanTargetObjects(spell.Id, _t.AOE最少敌人数);
-            }
-        }
-        catch
-        {
-            // 拿不到就退回"数邻居"的老办法，别因为异常直接不放 AOE
-            if (HealTargetHelper.周围敌人数量(_t.AOE伤害范围) < _t.AOE最少敌人数) return -1;
-            return spell.IsReadyWithCanCast() ? 5 : -1;
-        }
+        // ⚠️ **必须和 Build 同源**（开发约定 F③）——
+        //    走同一个 `选最佳落点()`，避免"Check 判了直线逻辑、Build 用圆形逻辑"。
+        var 最佳 = 选最佳落点(spell.Id);
 
         if (最佳 == null) return -1;
 
@@ -222,12 +197,59 @@ public class Res_AoEDamage : ISlotResolver
         return spell.IsReadyWithCanCast() ? 5 : -1;
     }
 
+    /// <summary>
+    /// 选 AOE 的**最佳落点**。Check 和 Build **必须都走这里**。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 修的是一个真「判 A 放 B」bug（全量审计发现）★
+    ///
+    ///  ── 原来错在哪 ──
+    ///    Check 里分了两条路：
+    ///        · **直线**技能 → `智能选目标.按形状选最优`（遍历敌人算落点）
+    ///        · 圆形技能     → `TargetHelper.GetMostCanTargetObjects`
+    ///    而 Build 只有一句 `HealTargetHelper.AOE最佳目标(...)`，
+    ///    它内部**只调 `GetMostCanTargetObjects`** ——
+    ///    也就是**圆形逻辑**。
+    ///
+    ///  ⇒ 直线 AOE（占星的「重力」等）会出现：
+    ///      Check 按直线找到了一个能命中 4 个的落点 → 判定该放，
+    ///      Build 却用圆形逻辑找了另一个（或干脆退回当前目标）
+    ///      → **技能打在不是判定的那个位置上**，命中数远少于预期。
+    ///
+    ///  ── 修法 ──
+    ///    把选择逻辑提成这个方法，Check 和 Build 都调它。
+    ///    这样"判哪个落点"和"打哪个落点"在代码上就是**同一个表达式**，
+    ///    不可能再分叉。
+    ///
+    ///  ⚠️ 异常兜底也跟着走这里：拿不到就用"数邻居"的老办法，
+    ///    返回当前目标（可能为 null，由调用方处理）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private IBattleChara? 选最佳落点(uint 技能Id)
+    {
+        try
+        {
+            if (智能选目标.是直线技能(技能Id))
+            {
+                return 智能选目标.按形状选最优(技能Id, _t.AOE伤害范围, _t.AOE最少敌人数);
+            }
+
+            return TargetHelper.GetMostCanTargetObjects(技能Id, _t.AOE最少敌人数);
+        }
+        catch
+        {
+            // 拿不到就退回"数邻居"的老办法（至少不比原来差）
+            return HealTargetHelper.当前目标();
+        }
+    }
+
     public void Build(Slot slot)
     {
         var spell = SpellUtil.当前形态(_t.群体输出);
         if (spell == null) return;
 
-        var 目标 = HealTargetHelper.AOE最佳目标(spell.Id, _t.AOE最少敌人数);
+        // ⚠️ 和 Check 同源：同一个 `选最佳落点()`
+        var 目标 = 选最佳落点(spell.Id);
         if (目标 != null)
         {
             slot.Add(new Spell(spell.Id, 目标));

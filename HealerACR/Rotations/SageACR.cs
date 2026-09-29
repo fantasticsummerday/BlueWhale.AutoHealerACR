@@ -129,13 +129,11 @@ public class SGERotationEntry : HealerEntryBase
             new SlotResolverData(new SGE_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new SGE_Phlegma(), SlotMode.Gcd),   // 发炎：DoT 之后才轮到它
             new SlotResolverData(new SGE_Toxikon(), SlotMode.Gcd),
-            new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
-            // ★ 药尾声补刀：体力药快过期时用即刻把最后一发塞进窗口 ★
-            //   ⚠️ 放在 Res_BaseDamage **之前** —— 它要抢先，
-            //      否则基础输出会先把这个 GCD 占掉。
-            //   ⚠️ 放在 Res_Dot **之后** —— DoT 续期比补刀重要。
+            // ⚠️ 位置很重要：必须在 `Res_MoveGcd`（移动填充）**之前** ——
+            //   药尾声补刀最该生效的场景就是**移动中**（读条放不出来），
+            //   排在移动填充后面等于**永远选不到**。
             new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
-            new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),            new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new SGE_Philosophia(), SlotMode.OffGcd),            // 智慧之爱（Lv100 群疗大招）
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),

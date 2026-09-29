@@ -13,6 +13,48 @@ public static class CharacterExt
     public static float 血量比例(this IBattleChara c)
         => c.MaxHp == 0 ? 0f : c.CurrentHp / (float)c.MaxHp;
 
+    /// <summary>
+    /// **有效血量比例** = 血量比例 + 护盾百分比。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 两轮对照分析都把它列为「最大缺口」，一直没做 ★
+    ///
+    ///  ── 问题在哪 ──
+    ///    我们所有治疗/盾判断都只看 `血量比例()`，**不看盾**。
+    ///    于是"45% 血 + 一层厚盾"的人会被反复投治疗 ——
+    ///    那一口治疗实际是**过量**，而真正危险的人（比如 60% 血无盾）
+    ///    反而排在后面。盾越厚，这个偏差越大。
+    ///
+    ///  ── 参考实现怎么做（IL 直证）──
+    ///    两家统一写法：`血量% + ShieldPercentage / 100`
+    ///    （A 12 处、B 24 处，用的是 `Dalamud...ICharacter::get_ShieldPercentage`）。
+    ///
+    ///  ── ⚠️ 一个纠正：我们曾经以为拿不到 ──
+    ///    `CharacterExt` 原来有条注释写"这个 Dalamud 版本没有 `CurrentShield`"。
+    ///    那句话本身没错（`CurrentShield` 确实不存在），**但结论错了** ——
+    ///    精确盾量在 **`ICharacter.ShieldPercentage`** 上，类型是 `Byte`，
+    ///    值域 0~100（**不是 0~1**）。
+    ///    ⇒ 所以要 `/100f`。写成 `+ ShieldPercentage` 会让盾的影响放大 100 倍，
+    ///      表现成"有盾的人永远不被治疗"。
+    ///
+    ///  ⚠️ 失败方向：读不到盾就当 0（退回原来的纯血量判断）——
+    ///    绝不因为读不到盾就判成"这个人满血"。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static float 有效血量比例(this IBattleChara c)
+    {
+        var 血 = c.血量比例();
+
+        try
+        {
+            return 血 + c.ShieldPercentage / 100f;
+        }
+        catch
+        {
+            return 血;   // 读不到盾 → 退回纯血量
+        }
+    }
+
     public static float 蓝量比例(this IBattleChara c)
         => c.MaxMp == 0 ? 0f : c.CurrentMp / (float)c.MaxMp;
 

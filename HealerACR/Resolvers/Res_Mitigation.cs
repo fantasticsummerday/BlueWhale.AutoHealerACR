@@ -142,7 +142,8 @@ public class Res_SelfMitigation : ISlotResolver
         if (!SpellUtil.已解锁(_t.个人减伤)) return -2;
 
         var 时间轴要求 = HealQt.GetQt("时间轴", true) && TimelineManager.该铺减伤();
-        var 自己血少 = AEAssist.Core.Me.血量比例() <= 0.6f;
+        // ★ 用**有效血量**：自己身上有厚盾时不算"血少"，不该再交个人减伤
+        var 自己血少 = AEAssist.Core.Me.有效血量比例() <= 0.6f;
 
         if (!时间轴要求 && !自己血少 && !减伤Helper.即将来大伤害()) return -1;
 
@@ -185,7 +186,7 @@ public class Res_GroupShield : ISlotResolver
         //    按 30 米算会把 20 米外的人算成"缺盾"，交掉一个 GCD 群盾却漏人。
         var 需要盾 = HealTargetHelper.可治疗队友(20f)
             .Count(r => !r.IsTank()
-                        && r.血量比例() <= s.群体治疗阈值
+                        && r.有效血量比例() <= s.群体治疗阈值   // ★ 有效血量
                         && !r.有该技能的Buff(_t.群体盾));
         if (需要盾 < 1) return -1;
 

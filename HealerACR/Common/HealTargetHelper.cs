@@ -33,7 +33,7 @@ public static class HealTargetHelper
 
             return 源
                 .Where(r => r.可以治())
-                .OrderBy(r => r.血量比例())
+                .OrderBy(r => r.有效血量比例())
                 .ToList();
         }
         catch
@@ -45,7 +45,7 @@ public static class HealTargetHelper
     /// <summary>血量最低、且低于阈值的队友；没有就是 null</summary>
     public static IBattleChara? 最低血量队友(float 阈值, float 半径 = 30f)
     {
-        return 可治疗队友(半径).FirstOrDefault(r => r.血量比例() <= 阈值);
+        return 可治疗队友(半径).FirstOrDefault(r => r.有效血量比例() <= 阈值);
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ public static class HealTargetHelper
     /// </summary>
     public static int 低于阈值人数(float 阈值, float 半径 = 30f)
     {
-        return 可治疗队友(半径).Count(r => r.血量比例() <= 阈值);
+        return 可治疗队友(半径).Count(r => r.有效血量比例() <= 阈值);
     }
 
     /// <summary>队伍里血量最低的人（不看阈值，给大加用）</summary>
@@ -85,8 +85,8 @@ public static class HealTargetHelper
     public static IBattleChara? 血量最低的坦克(float 阈值 = 1f)
     {
         return PartyHelper.CastableTanks
-            .Where(r => r.活着() && r.血量比例() <= 阈值)
-            .OrderBy(r => r.血量比例())
+            .Where(r => r.活着() && r.有效血量比例() <= 阈值)
+            .OrderBy(r => r.有效血量比例())
             .FirstOrDefault();
     }
 
@@ -312,7 +312,7 @@ public static class HealTargetHelper
         // 没目标就别拦着（让输出逻辑自己处理）
         if (t == null) return false;
 
-        if (t.血量比例() <= 血线) return true;
+        if (t.有效血量比例() <= 血线) return true;
 
         try
         {

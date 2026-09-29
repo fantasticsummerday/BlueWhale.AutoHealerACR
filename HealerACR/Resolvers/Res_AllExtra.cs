@@ -265,10 +265,11 @@ public class Res_SingleHoT : ISlotResolver
             foreach (var r in PartyHelper.CastableAlliesWithin30)
             {
                 if (r == null) continue;
-                if (r.血量比例() > 阈值) continue;
+                // ★ 用**有效血量**：血低但盾厚的人不该抢 HoT 的位置 ★
+                if (r.有效血量比例() > 阈值) continue;
                 if (!适合挂(r)) continue;
 
-                if (r.血量比例() < 最低) { 最低 = r.血量比例(); 最优 = r; }
+                if (r.有效血量比例() < 最低) { 最低 = r.有效血量比例(); 最优 = r; }
             }
 
             // 队伍列表里没有自己（某些场景 API 不含自己）→ 单独判一次自己
@@ -277,7 +278,7 @@ public class Res_SingleHoT : ISlotResolver
             if (最优 == null)
             {
                 var 我 = Core.Me;
-                if (我 != null && 我.血量比例() <= 阈值 && 适合挂(我)) return 我;
+                if (我 != null && 我.有效血量比例() <= 阈值 && 适合挂(我)) return 我;
             }
 
             return 最优;
@@ -301,7 +302,7 @@ public class Res_SingleHoT : ISlotResolver
                 if (r == null) continue;
                 if (!适合挂(r)) continue;
 
-                var 比例 = r.血量比例();
+                var 比例 = r.有效血量比例();   // ★ 有效血量（含盾）
                 if (比例 >= 阈值) continue;
 
                 if (!AuraIds.有持续伤害(r)) continue;
