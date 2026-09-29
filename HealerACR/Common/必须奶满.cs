@@ -35,69 +35,144 @@ namespace HealerACR.Common;
 ///      · 210 / 1769 死亡宣告 —— 描述只说"倒计时为 0 时无法战斗"，
 ///        **解除条件是驱散，不是奶满**。走 `Res_Esuna` 那条路。
 ///
-///  ★ 为什么要带"地图"维度 ★
+///  ══════════════════════════════════════════════════════════════════
+///  ★★ 保守策略：**ID + 名字 双保险**（用户要求）★★
 ///
-///    同类 ACR 的表是 `(状态, 地图)` 配对 —— 同一个 buff ID
-///    在不同副本里可能是完全不同的东西（游戏里 ID 复用很常见）。
-///    地图填 0 = 任何地图都适用；填了具体地图 = 只在那张图里才当机制处理。
-///    这样**不会在别的副本里因为撞 ID 而误判**。
+///    只认 ID 有个风险：游戏里 **ID 复用很常见**，同一个 ID
+///    在不同副本/版本里可能是完全不相干的东西。
+///    一旦撞上，我们就会"对着一个无关 buff 猛灌治疗"。
+///
+///    所以这里多加一道**名字核对**：读出目标身上那个 aura 的**实际名字**，
+///    必须和我们记录的名字（或别名）一致，才认为它真是这个机制。
+///
+///    为什么不按地图限定（同类 ACR 的做法）：
+///      要按地图限定就得知道"这机制出在哪张图"，而这需要一个小型
+///      副本名→ZoneId 对照表。我们的 `dump_territory.tsv` 里只有
+///      「区域名 + 地名」，**没有可靠的副本名** —— 硬填就是猜。
+///      而**猜错地图 ID 的后果是机制彻底失效**（人直接死），
+///      比名字核对的漏判严重得多。所以选了名字核对这条更可靠的路。
+///
+///    **名字核对不通过 → 当作不是这个机制，按普通治疗走。**
+///    （漏判的代价是"回到改动前的行为"，误判的代价是"治疗被一个无关 buff 骗走"。）
+///
+///  ══════════════════════════════════════════════════════════════════
+///  ★★ 本地优先：这个判断**不依赖 AI** ★★
+///
+///    识别（本类）和处理（`Res_HealSingleGcd` 的优先级 30）**全在 HealerACR 本地层**。
+///    AI 那侧（`AiSituation`）只是把结果**读出来转述**给模型，不参与判断。
+///
+///    已验证：`HealerACR` 对 BlueWhale 的编译期引用是 **0 处**
+///    （`记忆钩子.cs` 里那一处是注释），且该工程**能单独编译通过**。
+///
+///    所以下面这些情况，机制照样生效：
+///      · 没填 API Key / AI 未配置
+///      · 断网 / 请求超时 / 三层熔断降级
+///      · DeepSeek 返回了胡说八道（白名单会丢，但本地判断不受影响）
+///    **AI 是增强层，不是必需品** —— 这是本项目的既定原则，新功能都要守住。
 /// ══════════════════════════════════════════════════════════════════
 /// </summary>
 public static class 必须奶满
 {
     /// <summary>
-    /// (状态 ID, 限定地图 ID)。地图为 0 表示不限定。
+    /// 必须奶满的状态表。
     ///
-    /// 维护方式：新副本出现这类机制时，用 `dump_status` / `Status.csv`
-    /// 按描述关键词反查（「体力没有恢复到最大值」「体力完全恢复时」），
+    /// <c>别名</c> 用于容忍中英文 / 版本差异 —— **任意一个名字对上就算命中**。
+    /// 留空表示"只要 ID 对上就行"（不确定名字时才这么用）。
+    ///
+    /// 维护方式：新副本出现这类机制时，用 `Status.csv` 按描述关键词反查
+    /// （「体力没有恢复到最大值」「体力完全恢复时」），
     /// **不要凭印象加 ID**（开发约定 ③ 的教训）。
     /// </summary>
-    private static readonly (uint 状态, uint 地图)[] 表 =
+    private static readonly (uint Id, string 主名, string[] 别名)[] 表 =
     {
-        // 塞壬的歌声：效果结束前没奶满 → 变僵尸（Sastasha 系 / 沉没神殿系）
-        (370u, 0u),
+        // 塞壬的歌声：效果结束前没奶满 → 变僵尸
+        (370u, "塞壬的歌声", new[] { "Siren's Song", "Sirensong", "塞壬之歌" }),
+
         // 渐渐石化：不断石化，体力完全恢复时解除
-        (1628u, 0u),
+        (1628u, "渐渐石化", new[] { "Gradual Petrification", "Petrification", "石化" }),
     };
 
-    /// <summary>当前地图 ID（拿不到返回 0）</summary>
-    private static uint 当前地图
-    {
-        get
-        {
-            try { return Core.Resolve<MemApiZoneInfo>().GetCurrTerrId(); }
-            catch { return 0; }
-        }
-    }
-
     /// <summary>
-    /// 这个状态下，**当前地图**要不要按"必须奶满"处理。
+    /// 这个状态下，要不要按"必须奶满"处理。
     ///
-    /// 地图不匹配时返回 false —— 宁可漏判也不要误判：
-    /// 误判的代价是"在普通副本里对着一个无关 buff 猛灌治疗"。
+    /// ⚠️ <paramref name="目标"/> 为空时**只按 ID 判断**（无法核对名字）。
+    ///    调用方应该尽量传目标 —— 传了才会走双保险。
     /// </summary>
-    public static bool 是必须奶满状态(uint 状态Id)
+    public static bool 是必须奶满状态(uint 状态Id, IBattleChara? 目标 = null)
     {
         if (状态Id == 0) return false;
 
         try
         {
-            var 地图 = 当前地图;
-
-            foreach (var (状态, 限定地图) in 表)
+            foreach (var 项 in 表)
             {
-                if (状态 != 状态Id) continue;
+                if (项.Id != 状态Id) continue;
 
-                // 不限定地图 → 直接算
-                if (限定地图 == 0) return true;
+                // 没有目标 → 没法核对名字，只能信 ID（保守起见仍放行，
+                // 因为漏判的代价是人死；但调用方都会传目标）
+                if (目标 == null) return true;
 
-                // 限定了地图 → 必须对得上
-                if (地图 != 0 && 地图 == 限定地图) return true;
+                return 名字对得上(目标, 状态Id, 项.主名, 项.别名);
             }
         }
         catch { }
 
         return false;
+    }
+
+    /// <summary>
+    /// 保守核对：目标身上这个 aura 的**实际名字**必须和记录的一致。
+    ///
+    /// 拿不到名字时返回 false（= 不认）—— **这是有意的**：
+    /// 保守策略宁可漏判（退回普通治疗，人还有机会被血量判断救到），
+    /// 也不要误判（把所有治疗都砸在一个无关 buff 上，真正掉血的人没人管）。
+    /// </summary>
+    private static bool 名字对得上(IBattleChara 目标, uint 状态Id, string 主名, string[] 别名)
+    {
+        var 实际 = 取状态名(目标, 状态Id);
+        if (string.IsNullOrWhiteSpace(实际)) return false;   // 拿不到名字 → 不认
+
+        if (!string.IsNullOrWhiteSpace(主名) && 实际.Contains(主名)) return true;
+
+        if (别名 != null)
+        {
+            foreach (var a in 别名)
+            {
+                if (string.IsNullOrWhiteSpace(a)) continue;
+                if (实际.Contains(a)) return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 从目标身上取出指定 aura 的**显示名**。
+    ///
+    /// 走 Dalamud 的 StatusList（AEAssist 也是这么读的），
+    /// 拿不到返回空串。
+    /// </summary>
+    private static string 取状态名(IBattleChara 目标, uint 状态Id)
+    {
+        try
+        {
+            var 列表 = 目标.StatusList;
+            if (列表 == null) return "";
+
+            foreach (var s in 列表)
+            {
+                if (s == null) continue;
+                if (s.StatusId != 状态Id) continue;
+
+                // ⚠️ Status.GameData 是 RowRef<Status>（struct），**不能用 ?.**
+                //    取不到就抛异常，靠外层 catch 兜住
+                var 名 = s.GameData.Value.Name.ToString();
+                return string.IsNullOrWhiteSpace(名) ? "" : 名;
+            }
+        }
+        catch { }
+
+        return "";
     }
 
     /// <summary>这个队友身上有没有"必须奶满"的状态；返回命中的状态 ID（0 = 没有）</summary>
@@ -107,11 +182,11 @@ public static class 必须奶满
 
         try
         {
-            foreach (var (状态, _) in 表)
+            foreach (var 项 in 表)
             {
-                if (状态 == 0) continue;
-                if (!是必须奶满状态(状态)) continue;      // 地图不匹配就跳过
-                if (目标.HasAura(状态)) return 状态;
+                if (项.Id == 0) continue;
+                if (!目标.HasAura(项.Id)) continue;      // 没有这个 aura，跳过
+                if (是必须奶满状态(项.Id, 目标)) return 项.Id;
             }
         }
         catch { }
