@@ -28,6 +28,9 @@ public class Res_Dot : ISlotResolver
 
     private static long 上次挂Dot;
 
+    /// <summary>诊断只打一次的开关（每个 DoT buff 各一条）</summary>
+    private static readonly HashSet<uint> _已诊断 = new();
+
     public Res_Dot(JobSpellTable table) => _t = table;
 
     public int Check()
@@ -53,10 +56,71 @@ public class Res_Dot : ISlotResolver
         //   而且因为 buff 永远上不去，DoT 会反复触发、把输出循环卡死。
         if (!Dot黑名单.可以上Dot(target)) return -5;
 
+        诊断剩余时间(target);
+
         if (!该补Dot(target)) return -4;
 
         var spell = SpellUtil.当前形态(_t.Dot技能);
         return spell != null && spell.IsReadyWithCanCast() ? 6 : -1;
+    }
+
+    /// <summary>
+    /// **一次性诊断**：把这个 DoT 的"剩余时间"接口实际返回什么打出来。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么需要它 ★
+    ///
+    ///    用户实测：天辉每 ~4.9 秒放一次（日志里连续 15 次）。
+    ///    正常应该是 30 秒一次 —— 说明下面这条判断**恒为真**：
+    ///        `撑不过N个Gcd(buff, 2, 1.5)`  → 以为"DoT 快没了"
+    ///
+    ///    候选根因（光看代码分不出来）：
+    ///      ① `GetAuraTimeleft` 返回的其实是"秒×100"(3000) 而不是毫秒(30000)
+    ///         → 除以 1000 = 3 秒 → 恒判该补
+    ///      ② `fromMe=true` 取不到我挂的 buff → 返回 0/负数 → 恒判该补
+    ///      ③ `HasLocalPlayerAura` 失效 → 走"一个 buff 都没配"的兜底分支
+    ///
+    ///    ⚠️ 所以这里**不管有没有 buff 都打一条** —— 否则情况③
+    ///       会因为"没 buff 就 return"而永远看不到输出。
+    ///       每个 buff 各一行，第一场战斗打一次就够。
+    ///
+    ///  确认结论后，把本方法和 `_已诊断` 一起删掉。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private void 诊断剩余时间(IBattleChara target)
+    {
+        try
+        {
+            if (_已诊断.Count > 0) return;   // 已经打过一整轮 → 不再刷屏
+
+            var 候选 = _t.所有DotBuff;
+            var 描述 = new System.Text.StringBuilder();
+            描述.Append($"[HealerACR][DoT诊断] 技能={_t.Dot技能} 候选buff数={(候选?.Length ?? 0)}");
+
+            if (候选 != null)
+            {
+                foreach (var b in 候选)
+                {
+                    if (b == 0) continue;
+
+                    var 有 = target.HasLocalPlayerAura(b);
+                    var 原始 = target.我的Buff剩余毫秒(b);
+                    var 秒 = target.我的Buff剩余秒(b);
+                    var 撑不过 = target.撑不过N个Gcd(b, 2, 1.5f);
+
+                    描述.Append($" || buff={b} 在身上={有} 接口返回={原始}" +
+                                $" 按毫秒={原始 / 1000f:F1}s 按秒x100={原始 / 100f:F1}s" +
+                                $" 剩余秒()={秒:F2} 撑不过2GCD={撑不过}");
+                    _已诊断.Add(b);
+                }
+            }
+
+            LogHelper.Info(描述.ToString());
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[HealerACR][DoT诊断] 异常：" + e.Message);
+        }
     }
 
     public void Build(Slot slot)
