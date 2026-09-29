@@ -120,7 +120,9 @@ public class SCH_Accession : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 和普通群疗同一个门槛（它本身就是群疗的一种形态）
-        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值, 20f)
+        // ⚠️ 但半径用它**自己的 15 米** —— 降临之章 41501 的 EffectRange 是 15，
+        //    按 20 米数人会把 15 米外的人算进来（交掉却治不到）。
+        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值, 15f)
             < HealTargetHelper.群奶人数要求(2)) return -4;
 
         if (蓝量.低蓝停手()) return -5;

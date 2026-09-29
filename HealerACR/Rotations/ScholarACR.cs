@@ -15,8 +15,23 @@ public class SCHSpellTable : JobSpellTable
     public override Jobs Job => Jobs.Scholar;
     public override string 职业名 => "学者";
 
+    /// <summary>
+    /// 基础输出链 —— ⚠️ **必须按等级从高到低排**。
+    ///
+    /// `取已解锁` 是"从前往后挑第一个已解锁的" ——
+    /// **顺序就是优先级**，等级高的必须排在前面。
+    ///
+    /// ⚠️ 这里踩过坑（审计发现）：原来是
+    ///    `极炎法(82) / 魔炎法(64) / 死炎法(72) / 气炎法(54) / 毁坏(38) / 毁灭(1)`
+    ///    —— **魔炎法(64) 排在了 死炎法(72) 前面**，
+    ///    于是 **72~81 级取到的是魔炎法**（死炎法是死代码），
+    ///    整段等级都在打低一级的填充技。
+    ///
+    /// 等级（官方 Action 表）：极炎法 82 / 死炎法 72 / 魔炎法 64 /
+    ///                        气炎法 54 / 毁坏 38 / 毁灭 1
+    /// </summary>
     public override uint 基础输出 => SpellUtil.取已解锁(
-        SpellIds.取("极炎法"), SpellIds.取("魔炎法"), SpellIds.取("死炎法"),
+        SpellIds.取("极炎法"), SpellIds.取("死炎法"), SpellIds.取("魔炎法"),
         SpellIds.取("气炎法"), SpellIds.取("毁坏"), SpellIds.取("毁灭"));
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("裂阵法"), SpellIds.取("破阵法"));
@@ -337,7 +352,14 @@ public class SCH_Aetherpact : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var tank = HealTargetHelper.血量最低的坦克(0.8f);
+        // ⚠️ 必须和 Check 用**同一个血线**（审计发现）——
+        //    原来 Check 用设置值、Build 写死 0.8f。
+        //    用户把「妖精契约血线」调到 >0.8 时：
+        //      Check 找到坦克（如 0.9 血）返回 5
+        //      → Build 再查 0.8f 得到 null → **slot 是空的**
+        //    → 框架继续扫下一个 resolver → 这个技能**静默不放**。
+        //    （F③ 那类"判 A 放不出"：Check 和 Build 必须同源）
+        var tank = HealTargetHelper.血量最低的坦克(HealSettings.Instance.妖精契约血线);
         if (tank == null) return;
         slot.Add(new Spell(技能, tank));
     }
@@ -398,7 +420,7 @@ public class SCH_Consolation : ISlotResolver
         if (TimeHelper.Now() - 上次慰藉 < 限流) return -7;
 
         var s = HealSettings.Instance;
-        var 团队掉血 = HealTargetHelper.低于阈值人数(s.群体治疗阈值) >= s.群奶最少人数;
+        var 团队掉血 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= s.群奶最少人数;   // 慰藉 20 米
         var 要来伤害 = TimelineManager.未来有减伤(2.0) || 减伤Helper.即将来大伤害();
 
         if (!团队掉血 && !要来伤害) return -1;

@@ -91,7 +91,7 @@ public static class 记忆库
             if (行.Length < 2) { 状态 = "记录为空，跳过"; return; }
 
             // 第一行是对局头
-            对局头 头 = null;
+            对局头? 头 = null;   // 反序列化失败时就是 null（下一行就判）
             try { 头 = JsonSerializer.Deserialize<对局头>(行[0]); } catch { }
             if (头 == null) { 状态 = "对局头解析失败"; return; }
 

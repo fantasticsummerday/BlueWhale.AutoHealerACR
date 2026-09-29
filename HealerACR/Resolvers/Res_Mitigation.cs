@@ -179,7 +179,11 @@ public class Res_GroupShield : ISlotResolver
         var s = HealSettings.Instance;
         // 排除坦克：它们有自己的减伤体系，群盾留给其他人更划算。
         // 参考同类 ACR 的"检测周围非T队内玩家身上有盾"——它里面也是先 IsTank 过滤。
-        var 需要盾 = HealTargetHelper.可治疗队友()
+        //
+        // ⚠️ 半径必须传 **20 米**（不传会落到默认 30）——
+        //    贤者群盾「预后」24286 的 EffectRange 是 20 米。
+        //    按 30 米算会把 20 米外的人算成"缺盾"，交掉一个 GCD 群盾却漏人。
+        var 需要盾 = HealTargetHelper.可治疗队友(20f)
             .Count(r => !r.IsTank()
                         && r.血量比例() <= s.群体治疗阈值
                         && !r.有该技能的Buff(_t.群体盾));

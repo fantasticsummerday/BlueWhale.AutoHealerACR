@@ -14,7 +14,6 @@ namespace HealerACR.Resolvers;
 public class Res_OffensiveAbility : ISlotResolver
 {
     private readonly JobSpellTable _t;
-    private static long 上次诊断;
 
     public Res_OffensiveAbility(JobSpellTable table) => _t = table;
 
@@ -36,22 +35,19 @@ public class Res_OffensiveAbility : ISlotResolver
         // 整波快清完时也不交（对照同类 ACR 的 ShouldHoldForDyingTrash）
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.敌人波次要结束()) return -4;
 
-        // ---- 诊断：每 5 秒打一次，看能量吸收到底卡在哪 ----
-        var 候选 = _t.输出能力技;
-        if (TimeHelper.Now() - 上次诊断 > 5000 && _t.AOE最少敌人数 > 0)
-        {
-            上次诊断 = TimeHelper.Now();
-            var 首个 = 候选.Length > 0 ? 候选[0] : 0;
-            LogHelper.Info(
-                "[HealerACR] 输出能力技诊断：候选数=" + 候选.Length +
-                " 首个id=" + 首个 +
-                " 以太=" + JobApiHelper.以太 +
-                " 读得到=" + JobApiHelper.读得到("以太") +
-                " 已解锁=" + (首个 != 0 && SpellUtil.已解锁(首个)) +
-                " 可用=" + (首个 != 0 && SpellUtil.可用(首个)) +
-                " 可插能力技=" + CharacterExt.可以插能力技() +
-                " 目标=" + (HealTargetHelper.当前目标() == null ? "无" : "有"));
-        }
+        // ⚠️ 这里原来有一条"每 5 秒打一次"的诊断日志（打印候选数 / 以太 / 读得到…）。
+        //
+        //    实测它**永远不会停**：条件是 `_t.AOE最少敌人数 > 0`，
+        //    而那个值四个职业都恒为正 —— 所以整场战斗每 5 秒刷一条，
+        //    还顺带做一次 `JobApiHelper.读得到("以太")` 反射查询。
+        //
+        //    它是排查"能量吸收为什么不放"时临时加的，问题已经定位并修掉了
+        //    （根因是 `取已解锁` 顺序 + 返回值不参与仲裁，见下面的长注释）。
+        //    ⇒ 对用户没有价值，删掉 —— 日志要留给**用户看得懂、能据此行动**的信息。
+        //
+        //    ⚠️ 以后再加这类诊断，记得：
+        //       · 挂在"调试开关"后面，不要无条件打
+        //       · 条件要**真的会变假**（`> 0` 这种恒真条件等于没有条件）
 
         foreach (var id in _t.输出能力技)
         {

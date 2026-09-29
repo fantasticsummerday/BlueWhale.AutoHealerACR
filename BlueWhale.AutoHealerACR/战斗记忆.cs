@@ -86,7 +86,15 @@ public static class 战斗记忆
         public float[] 结果6秒 = Array.Empty<float>();
         public bool 已回填3秒;
         public bool 已回填6秒;
-        public bool 当场死亡;          // 目标在回填前死了 → 可能决策有问题
+
+        /// <summary>
+        /// 决策之后、回填之前，队伍里**有人倒下了**。
+        ///
+        /// ⚠️ 这个字段以前**从来没有被赋值过**（编译器 CS0649 警告指出来了）——
+        ///    也就是说它恒为 false，AI 提炼记忆时看到的"没人死过"是假的。
+        ///    现在由 `回填()` 用 `死亡追踪.最近有人死亡()` 填上。
+        /// </summary>
+        public bool 当场死亡;
 
         /// <summary>记录创建时刻（TimeHelper.Now()）—— 回填时算"过了多久"用</summary>
         public long 出生时间;
@@ -236,7 +244,11 @@ public static class 战斗记忆
             // 以太 / 职业
             try
             {
-                记录.职业 = 我.ClassJob.ToString();
+                // ⚠️ `ClassJob` 是 `RowRef<ClassJob>`（**struct，不是可空引用**），
+                //    所以不能用 `?.`（编译器报 CS0023）。
+                //    读 `.Value.Name` 才拿得到名字 —— 和 `对局记录` / `AiSituation`
+                //    用的是同一种读法，保持一致。
+                记录.职业 = 我.ClassJob.Value.Name.ToString();
             }
             catch { }
 
@@ -343,6 +355,17 @@ public static class 战斗记忆
                 {
                     记录.结果6秒 = 当前血量;
                     记录.已回填6秒 = true;
+
+                    // ★ 填上"当场死亡"（原来这个字段从来没被赋值过）★
+                    //
+                    //   覆盖窗口 = 从决策到 6 秒回填这一整段 ——
+                    //   那正是"这个决策有没有救到人"的观察期。
+                    //
+                    //   ⚠️ 为什么用 `死亡追踪.最近有人死亡()` 而不是逐个查血量：
+                    //      那个人可能**已经被复活**、也可能**已经脱离**
+                    //      `CastableAlliesWithin30` —— 逐人查会漏。
+                    //      `死亡追踪` 用的是 `PartyHelper.DeadAllies`，更可靠。
+                    记录.当场死亡 = 死亡追踪.最近有人死亡((int)已过毫秒 + 500);
 
                     // 两个时间点都填完了 → 从待回填队列移除
                     _待回填.RemoveAt(i);

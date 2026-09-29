@@ -1,4 +1,5 @@
 using AEAssist.Helper;
+using System.Collections.Generic;
 
 namespace HealerACR.Common;
 
@@ -59,8 +60,92 @@ public static class Dot补判
     /// <summary>上一次真正放出 DoT 的时间（**两条路径共用**）</summary>
     private static long _上次挂Dot;
 
-    /// <summary>距离上次放 DoT 过了多久（毫秒）；没放过返回 -1。给诊断用</summary>
+    /// <summary>距上次放 DoT 过了多久（毫秒）；没放过返回 -1。给诊断用</summary>
     public static long 距上次毫秒 => _上次挂Dot == 0 ? -1 : TimeHelper.Now() - _上次挂Dot;
+
+    // ==================== 按目标的双窗口 ====================
+
+    /// <summary>某个目标的挂 DoT 记录</summary>
+    private sealed class 单目标记录
+    {
+        public long 按下时间;
+        public bool 已确认成功;
+    }
+
+    private static readonly Dictionary<ulong, 单目标记录> _按目标 = new();
+
+    /// <summary>挂起窗口（毫秒）—— 按下之后这段时间不重判（等 buff 读出来）</summary>
+    private const int 挂起窗口毫秒 = 5000;
+
+    /// <summary>
+    /// 成功抑制窗口的**上限**（毫秒）。
+    ///
+    /// ⚠️ 这是**上限不是定值**（审计指出第一版写死 27 秒有问题）：
+    ///    `Dot持续时间` 是**用户可调**的（3~30 秒），写死 27 秒会让
+    ///    **短 DoT 空转** —— 比如 15 秒的 DoT，掉光后仍被挡到第 27 秒才准补，
+    ///    **空窗最长 (27 − 实际时长) 秒**，DPS 白掉一截。
+    ///
+    /// ⇒ 实际窗口取 `min(这个上限, 配置时长 − 3 秒)`，见 `抑制窗口毫秒()`。
+    /// </summary>
+    private const int 成功抑制上限毫秒 = 27000;
+
+    /// <summary>
+    /// 实际的成功抑制窗口 —— **跟用户配的 DoT 时长走**，并夹在上限内。
+    ///
+    /// ⚠️ 为什么减 3 秒：和 `该补()` 的兜底判据同一个余量
+    ///    （`Dot持续时间 - 3f`）—— 剩 3 秒以内就该续了，
+    ///    抑制窗口不能比"该续的时间点"还长。
+    /// </summary>
+    private static int 抑制窗口毫秒()
+    {
+        try
+        {
+            var 配置毫秒 = (int)(HealSettings.Instance.Dot持续时间 * 1000f) - 3000;
+            if (配置毫秒 < 挂起窗口毫秒) 配置毫秒 = 挂起窗口毫秒;   // 至少不短于挂起窗口
+            return Math.Min(配置毫秒, 成功抑制上限毫秒);
+        }
+        catch
+        {
+            return 成功抑制上限毫秒;
+        }
+    }
+
+    /// <summary>记录表上限 —— 防止打一整场小怪后无限增长</summary>
+    private const int 记录上限 = 32;
+
+    /// <summary>
+    /// 按目标判断：**现在该不该跳过**。
+    /// 返回 true = 在窗口内、别补；false = 窗口外、走正常判断。
+    /// </summary>
+    private static bool 在抑制窗口内(IBattleChara 目标, uint[]? 所有DotBuff)
+    {
+        try
+        {
+            var id = 目标.GameObjectId;
+            if (id == 0 || !_按目标.TryGetValue(id, out var r)) return false;
+
+            var 经过 = TimeHelper.Now() - r.按下时间;
+
+            // ① 读到了我们的 DoT ⇒ 确认成功，之后走 27 秒完全抑制
+            if (!r.已确认成功 && 所有DotBuff != null)
+            {
+                foreach (var b in 所有DotBuff)
+                {
+                    if (b != 0 && 目标.HasLocalPlayerAura(b)) { r.已确认成功 = true; break; }
+                }
+            }
+
+            // ② 确认成功 → 27 秒内完全不补（防 buff 读取延迟骗过剩余时间判断）
+            if (r.已确认成功) return 经过 < 抑制窗口毫秒();
+
+            // ③ 还没确认成功 → 挂起窗口内不重判（等 buff 读出来）
+            return 经过 < 挂起窗口毫秒;
+        }
+        catch
+        {
+            return false;   // 判不了就别拦
+        }
+    }
 
     /// <summary>
     /// **记录一次 DoT 施放** —— 必须在技能**真正进了 slot 之后**调用
@@ -69,16 +154,65 @@ public static class Dot补判
     /// ⚠️ 两条路径都要调：`Res_Dot.Build` 和 `AiSuggestionResolver.Build`。
     ///    漏一处，那个路径就能绕过保险丝。
     /// </summary>
-    public static void 记一次施放()
+    public static void 记一次施放() => 记一次施放(null);
+
+    /// <summary>
+    /// **按目标**记录一次 DoT 施放。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要按目标（抄自参考实现的 `HealerDotCastTracker`）★
+    ///
+    ///  ── 全局保险丝的缺陷 ──
+    ///    原来只有一个 `_上次挂Dot`，**不区分目标** ——
+    ///    给 A 挂了 DoT 之后 2.5 秒内给 B 挂**也会被挡掉**。
+    ///    表现：一波小怪想连铺 2~3 个 DoT 时，**后面几个永远排不上**。
+    ///
+    ///  ── 参考实现的两个窗口（IL 直证）──
+    ///      · **挂起窗口 5000ms**：刚按下、buff 还没读到 ——
+    ///        这段期间不重判，否则会因为"读不到 buff"而重复补。
+    ///      · **成功抑制窗口 27000ms**：DoT 真上去了 ——
+    ///        这段期间**完全不重补**，防"buff 读取延迟"骗过剩余时间判断。
+    ///
+    ///  ⚠️ 两个窗口缺一不可：
+    ///     只留挂起 → buff 读到后就没抑制了，延迟仍会骗过判断；
+    ///     只留成功 → 从"按下"到"成功"这段没人管，每 GCD 重判一次。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static void 记一次施放(IBattleChara? 目标)
     {
-        try { _上次挂Dot = TimeHelper.Now(); }
+        try
+        {
+            _上次挂Dot = TimeHelper.Now();
+
+            if (目标 == null) return;
+            var id = 目标.GameObjectId;
+            if (id == 0) return;
+
+            // 超上限就丢掉最旧的（简单清理，够用）
+            if (!_按目标.ContainsKey(id) && _按目标.Count >= 记录上限)
+            {
+                ulong 最旧 = 0;
+                long 最旧时间 = long.MaxValue;
+                foreach (var kv in _按目标)
+                {
+                    if (kv.Value.按下时间 < 最旧时间) { 最旧时间 = kv.Value.按下时间; 最旧 = kv.Key; }
+                }
+                _按目标.Remove(最旧);
+            }
+
+            _按目标[id] = new 单目标记录 { 按下时间 = TimeHelper.Now(), 已确认成功 = false };
+        }
         catch { }
     }
+
+    /// <summary>当前有多少条按目标记录（诊断用）</summary>
+    public static int 记录条数 => _按目标.Count;
 
     /// <summary>
     /// **现在该补 DoT 吗** —— 这是唯一权威判断。
     ///
     /// 判断顺序（**顺序不能反**，见下面每一段的说明）：
+    ///   ⓪ 按目标的双窗口（挂起 5s / 成功抑制 27s）—— 在窗口内直接不补
     ///   ① 保险丝：刚放过 → 不补
     ///   ② 逐档检查所有等级的 DoT buff：
     ///        · 这一档不在身上 → 看下一档
@@ -96,6 +230,9 @@ public static class Dot补判
         try
         {
             var 现在 = TimeHelper.Now();
+
+            // ⓪ 按目标的双窗口（最优先 —— 它比"剩余时间"更可靠）
+            if (在抑制窗口内(目标, 所有DotBuff)) return false;
 
             // ① 逐档检查所有等级的 DoT buff
             if (所有DotBuff != null && 所有DotBuff.Length > 0)
@@ -152,5 +289,11 @@ public static class Dot补判
     }
 
     /// <summary>战斗重置 / 换本 / 切职业时清（配合 OnResetBattle 等）</summary>
-    public static void 重置() => _上次挂Dot = 0;
+    public static void 重置()
+    {
+        _上次挂Dot = 0;
+        // ⚠️ 按目标表也要清 —— 换本/换职业后 GameObjectId 会变，
+        //    不清的话旧记录会占着表位（虽然不会误伤，但会提前触发清理）。
+        _按目标.Clear();
+    }
 }

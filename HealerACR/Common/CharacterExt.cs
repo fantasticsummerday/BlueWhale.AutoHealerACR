@@ -240,9 +240,17 @@ public static class CharacterExt
     /// ⚠️ 顺序不稳定（沿用游戏给的状态表顺序），调用方如需排序请自己排。
     ///    拿不到返回空列表（不是 null）。
     /// </summary>
-    public static List<(string 名, float 剩余秒)> 所有状态剩余(IBattleChara? 目标)
+    /// <summary>
+    /// 目标身上**所有**状态（含剩余时间）。
+    ///
+    /// ⚠️ `Id` 是**后加的**（原来是 `(名, 剩余秒)` 两元组）——
+    ///    加它是为了让调用方能**按 buff id 精确找**某一条的剩余时间，
+    ///    而不是靠名字匹配（名字会因语言/版本变，id 不会）。
+    ///    两元组的调用点用的是**具名**访问（`.名` / `.剩余秒`），所以不受影响。
+    /// </summary>
+    public static List<(uint Id, string 名, float 剩余秒)> 所有状态剩余(IBattleChara? 目标)
     {
-        var 结果 = new List<(string, float)>();
+        var 结果 = new List<(uint, string, float)>();
         if (目标 == null) return 结果;
 
         try
@@ -270,7 +278,7 @@ public static class CharacterExt
                 // 读不到或已过期的不列
                 if (剩余 < 0f) continue;
 
-                结果.Add((名, 剩余));
+                结果.Add((s.StatusId, 名, 剩余));
             }
         }
         catch { }

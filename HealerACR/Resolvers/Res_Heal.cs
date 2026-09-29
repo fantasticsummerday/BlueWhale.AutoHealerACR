@@ -218,7 +218,10 @@ public class Res_HealAoEAbility : ISlotResolver
         if (!SpellUtil.已解锁(_t.群体治疗能力技)) return -2;
 
         var s = HealSettings.Instance;
-        var 低于血线 = HealTargetHelper.低于阈值人数(s.群体治疗阈值);
+        // ⚠️ 必须传**技能真实半径**（20 米）—— 不传就落到默认 30 米，
+        //    会把 20 米外的人也算成"该群疗" → 交掉一个大 CD 却只治到 1 个人。
+        //    （不屈不挠之策 3583 / 天星冲日 16553 / 消化 24301 都是 20 米）
+        var 低于血线 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f);
 
         // 输出型（白魔法令）：卡 CD 打，不等掉血。
         // 注意**不要**检查当前目标 —— 法令是"以自己为中心"的范围技，

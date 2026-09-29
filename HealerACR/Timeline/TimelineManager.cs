@@ -66,7 +66,7 @@ public static class TimelineManager
     /// 失效时机：<see cref="初始化"/>（用户点了「重扫时间轴」、
     /// 或者改了目录设置）—— 那时必须重新选。
     /// </summary>
-    private static string _目录缓存;
+    private static string? _目录缓存;
 
     public static string 时间轴目录
     {
@@ -100,8 +100,8 @@ public static class TimelineManager
             //      ① 有带 ZoneId 的时间轴 → 用它（这才是有用的那份）
             //      ② 至少有 .txt        → 给用户一个"能填能放"的位置
             //      ③ 只要求存在          → 兜底
-            string 有Txt = null;
-            string 第一个存在 = null;
+            string? 有Txt = null;
+            string? 第一个存在 = null;
 
             foreach (var 候选 in 候选目录())
             {
@@ -161,7 +161,7 @@ public static class TimelineManager
         //       ACR 从内存加载，`Assembly.Location` 返回空字符串，
         //       于是拿不到目录 —— 这正是"找不到 Timelines"的根因。
         //       保留它是因为**万一**以后版本能拿到，就能自动生效。
-        string dll目录 = null;
+        string? dll目录 = null;
         try
         {
             var dll = typeof(TimelineManager).Assembly.Location;
@@ -176,7 +176,7 @@ public static class TimelineManager
         //    ⚠️ 同样依赖 `Assembly.Location`，同样可能拿不到。
         foreach (var ae in AppDomain.CurrentDomain.GetAssemblies())
         {
-            string ae目录 = null;
+            string? ae目录 = null;
             try
             {
                 if (ae.GetName().Name != "AEAssist") continue;
@@ -394,7 +394,7 @@ public static class TimelineManager
     /// </summary>
     private static IEnumerable<string> 从设置目录反推()
     {
-        string 作者目录 = null;
+        string? 作者目录 = null;
         try { 作者目录 = Path.GetDirectoryName(HealSettings.当前文件路径); } catch { }
 
         if (string.IsNullOrEmpty(作者目录)) yield break;

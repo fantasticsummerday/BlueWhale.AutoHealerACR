@@ -120,7 +120,7 @@ public abstract class HealerEntryBase : IRotationEntry
             return new List<SlotResolverData>();
         }
 
-        return 构建决策队列_职业专属();
+        return Res_低蓝闸门.套上(构建决策队列_职业专属());
     }
 
     public virtual Rotation Build(string settingFolder)
@@ -851,6 +851,21 @@ public class HealRotationEventHandler : IRotationEventHandler
         //     （AI 是增强层，这些开关不该依赖 AI 存活）。
         // ══════════════════════════════════════════════════════════════
         HealQt.每帧更新();
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 以太管理：**同一个隐患的第二处**（2026-09 补）★
+        //
+        //  ⚠️ 它原来只被 `BlueWhaleEntries` 调（AI 层）。
+        //     而 `以太管理` 是**本地逻辑**（学者的以太保留/抑制），
+        //     按开发约定 G「AI 是增强层，本地逻辑不该依赖它」——
+        //     卸载 BlueWhale 之后这个更新就停了：
+        //       · `抑制中` 永远是 false（抑制窗口形同虚设）
+        //       · 保留策略不生效
+        //
+        //    和上面 `HealQt.每帧更新()` 是**完全同一类问题**，
+        //    所以放在一起 —— 以后新增"每帧维护的本地状态"也放这里。
+        // ══════════════════════════════════════════════════════════════
+        以太管理.每帧更新();
 
         // ★ 记录模式：观察玩家手动操作 ★
         //   非记录模式下这个方法第一行就 return，零开销。

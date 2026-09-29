@@ -36,6 +36,32 @@ public static class 死亡追踪
     /// <summary>
     /// 每帧调用：更新"谁躺下了、躺了多久"。
     /// </summary>
+    /// <summary>最近一次有人倒下的时刻（毫秒）；没有过则为 0</summary>
+    private static long _最近死亡时刻;
+
+    /// <summary>
+    /// **这段时间内有人倒下吗**。
+    ///
+    /// 用途：战斗记忆回填时判断
+    /// "决策之后队伍里有人死了吗" ——
+    /// 那是评估决策好坏的重要信号。
+    ///
+    /// ⚠️ 为什么用"最近一次死亡时刻"而不是逐人查：
+    ///    回填时只知道"当初的队伍快照"，
+    ///    而那个人可能已经被复活、也可能已经脱离了
+    ///    `CastableAlliesWithin30` —— 逐人查会漏。
+    ///    "最近有人死"这个信号对那些情况都成立。
+    /// </summary>
+    public static bool 最近有人死亡(int 毫秒)
+    {
+        try
+        {
+            if (_最近死亡时刻 == 0) return false;
+            return TimeHelper.Now() - _最近死亡时刻 <= 毫秒;
+        }
+        catch { return false; }
+    }
+
     public static void 每帧更新()
     {
         try
@@ -54,6 +80,13 @@ public static class 死亡追踪
                 if (!_死亡时间.ContainsKey(id))
                 {
                     _死亡时间[id] = 现在;
+
+                    // ★ 同时记下"最近一次有人倒下"的时刻 ★
+                    //
+                    //  用途：战斗记忆回填时判断
+                    //  "决策之后队伍里有人死了吗"。
+                    //  那个判断原本写了字段但**从来没赋值**（CS0649）。
+                    _最近死亡时刻 = 现在;
                 }
             }
 
@@ -122,7 +155,11 @@ public static class 死亡追踪
     }
 
     /// <summary>战斗重置时清空</summary>
-    public static void 重置() => _死亡时间.Clear();
+    public static void 重置()
+    {
+        _死亡时间.Clear();
+        _最近死亡时刻 = 0;
+    }
 
     /// <summary>诊断信息</summary>
     public static string 状态描述()

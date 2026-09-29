@@ -586,7 +586,7 @@ public class Res_BigAoEHeal : ISlotResolver
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
 
             var s = HealSettings.Instance;
-            var 人够多 = HealTargetHelper.低于阈值人数(s.群体治疗阈值) >= s.群奶最少人数;
+            var 人够多 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= s.群奶最少人数;   // 20 米：大宇宙 25874
             var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
             if (!人够多 && !要来了) return -1;
@@ -711,9 +711,16 @@ public class Res_SpreadShield : ISlotResolver
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // 自己身上得有盾 —— 注意用 buff id（鼓舞 = 297），不是技能 id 185。
-        // 之前拿 185 去 HasAura，永远查不到，这个扩散盾等于从来没生效过。
-        if (AuraIds.鼓舞 != 0 && !Core.Me.HasAura(AuraIds.鼓舞)) return -3;
+        // 自己身上得有盾。
+        //
+        // ⚠️ 用 `有该技能的Buff(185)` —— 它内部覆盖**四档**：
+        //      297 鼓舞 / 1918 激励（暴击盾）/ 3087 / 3088
+        //
+        //    原来只查 `AuraIds.鼓舞`(297) 一个 —— 而**暴击时挂的是 1918 激励**，
+        //    于是"自己身上是暴击盾"时这里判断成"没盾" → `return -3` → 扩散不触发。
+        //    （和"技能 ID 当 buff ID 查"是同一类坑的另一面：
+        //      这次是"只查了普通那一档、漏了暴击那一档"。）
+        if (!Core.Me.有该技能的Buff(185)) return -3;
 
         if (!TimelineManager.未来有减伤(4.0) && !减伤Helper.即将来大伤害()) return -1;
 
