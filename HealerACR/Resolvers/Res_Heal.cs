@@ -400,8 +400,11 @@ public class Res_HealSingleGcd : ISlotResolver
         //    （历史教训见 `Res_SingleHoT` 的注释：**别再用返回值表达优先级**。）
         // ══════════════════════════════════════════════════════════════
 
-        // ⚠️ 先锁定"该奶谁"，再判断"这个人还需要奶吗" —— 顺序不能反。
-        var target = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
+        // ⚠️ 先锁定"该奶谁 + 用哪个技能"，再判断"这个人还需要奶吗" —— 顺序不能反。
+        //
+        //  ⚠️ 这里调的是**和 Build 同一个** `决定()`（内含同帧缓存）——
+        //     两边同源才不会有"判 A 放 B"（开发约定 F③）。
+        var (target, 技) = 决定();
         if (target == null) return -1;
 
         // ── 目标已经有厚盾就别再刷治疗：血量 + 盾已经溢出，再读条是纯浪费 GCD ──
@@ -433,19 +436,121 @@ public class Res_HealSingleGcd : ISlotResolver
         //       而能力技治疗（天赐祝福 / 神名 / 活性法…）走
         //       Res_HealEmergency，不受这条限制。
         //       所以移动中**仍然有救急手段**，只是不用读条那条路。
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 可用性判**决定出来的那个技能**，不是槽位技能 ★
+        //
+        //  ⚠️ 移动守卫现在由 `治疗决策.选最优` 内部处理（移动中只认瞬发）——
+        //     `决定()` 返回非 null 就说明**它已经确认这个技能放得出来**。
+        //     这里再确认一次是为了防"两次调用之间状态变了"。
+        // ══════════════════════════════════════════════════════════════
+        if (技 != null)
+            return SpellUtil.可用(技.Id) && SpellUtil.移动中可用(技.Id) ? 10 : -1;
+
+        // 候选集挑不出 → 退回旧槽位（行为与接入前完全一致）
         if (!SpellUtil.移动中可用(_t.单体治疗GCD)) return -7;
 
         return SpellUtil.可用(_t.单体治疗GCD) ? 10 : -1;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 同帧缓存 —— 保证 `Check` 和 `Build` 选**同一个技能** ★
+    //
+    //  ⚠️ 为什么需要：
+    //     `治疗决策.选最优` 依赖**动态状态**（目标血量 / MP / 冷却）。
+    //     两次调用之间状态可能变 → Check 判了「救疗」、Build 放了「治疗」
+    //     —— 这就是开发约定 F③ 说的"判 A 放 B"，也是这一行最阴的 bug。
+    //
+    //  ⇒ Check 算一次存起来，Build 直接取用；过了一帧（或目标变了）才重算。
+    // ══════════════════════════════════════════════════════════════
+    private static long _缓存帧;
+    private static ulong _缓存目标Id;
+    private static 治疗技能? _缓存技能;
+
+    /// <summary>
+    /// **这一发该用哪个单体治疗**（Check / Build 共用）。
+    ///
+    /// 返回 null = 没有合适的（目标不需要奶 / 技能都放不出来）。
+    /// </summary>
+    private (IBattleChara? 目标, 治疗技能? 技) 决定()
+    {
+        try
+        {
+            var 阈值 = HealSettings.Instance.单体治疗阈值;
+            var 目标 = HealTargetHelper.最低血量队友(阈值, 30f);
+            if (目标 == null) return (null, null);
+
+            // ── 缺口：目标还差多少血 ──
+            var 缺口 = 缺口量(目标);
+            if (缺口 <= 0f) return (null, null);
+
+            // ── 命悬一线：低于"紧急阈值"就是 ──
+            var 命悬 = 目标.有效血量比例() <= HealSettings.Instance.紧急单奶阈值;
+
+            // ── 同帧缓存 ──
+            var 帧 = AEAssist.Helper.TimeHelper.Now() / 50;   // 50ms 一档
+            if (帧 == _缓存帧 && 目标.GameObjectId == _缓存目标Id && _缓存技能 != null)
+                return (目标, _缓存技能);
+
+            var 技 = 治疗决策.选最优(
+                _t.治疗候选, 缺口, 命悬,
+                移动中: SpellUtil.在移动(),
+                只群体: false,
+                只瞬发: false);
+
+            // ── 候选集为空 / 挑不出 → 退回旧槽位（保证不会"没人治"）──
+            if (技 == null && _t.单体治疗GCD != 0)
+            {
+                _缓存帧 = 帧; _缓存目标Id = 目标.GameObjectId; _缓存技能 = null;
+                return (目标, null);
+            }
+
+            _缓存帧 = 帧;
+            _缓存目标Id = 目标.GameObjectId;
+            _缓存技能 = 技;
+            return (目标, 技);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    /// <summary>目标还差多少血（按**有效血量比例**算，把盾也算进去）</summary>
+    private static float 缺口量(IBattleChara 目标)
+    {
+        try
+        {
+            var 上限 = 目标.MaxHp;
+            if (上限 <= 0) return 0f;
+
+            // ⚠️ 用 `有效血量比例`（含盾）而不是裸血量 ——
+            //    已经套了盾的人"看起来血少"但实际不缺治疗。
+            var 缺 = 上限 * (1f - 目标.有效血量比例());
+            return MathF.Max(0f, 缺);
+        }
+        catch
+        {
+            return 0f;
+        }
+    }
+
     public void Build(Slot slot)
     {
-        // ⚠️ 必须和 Check 用**同一套**选目标逻辑（开发约定 F③）。
-        //    「必须奶满」那条已经移给 `Res_MustFullHeal`，
-        //    这里只管普通血线治疗 —— 两边都统一才不会有"判 A 放 B"。
-        var target = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
-        if (target == null) return;
-        slot.Add(new Spell(_t.单体治疗GCD, target));
+        // ⚠️ 必须和 Check 用**同一套**决定逻辑（开发约定 F③）。
+        //    这里调的是**同一个** `决定()`，且它内部有同帧缓存 ——
+        //    所以两次调用拿到的一定是同一个技能。
+        var (目标, 技) = 决定();
+        if (目标 == null) return;
+
+        if (技 != null)
+        {
+            slot.Add(new Spell(技.Id, 目标));
+            return;
+        }
+
+        // 候选集挑不出 → 退回旧槽位（宁可放个弱治疗，也别不放）
+        if (_t.单体治疗GCD != 0)
+            slot.Add(new Spell(_t.单体治疗GCD, 目标));
     }
 }
 

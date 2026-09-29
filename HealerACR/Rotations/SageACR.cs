@@ -81,6 +81,65 @@ public class SGESpellTable : JobSpellTable
         => (技能Id == SpellIds.取("失衡") || 技能Id == SpellIds.取("失衡II"))
             ? (true, 5f) : (false, 0f);
 
+
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 治疗候选集 ★  —— 数据来自游戏数据（见 `WhiteMageACR` 同处的说明）
+    //
+    //  ⚠️ 贤者的恢复力档位在说明宏里是 `if(等级>=85, 高, 低)`（不是 85 级，
+    //    是"85 级"这个门槛）—— 见 `tools\HealPotency raw` 的输出。
+    // ══════════════════════════════════════════════════════════════════
+    private 治疗候选集? _治疗候选;
+
+    public override 治疗候选集 治疗候选
+    {
+        get
+        {
+            if (_治疗候选 != null) return _治疗候选;
+
+            var c = new 治疗候选集();
+
+            // ── 单体 GCD ──
+            c.加(new 治疗技能 { Id = SpellIds.取("诊断"), 名 = "诊断", 等级 = 2,
+                恢复力 = 450, MP = 400, 咏唱 = 1.5f, 复唱 = 2.5f });
+
+            // ── 群体 GCD ──
+            c.加(new 治疗技能 { Id = SpellIds.取("预后"), 名 = "预后", 等级 = 10,
+                恢复力 = 300, MP = 700, 咏唱 = 2.0f, 复唱 = 2.5f, 群体 = true, 是盾 = true });
+
+            // ── 单体能力技 ──
+            c.加(new 治疗技能 { Id = SpellIds.取("灵橡清汁"), 名 = "灵橡清汁", 等级 = 45,
+                恢复力 = 600, MP = 0, 咏唱 = 0f, 冷却 = 1f, 资源消耗 = 1 });
+
+            c.加(new 治疗技能 { Id = SpellIds.取("白牛清汁"), 名 = "白牛清汁", 等级 = 62,
+                恢复力 = 700, MP = 0, 咏唱 = 0f, 冷却 = 45f });
+
+            c.加(new 治疗技能 { Id = SpellIds.取("输血"), 名 = "输血", 等级 = 70,
+                恢复力 = 150, MP = 0, 咏唱 = 0f, 冷却 = 120f, 是盾 = true,
+                HoT恢复力 = 150, HoT持续 = 15f });
+
+            // ── 群体能力技 ──
+            c.加(new 治疗技能 { Id = SpellIds.取("自生"), 名 = "自生", 等级 = 20,
+                恢复力 = 100, MP = 0, 咏唱 = 0f, 冷却 = 60f, 群体 = true,
+                HoT恢复力 = 100, HoT持续 = 15f });
+
+            c.加(new 治疗技能 { Id = SpellIds.取("自生II"), 名 = "自生II", 等级 = 60,
+                恢复力 = 130, MP = 0, 咏唱 = 0f, 冷却 = 60f, 群体 = true,
+                HoT恢复力 = 130, HoT持续 = 15f });
+
+            c.加(new 治疗技能 { Id = SpellIds.取("寄生清汁"), 名 = "寄生清汁", 等级 = 52,
+                恢复力 = 400, MP = 0, 咏唱 = 0f, 冷却 = 30f, 群体 = true, 资源消耗 = 1 });
+
+            c.加(new 治疗技能 { Id = SpellIds.取("整体论"), 名 = "整体论", 等级 = 76,
+                恢复力 = 300, MP = 0, 咏唱 = 0f, 冷却 = 120f, 群体 = true, 是盾 = true });
+
+            c.加(new 治疗技能 { Id = SpellIds.取("泛输血"), 名 = "泛输血", 等级 = 80,
+                恢复力 = 100, MP = 0, 咏唱 = 0f, 冷却 = 120f, 群体 = true, 是盾 = true });
+
+            _治疗候选 = c;
+            return c;
+        }
+    }
+
     public override uint Dot技能 => SpellUtil.取已解锁(
         SpellIds.取("注药III"), SpellIds.取("注药II"), SpellIds.取("注药"));
     public override uint DotBuff => AuraIds.贤者Dot;
