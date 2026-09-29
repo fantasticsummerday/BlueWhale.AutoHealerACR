@@ -519,6 +519,87 @@ public static class TimelineManager
         return false;
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 机制预告 —— 给 AI 用 ★
+    //
+    //  用户要求："要让 ai 知道进的什么副本、会有什么机制，
+    //            出现机制时 / 时间轴内告知后续有机制时也要告诉 ai"
+    //
+    //  ⚠️ 架构约束（开发约定 G）：这里**只暴露数据**，不认识 BlueWhale。
+    //     HealerACR 必须能独立编译运行，AI 层只是可选增强 ——
+    //     所以这里是普通静态方法，由 BlueWhale 侧主动来读。
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>时间轴当前有没有在跑（战斗已开始且装上了对应副本的时间轴）</summary>
+    public static bool 时间轴在跑()
+    {
+        try { return HealSettings.Instance.启用时间轴 && Runner.有数据; }
+        catch { return false; }
+    }
+
+    /// <summary>当前用的时间轴文件名（就是副本名，cactbot 按副本命名）</summary>
+    public static string 时间轴文件
+    {
+        get
+        {
+            try { return Runner.文件名; }
+            catch { return string.Empty; }
+        }
+    }
+
+    /// <summary>这份时间轴一共记录了多少条机制（给 AI 一个"这个本多长"的体感）</summary>
+    public static int 机制总数()
+    {
+        try { return Runner.机制总数(); } catch { return 0; }
+    }
+
+    /// <summary>
+    /// 未来 <paramref name="秒内"/> 秒内会出现的机制。
+    ///
+    /// 返回 `(还有几秒, 名字, 要不要减伤)`，按时间升序。
+    /// 时间轴没在跑时返回空列表（AI 那边会显示"无时间轴"）。
+    /// </summary>
+    public static List<(double 还有几秒, string 名称, bool 需减伤)> 未来机制(double 秒内, int 最多几条 = 12)
+    {
+        try
+        {
+            if (!时间轴在跑()) return new List<(double, string, bool)>();
+            return Runner.未来机制(秒内, 最多几条);
+        }
+        catch
+        {
+            return new List<(double, string, bool)>();
+        }
+    }
+
+    /// <summary>下一条机制（不管还有多远）；没有时间轴返回 null</summary>
+    public static (double 还有几秒, string 名称, bool 需减伤)? 下一条机制()
+    {
+        try
+        {
+            if (!时间轴在跑()) return null;
+            return Runner.下一条机制();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>**正在发生**的机制（±1.5 秒窗口）</summary>
+    public static List<(string 名称, bool 需减伤)> 当前机制()
+    {
+        try
+        {
+            if (!时间轴在跑()) return new List<(string, bool)>();
+            return Runner.当前机制();
+        }
+        catch
+        {
+            return new List<(string, bool)>();
+        }
+    }
+
     /// <summary>
     /// 未来 N 秒附近有没有减伤需求（地星预铺 / 攒资源用）。
     ///

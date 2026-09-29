@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>TimelineProbe</AssemblyName>
+    <RootNamespace>TimelineProbe</RootNamespace>
+    <NoWarn>$(NoWarn);CS8618</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    ⚠️ 直接**引用真实源码文件**，不是复制。
+       复制的话测试和实现会漂移 —— 改了实现忘了改副本，
+       测试还是绿的，那就等于没测。
+       （这个是相对路径引入，`dotnet build` 时会一起编译。）
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\HealerACR\Timeline\CactbotTimelineParser.cs" />
+  </ItemGroup>
+
+</Project>

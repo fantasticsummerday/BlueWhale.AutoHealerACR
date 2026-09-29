@@ -121,6 +121,54 @@ dotnet build "BlueWhale.AutoHealerACR\BlueWhale.AutoHealerACR.csproj" -c Release
     Select-String -Pattern "error|已成功生成" | Select-Object -First 2 | ForEach-Object { 提示 $_ }
 
 # ══════════════════════════════════════════════════════════════════
+标题 "②·五 静态核对（ID 表 + 时间轴解析）"
+# ══════════════════════════════════════════════════════════════════
+#
+# ⚠️ 为什么把这两个也放进发版流程：
+#    它们查的都是**静默失效**类问题 —— 不报错、不崩溃，
+#    只是"某个技能永远不放"或"AI 收到一堆噪声"。
+#    这种问题只有靠机械核对才能稳定拦住，靠人记是不可靠的。
+
+$py = "python"
+# 优先用工程里记录的解释器路径（如果存在）
+$pyHint = "$env:USERPROFILE\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
+if (Test-Path $pyHint) { $py = $pyHint }
+
+if (Test-Path "tools\IdAudit.py") {
+    $auditOut = & $py "tools\IdAudit.py" 2>&1
+    $auditCode = $LASTEXITCODE
+    if ($auditCode -ne 0) {
+        坏 "ID 核对未通过（tools\IdAudit.py 退出码 $auditCode）"
+        $auditOut | Select-Object -Last 25 | ForEach-Object { 提示 $_ }
+        $失败 = $true
+    } else {
+        好 "ID / 开关核对通过"
+    }
+} else {
+    提示 "没有 tools\IdAudit.py，跳过"
+}
+
+if (Test-Path "tools\TimelineProbe\TimelineProbe.csproj") {
+    $probeOut = dotnet run --project "tools\TimelineProbe" -- $时间轴源 10 2>&1
+    $probeText = ($probeOut | Out-String)
+    # 关键断言：必须能认出绝大多数时间轴的地图 ID
+    if ($probeText -match "能认出地图 ID 的:\s*(\d+)\s*/\s*(\d+)") {
+        $认出 = [int]$Matches[1]
+        $共 = [int]$Matches[2]
+        if ($共 -gt 0 -and $认出 -lt ($共 - 5)) {
+            坏 "时间轴解析异常：只有 $认出 / $共 能认出地图 ID"
+            $失败 = $true
+        } else {
+            好 "时间轴解析正常（$认出 / $共 认出地图 ID）"
+        }
+    } else {
+        提示 "TimelineProbe 输出格式不符预期，跳过断言"
+    }
+} else {
+    提示 "没有 tools\TimelineProbe，跳过"
+}
+
+# ══════════════════════════════════════════════════════════════════
 标题 "③ 组装包目录"
 # ══════════════════════════════════════════════════════════════════
 

@@ -100,3 +100,6 @@ cactbot_timelines/
 zoneid_look.txt
 verify.txt
 !tools/发布打包.ps1
+!tools/TimelineProbe/
+tools/TimelineProbe/bin/
+tools/TimelineProbe/obj/
