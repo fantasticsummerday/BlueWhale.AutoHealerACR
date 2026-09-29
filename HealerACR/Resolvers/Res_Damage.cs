@@ -40,7 +40,8 @@ public class Res_Dot : ISlotResolver
         if (_t.Dot技能 == 0) return -102;
         if (!SpellUtil.已解锁(_t.Dot技能)) return -2;
 
-        var target = HealTargetHelper.当前目标();
+        // ⚠️ 用我们自己的目标选择器（带粘滞 + 只挑有仇恨的）
+        var target = 输出目标.选();
         if (target == null) return -1;
 
         // ── 视线检查：目标在柱子/墙后面时距离够也打不到 ──
@@ -139,7 +140,10 @@ public class Res_Dot : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var target = HealTargetHelper.当前目标();
+        // ⚠️ **必须和 Check 同源** —— Check 判的是 `输出目标.选()`，
+        //    这里再读 `当前目标()`（玩家选中那个）就是"判 A 放 B"：
+        //    DoT 会挂到玩家选的怪身上，而不是我们判定该挂的那只。
+        var target = 输出目标.选();
         if (target == null) return;
 
         var spell = SpellUtil.当前形态(_t.Dot技能);
@@ -273,15 +277,21 @@ public class Res_BaseDamage : ISlotResolver
         if (!HealQt.GetQt("输出")) return -100;
         if (蓝量.低蓝停手()) return -9;   // 蓝留给治疗
         if (!SpellUtil.已解锁(_t.基础输出)) return -2;
-        if (HealTargetHelper.当前目标() == null) return -1;
+
+        // ⚠️ **用我们自己的目标选择器，不是玩家选中那个** ——
+        //    见 `输出目标` 的长注释：原来直接读 `GetCurrTarget()`，
+        //    于是"坦克拉到的怪不打、去打玩家选中的远处怪"。
+        //    带粘滞，不会每帧乱切。
+        var 目标 = 输出目标.选();
+        if (目标 == null) return -1;
 
         // 视线被挡就别按了 —— 按了也放不出去，白白占着 GCD 让循环卡住
-        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+        if (!技能数据.打得到(目标)) return -6;
 
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
         if (_t.有特殊输出形态) return -5;
 
-        // ⚠️ 和 Build **同源**：同一个 `选填充技()`
+        // ⚠️ 和 Build **同源**：同一个 `选填充技()` + `输出目标.选()`
         var spell = 选填充技();
         // ⚠️ **移动守卫**：移动中不要放读条技能。
         //    不加这条的后果：读条被移动打断 → 下一帧再塞 → 再断，
@@ -317,7 +327,7 @@ public class Res_BaseDamage : ISlotResolver
         {
             if (_t.近战填充技 != 0 && SpellUtil.已解锁(_t.近战填充技))
             {
-                var 目标 = HealTargetHelper.当前目标();
+                var 目标 = 输出目标.选();
                 if (目标 != null)
                 {
                     var 距离 = Vector3.Distance(Core.Me.Position, 目标.Position);
@@ -340,7 +350,14 @@ public class Res_BaseDamage : ISlotResolver
     {
         // ⚠️ 和 Check 同源
         var spell = 选填充技();
-        if (spell != null) slot.Add(spell);
+        if (spell == null) return;
+
+        // ⚠️ **必须显式带目标** ——
+        //    `slot.Add(spell)` 打的是**玩家选中**那个，
+        //    而 Check 判的是 `输出目标.选()` 的结果 —— 不带目标就是"判 A 放 B"。
+        var 目标 = 输出目标.选();
+        if (目标 != null) slot.Add(new Spell(spell.Id, 目标));
+        else slot.Add(spell);
     }
 }
 
@@ -399,7 +416,7 @@ public class Res_MultiDot : ISlotResolver
 
         // ⚠️ **当前目标必须已经有 DoT** —— 否则这是 `Res_Dot` 的活，
         //    不该由我们抢（它的判据更完整：含黑名单 / 止血 / 快死目标等）。
-        var 当前 = HealTargetHelper.当前目标();
+        var 当前 = 输出目标.选();   // 和 Res_Dot 用同一个选择器，别分叉
         if (当前 == null) return -1;
 
         var buffs = _t.所有DotBuff;

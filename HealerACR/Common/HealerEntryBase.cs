@@ -1165,6 +1165,11 @@ public class HealRotationEventHandler : IRotationEventHandler
         //     清了之后，下一个副本会被当成"新的一次进入"，正常输出。
         try { 进本识别.重置(); } catch { }
         try { 彩蛋.重置(); } catch { }        // 换本别把没唱完的句子带过去
+
+        // ★ 清掉输出目标选择器的粘滞 ★
+        //   不清的话，上个副本那只怪的 ID 会一直"粘"着，
+        //   新副本第一帧找不到它 → 白等一次重挑。
+        try { 输出目标.重置(); } catch { }
     }
 
 
