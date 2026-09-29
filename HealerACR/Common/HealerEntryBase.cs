@@ -354,6 +354,50 @@ public abstract class HealerEntryBase : IRotationEntry
         视图窗口.AddTab("阈值", 画阈值设置);
 
         HealQt.绑定(视图窗口);
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 把"和战斗无关的每帧任务"挂到框架窗口的 Update 上 ★
+        //
+        //  ── 为什么不能挂在 `OnBattleUpdate`（实测踩的坑）──
+        //     框架 IL 直证：`IRotationEventHandler.OnBattleUpdate` 是在
+        //     `BattleData.Update` 里调的，而 `BattleData.Update`
+        //     只由 `AILoop_Normal/PVP/Simulate.Update` 调用 ——
+        //     **只有战斗中才跑**。
+        //
+        //     现象：在木桩（非战斗）点了「哼一段」，
+        //     日志有 `[彩蛋] 手动触发，共 6 句`，**但一句都没唱出来** ——
+        //     因为推进队列的那行代码在 `OnBattleUpdate` 里，压根没执行。
+        //
+        //  ── 为什么这个能行（框架 IL 直证）──
+        //     `JobViewWindow.SetUpdateAction(action)` 把回调存进
+        //     `UpdateAction` 字段；而 `UpdateAction` **全框架只有一处被读** ——
+        //     `JobViewWindow.OnDrawUI()` 的**第 3 条语句**：
+        //         IL_001c: ldfld  JobViewWindow::UpdateAction
+        //         IL_0022: dup / brtrue → callvirt Invoke
+        //     位置在 `MainControlView` 之后、**一切早退之前**
+        //     ⇒ 只要窗口在画，它每帧都跑，**和战斗状态无关**。
+        //
+        //     ⚠️ 注意**不是** `JobViewWindow.Update()` —— 那个方法
+        //        （由 `OverlayManager.Update` → `IRotationUI.Update` 调）
+        //        只跑两个快捷键（`HotkeyWindow.RunHotkey` +
+        //        `QtWindow.RunHotkey`），**不碰 `UpdateAction`**。
+        //        差点按那个理解去写注释（写错了会误导后面的人）。
+        //
+        //  ⚠️ 这里只放**确实需要"任何时候都跑"**的东西。
+        //     依赖战斗状态的那些（时间轴推进、移动检测采样…）
+        //     继续留在 `OnBattleUpdate` —— 它们本来就只该在战斗中跑。
+        // ══════════════════════════════════════════════════════════════
+        try
+        {
+            视图窗口.SetUpdateAction(() =>
+            {
+                try { 彩蛋.每帧更新(); } catch { }
+            });
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[HealerACR] 挂每帧回调失败（彩蛋只能在战斗中唱）：" + e.Message);
+        }
     }
 
     /// <summary>子类加职业专属开关时用这个，顺带把默认值登记上</summary>
@@ -1117,11 +1161,11 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ══════════════════════════════════════════════════════════════
         进本识别.每帧检查();
 
-        // ★ 彩蛋：把"逐句唱"往前推 ★
-        //
-        //  ⚠️ 必须放**本地层** —— 记录模式下 `AiHeartbeat` 会被移出队列，
-        //     放 AI 层的话歌唱到一半就永远卡住了。
-        彩蛋.每帧更新();
+        // ⚠️ 彩蛋的每帧驱动**不在这里** ——
+        //    这里是 `OnBattleUpdate`（**只有战斗中才跑**），
+        //    而彩蛋在木桩/城里点按钮也得能唱。
+        //    它挂在 `视图窗口.SetUpdateAction`（每帧都跑），
+        //    见 `构建QT()` 里的说明。
     }
 
     public void OnEnterRotation()
