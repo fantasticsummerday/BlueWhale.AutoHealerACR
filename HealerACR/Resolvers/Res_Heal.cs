@@ -52,7 +52,24 @@ public class Res_MustFullHeal : ISlotResolver
         // 没有人为"必须奶满"机制时立刻让位（常态路径，不占 GCD）
         if (必须奶满.找目标() == null) return -1;
 
-        var 技 = 治疗量最大的单体();
+        // ══════════════════════════════════════════════════════════
+        //  ★ 技能选择交给 `治疗决策`（综合判定）★
+        //
+        //  ⚠️ 原来调的是 `治疗量最大的单体()` —— 它**写死了白魔的二选一**
+        //     （救疗 / 治疗），于是：
+        //       · 神名（700 瞬发能力技）、天赐祝福（直接奶满）
+        //         **永远不会被考虑**
+        //       · 其他三职业直接用槽位那一个，连"最大"都没挑
+        //       · 移动中能不能放、要几个 GCD —— 全没算
+        //
+        //  ⚠️ `强制紧急: true` —— 中这类机制的人**每秒都在倒计时**，
+        //     "一次补满"比"省蓝"重要得多（`命悬一线` 分支会重罚补不满的）。
+        // ══════════════════════════════════════════════════════════
+        var (目标, 决定技) = 决定奶满();
+        if (目标 == null) return -1;
+
+        // 候选集挑不出（职业没填）→ 退回旧的硬编码路径
+        var 技 = 决定技?.Id ?? 治疗量最大的单体();
         if (技 == 0) return -1;
 
         // ══════════════════════════════════════════════════════════════
@@ -90,6 +107,49 @@ public class Res_MustFullHeal : ISlotResolver
         return SpellUtil.可用(技) ? 40 : -1;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 同帧缓存 —— 保证 Check / Build 选同一个技能（开发约定 F③）★
+    //
+    //  ⚠️ 这条是**救命路径**（中致死机制时唯一解），
+    //     判 A 放 B 的后果比别处严重得多。
+    // ══════════════════════════════════════════════════════════════
+    private static long _缓存帧;
+    private static ulong _缓存目标Id;
+    private static 治疗技能? _缓存技能;
+
+    /// <summary>
+    /// **必须奶满时该用哪个技能**（Check / Build 共用）。
+    ///
+    /// ⚠️ `强制紧急: true` —— 中这类机制的人**每秒都在倒计时**，
+    ///    "一次补满"比"省蓝"重要得多。
+    ///
+    /// ⚠️ 候选集挑不出（职业没填）时返回 `null`，
+    ///    调用方回退到旧的 `治疗量最大的单体()`。
+    /// </summary>
+    private (IBattleChara? 目标, 治疗技能? 技) 决定奶满()
+    {
+        try
+        {
+            var 目标 = 必须奶满.找目标();
+            if (目标 == null) return (null, null);
+
+            var 帧 = AEAssist.Helper.TimeHelper.Now() / 50;
+            if (帧 == _缓存帧 && 目标.GameObjectId == _缓存目标Id)
+                return (目标, _缓存技能);
+
+            var 技 = 治疗决策.给目标选最优(_t.治疗候选, 目标, 强制紧急: true);
+
+            _缓存帧 = 帧;
+            _缓存目标Id = 目标.GameObjectId;
+            _缓存技能 = 技;
+            return (目标, 技);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
     /// <summary>
     /// 现在有没有**可用的瞬发单体治疗能力技**（移动中救急用）。
     ///
@@ -98,6 +158,18 @@ public class Res_MustFullHeal : ISlotResolver
     /// </summary>
     private bool 有瞬发可用()
     {
+        try
+        {
+            // ★ 优先问**治疗候选集**（它含全部治疗手段，比三个槽位全）★
+            foreach (var h in _t.治疗候选.已解锁())
+            {
+                if (!h.瞬发) continue;
+                if (SpellUtil.可用(h.Id)) return true;
+            }
+        }
+        catch { }
+
+        // 候选集空 → 退回槽位
         try
         {
             foreach (var id in new[] { _t.瞬发单奶能力技, _t.预铺单奶能力技, _t.紧急单奶 })
@@ -114,10 +186,12 @@ public class Res_MustFullHeal : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var 目标 = 必须奶满.找目标();
+        // ⚠️ 和 Check **同一个** `决定奶满()`（内含同帧缓存）——
+        //    两边同源才不会有"判 A 放 B"（开发约定 F③）。
+        var (目标, 决定技) = 决定奶满();
         if (目标 == null) return;
 
-        var 技 = 治疗量最大的单体();
+        var 技 = 决定技?.Id ?? 治疗量最大的单体();
         if (技 == 0) return;
 
         slot.Add(new Spell(技, 目标));
@@ -167,6 +241,52 @@ public class Res_HealEmergency : ISlotResolver
     private readonly JobSpellTable _t;
 
     public Res_HealEmergency(JobSpellTable table) => _t = table;
+
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 常规急救的同帧缓存（保证 Check / Build 一致）★
+    // ══════════════════════════════════════════════════════════════
+    private static long _缓存帧;
+    private static ulong _缓存目标Id;
+    private static 治疗技能? _缓存技能;
+
+    /// <summary>
+    /// **常规急救**用哪个技能（Check / Build 共用）。
+    ///
+    /// ⚠️ 和上方 `奶满技能` 的区别：
+    ///    那是"中致死机制、血可能很高"的特例，只挑一次到满类；
+    ///    这是**普通濒死**（血 ≤ `紧急单奶阈值`，默认 0.30）——
+    ///    血真的低，所以"随血降低而增强"的技能（先天禀赋）**反而正好合适**。
+    ///
+    /// ⚠️ `只瞬发: true` —— 急救是能力技的活，读条在移动中会失败
+    ///    （而且急救本来就该用能力技，不占 GCD）。
+    /// </summary>
+    private (IBattleChara? 目标, 治疗技能? 技) 决定常规急救()
+    {
+        try
+        {
+            var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.紧急单奶阈值);
+            if (目标 == null) return (null, null);
+
+            var 帧 = AEAssist.Helper.TimeHelper.Now() / 50;
+            if (帧 == _缓存帧 && 目标.GameObjectId == _缓存目标Id)
+                return (目标, _缓存技能);
+
+            var 技 = 治疗决策.给目标选最优(
+                _t.治疗候选, 目标,
+                强制紧急: true,
+                只群体: false,
+                只瞬发: true);      // 急救只认瞬发能力技
+
+            _缓存帧 = 帧;
+            _缓存目标Id = 目标.GameObjectId;
+            _缓存技能 = 技;
+            return (目标, 技);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
 
     /// <summary>
     /// 「必须奶满」时用的技能 —— 只挑"一次到满"那类（拿不到返回 0）。
@@ -232,12 +352,24 @@ public class Res_HealEmergency : ISlotResolver
             //      而这条能力技留给真正濒死的另一个人。
         }
 
-        if (_t.紧急单奶 == 0) return -102;
-        if (!SpellUtil.已解锁(_t.紧急单奶)) return -2;
-
-        var target = HealTargetHelper.最低血量队友(HealSettings.Instance.紧急单奶阈值);
+        // ══════════════════════════════════════════════════════════
+        //  ★ 常规急救 —— 技能选择交给 `治疗决策` ★
+        //
+        //  ⚠️ 原来只有 `_t.紧急单奶` 一个槽位（白魔=天赐祝福，180 秒 CD）——
+        //     于是 30% 血的人**只能等天赐**，而神名（700 瞬发、60 秒 CD）
+        //     明明也能救、而且便宜得多。
+        //
+        //  ⚠️ `只瞬发: true` ⇒ 读条技自动排除（急救就该用能力技）。
+        // ══════════════════════════════════════════════════════════
+        var (target, 决定技) = 决定常规急救();
         if (target == null) return -1;
 
+        if (决定技 != null)
+            return SpellUtil.可用(决定技.Id) ? 30 : -1;
+
+        // 候选集挑不出 → 退回旧槽位（行为与接入前完全一致）
+        if (_t.紧急单奶 == 0) return -102;
+        if (!SpellUtil.已解锁(_t.紧急单奶)) return -2;
         return SpellUtil.可用(_t.紧急单奶) ? 30 : -1;
     }
 
@@ -263,9 +395,20 @@ public class Res_HealEmergency : ISlotResolver
             return;
         }
 
-        var target = HealTargetHelper.最低血量队友(HealSettings.Instance.紧急单奶阈值);
+        var (target, 决定技) = 决定常规急救();
         if (target == null) return;
-        slot.Add(new Spell(_t.紧急单奶, target));
+
+        // ⚠️ 和 Check **同一个** `决定常规急救()`（内含同帧缓存）——
+        //    两边同源才不会有"判 A 放 B"（开发约定 F③）。
+        if (决定技 != null)
+        {
+            slot.Add(new Spell(决定技.Id, target));
+            return;
+        }
+
+        // 候选集挑不出 → 退回旧槽位
+        if (_t.紧急单奶 != 0)
+            slot.Add(new Spell(_t.紧急单奶, target));
     }
 }
 
@@ -339,31 +482,101 @@ public class Res_HealAoEGcd : ISlotResolver
 
     public Res_HealAoEGcd(JobSpellTable table) => _t = table;
 
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 同帧缓存 —— 保证 Check / Build 选同一个技能 ★
+    //    （和 `Res_HealSingleGcd` 同一套做法，理由见那边）
+    // ══════════════════════════════════════════════════════════════
+    private static long _缓存帧;
+    private static 治疗技能? _缓存技能;
+
+    /// <summary>
+    /// **这一发该用哪个群体治疗**（Check / Build 共用）。
+    ///
+    /// ⚠️ 缺口取"该奶的那几个人里**最大**的那个缺口"：
+    ///    群体治疗一次覆盖所有人，用最大缺口判断"够不够"最稳妥 ——
+    ///    用平均值会让"有人快死了但平均还行"被低估。
+    /// </summary>
+    private 治疗技能? 决定()
+    {
+        try
+        {
+            var s = HealSettings.Instance;
+            var 半径 = 20f;
+
+            var 低血 = HealTargetHelper.可治疗队友(半径)
+                .Where(r => r.有效血量比例() <= s.群体治疗阈值)
+                .ToList();
+
+            if (低血.Count < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return null;
+
+            // ── 缺口 = 最大的那个 ──
+            var 缺口 = 0f;
+            foreach (var r in 低血)
+                缺口 = MathF.Max(缺口, 治疗决策.缺口量(r));
+            if (缺口 <= 0f) return null;
+
+            // ── 同帧缓存 ──
+            var 帧 = AEAssist.Helper.TimeHelper.Now() / 50;
+            if (帧 == _缓存帧) return _缓存技能;
+
+            var 技 = 治疗决策.选最优(
+                _t.治疗候选, 缺口,
+                命悬一线: false,          // 群体治疗不承担"救急"职责（那是单奶/能力技的活）
+                移动中: SpellUtil.在移动(),
+                只群体: true,
+                只瞬发: false);
+
+            _缓存帧 = 帧;
+            _缓存技能 = 技;
+            return 技;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public int Check()
     {
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群奶")) return -101;
-        if (_t.群体治疗GCD == 0) return -102;
-        if (!SpellUtil.已解锁(_t.群体治疗GCD)) return -2;
 
-        var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
+        var 技 = 决定();
 
-        // ⚠️ **移动守卫**：群体治疗 GCD 基本都是读条的（阳星 / 医治 / 预后…），
-        //    移动中硬读会一直被打断。
-        //    ⚠️ 但要注意：**能力技群奶不受影响**（天星冲日 / 不屈不挠之策 /
-        //       法令…），它们走 Res_HealAoEAbility，没有移动限制 ——
-        //       所以移动中的群体治疗**不会完全没有**，只是从 GCD 版
-        //       降级到能力技版。这正是想要的行为。
-        if (!SpellUtil.移动中可用(_t.群体治疗GCD)) return -7;
+        // ★ 候选集挑不出 → 退回旧槽位（行为与接入前完全一致）★
+        if (技 == null)
+        {
+            if (_t.群体治疗GCD == 0) return -102;
+            if (!SpellUtil.已解锁(_t.群体治疗GCD)) return -2;
 
-        return SpellUtil.可用(_t.群体治疗GCD) ? 12 : -1;
+            var s0 = HealSettings.Instance;
+            if (HealTargetHelper.低于阈值人数(s0.群体治疗阈值, 20f)
+                < HealTargetHelper.群奶人数要求(s0.群奶最少人数)) return -1;
+
+            if (!SpellUtil.移动中可用(_t.群体治疗GCD)) return -7;
+            return SpellUtil.可用(_t.群体治疗GCD) ? 12 : -1;
+        }
+
+        // ⚠️ `决定()` 返回非 null 就说明它已确认"放得出来"（含移动判定），
+        //    这里再确认一次是为了防"两次调用之间状态变了"。
+        return SpellUtil.可用(技.Id) && SpellUtil.移动中可用(技.Id) ? 12 : -1;
     }
 
     public void Build(Slot slot)
     {
-        slot.Add(new Spell(_t.群体治疗GCD, SpellTargetType.Self));
+        // ⚠️ 和 Check 同源（开发约定 F③）
+        var 技 = 决定();
+
+        if (技 != null)
+        {
+            slot.Add(new Spell(技.Id, SpellTargetType.Self));
+            return;
+        }
+
+        // 候选集挑不出 → 退回旧槽位
+        if (_t.群体治疗GCD != 0)
+            slot.Add(new Spell(_t.群体治疗GCD, SpellTargetType.Self));
     }
 }
 

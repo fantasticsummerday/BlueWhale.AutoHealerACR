@@ -201,6 +201,65 @@ public static class 治疗决策
                - 效率罚 / 基准;
     }
 
+    /// <summary>
+    /// **针对一个具体目标挑最优治疗** —— 给「必须奶满」这类
+    /// "目标已经锁定、只需要挑技能"的场景用。
+    ///
+    /// ⚠️ 和 <see cref="选最优"/> 的区别：
+    ///     那个只管"缺口多少"，这个**自己算缺口** ——
+    ///     因为调用方（`Res_MustFullHeal`）手上只有 `IBattleChara`。
+    ///
+    /// ⚠️ `命悬一线` 的判据用 `目标.有效血量比例() <= 0.30`
+    ///     （和 `HealSettings.紧急单奶阈值` 同一个语义）——
+    ///     中"必须奶满"机制的人**血可能还很高**，
+    ///     所以还要看调用方传的 `强制紧急`。
+    /// </summary>
+    public static 治疗技能? 给目标选最优(
+        治疗候选集 候选,
+        IBattleChara 目标,
+        bool 强制紧急 = false,
+        bool 只群体 = false,
+        bool 只瞬发 = false)
+    {
+        try
+        {
+            var 缺口 = 缺口量(目标);
+            if (缺口 <= 0f) return null;
+
+            var 命悬 = 强制紧急;
+            if (!命悬)
+            {
+                try { 命悬 = 目标.有效血量比例() <= 0.30f; } catch { }
+            }
+
+            return 选最优(候选, 缺口, 命悬, SpellUtil.在移动(), 只群体, 只瞬发);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 目标还差多少血。
+    ///
+    /// ⚠️ 用 `有效血量比例`（含盾）而不是裸血量 ——
+    ///    已经套了盾的人"看起来血少"但实际不缺治疗。
+    /// </summary>
+    public static float 缺口量(IBattleChara 目标)
+    {
+        try
+        {
+            var 上限 = 目标.MaxHp;
+            if (上限 <= 0) return 0f;
+            return MathF.Max(0f, 上限 * (1f - 目标.有效血量比例()));
+        }
+        catch
+        {
+            return 0f;
+        }
+    }
+
     /// <summary>当前蓝量比例（0~1）；读不到返回 1（当作满蓝，不偏向省蓝）</summary>
     private static float 蓝量比例()
     {
