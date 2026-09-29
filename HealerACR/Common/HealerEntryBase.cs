@@ -612,6 +612,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         //    之前漏了这里 —— 正是开发约定 F① 那类"有状态但没清"。
         try { 效果确认.重置(); } catch { }
         try { 技能诊断.重置(); } catch { }   // 诊断节流记录
+        try { Dot补判.重置(); } catch { }    // DoT 保险丝（跨战斗必须清，否则开场不补 DoT）
     }
 
     public void OnSpellCastSuccess(Slot slot, Spell spell)
@@ -701,6 +702,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 效果确认.重置(); } catch { }
         try { 技能诊断.重置(); } catch { }
         try { 屏幕提示.重置(); } catch { }      // 换职业后同 key 的提示应该能再弹一次
+        try { Dot补判.重置(); } catch { }        // DoT 保险丝（换职业后重新开始计时）
 
         // ② 队伍规模要重新判定（切职业常常伴随换队伍 / 换本）
         try { HealTargetHelper.刷新队伍规模(); } catch { }
@@ -743,6 +745,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 技能熔断.重置(); } catch { }
         try { 效果确认.重置(); } catch { }   // 同上：换本也要清
         try { 技能诊断.重置(); } catch { }
+        try { Dot补判.重置(); } catch { }    // DoT 保险丝
 
         // ★ 通知 AI 层：局面完全变了 ★
         //   不通知的话，AI 的"倾向"和阈值偏移会从上个副本带过来 ——

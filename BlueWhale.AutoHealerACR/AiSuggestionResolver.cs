@@ -101,6 +101,53 @@ public class AiSuggestionResolver : ISlotResolver
             }
 
             // ══════════════════════════════════════════════════════════
+            //  ★★ 终审第三步·补：DoT 必须过「该不该补」★★
+            //
+            //  用户实测的 bug（日志证据）：
+            //    ```
+            //    [小鲸鱼] 原始回复：激进|全队血量 100%...
+            //    采纳建议：16532 = 天辉（单体Boss目标，先补DoT）
+            //    CastSpell success: 16532 天辉      ← 每 ~4.9 秒一次
+            //    ```
+            //
+            //  原因：本 resolver 优先级 **100**，直接插到 `Res_Dot`(6) 前面，
+            //        而上面那三步**只问"技能能不能放"**，
+            //        **从来不问"现在该不该补 DoT"** ——
+            //        于是 AI 每轮预取（每 3 步）都建议一次天辉，就每几秒补一次，
+            //        **完全绕过 `Dot补判` 的剩余时间判断和防死循环保险丝**。
+            //
+            //  这是"白名单挡得住技能 ID、挡不住场景"的又一个实例：
+            //  天辉是合法技能、也真的可用，但**时机不对**。
+            //
+            //  修法：DoT 类技能**必须**过 `Dot补判.该补()` ——
+            //        和 `Res_Dot` 用的是**同一个判断**（开发约定 F③ 的推广：
+            //        同一个决策不论从哪条路进来，判断必须一致）。
+            //
+            //  ⚠️ 这里只判 DoT，不判其他技能：
+            //     别的技能各有自己的 resolver 条件，不能在这里一刀切
+            //     （一刀切就是开发约定 ⑦「加了不该加的前置条件」那类错误）。
+            // ══════════════════════════════════════════════════════════
+            if (是DoT技能(id))
+            {
+                var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+                var 目标 = HealTargetHelper.当前目标();
+
+                var 该补 = Dot补判.该补(
+                    目标,
+                    表?.所有DotBuff,
+                    HealSettings.Instance.Dot持续时间 - 3f);
+
+                if (!该补)
+                {
+                    拦截("DoT 还没到该补的时候");
+                    Ai调试.调试(
+                        $"建议 {id} 是 DoT，但剩余时间还够（距上次施放 " +
+                        $"{Dot补判.距上次毫秒}ms）-> 放弃，让输出循环正常走");
+                    return -1;
+                }
+            }
+
+            // ══════════════════════════════════════════════════════════
             //  ★ 终审第四步：治疗优先于输出 ★
             //
             //  用户实测指出的问题：
@@ -146,6 +193,7 @@ public class AiSuggestionResolver : ISlotResolver
             if (id == 0) return;
 
             var 目标 = HealTargetHelper.当前目标();
+            var 是Dot = 是DoT技能(id);
 
             // 和治疗类不同，输出类技能必须明确指定敌人目标
             if (需要目标(id) && 目标 != null)
@@ -161,6 +209,11 @@ public class AiSuggestionResolver : ISlotResolver
                         $"｜出生排队第 {建议.出生时队列位置 + 1} 位 / 批次 {建议.批次}" +
                         $" / 等了 {建议.已等毫秒}ms");
 
+            // ⚠️ DoT 走 AI 这条路放出去时，**也必须记保险丝** ——
+            //    否则 `Dot补判` 不知道刚放过，下一步又会判"该补"，
+            //    保险丝形同虚设（这就是原来每 4.9 秒补一次的直接原因之一）。
+            if (是Dot) Dot补判.记一次施放();
+
             // ★ 技能真的进了 slot，才消费掉这条建议 ★
             //   放在最后：如果上面任何一步失败（目标为空、Spell 构造异常），
             //   建议不会被消费，下一帧还能再用 —— 比"判了不用"更合理。
@@ -169,6 +222,27 @@ public class AiSuggestionResolver : ISlotResolver
         catch (Exception e)
         {
             Ai调试.日志("建议构建失败（已忽略）：" + e.Message);
+        }
+    }
+
+    /// <summary>
+    /// 这个技能是不是本职业的 DoT。
+    ///
+    /// 用途：**DoT 必须过"该不该补"终审**（见 Check 里第三步·补的说明）。
+    /// 判据取自技能表，不写死 ID。
+    /// </summary>
+    private static bool 是DoT技能(uint id)
+    {
+        if (id == 0) return false;
+
+        try
+        {
+            var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+            return 表 != null && id == 表.Dot技能;
+        }
+        catch
+        {
+            return false;   // 判断不了就不拦（宁可放过，也别把正常建议挡掉）
         }
     }
 

@@ -26,8 +26,6 @@ public class Res_Dot : ISlotResolver
 {
     private readonly JobSpellTable _t;
 
-    private static long 上次挂Dot;
-
     /// <summary>诊断只打一次的开关（每个 DoT buff 各一条）</summary>
     private static readonly HashSet<uint> _已诊断 = new();
 
@@ -58,7 +56,11 @@ public class Res_Dot : ISlotResolver
 
         诊断剩余时间(target);
 
-        if (!该补Dot(target)) return -4;
+        // ⚠️ 判断走**共享**的 Dot补判（含防死循环保险丝）——
+        //    不要在这里自己写一套：AI 建议那条路也用它，
+        //    两边必须看同一份数据（否则就是开发约定 F③ 那个坑）。
+        if (!Dot补判.该补(target, _t.所有DotBuff, HealSettings.Instance.Dot持续时间 - 3f))
+            return -4;
 
         var spell = SpellUtil.当前形态(_t.Dot技能);
         return spell != null && spell.IsReadyWithCanCast() ? 6 : -1;
@@ -132,72 +134,11 @@ public class Res_Dot : ISlotResolver
         if (spell == null) return;
 
         slot.Add(new Spell(spell.Id, target));
-        上次挂Dot = TimeHelper.Now();
-    }
 
-    private bool 该补Dot(IBattleChara target)
-    {
-        var 现在 = TimeHelper.Now();
-
-        // 保险丝：刚放过就别连着放。
-        // 万一 buff id 对不上（比如客户端版本差异），这条能防止无限补 DoT。
-        if (上次挂Dot != 0 && 现在 - 上次挂Dot < 2500) return false;
-
-        // 检查所有等级段的 DoT buff —— 身上有任意一个就算已上 DoT
-        var 候选 = _t.所有DotBuff;
-        if (候选.Length > 0)
-        {
-            var 有配置 = false;
-            foreach (var b in 候选)
-            {
-                if (b == 0) continue;
-                有配置 = true;
-
-                // ⚠️ 用"剩余时间"而不是"有没有"来判断。
-                //    参考同类 ACR 的 HasMyAuraWithTimeleft：
-                //    DoT 还剩 20 秒时补上去纯属浪费 GCD，剩 3 秒才该补。
-                //    之前只看 HasAura，等于"只要挂着就永远不补"——
-                //    DoT 自然断档也发现不了。
-                  // ══════════════════════════════════════════════════════
-                  //  ⚠️ 必须**先判"有没有"，再判"快没快"** —— 顺序不能反。
-                  //
-                  //  原因：HasMyAuraWithTimeleft 对"目标身上根本没这个 buff"的
-                  //  返回值不可靠。如果直接拿它当判断：
-                  //      没 buff → 快没了=false → 判成"还很足" → 不补 DoT
-                  //  结果就是**永远不续 DoT**（用户实测：50 级完全不续）。
-                  //
-                  //  低等级尤其容易踩：50 级用「猛毒菌」(buff 189)，
-                  //  和其他档位完全不沾边，一个 false 就直接判"不用补"。
-                  //
-                  //  参考同类 ACR 的 Scholar_Dot —— 它同时调 HasAura 和
-                  //  HasMyAuraWithTimeleft，就是因为单靠时间判断不够。
-                  // ══════════════════════════════════════════════════════
-
-                  // ① 这一档压根不在身上 → 换下一档看
-                  if (!target.HasLocalPlayerAura(b)) continue;
-
-                  // ② 在身上、而且还能撑一会儿 → 确实不用补
-                  // **按"还能放几个 GCD"算，而不是固定秒数**（参考同类 ACR 用 GetAuraTimeleft）
-                  //   急速高的时候 GCD 变短，固定秒数会补得太晚导致断档。
-                  if (!target.撑不过N个Gcd(b, 2, 1.5f)) return false;
-
-                  // ③ 在身上、而且**撑不过 2 个 GCD** → 该补了，放行
-                  //
-                  // ⚠️ 这里曾经写成 `return false` —— 和上面那行注释（"该补"）
-                  //    **自相矛盾**，等于把唯一能提前续 DoT 的路径也堵死了。
-                  //    后果：**DoT 只在彻底掉光之后才补，从不提前续**，
-                  //    每轮白丢约一个 GCD 的覆盖时间。
-                  //    （纯逻辑 bug，不报错、不崩溃，只能靠对着注释读代码发现。）
-                  return true;
-            }
-
-            if (有配置) return true;
-        }
-
-        // 一个 buff 都没配：按时间兜底
-        var 间隔 = Math.Max(6f, HealSettings.Instance.Dot持续时间 - 3f) * 1000f;
-        if (上次挂Dot == 0) return true;
-        return 现在 - 上次挂Dot >= 间隔;
+        // ⚠️ 记到**共享**的 Dot补判 里（不是本类的静态字段）——
+        //    保险丝必须两条路径（优先级队列 / AI 建议）共用，
+        //    否则 AI 那条能绕过它，等于没装。
+        Dot补判.记一次施放();
     }
 }
 

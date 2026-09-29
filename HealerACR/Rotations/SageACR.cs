@@ -140,9 +140,6 @@ public class SGE_Dot : ISlotResolver
 {
     private readonly JobSpellTable _t;
 
-    /// <summary>保险丝：刚补过就不再补，防止任何形式的无限补 DoT</summary>
-    private static long 上次DoT;
-
     public SGE_Dot(JobSpellTable table) => _t = table;
 
     private static uint 均衡 => SpellIds.取("均衡");
@@ -159,26 +156,13 @@ public class SGE_Dot : ISlotResolver
         if (target == null) return -1;
         if (!HealTargetHelper.木桩模式 && target.血量比例() <= HealSettings.Instance.不挂Dot血线) return -3;
 
-        // 保险丝：刚补过就别连着补
-        if (TimeHelper.Now() - 上次DoT < 2500) return -5;
-
-        // 检查**所有档位**的 DoT buff —— 只查一档会在满级时永远对不上
-        foreach (var b in _t.所有DotBuff)
-        {
-            if (b == 0) continue;
-
-            // ⚠️ 顺序不能反：先判"有没有"，再判"快没快"。
-            //    必须先用 HasLocalPlayerAura 挡一道 ——
-            //    因为"剩余时间"接口对"根本没这个 buff"返回 0，
-            //    如果直接拿剩余时间判断，会把"没 buff"误判成"快没了"。
-            if (!target.HasLocalPlayerAura(b)) continue;   // 这档不在身上 → 看下一档
-
-            // 这一档在身上、而且**还剩超过 2 个 GCD** → 确实不用补
-            if (target.我的Buff还剩超过N秒(b, 2 * 2.5f)) return -4;
-
-            // 在身上但快没了 → 该补，跳出循环去放
-            break;
-        }
+        // ⚠️ 判断走**共享**的 Dot补判（含防死循环保险丝）——
+        //    原来这里是自己写的一套（自留 `上次DoT` 字段），
+        //    和 `Res_Dot` 的逻辑各写一份 → 改一处漏一处。
+        //    而且 AI 建议那条路也走 Dot补判，三边必须看同一份数据
+        //    （开发约定 F③ 的推广）。
+        if (!Dot补判.该补(target, _t.所有DotBuff, HealSettings.Instance.Dot持续时间 - 3f))
+            return -4;
 
         return SpellUtil.可用(均衡) ? 6 : -1;
     }
@@ -201,7 +185,10 @@ public class SGE_Dot : ISlotResolver
         if (当前 == null) return;
 
         slot.Add(new Spell(当前.Id, target));
-        上次DoT = TimeHelper.Now();
+
+        // ⚠️ 记到**共享**的 Dot补判（不是本类的静态字段）——
+        //    保险丝必须和 Res_Dot / AI 建议路径共用，否则那条路能绕过它。
+        Dot补判.记一次施放();
     }
 }
 
