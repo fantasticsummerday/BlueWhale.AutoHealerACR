@@ -31,6 +31,14 @@ public static class DeepSeekClient
     public static int 连续失败数 => _连续失败;
 
     /// <summary>
+    /// 最近一次失败的具体原因（成功时清空）。
+    ///
+    /// **为什么单独暴露**：初始化失败时要告诉用户"为什么失败"，
+    /// 只说"失败了"没用 —— 得让他知道是 Key 错、网络不通、还是超时。
+    /// </summary>
+    public static string 上次失败原因 { get; private set; } = "";
+
+    /// <summary>
     /// 问一次 AI。失败返回 null —— **调用方必须处理 null（降级）**。
     /// </summary>
     /// <param name="systemPrompt">系统提示：告诉它扮演什么角色、输出格式</param>
@@ -127,6 +135,7 @@ public static class DeepSeekClient
 
             // 成功 → 清空失败计数
             _连续失败 = 0;
+            上次失败原因 = "";
 
             if (s.记录原始回复)
             {
@@ -150,6 +159,10 @@ public static class DeepSeekClient
     private static void 记失败(string 原因)
     {
         _连续失败++;
+
+        // ★ 存下原因 ★ —— 初始化失败时要靠它告诉用户"具体为什么"
+        //   （只说"失败了"没法排查：是 Key 错、网络不通、还是超时？）
+        上次失败原因 = 原因;
 
         var s = AiSettings.Instance;
 

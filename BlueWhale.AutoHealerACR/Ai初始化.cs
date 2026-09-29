@@ -76,7 +76,7 @@ public static class Ai初始化
             结果 = "初始化中…";
 
             LogHelper.Info("[BlueWhale.AI] 开始初始化 —— 让 AI 先把当前局面过一遍");
-            屏幕提示.提示("🐋 小鲸鱼", "AI 初始化中，请稍候…", "ai-init-start");
+            屏幕提示.提示("🐋 小鲸鱼", "初始化中…", "ai-init-start");
 
             _ = 跑一次();
         }
@@ -108,18 +108,21 @@ public static class Ai初始化
                 结果 = "就绪";
                 LogHelper.Info("[BlueWhale.AI] 初始化完成");
 
-                屏幕提示.成功(
-                    $"AI 已就绪（{AiStrategyLayer.当前倾向}）—— 阈值会跟着调整",
-                    "ai-init-done");
+                屏幕提示.成功("初始化成功", "ai-init-done");
             }
             else
             {
                 结果 = DeepSeekClient.熔断中 ? "熔断中（走原版逻辑）" : "请求失败（走原版逻辑）";
                 LogHelper.Info("[BlueWhale.AI] 初始化未拿到回复：" + 结果);
 
-                屏幕提示.警告(
-                    $"AI 初始化未成功：{结果}。战斗不受影响。",
-                    "ai-init-fail");
+                // ★ 失败时必须给出**具体原因** ★
+                //   只说"失败了"用户没法排查 —— 得让他知道
+                //   是 Key 错、网络不通、超时、还是模型名不对。
+                var 原因 = string.IsNullOrWhiteSpace(DeepSeekClient.上次失败原因)
+                    ? "未知（详见日志 [BlueWhale.AI]）"
+                    : DeepSeekClient.上次失败原因;
+
+                屏幕提示.警告($"初始化失败：{原因}", "ai-init-fail");
             }
         }
         catch (Exception e)
@@ -128,7 +131,7 @@ public static class Ai初始化
             结果 = "初始化异常：" + e.Message;
             LogHelper.Error("[BlueWhale.AI] 初始化异常：" + e.Message);
 
-            屏幕提示.警告($"AI 初始化异常：{e.Message}", "ai-init-ex");
+            屏幕提示.警告($"初始化失败：{e.Message}", "ai-init-ex");
         }
         finally
         {
@@ -149,7 +152,7 @@ public static class Ai初始化
             结果 = "初始化超时（走原版逻辑）";
             LogHelper.Info("[BlueWhale.AI] 初始化超时");
 
-            屏幕提示.警告("AI 初始化超时，本次战斗走原版逻辑", "ai-init-timeout");
+            屏幕提示.警告("初始化失败：超时（15 秒没响应）", "ai-init-timeout");
         }
         catch { }
     }
@@ -168,13 +171,16 @@ public static class Ai初始化
 
             if (现在熔断)
             {
-                屏幕提示.警告(
-                    $"AI 已熔断（连续失败 {DeepSeekClient.连续失败数} 次）—— 期间完全走原版逻辑，不影响战斗",
-                    "ai-fuse-on");
+                // 熔断也要说清原因 —— 和初始化失败一个道理
+                var 原因 = string.IsNullOrWhiteSpace(DeepSeekClient.上次失败原因)
+                    ? "未知"
+                    : DeepSeekClient.上次失败原因;
+
+                屏幕提示.警告($"AI 已熔断：{原因}", "ai-fuse-on");
             }
             else
             {
-                屏幕提示.成功("AI 熔断已解除", "ai-fuse-off");
+                屏幕提示.成功("熔断已解除", "ai-fuse-off");
             }
         }
         catch { }
