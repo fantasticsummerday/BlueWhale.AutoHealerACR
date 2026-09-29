@@ -36,7 +36,13 @@ public class WHMSpellTable : JobSpellTable
         AuraIds.白魔Dot, AuraIds.白魔DotAlt, AuraIds.白魔Dot2, AuraIds.白魔Dot1
     };
 
-    public override uint 单体治疗GCD => SpellUtil.取已解锁(SpellIds.取("救疗"), SpellIds.取("治疗"));
+    // ⚠️ 「愈疗」是 40 级后救疗的**同级替代**（数据里 131=Lv40 愈疗，
+//    137=再生，救疗是 29224 的形态版）——
+//    之前只写了救疗/治疗，等于 40 级以后少了一个主力单奶。
+public override uint 单体治疗GCD => SpellUtil.取已解锁(
+        SpellIds.取("救疗"),
+        SpellIds.取("愈疗"),
+        SpellIds.取("治疗"));
     public override uint 群体治疗GCD => SpellUtil.取已解锁(SpellIds.取("医养"), SpellIds.取("医济"), SpellIds.取("医治"));
     public override uint 紧急单奶 => SpellUtil.取已解锁(SpellIds.取("天赐祝福"), SpellIds.取("神名"));
     public override uint 群体治疗能力技 => SpellIds.取("法令");
