@@ -15,6 +15,13 @@ namespace HealerACR.Common;
 /// **为什么加节流**：
 ///   这些东西可能在每帧被触发（比如熔断状态），
 ///   不节流的话屏幕会被刷满。
+///
+/// ⚠️ **标题一律用纯文本，不要加图标符号**（用户要求）：
+///   FF14 的界面字体**不支持 emoji 和大部分装饰符号**
+///   （✅ ⚠️ ❌ 🐋 ★ → 这类），会显示成**方块或问号**。
+///   所以这里只用中文 + 全角括号，例如「小鲸鱼：」。
+///   加新的上屏文案时请遵守这条 —— 代码注释里用什么都无所谓，
+///   **只要会被玩家看到，就必须是纯文本**。
 /// </summary>
 public static class 屏幕提示
 {
@@ -22,6 +29,11 @@ public static class 屏幕提示
     private const int 节流毫秒 = 5000;
 
     private static readonly Dictionary<string, long> _上次提示 = new();
+
+    /// <summary>
+    /// 横幅署名 —— **纯文本**（FF14 字体不认图标）
+    /// </summary>
+    private const string 署名 = "小鲸鱼";
 
     /// <summary>普通提示（蓝色横幅）</summary>
     public static void 提示(string 标题, string 内容, string key = "")
@@ -32,13 +44,13 @@ public static class 屏幕提示
     /// <summary>成功类提示</summary>
     public static void 成功(string 内容, string key = "")
     {
-        发("✅ 小鲸鱼", 内容, key);
+        发($"{署名}（完成）", 内容, key);
     }
 
     /// <summary>警告类提示</summary>
     public static void 警告(string 内容, string key = "")
     {
-        发("⚠️ 小鲸鱼", 内容, key);
+        发($"{署名}（注意）", 内容, key);
     }
 
     /// <summary>错误类提示</summary>
@@ -47,7 +59,7 @@ public static class 屏幕提示
         try
         {
             if (!可以发(key)) return;
-            LogHelper.PrintError("❌ 小鲸鱼", 内容);
+            LogHelper.PrintError($"{署名}（错误）", 内容);
             LogHelper.Error($"[提示] {内容}");
         }
         catch { }

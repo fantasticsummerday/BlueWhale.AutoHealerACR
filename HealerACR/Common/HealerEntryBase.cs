@@ -431,7 +431,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("  未来几秒有减伤需求时，先攒资源不拿去输出");
             ImGui.Separator();
             ImGui.Checkbox("启用效果确认", ref s.启用效果确认);
-            ImGui.TextDisabled("  ⚠️ hook 游戏的 ActionEffect 回调（高风险，默认关）");
+            ImGui.TextDisabled("  hook 游戏的 ActionEffect 回调（高风险，默认关）");
             ImGui.TextDisabled("  挂不上会自动降级，不影响其他功能");
         }
 
@@ -690,7 +690,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try
         {
             HealTargetHelper.刷新队伍规模();
-            LogHelper.Info($"[HealerACR] 进入新地图 → 队伍规模：{(HealTargetHelper.是八人本() ? "八人本（双奶）" : "四人本（单奶）")}");
+            LogHelper.Info($"[HealerACR] 进入新地图 -> 队伍规模：{(HealTargetHelper.是八人本() ? "八人本（双奶）" : "四人本（单奶）")}");
         }
         catch { }
 

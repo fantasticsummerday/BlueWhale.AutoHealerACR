@@ -128,7 +128,7 @@ public static class 技能诊断
             if (_上次诊断.TryGetValue(技能Id, out var 上次) && 现在 - 上次 < 节流毫秒) return;
             _上次诊断[技能Id] = 现在;
 
-            LogHelper.Info("[HealerACR] 技能诊断 → " + 解释(技能Id, 目标));
+            LogHelper.Info("[HealerACR] 技能诊断 -> " + 解释(技能Id, 目标));
         }
         catch { }
     }

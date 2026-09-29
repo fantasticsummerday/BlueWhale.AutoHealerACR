@@ -94,7 +94,7 @@ public static class AiStrategyLayer
             {
                 // 失败：保持上一次的结论不变（比清空更安全）
                 上次结果 = "请求失败（见上方日志）";
-                记历史("❌ 请求失败");
+                记历史(" 请求失败");
                 return;
             }
 
@@ -102,7 +102,7 @@ public static class AiStrategyLayer
             {
                 if (倾向 != _当前倾向)
                 {
-                    Ai调试.日志($"策略切换：{_当前倾向} → {倾向}（{说明}）");
+                    Ai调试.日志($"策略切换：{_当前倾向} -> {倾向}（{说明}）");
                 }
 
                 _当前倾向 = 倾向;
@@ -110,7 +110,7 @@ public static class AiStrategyLayer
                 上次成功时间 = TimeHelper.Now();
                 成功次数++;
                 上次结果 = $"成功：{倾向}（{说明}）";
-                记历史($"✅ {倾向}｜{说明}");
+                记历史($" {倾向}｜{说明}");
             }
         }
         catch (Exception e)

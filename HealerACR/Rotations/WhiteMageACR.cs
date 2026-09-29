@@ -362,7 +362,7 @@ public class WHM_GlareIV : ISlotResolver
             if (TimeHelper.Now() - 上次诊断 > 5000)
             {
                 上次诊断 = TimeHelper.Now();
-                LogHelper.Info("[HealerACR] 闪飒预备在身，但 可用(闪飒) = false → 仍然放");
+                LogHelper.Info("[HealerACR] 闪飒预备在身，但 可用(闪飒) = false -> 仍然放");
                 // 追一层：直接问游戏自己"到底缺什么"（内部有 10 秒节流）
                 技能诊断.报告一次(技能, HealTargetHelper.当前目标());
             }

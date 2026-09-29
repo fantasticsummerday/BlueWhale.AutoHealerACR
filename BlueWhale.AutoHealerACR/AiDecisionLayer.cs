@@ -322,7 +322,7 @@ public static class AiDecisionLayer
             清空次数++;
             清空丢弃条数 += 丢掉;
 
-            Ai调试.日志($"局面剧变 → 清空 {丢掉} 条待用建议（队列归零，下一帧重新预取）");
+            Ai调试.日志($"局面剧变 -> 清空 {丢掉} 条待用建议（队列归零，下一帧重新预取）");
         }
         catch { }
     }
@@ -354,7 +354,7 @@ public static class AiDecisionLayer
             if (_预取中) return;
             if (DeepSeekClient.熔断中) return;
 
-            Ai调试.日志("局面剧变 → 立刻重新预取");
+            Ai调试.日志("局面剧变 -> 立刻重新预取");
             _ = 预取();
         }
         catch { }

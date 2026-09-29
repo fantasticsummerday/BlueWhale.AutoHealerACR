@@ -75,7 +75,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
             局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -189,7 +189,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
             局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -303,7 +303,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
             局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -417,7 +417,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
             局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★
@@ -506,7 +506,7 @@ public static class AiSettingPage
         {
             AiSettings.保存();
             var 路径 = AiSettings.当前路径();
-            _保存提示 = $"已保存（{项}）→ {路径}";
+            _保存提示 = $"已保存（{项}）-> {路径}";
         }
         catch (Exception e)
         {
@@ -532,7 +532,7 @@ public static class AiSettingPage
         // （按你的要求：提供了 api key 再选择模型）
         if (!s.已配置)
         {
-            ImGui.TextDisabled("  ↑ 填入 Key 后，下面会出现模型选择和开关。");
+            ImGui.TextDisabled("  ^ 填入 Key 后，下面会出现模型选择和开关。");
             return;
         }
 
@@ -581,7 +581,7 @@ public static class AiSettingPage
         ImGui.TextDisabled("  AI 判断『这波该保守还是该激进』，然后微调治疗阈值");
 
         if (ImGui.Checkbox("阶段 B：决策层（出技能建议，高频）", ref s.启用决策层)) 保存并提示("阶段B开关");
-        ImGui.TextDisabled("  ⚠️ 对延迟敏感（GCD 只有 2.5 秒），建议先只开阶段 A");
+        ImGui.TextDisabled("  对延迟敏感（GCD 只有 2.5 秒），建议先只开阶段 A");
 
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("策略刷新（秒）", ref s.策略刷新秒, 3, 60);
@@ -604,7 +604,7 @@ public static class AiSettingPage
         {
             AiSettings.保存();
             if (s.调试模式) 屏幕提示.成功("调试模式已开启 —— 小鲸鱼的日志会直接显示在屏幕上", "dbg-on");
-            else 屏幕提示.提示("🐋 小鲸鱼", "调试模式已关闭", "dbg-off");
+            else 屏幕提示.提示("小鲸鱼", "调试模式已关闭", "dbg-off");
         }
         ImGui.TextDisabled("  开启后 AI 的请求/回复/采纳都会打到屏幕上（日志文件照常写）");
 
@@ -627,22 +627,22 @@ public static class AiSettingPage
 
                 if (r != null)
                 {
-                    LogHelper.Info($"[BlueWhale.AI] ✅ 连接测试成功！AI 回复：{r}");
+                    LogHelper.Info($"[BlueWhale.AI] 连接测试成功！AI 回复：{r}");
                     LogHelper.Info("[BlueWhale.AI] 说明：Key、地址、模型都正常，可以开阶段 A 了。");
                     // 不去解析 AI 回了什么 —— 只要能拿到非空回复，
                     // 就说明 Key / 地址 / 模型 这一整条链路是通的。
-                    _测试结果 = "✅ 连接正常";
+                    _测试结果 = "连接正常";
                     _测试中 = false;
                 }
                 else
                 {
-                    LogHelper.Error("[BlueWhale.AI] ❌ 连接测试失败。常见原因：");
+                    LogHelper.Error("[BlueWhale.AI] 连接测试失败。常见原因：");
                     LogHelper.Error("    · Key 填错或已失效（检查 sk- 开头、有没有多余空格）");
                     LogHelper.Error("    · 网络不通 / 需要代理");
                     LogHelper.Error("    · 账户余额不足");
                     LogHelper.Error("    · 模型名写错（应该是 deepseek-chat 或 deepseek-reasoner）");
                     LogHelper.Error("[BlueWhale.AI] 具体错误看上面那行『请求失败（...）』的原因。");
-                    _测试结果 = "❌ 连接失败 —— 看日志最后几行（Key / 网络 / 余额 / 模型名）";
+                    _测试结果 = "连接失败 —— 看日志最后几行（Key / 网络 / 余额 / 模型名）";
                     _测试中 = false;
                 }
             });
@@ -808,7 +808,7 @@ public override Rotation Build(string settingFolder)
             AiThresholdAdapter.重置平滑();
             坦克压力.重置();
             局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 → 已重置倾向 / 建议队列 / 阈值平滑");
+            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
         };
 
         // ★ 启动 AI 初始化 ★

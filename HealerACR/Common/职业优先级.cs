@@ -155,9 +155,9 @@ public static class 职业优先级
         ImGui.NewLine();
         ImGui.Separator();
         ImGui.TextDisabled("规则说明：");
-        ImGui.TextDisabled("  · 血量低于 35% → 无视优先级，谁快死了救谁");
-        ImGui.TextDisabled("  · 血量差在 15% 以内 → 按上面的优先级");
-        ImGui.TextDisabled("  · 血量差超过 15% → 救血量更低的");
+        ImGui.TextDisabled("  · 血量低于 35% -> 无视优先级，谁快死了救谁");
+        ImGui.TextDisabled("  · 血量差在 15% 以内 -> 按上面的优先级");
+        ImGui.TextDisabled("  · 血量差超过 15% -> 救血量更低的");
     }
 
     /// <summary>恢复默认</summary>

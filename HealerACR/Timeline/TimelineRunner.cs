@@ -112,7 +112,7 @@ public class TimelineRunner
                 if (e.时间 >= 文件秒 - 1.0 && e.需减伤)
                 {
                     本帧要减伤 = true;
-                    LogHelper.Info($"[HealerACR] 时间轴 → 准备减伤：{e.名称}（{e.时间:F1}s）");
+                    LogHelper.Info($"[HealerACR] 时间轴 -> 准备减伤：{e.名称}（{e.时间:F1}s）");
                 }
             }
 
@@ -296,7 +296,7 @@ public class TimelineRunner
         游标 = 找游标(目标时间);
         等待分支起始 = -1;
 
-        LogHelper.Info($"[HealerACR] 时间轴跳转 → {j.跳转}（偏移 {offset:F1}s）");
+        LogHelper.Info($"[HealerACR] 时间轴跳转 -> {j.跳转}（偏移 {offset:F1}s）");
         return true;
     }
 

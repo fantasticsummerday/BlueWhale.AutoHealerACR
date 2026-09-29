@@ -79,7 +79,7 @@ public static class 职业面板
         if (JobApiHelper.百合 >= 3)
         {
             ImGui.TextColored(new System.Numerics.Vector4(1f, 0.9f, 0.3f, 1f),
-                "→ 百合已满：下一轮 GCD 会自动卸掉一颗（无视治疗开关）");
+                "-> 百合已满：下一轮 GCD 会自动卸掉一颗（无视治疗开关）");
         }
 
         ImGui.Separator();
@@ -161,7 +161,7 @@ public static class 职业面板
         if (JobApiHelper.蛇胆 >= 3)
         {
             ImGui.TextColored(new System.Numerics.Vector4(1f, 0.9f, 0.3f, 1f),
-                "→ 蛇胆已满：会自动用灵橡清汁卸掉一颗");
+                "-> 蛇胆已满：会自动用灵橡清汁卸掉一颗");
         }
 
         ImGui.Separator();

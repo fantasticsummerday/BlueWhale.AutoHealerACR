@@ -159,19 +159,22 @@ public static class AiThresholdAdapter
         var s = AiSettings.Instance;
 
         // ---- 逐层检查为什么"不生效"，而不是笼统说"未启用" ----
+        // ⚠️ 这些字符串会显示在游戏内的 AI 设置页上，
+        //    所以**用纯文本编号**（1) 2) …），不要用 ①②③ 这类符号 ——
+        //    FF14 的界面字体对它们的支持没有保证。
         if (!s.已配置)
         {
-            return "① 未配置 API Key —— 走原版阈值（这是正常的默认状态）";
+            return "1) 未配置 API Key —— 走原版阈值（这是正常的默认状态）";
         }
 
         if (!s.启用策略层)
         {
-            return "② Key 已配置，但【阶段 A：策略层】没勾 —— 勾上才会开始请求";
+            return "2) Key 已配置，但【阶段 A：策略层】没勾 —— 勾上才会开始请求";
         }
 
         if (DeepSeekClient.熔断中)
         {
-            return $"③ 熔断中（连续失败 {DeepSeekClient.连续失败数} 次，冷却 {s.失败冷却秒} 秒）—— 期间走原版阈值";
+            return $"3) 熔断中（连续失败 {DeepSeekClient.连续失败数} 次，冷却 {s.失败冷却秒} 秒）—— 期间走原版阈值";
         }
 
         var 当前 = AiStrategyLayer.当前倾向;
@@ -180,20 +183,20 @@ public static class AiThresholdAdapter
         {
             if (AiStrategyLayer.刷新中)
             {
-                return "④ 已启用，首次请求进行中…（最多等 " + s.超时毫秒 + " 毫秒）";
+                return "4) 已启用，首次请求进行中…（最多等 " + s.超时毫秒 + " 毫秒）";
             }
 
             if (AiStrategyLayer.上次成功时间 == 0)
             {
                 var 距今 = AiStrategyLayer.成功次数 == 0 ? "还没成功过" : "已成功过";
-                return "⑤ 已启用，但还没有有效回复（" + 距今 + "）—— 上次结果：" + AiStrategyLayer.上次结果;
+                return "5) 已启用，但还没有有效回复（" + 距今 + "）—— 上次结果：" + AiStrategyLayer.上次结果;
             }
         }
 
         var 量 = 偏移();
         var 符号 = 量 > 0 ? "+" : "";
 
-        return $"✅ 生效中｜倾向 {当前}｜阈值 {符号}{量:F2}｜{AiStrategyLayer.说明}" +
+        return $"生效中｜倾向 {当前}｜阈值 {符号}{量:F2}｜{AiStrategyLayer.说明}" +
                $"｜累计成功 {AiStrategyLayer.成功次数} 次";
     }
 }

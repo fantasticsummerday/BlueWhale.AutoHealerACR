@@ -421,7 +421,7 @@ public static class 战斗记忆
                     累计条数 += 数据.Count;
                     最后文件 = 文件;
 
-                    LogHelper.Info($"[BlueWhale.记忆] 落盘 {数据.Count} 条 → {文件}（累计 {累计条数}）");
+                    LogHelper.Info($"[BlueWhale.记忆] 落盘 {数据.Count} 条 -> {文件}（累计 {累计条数}）");
                 }
                 catch (Exception e)
                 {

@@ -96,7 +96,7 @@ public class AiSuggestionResolver : ISlotResolver
             if (需目标 && !技能数据.打得到(HealTargetHelper.当前目标()))
             {
                 拦截("视线被挡 / 超出射程");
-                Ai调试.调试($"建议 {id} 的当前目标被挡住或太远 → 放弃（改用原逻辑）");
+                Ai调试.调试($"建议 {id} 的当前目标被挡住或太远 -> 放弃（改用原逻辑）");
                 return -1;
             }
 
@@ -120,7 +120,7 @@ public class AiSuggestionResolver : ISlotResolver
             if (是输出技能(id) && 有人需要治疗())
             {
                 拦截("让位给治疗（AI 建议的是输出）");
-                Ai调试.调试($"建议 {id} 是输出技能，但当前有治疗需求 → 让位给原队列");
+                Ai调试.调试($"建议 {id} 是输出技能，但当前有治疗需求 -> 让位给原队列");
                 return -1;
             }
 

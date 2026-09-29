@@ -231,10 +231,10 @@ public static class AiSituation
 
             // 待复活 / 待驱散
             var 待复活 = HealTargetHelper.待复活队友();
-            if (待复活 != null) sb.AppendLine($"⚠️ 有队友倒地待复活：{待复活.Name}");
+            if (待复活 != null) sb.AppendLine($" 有队友倒地待复活：{待复活.Name}");
 
             var 待驱散 = HealTargetHelper.需要驱散队友();
-            if (待驱散 != null) sb.AppendLine($"⚠️ 有队友需要驱散：{待驱散.Name}");
+            if (待驱散 != null) sb.AppendLine($" 有队友需要驱散：{待驱散.Name}");
 
             sb.AppendLine();
         }
@@ -291,7 +291,7 @@ public static class AiSituation
             sb.AppendLine($"  血量：{目标.血量比例() * 100f:F0}%（{目标.CurrentHp} / {目标.MaxHp}）");
 
             var 快死了 = HealTargetHelper.目标快死了();
-            if (快死了) sb.AppendLine("  ⚠️ 这个目标快死了（预估 12 秒内会死）—— 别在它身上浪费爆发");
+            if (快死了) sb.AppendLine("   这个目标快死了（预估 12 秒内会死）—— 别在它身上浪费爆发");
 
             sb.AppendLine($"周围敌人数量（5 米内）：{HealTargetHelper.周围敌人数量()}");
 
