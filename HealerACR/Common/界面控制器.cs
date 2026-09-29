@@ -361,24 +361,21 @@ public sealed class 界面控制器 : IRotationUI
             // ══════════════════════════════════════════════════════════
             //  ★ 用框架自己的 `MainWindow.MainControlView` ★
             //
-            //  ── 为什么不用自己画的按钮（IL 实证）──
-            //    我第一版自绘了两个按钮、直接读写 `AEAssist.Share.Pull`。
-            //    实测**点了没反应** —— 因为那个假设是错的：
+            //  ── 为什么不自绘（IL 实证，第一版错在这）──
+            //    自绘按钮 + 直接写 `AEAssist.Share.Pull` → 点了没反应。
+            //    扫 AEAssist 全量 IL 才看清：
+            //      · `MainControlView` **完全没读写** `Share.*`
+            //      · `Share.CombatRun` 有 9 处写，`JobViewWindow.OnDrawUI` **读**它
+            //    ⇒ "启动开关是哪个字段"从签名推不出来，不能猜。
             //
-            //      · 扫 AEAssist 全量 IL：`MainWindow.MainControlView`
-            //        **完全没有**读写过 `Share.Pull` / `CombatRun`
-            //      · `Share.CombatRun` 有 9 处写，其中 `JobViewWindow.OnDrawUI`
-            //        **读**它来显示状态 —— 说明界面显示的状态另有来源
-            //      · 框架真正按什么判断"启动了没有"，从签名猜不出来
+            //  ── `MainControlView` 的实际行为（IL 调用清单）──
+            //      ImGui.Button / IsRightMouseClicked / SameLine /
+            //      BeginChild / TextDisabled / EndChild / SetWindowSize
+            //    ⇒ 它**只画按钮和提示文字**（"右键"启动"可停手"），
+            //      **点击只改 ref 参数，自己不做启动动作**。
             //
-            //    ⇒ **别再猜**。`MainControlView` 是公开方法，而且：
-            //        · 里面 `ImGui.Begin` 调用 **0 次** → 它不自己开窗口，
-            //          只画按钮，正好能放进我们的面板
-            //        · 它**完全不碰 `Share.*`** → 按钮状态走两个 `ref` 参数
-            //      让框架自己画、自己管状态，语义就不可能错。
-            //
-            //  ⚠️ 两个 bool **必须跨帧保留**（见字段说明）：
-            //     每帧重置的话，用户点了下一帧就被覆盖 → 还是"点了没反应"。
+            //  ⚠️ 所以两个 bool **必须跨帧保留** ——
+            //     每帧重置等于把用户的点击丢掉。
             // ══════════════════════════════════════════════════════════
             if (_主窗口对象 == null)
             {
@@ -395,21 +392,23 @@ public sealed class 界面控制器 : IRotationUI
                 return;
             }
 
-            // ── 第一次画的时候，从框架状态取初值 ──
-            //
-            //  ⚠️ 只在**第一次**取 —— 之后就以按钮自己为准。
-            //     每帧都从 Share 重算会把用户的点击覆盖掉。
             if (!_启动初值取过了)
             {
                 _启动初值取过了 = true;
                 try { _启动按钮 = AEAssist.Share.CombatRun; } catch { }
                 try { _停手按钮 = AEAssist.Share.TrustStopACR; } catch { }
+                LogHelper.Info($"[界面] 启动控件初值：启动={_启动按钮} 停手={_停手按钮}");
             }
+
+            var 旧启动 = _启动按钮;
+            var 旧停手 = _停手按钮;
 
             object?[] 参数 = { _启动按钮, _停手按钮, (Action)(() => { try { _保存?.Invoke(); } catch { } }) };
 
             try
             {
+                // ⚠️ `MainControlView` 内部会 `SetWindowSize` ——
+                //    在子窗口里调用可能改变窗口尺寸。观察一下有没有副作用。
                 方法.Invoke(_主窗口对象, 参数);
             }
             catch (Exception e)
@@ -418,21 +417,22 @@ public sealed class 界面控制器 : IRotationUI
                 return;
             }
 
-            // ── 把框架改过的值收回来 ──
-            //
-            //  ⚠️ `ref` 参数在反射里就是"传进去、拿回来" ——
-            //     `Invoke` 之后 `参数` 数组里的值已经是框架写过的新值。
             var 新启动 = 参数[0] is bool b1 ? b1 : _启动按钮;
             var 新停手 = 参数[1] is bool b2 ? b2 : _停手按钮;
 
-            if (新启动 != _启动按钮 || 新停手 != _停手按钮)
+            // ⚠️ 无论变没变都打一行 —— 这样才能判断
+            //    "是没点到"还是"点到了但框架没反应"。
+            if (新启动 != 旧启动 || 新停手 != 旧停手)
             {
                 _启动按钮 = 新启动;
                 _停手按钮 = 新停手;
-                记启动状态("框架按钮被点击");
+                记启动状态($"框架按钮变化 启动 {旧启动}->{新启动} 停手 {旧停手}->{新停手}");
             }
         }
-        catch { }
+        catch (Exception e)
+        {
+            try { ImGui.TextColored(主题.危险, "启动控件异常：" + e.Message); } catch { }
+        }
     }
     /// <summary>
     /// 把启动相关的**四个字段全打出来**（诊断用）。
