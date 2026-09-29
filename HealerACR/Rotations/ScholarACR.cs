@@ -48,6 +48,16 @@ public class SCHSpellTable : JobSpellTable
     /// <summary>生命活性法：不读条、能移动中用的单体治疗。</summary>
     public override uint 瞬发单奶能力技 => SpellIds.取("生命活性法");
 
+    /// <summary>
+    /// 活性法阈值 **45%**（参考实现 IL 直读的 `活性法阈值 = 45`）。
+    ///
+    /// ⚠️ 比绿帽的 60% **低** —— 这个分层就是"能力技优先"的实现：
+    ///      绿帽   60%  ← 45 秒 CD，预铺
+    ///      活性法 45%  ← 应急瞬发
+    ///      单盾   45%  ← GCD 读条（等量时能力技排前面，所以它先出）
+    /// </summary>
+    public override float 瞬发单奶血线 => 0.45f;
+
     public override uint 群体治疗能力技 => SpellIds.取("不屈不挠之策");
     public override uint 单体盾 => SpellIds.取("鼓舞激励之策");
     public override uint 团队减伤 => SpellIds.取("野战治疗阵");
@@ -184,6 +194,7 @@ public class SCHRotationEntry : HealerEntryBase
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Accession(), SlotMode.Gcd),                 // 降临之章（炽天附体期间）
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
@@ -197,7 +208,6 @@ public class SCHRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
-            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Consolation(), SlotMode.OffGcd),
             new SlotResolverData(new SCH_WhisperingDawn(), SlotMode.OffGcd),
             new SlotResolverData(new SCH_FeyBlessing(), SlotMode.OffGcd),

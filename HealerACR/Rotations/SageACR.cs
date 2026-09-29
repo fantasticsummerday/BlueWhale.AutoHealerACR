@@ -49,6 +49,9 @@ public class SGESpellTable : JobSpellTable
     /// <summary>输血 / 白牛：不读条，移动中也能用。</summary>
     public override uint 瞬发单奶能力技 => SpellUtil.取已解锁(
         SpellIds.取("输血"), SpellIds.取("白牛清汁"), SpellIds.取("灵橡清汁"));
+
+    /// <summary>蛇胆系瞬发治疗的阈值 45%（和学者活性法同档）。</summary>
+    public override float 瞬发单奶血线 => 0.45f;
     public override uint 群体治疗能力技 => SpellIds.取("消化");
 
     // ⚠️ 写"诊断/预后"而不是"均衡诊断/均衡预后"：
@@ -112,6 +115,7 @@ public class SGERotationEntry : HealerEntryBase
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_GroupShield(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
@@ -125,7 +129,6 @@ public class SGERotationEntry : HealerEntryBase
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
-            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_Philosophia(), SlotMode.OffGcd),            // 智慧之爱（Lv100 群疗大招）
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_Kardia(_spells), SlotMode.OffGcd),

@@ -45,6 +45,12 @@ public class ASTSpellTable : JobSpellTable
 
     /// <summary>先天禀赋：瞬发、不读条的单体治疗（血量越低效果越强）。</summary>
     public override uint 瞬发单奶能力技 => SpellIds.取("先天禀赋");
+
+    /// <summary>
+    /// 先天禀赋的血线：它是"血量越低效果越强"的急救型，
+    /// 所以给 **45%**（和学者的活性法同档），别拉到 75% 浪费。
+    /// </summary>
+    public override float 瞬发单奶血线 => 0.45f;
     public override uint 群体治疗能力技 => SpellIds.取("天星冲日");
     public override uint 团队减伤 => SpellIds.取("中间学派");
     public override uint 个人减伤 => SpellIds.取("擢升");
@@ -88,6 +94,7 @@ public class ASTRotationEntry : HealerEntryBase
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 吉星相位
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
@@ -98,7 +105,6 @@ public class ASTRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
-            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             // ---- 爆发组合（参考实现的 AST.Ability.Burst 思路）----
             // 顺序：占卜 → 光速 → 王冠卡 → 出卡 → 小奥秘 → 抽卡

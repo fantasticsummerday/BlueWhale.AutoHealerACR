@@ -100,6 +100,7 @@ public class 幻术师RotationEntry : HealerEntryBase
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),
 
@@ -115,7 +116,6 @@ public class 幻术师RotationEntry : HealerEntryBase
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
             // ── 能力技（减伤/资源）──
-            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),

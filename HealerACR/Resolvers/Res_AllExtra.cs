@@ -817,8 +817,26 @@ public class Res_InstantHealAbility : ISlotResolver
 
     public Res_InstantHealAbility(JobSpellTable t) => _t = t;
 
-    /// <summary>坦克低于这个血线就值得给预铺技（参考实现也是靠独立阈值，不共用急救那条）</summary>
-    private const float 预铺血线 = 0.85f;
+    /// <summary>
+    /// 坦克低于这个血线就值得给预铺技。
+    ///
+    /// ⚠️ **0.60 不是随手定的**（第一版我写了 0.85，太高 —— 已改）。
+    ///
+    ///  参考实现的学者阈值分层（IL 直读默认值）：
+    ///      绿帽（深谋远虑之策）**60%**   ← 能力技，45 秒 CD
+    ///      单盾（鼓舞激励之策）**45%**   ← GCD 读条
+    ///      GCD 群奶            50%
+    ///      生命活性法          45%
+    ///
+    ///  那 **15 个百分点就是"能力技优先"的实际实现** ——
+    ///  不是靠开关，是靠**阈值分层**：便宜的（能力技）在 60% 就交，
+    ///  贵的（占 GCD 的读条）等到 45% 才交。
+    ///
+    ///  ⚠️ 0.85 的问题：坦克被平 A 蹭一下就挂绿帽，45 秒 CD 全浪费在
+    ///     不痛不痒的掉血上；真该用的时候反而在 CD。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private const float 预铺血线 = 0.60f;
 
     /// <summary>选预铺目标：坦克优先，没坦克就退到血量最低的人</summary>
     private IBattleChara? 预铺目标(uint 技能)
@@ -856,10 +874,20 @@ public class Res_InstantHealAbility : ISlotResolver
         }
 
         // ── ② 瞬发类 ──
+        //
+        //   ⚠️ 血线用**技能表自己的 `瞬发单奶血线`**（默认 0.75），
+        //      不是 `单体治疗阈值`（默认 0.52）。
+        //
+        //      参考实现的白魔就是这么分的（IL 直读）：
+        //          神名（60 秒 CD、有充能）→ **75%**  ← 常规补血
+        //          天赐（180 秒 CD）        → **20%**  ← 救命
+        //          GCD 单奶                 → **40%**
+        //      便宜的先交、贵的后交 —— 这才是"优先用不读条的"。
+        //      如果这里用 0.52，神名会等到比 GCD 单奶还晚，等于白配。
         var 瞬发 = _t.瞬发单奶能力技;
         if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
         {
-            var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
+            var 目标 = HealTargetHelper.最低血量队友(_t.瞬发单奶血线);
             if (目标 != null && !目标.处于假死状态() && 必须奶满.找目标() == null)
                 return 24;
         }
@@ -890,7 +918,8 @@ public class Res_InstantHealAbility : ISlotResolver
         {
             if (必须奶满.找目标() == null)
             {
-                var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
+                // ⚠️ 和 Check 用**同一个血线**（`瞬发单奶血线`），否则 Check 过了 Build 找不到目标
+                var 目标 = HealTargetHelper.最低血量队友(_t.瞬发单奶血线);
                 if (目标 != null && !目标.处于假死状态())
                 {
                     var s = SpellUtil.当前形态(瞬发);

@@ -69,13 +69,29 @@ public class WHMSpellTable : JobSpellTable
     /// （历史上这里写反过：`取已解锁(天赐, 神名)` → 60 级后永远返回天赐，
     ///   神名成死代码，且 180 秒 CD 被随手花掉。见 交接文档。）
     /// </summary>
-    public override uint 紧急单奶 => SpellUtil.取已解锁(SpellIds.取("神名"), SpellIds.取("天赐祝福"));
+    public override uint 紧急单奶 => SpellIds.取("天赐祝福");
 
-    /// <summary>天赐祝福：一次到满的保命大（180 秒 CD），只由「必须奶满」那条路专门使用。</summary>
+    /// <summary>水流幕：单体减伤/护盾，86 级 —— 预铺类（伤害来之前给）。</summary>
     public override uint 预铺单奶能力技 => SpellUtil.取已解锁(SpellIds.取("水流幕"));
 
-    /// <summary>神名：瞬发、不读条的单体治疗。</summary>
-    public override uint 瞬发单奶能力技 => SpellUtil.取已解锁(SpellIds.取("神名"), SpellIds.取("天赐祝福"));
+    /// <summary>
+    /// 瞬发槽：**神名**（60 秒 CD、1 充能）—— 常规补血用。
+    ///
+    /// ⚠️ 这里**不能再写 `取已解锁(神名, 天赐祝福)`** ——
+    ///    那是同一个坑的**第三次**：`取已解锁` 取第一个**已解锁**的，
+    ///    60 级后两个都解锁 → 永远返回神名 → 天赐永远拿不到。
+    ///
+    ///  参考实现的分工（IL 直读默认值）：
+    ///      天赐阈值 = **20%**   ← 救命（180 秒 CD）
+    ///      神名阈值 = **75%**   ← 常规补血（60 秒 CD、有充能）
+    ///    两者是**两个独立 resolver、两条血线**，不是"二选一"，
+    ///    所以不存在"谁等级高就永远是它"。
+    ///    （前两次同类坑：`紧急单奶` 顺序写反、`单体治疗GCD` 把群疗「愈疗」当单体。）
+    /// </summary>
+    public override uint 瞬发单奶能力技 => SpellUtil.取已解锁(SpellIds.取("神名"));
+
+    /// <summary>神名阈值 75%（参考实现 IL 直读）—— 比 GCD 单奶高得多，这就是"优先不读条的"。</summary>
+    public override float 瞬发单奶血线 => 0.75f;
     public override uint 群体治疗能力技 => SpellIds.取("法令");
     public override bool 群体治疗能力技是输出型 => true;   // 法令要卡 CD
     public override uint 团队减伤 => SpellIds.取("节制");
@@ -127,6 +143,7 @@ public class WHMRotationEntry : HealerEntryBase
             //   而 Check() 的返回值**不参与仲裁** —— 排在哪一行才算数。
             //   参考实现的 resolver 列表也是能力技在前（IL 直证）。
             //   详见 Res_InstantHealAbility 的类注释。
+            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 再生
             new SlotResolverData(new WHM_AfflatusRapture(_spells), SlotMode.Gcd),
@@ -143,7 +160,6 @@ public class WHMRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),      // 移动填充
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
 
-            new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
