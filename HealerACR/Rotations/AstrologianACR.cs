@@ -23,6 +23,50 @@ public class ASTSpellTable : JobSpellTable
     public override uint 药尾声填充技 => SpellIds.取("落陷凶星");
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("中重力"), SpellIds.取("重力"));
+    /// <summary>
+    /// **没有"自身 AOE"技** —— 占星的重力（3615）/中重力（25872）都是
+    /// `射程=25` 的**目标中心** AOE（见 `tools\CastProbe`），不是以自己为中心。
+    ///
+    /// ⚠️ 所以这里留空，`选填充技` 会退回"基础输出 + 移动填充技"两选一。
+    /// </summary>
+    public override uint[] 自身AOE候选 => Array.Empty<uint>();
+
+    /// <summary>
+    /// **威力档位** —— 数据逐字来自游戏数据宏（`tools\HealPotency raw`）。
+    ///
+    ///    凶星     3596   Lv1   150
+    ///    灾星     3598   Lv54  160
+    ///    祸星     7442   Lv64  190
+    ///    煞星     16555  Lv72  230
+    ///    落陷凶星 25871  Lv82  if(等级>=94) 270 else 250
+    ///    烧灼     3599   Lv4   （DoT，见 §1.3）
+    /// </summary>
+    protected override (int 等级, int 威力)[]? 威力表(uint 技能Id)
+    {
+        if (技能Id == SpellIds.取("凶星"))     return new[] { (54, 160), (0, 150) };
+        if (技能Id == SpellIds.取("灾星"))     return new[] { (64, 190), (0, 160) };
+        if (技能Id == SpellIds.取("祸星"))     return new[] { (72, 230), (0, 190) };
+        if (技能Id == SpellIds.取("煞星"))     return new[] { (82, 250), (0, 230) };
+        if (技能Id == SpellIds.取("落陷凶星")) return new[] { (94, 270), (0, 250) };
+
+        return null;
+    }
+
+    /// <summary>
+    /// **咏唱时间**（秒）—— 来自游戏 `Cast100ms`。
+    ///
+    /// ⚠️ 占星的填充技里**只有 DoT 是瞬发**（烧灼/炽灼/焚灼 咏唱 0.0）——
+    ///    所以移动中能打的就只有 DoT，没有瞬发伤害填充技可用。
+    /// </summary>
+    public override IReadOnlyDictionary<uint, float> 咏唱时间表 { get; } = new Dictionary<uint, float>
+    {
+        [SpellIds.取("凶星")] = 1.5f,
+        [SpellIds.取("灾星")] = 1.5f,
+        [SpellIds.取("祸星")] = 1.5f,
+        [SpellIds.取("煞星")] = 1.5f,
+        [SpellIds.取("落陷凶星")] = 1.5f,
+    };
+
     public override uint Dot技能 => SpellUtil.取已解锁(
         SpellIds.取("焚灼"), SpellIds.取("炽灼"), SpellIds.取("烧灼"));
     public override uint DotBuff => AuraIds.占星Dot;

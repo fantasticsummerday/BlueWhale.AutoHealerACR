@@ -24,6 +24,63 @@ public class SGESpellTable : JobSpellTable
         SpellIds.取("失衡II"), SpellIds.取("失衡"));
     // 写"注药III/II/注药"的等级链：均衡注药是它们的形态，
     // 只写 1 级的"注药"的话，高等级取不到"均衡注药III"
+    /// <summary>
+    /// **自身 AOE 技**（`CastType=2 Range=0`）。
+    ///
+    /// ⚠️ 数据依据（`tools\CastProbe`）：
+    ///       失衡   24297  Lv46  咏唱**0.0**  射程0  范围5  威力160
+    ///       失衡II 24315  Lv82  咏唱**0.0**  射程0  范围5  威力170
+    ///
+    /// ⚠️ 贤者的失衡是**瞬发** —— 所以移动中也能用（比占星强）。
+    /// </summary>
+    public override uint[] 自身AOE候选 => new[]
+    {
+        SpellIds.取("失衡II"),    // 82 级
+        SpellIds.取("失衡"),      // 46 级
+    };
+
+    /// <summary>
+    /// **威力档位** —— 数据逐字来自游戏数据宏（`tools\HealPotency raw`）。
+    ///
+    ///    注药    24283  Lv1   if(等级>=64) 300 else if(等级>=54) 250 else 180
+    ///    注药II  24306  Lv72  320
+    ///    注药III 24312  Lv82  if(等级>=94) 380 else 330
+    ///    失衡    24297  Lv46  160
+    ///    失衡II  24315  Lv82  170
+    ///
+    /// ⚠️ 注药有**三档**（180/250/300），别只写两档。
+    /// </summary>
+    protected override (int 等级, int 威力)[]? 威力表(uint 技能Id)
+    {
+        if (技能Id == SpellIds.取("注药"))    return new[] { (64, 300), (54, 250), (0, 180) };
+        if (技能Id == SpellIds.取("注药II"))  return new[] { (82, 330), (0, 320) };
+        if (技能Id == SpellIds.取("注药III")) return new[] { (94, 380), (0, 330) };
+        if (技能Id == SpellIds.取("失衡"))    return new[] { (82, 170), (0, 160) };
+        if (技能Id == SpellIds.取("失衡II"))  return new[] { (0, 170) };
+
+        return null;
+    }
+
+    /// <summary>
+    /// **咏唱时间**（秒）—— 来自游戏 `Cast100ms`。
+    ///
+    /// ⚠️ 注药系列是 **1.5 秒读条**，失衡系列是 **瞬发**。
+    ///    两者复唱都是 2.5 秒 ⇒ 都占一个 GCD ⇒ 威力排序里约掉。
+    /// </summary>
+    public override IReadOnlyDictionary<uint, float> 咏唱时间表 { get; } = new Dictionary<uint, float>
+    {
+        [SpellIds.取("注药")] = 1.5f,
+        [SpellIds.取("注药II")] = 1.5f,
+        [SpellIds.取("注药III")] = 1.5f,
+        [SpellIds.取("失衡")] = 0f,      // 瞬发
+        [SpellIds.取("失衡II")] = 0f,    // 瞬发
+    };
+
+    /// <summary>自身 AOE 的半径（贤者是 5 米）</summary>
+    public override (bool 是, float 半径) 自身AOE半径(uint 技能Id)
+        => (技能Id == SpellIds.取("失衡") || 技能Id == SpellIds.取("失衡II"))
+            ? (true, 5f) : (false, 0f);
+
     public override uint Dot技能 => SpellUtil.取已解锁(
         SpellIds.取("注药III"), SpellIds.取("注药II"), SpellIds.取("注药"));
     public override uint DotBuff => AuraIds.贤者Dot;

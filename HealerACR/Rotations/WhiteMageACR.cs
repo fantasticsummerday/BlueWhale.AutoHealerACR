@@ -30,6 +30,77 @@ public class WHMSpellTable : JobSpellTable
 
     /// <summary>药尾声补刀用的瞬发填充技 —— 白魔：闪灼（25859）—— 基础输出，即刻下变瞬发。</summary>
     public override uint 药尾声填充技 => SpellIds.取("闪灼");
+    /// <summary>
+    /// **自身 AOE 技**（`CastType=2 Range=0`，以自己为中心的圆形攻击）。
+    ///
+    /// ⚠️ 数据依据（`tools\CastProbe` 读游戏 `CastType`/`Range`/`EffectRange`）：
+    ///       神圣 139    Lv45  咏唱1.5  射程0  范围**8**  威力140
+    ///       豪圣 25860  Lv82  咏唱1.5  射程0  范围**8**  威力150
+    ///
+    /// ⚠️ 半径是 **8 米** —— 比学者的破阵法（5 米）大，
+    ///    所以不能共用同一个半径常量，必须按技能查。
+    /// </summary>
+    public override uint[] 自身AOE候选 => new[]
+    {
+        SpellIds.取("豪圣"),      // 82 级
+        SpellIds.取("神圣"),      // 45 级
+    };
+
+    /// <summary>
+    /// **威力档位** —— 数据逐字来自游戏数据宏（`tools\HealPotency raw`）。
+    ///
+    ///    飞石   119    Lv1   140
+    ///    坚石   127    Lv18  190
+    ///    垒石   3568   Lv54  220
+    ///    崩石   7431   Lv64  260
+    ///    闪耀   16533  Lv72  290
+    ///    闪灼   25859  Lv82  if(等级>=94) 350 else 310
+    ///    神圣   139    Lv45  140
+    ///    豪圣   25860  Lv82  150
+    ///
+    /// ⚠️ 白魔是**纯读条**职业（除 DoT 外没有瞬发伤害技）——
+    ///    所以"移动中该放什么"全靠 `移动填充技`，威力比较主要解决
+    ///    **贴身时该不该用神圣/豪圣**。
+    /// </summary>
+    protected override (int 等级, int 威力)[]? 威力表(uint 技能Id)
+    {
+        if (技能Id == SpellIds.取("飞石"))   return new[] { (18, 190), (0, 140) };
+        if (技能Id == SpellIds.取("坚石"))   return new[] { (54, 220), (0, 190) };
+        if (技能Id == SpellIds.取("垒石"))   return new[] { (64, 260), (0, 220) };
+        if (技能Id == SpellIds.取("崩石"))   return new[] { (72, 290), (0, 260) };
+        if (技能Id == SpellIds.取("闪耀"))   return new[] { (82, 310), (0, 290) };
+        if (技能Id == SpellIds.取("闪灼"))   return new[] { (94, 350), (0, 310) };
+        if (技能Id == SpellIds.取("神圣"))   return new[] { (82, 150), (0, 140) };
+        if (技能Id == SpellIds.取("豪圣"))   return new[] { (0, 150) };
+
+        return null;
+    }
+
+    /// <summary>
+    /// **咏唱时间**（秒）—— 来自游戏 `Cast100ms`。
+    ///
+    /// ⚠️ 白魔的伤害技**全是 1.5 秒读条**（没有瞬发填充技）。
+    ///    复唱都是 2.5 秒 ⇒ 都只占一个 GCD ⇒ 威力排序里咏唱时间约掉。
+    /// </summary>
+    public override IReadOnlyDictionary<uint, float> 咏唱时间表 { get; } = new Dictionary<uint, float>
+    {
+        [SpellIds.取("飞石")] = 1.5f,
+        [SpellIds.取("坚石")] = 1.5f,
+        [SpellIds.取("垒石")] = 1.5f,
+        [SpellIds.取("崩石")] = 1.5f,
+        [SpellIds.取("闪耀")] = 1.5f,
+        [SpellIds.取("闪灼")] = 1.5f,
+        [SpellIds.取("神圣")] = 1.5f,
+        [SpellIds.取("豪圣")] = 1.5f,
+    };
+
+    /// <summary>
+    /// 自身 AOE 的半径（**按技能查**，白魔是 8 米）。
+    /// </summary>
+    public override (bool 是, float 半径) 自身AOE半径(uint 技能Id)
+        => (技能Id == SpellIds.取("神圣") || 技能Id == SpellIds.取("豪圣"))
+            ? (true, 8f) : (false, 0f);
+
     public override uint Dot技能 => SpellUtil.取已解锁(
         SpellIds.取("天辉"), SpellIds.取("烈风"), SpellIds.取("疾风"));
     public override uint DotBuff => AuraIds.白魔Dot;

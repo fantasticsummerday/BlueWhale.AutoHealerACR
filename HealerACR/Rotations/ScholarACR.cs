@@ -122,6 +122,24 @@ public class SCHSpellTable : JobSpellTable
     public override uint 近战填充技 => SpellIds.取("破阵法");
 
     /// <summary>
+    /// **自身 AOE 技**（`CastType=2 Range=0`，以自己为中心）。
+    ///
+    /// ⚠️ 数据依据（`tools\CastProbe`）：
+    ///       破阵法 16539  Lv46  咏唱**0.0**  射程0  范围5  威力 if(54)165 else 150
+    ///       裂阵法 25866  Lv82  咏唱**0.0**  射程0  范围5  威力 180
+    /// </summary>
+    public override uint[] 自身AOE候选 => new[]
+    {
+        SpellIds.取("裂阵法"),    // 82 级
+        SpellIds.取("破阵法"),    // 46 级
+    };
+
+    /// <summary>自身 AOE 的半径（学者是 5 米）</summary>
+    public override (bool 是, float 半径) 自身AOE半径(uint 技能Id)
+        => (技能Id == SpellIds.取("破阵法") || 技能Id == SpellIds.取("裂阵法"))
+            ? (true, 5f) : (false, 0f);
+
+    /// <summary>
     /// 贴身距离门槛 = **5 米**。
     ///
     /// ⚠️ 表里的默认值是 3，那个**偏小** —— 查官方技能表
@@ -195,19 +213,6 @@ public class SCHSpellTable : JobSpellTable
         [SpellIds.取("极炎法")] = 1.5f,
     };
 
-    /// <summary>
-    /// 哪些是**群体技**（对自身周围的 AOE）。
-    ///
-    /// ⚠️ 数据依据（`dump_actions.tsv` + `CastProbe`）：
-    ///       破阵法 16539  CastType=2  射程=0  效果范围=5
-    ///       裂阵法 25866  CastType=2  射程=0  效果范围=5
-    ///     ⇒ 两者都是"以自己为中心 5 米"的圆形 AOE。
-    ///
-    ///  ⇒ 单体目标时用它们是**亏的**（拿 AOE 威力打一个敌人），
-    ///    所以选技能时要按 `威力 × 命中数` 折算。
-    /// </summary>
-    public override bool 是群体技(uint 技能Id)
-        => 技能Id == SpellIds.取("破阵法") || 技能Id == SpellIds.取("裂阵法");
 
     protected override (int 等级, int 威力)[]? 威力表(uint 技能Id)
     {
