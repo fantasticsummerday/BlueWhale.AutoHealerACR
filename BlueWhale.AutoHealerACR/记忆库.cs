@@ -338,19 +338,60 @@ public static class 记忆库
         var 行 = JsonSerializer.Serialize(条, JsonOpts) + Environment.NewLine;
         await File.AppendAllTextAsync(库文件(), 行, Encoding.UTF8);
 
+        // ⚠️ 追加完必须让缓存失效 —— 否则下一轮提示词读到的还是旧库
+        //    （不能只靠文件时间戳：同一毫秒内写完又读，时间戳可能没变）
+        缓存失效();
+
         条目数++;
     }
 
-    /// <summary>读取全部条目（给 GUI 和检索用）</summary>
+    /// <summary>
+    /// 读取全部条目（给 GUI 和检索用）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 带失效的缓存 —— 治"每轮提示词都在游戏线程做同步 IO" ★
+    ///
+    ///  ── 原来为什么是问题（审计发现）──
+    ///    `采记忆库()` **每一轮提示词**都会调到这里 →
+    ///    `File.ReadAllLines` + 逐行 `JsonSerializer.Deserialize`，
+    ///    而且是**同步**跑在游戏线程上（调用链：
+    ///    `AiSituation.采集 ← AiDecisionLayer.预取 ← AiHeartbeat.Check`）。
+    ///
+    ///    · 违反项目自查清单 A 第 5 条："不在战斗中读写文件"
+    ///    · 库越大越慢，而决策层预取最快每 300ms 就来一次
+    ///
+    ///  ── 修法：缓存 + **两级失效** ──
+    ///    ① 文件写时间变了 → 重读（别人改了库、或换过库文件）
+    ///    ② 我们自己追加过 → 主动失效（同一个进程内的写入，
+    ///       文件时间戳可能因为精度不够而变化不明显）
+    ///
+    ///  ⚠️ 为什么不用后台线程加载：调用方要**同步**拿到结果才能拼提示词，
+    ///    改成异步要么改一大片调用链、要么在战斗里等 IO —— 都比缓存差。
+    ///    缓存把"每轮一次 IO"降到"库变了才 IO"，这才是问题的关键。
+    ///
+    ///  ⚠️ 缓存的是**反序列化后的对象**，不是原始行 ——
+    ///    这样连 JSON 解析也只在库变化时做一次。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
     private static List<记忆条目> 读全部()
     {
-        var 结果 = new List<记忆条目>();
-
         try
         {
             var f = 库文件();
-            if (!File.Exists(f)) return 结果;
 
+            if (!File.Exists(f))
+            {
+                _缓存 = new List<记忆条目>();
+                _缓存文件时间 = 0;
+                条目数 = 0;
+                return _缓存;
+            }
+
+            // ★ 失效检查 ①：文件写时间变了才重读 ★
+            var 写时间 = File.GetLastWriteTimeUtc(f).Ticks;
+            if (_缓存 != null && 写时间 == _缓存文件时间) return _缓存;
+
+            var 结果 = new List<记忆条目>();
             foreach (var 行 in File.ReadAllLines(f))
             {
                 if (string.IsNullOrWhiteSpace(行)) continue;
@@ -361,11 +402,35 @@ public static class 记忆库
                 }
                 catch { }
             }
-        }
-        catch { }
 
-        条目数 = 结果.Count;
-        return 结果;
+            _缓存 = 结果;
+            _缓存文件时间 = 写时间;
+            条目数 = 结果.Count;
+            return _缓存;
+        }
+        catch
+        {
+            return _缓存 ?? new List<记忆条目>();
+        }
+    }
+
+    /// <summary>条目缓存（null = 还没读过）</summary>
+    private static List<记忆条目>? _缓存;
+
+    /// <summary>缓存对应的文件写时间（Ticks）—— 和它不一致就重读</summary>
+    private static long _缓存文件时间;
+
+    /// <summary>
+    /// 让缓存失效（我们自己写过库之后必须调）。
+    ///
+    /// ⚠️ 光靠文件时间戳不可靠：就在同一毫秒内写完又读时，
+    ///    时间戳可能没变（文件系统精度）→ 会读到**旧的缓存**。
+    ///    所以写入路径要**主动**失效，不能只依赖时间戳。
+    /// </summary>
+    private static void 缓存失效()
+    {
+        _缓存 = null;
+        _缓存文件时间 = 0;
     }
 
     // ==================== 初始化时喂给 AI ====================
@@ -525,6 +590,7 @@ public static class 记忆库
             }
 
             条目数 = 0;
+            缓存失效();   // ⚠️ 清了库也要失效缓存，否则提示词还会读到清空前的记忆
             状态 = "已清空";
             屏幕提示.成功("记忆库已清空（旧库已备份）", "mem-clear");
         }

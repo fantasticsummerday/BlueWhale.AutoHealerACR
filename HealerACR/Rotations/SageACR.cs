@@ -217,6 +217,7 @@ public class SGE_Dot : ISlotResolver
         // ⚠️ 记到**共享**的 Dot补判（不是本类的静态字段）——
         //    保险丝必须和 Res_Dot / AI 建议路径共用，否则那条路能绕过它。
         Dot补判.记一次施放(target);   // 按目标记
+        Dot黑名单.记按下(target, _t.所有DotBuff);
     }
 }
 

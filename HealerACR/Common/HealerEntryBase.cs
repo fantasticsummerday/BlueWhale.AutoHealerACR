@@ -396,6 +396,61 @@ public abstract class HealerEntryBase : IRotationEntry
         }
     }
 
+    // ==================== DoT 黑名单（设置界面用）====================
+
+    /// <summary>
+    /// DoT 黑名单输入框的缓冲。
+    ///
+    /// ⚠️ ImGui 的 `InputText` 需要**稳定的 string 引用** ——
+    ///    不能直接 ref 一个列表元素（每帧重建的话光标会跳）。
+    /// </summary>
+    private static string _黑名单缓冲 = "";
+
+    /// <summary>
+    /// 把输入框里的内容解析进 `Dot黑名单.自定义黑名单`。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 为什么要有这个（审计发现）★
+    ///
+    ///    `自定义黑名单` 原来只有**声明和读取**，**没有任何写入点** ——
+    ///    设置界面里也没有对应的输入框。
+    ///    也就是说这道防线**用户根本碰不到**，等于不存在。
+    ///
+    ///  ── 它防的是什么 ──
+    ///    某些怪免疫 DoT（或吃不上），往它们身上补 =
+    ///    每 30 秒白费一个 GCD，而且因为 buff 永远上不去，
+    ///    DoT 会反复触发、**把输出循环卡死**。
+    ///
+    ///  ⚠️ 非法项**直接忽略**，不清空已有的 ——
+    ///    用户输错一个字符不该把整张表清掉。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static void 应用黑名单()
+    {
+        try
+        {
+            Dot黑名单.自定义黑名单.Clear();
+
+            if (!string.IsNullOrWhiteSpace(_黑名单缓冲))
+            {
+                var 段 = _黑名单缓冲.Split(
+                    new[] { ',', '，', ' ', '\t', '\r', '\n', ';', '；' },
+                    StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var s in 段)
+                {
+                    if (uint.TryParse(s.Trim(), out var id) && id != 0)
+                    {
+                        Dot黑名单.自定义黑名单.Add(id);
+                    }
+                }
+            }
+
+            LogHelper.Info($"[HealerACR] DoT 黑名单已更新：{Dot黑名单.自定义黑名单.Count} 条");
+        }
+        catch { }
+    }
+
 
     /// <summary>
     /// 阈值面板。JobViewWindow 自带的只有 bool 开关，滑条得自己用 ImGui 画。
@@ -529,6 +584,29 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.SliderFloat("不挂 Dot 血线", ref s.不挂Dot血线, 0f, 1f, "%.2f");
             ImGui.TextDisabled("  目标血量低于这个值就不浪费 GCD 挂 Dot");
             ImGui.SliderFloat("Dot 持续时间", ref s.Dot持续时间, 3f, 30f, "%.0f 秒");
+
+            // ── DoT 黑名单（自定义）──
+            //
+            // ⚠️ 这个输入框原来是**缺的**（审计发现）：`自定义黑名单` 只有声明和读取，
+            //    **没有任何写入点** —— 也就是说用户根本没法往里加东西，
+            //    那道防线等于不存在。
+            //
+            // 用途：某些怪免疫 DoT（或者吃不上），往它们身上补 =
+            //       每 30 秒白费一个 GCD，而且 buff 永远上不去 →
+            //       DoT 会反复触发、把输出循环卡死。
+            //
+            // ⚠️ ImGui 的 InputText 需要**稳定的 string 引用** ——
+            //    不能直接 ref 列表元素，所以这里用一个静态缓冲。
+            ImGui.InputText("DoT 黑名单（怪的种类 ID）", ref _黑名单缓冲, 256);
+            ImGui.TextDisabled("  逗号或空格分隔。种类 ID 见怪物名旁边的数字；留空 = 不拉黑任何怪");
+            if (ImGui.Button("应用 DoT 黑名单")) 应用黑名单();
+            ImGui.SameLine();
+            if (ImGui.Button("清空 DoT 黑名单"))
+            {
+                _黑名单缓冲 = "";
+                应用黑名单();
+            }
+
             ImGui.Checkbox("木桩优先输出", ref s.木桩优先输出);
             ImGui.TextDisabled("  木桩环境下走该职业最优输出策略");
         }
@@ -867,6 +945,17 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ══════════════════════════════════════════════════════════════
         以太管理.每帧更新();
 
+        // ★ DoT 自适应黑名单：把"待确认"的项拿出来看 buff 上去没有 ★
+        //   ⚠️ 这个每帧更新原来**不存在** —— 导致 `记补失败`/记补成功`
+        //     永远不被调用，自适应拉黑是死代码。
+        Dot黑名单.每帧更新();
+
+        // ★ 敌人移动检测：清理过期记录 ★
+        //   ⚠️ 它自己的注释写着"（每帧调一下，很轻）"，
+        //     但**原来一个调用点都没有** —— 记录只能靠换本时的 `重置()` 清。
+        //     一场长副本里敌人 GameObjectId 会一直累积（每只怪一条 Vector3）。
+        敌人移动检测.清理();
+
         // ★ 记录模式：观察玩家手动操作 ★
         //   非记录模式下这个方法第一行就 return，零开销。
         记录模式.每帧更新();
@@ -950,4 +1039,6 @@ public class HealRotationEventHandler : IRotationEventHandler
         //   比如上个本一直在打小怪（激进），进 Boss 本还保持激进。
         try { 状态重置钩子.通知(); } catch { }
     }
+
+
 }
