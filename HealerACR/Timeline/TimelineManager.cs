@@ -169,12 +169,46 @@ public static class TimelineManager
         Runner.更新(战斗毫秒 / 1000.0, HealSettings.Instance.时间轴提前秒);
     }
 
-    /// <summary>时间轴有没有要求"现在铺减伤"</summary>
-    public static bool 该铺减伤() => Runner.本帧要减伤;
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 或门（OR gate）：cactbot 时间轴 或 AEAssist Trigger ★
+    //
+    //  两个触发源**同时保留**，任一为真就算有需求：
+    //    · cactbot 时间轴 —— 本地 txt 文件，精确到时间点
+    //    · AEAssist Trigger —— 在它的时间轴编辑器里挂 TriggerAction
+    //
+    //  **为什么保留两个而不是二选一**：
+    //    · cactbot 时间轴是"数据驱动"，改 txt 就能调，不用重新编译
+    //    · Trigger 是"图形化编辑"，不写文件也能挂，适合临时调整
+    //    · 两者覆盖的场景不同，而且**谁先谁后用不着争** —— 或门天然解决
+    //
+    //  改在这里的好处：**所有调用点自动获得或门能力**，
+    //  不用去 30 多个 resolver 里逐处加判断。
+    // ══════════════════════════════════════════════════════════════════
 
-    /// <summary>未来 N 秒附近有没有减伤需求（地星预铺 / 攒资源用）</summary>
+    /// <summary>有没有要求"现在铺减伤"（cactbot 时间轴 或 Trigger，任一即可）</summary>
+    public static bool 该铺减伤()
+    {
+        // 来源①：cactbot 时间轴
+        if (Runner.本帧要减伤) return true;
+
+        // 来源②：AEAssist Trigger（外部通过触发器请求）
+        if (Common.减伤信号.该减伤()) return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// 未来 N 秒附近有没有减伤需求（地星预铺 / 攒资源用）。
+    ///
+    /// **Trigger 的请求算作"立刻有需求"** —— 因为它没有"提前量"的概念，
+    /// 触发就是现在要做。
+    /// </summary>
     public static bool 未来有减伤(double 秒后, double 容差 = 1.5)
     {
+        // 来源②：Trigger 刚触发 → 相当于"现在就有需求"
+        if (Common.减伤信号.该减伤()) return true;
+
+        // 来源①：cactbot 时间轴
         if (!HealSettings.Instance.启用时间轴) return false;
         return Runner.未来有减伤(秒后, 容差);
     }
@@ -182,6 +216,9 @@ public static class TimelineManager
     /// <summary>再过多少秒会有下一次减伤需求，没有返回 -1</summary>
     public static double 距下次减伤()
     {
+        // Trigger 已触发 → 就是现在（0 秒后）
+        if (Common.减伤信号.该减伤()) return 0;
+
         if (!HealSettings.Instance.启用时间轴) return -1;
         return Runner.距下次减伤();
     }
@@ -190,6 +227,9 @@ public static class TimelineManager
     public static void 战斗重置()
     {
         Runner.重置();
+
+        // Trigger 信号也要清 —— 否则上一场留下的请求会带到下一场
+        Common.减伤信号.重置();
     }
 
     private static void 确保当前时间轴()
