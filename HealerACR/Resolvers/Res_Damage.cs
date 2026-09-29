@@ -376,6 +376,9 @@ public class Res_BaseDamage : ISlotResolver
     ///     （永远打低威力那个，那正是这个 bug）。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    /// <summary>【临时诊断】上次的判定结果（只在变化时打日志）</summary>
+    private static string _上次填充判定 = "";
+
     private Spell? 选填充技(IBattleChara? 目标)
     {
         try
@@ -385,13 +388,42 @@ public class Res_BaseDamage : ISlotResolver
                 // `当前形态` 会自动升级（破阵法 → 裂阵法），
                 // 和 `群体输出` 走同一套形态表
                 var 近战 = SpellUtil.当前形态(_t.近战填充技);
-                if (近战 != null && 够得到目标圈(目标, _t.近战填充距离))
-                    return 近战;
+                if (近战 != null)
+                {
+                    var 中心距 = Vector3.Distance(Core.Me.Position, 目标.Position);
+                    var 碰撞 = 目标.HitboxRadius;
+                    var 有效 = 中心距 - 碰撞;
+                    var 够 = 有效 <= _t.近战填充距离;
+
+                    // 【临时诊断】只在结果变化时打（不刷屏）
+                    诊断切换(够
+                        ? $"用近战填充技（有效距 {有效:F2} = 中心 {中心距:F2} - 碰撞 {碰撞:F2}）"
+                        : $"距离不够（有效距 {有效:F2} = 中心 {中心距:F2} - 碰撞 {碰撞:F2} > {_t.近战填充距离:F1}）");
+
+                    if (够) return 近战;
+                }
+            }
+            else
+            {
+                诊断切换($"无近战填充技或没解锁（技={_t.近战填充技} 目标={(目标 == null ? "null" : "有")}）");
             }
         }
         catch { }
 
+        诊断切换("用基础输出");
         return SpellUtil.当前形态(_t.基础输出);
+    }
+
+    /// <summary>【临时诊断】只在判定变化时打一条</summary>
+    private static void 诊断切换(string 说明)
+    {
+        try
+        {
+            if (_上次填充判定 == 说明) return;
+            _上次填充判定 = 说明;
+            LogHelper.Info("[填充] " + 说明);
+        }
+        catch { }
     }
 
     /// <summary>
