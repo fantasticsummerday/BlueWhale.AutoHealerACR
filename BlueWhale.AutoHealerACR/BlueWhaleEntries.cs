@@ -18,6 +18,95 @@ namespace BlueWhale.AutoHealerACR;
 //  这样才能保证：**API 挂了、没填 Key、断网了，这个 ACR 依然是个能用的治疗 ACR。**
 // ============================================================================
 
+/// <summary>
+/// AI 层的挂载 / 卸载 —— 五个职业入口共用同一套。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 为什么抽出来 ★
+///
+///    原来这 5 个入口各自抄了一份**一模一样**的挂载代码
+///    （记忆钩子 + 状态重置钩子 + 初始化 + 解除熔断 + AiHookInstaller）。
+///    加一个钩子就要改 5 处 —— 漏一处就是"只有那个职业不生效"的静默 bug。
+///
+///  ★ 两个钩子各管一件事（别搞混）★
+///
+///    · `状态重置钩子` ← 换**副本**（OnTerritoryChanged）
+///        → 清状态即可（同一个职业，技能表没变）
+///    · `记忆钩子.进入循环` ← 切**职业** / 重载 ACR（OnEnterRotation）
+///        → 清状态 **并且重新初始化**
+///
+///    切职业比换本更彻底：换了一整套技能表和判断逻辑，
+///    AI 的倾向 / 阈值偏移 / 预取队列全是按**上一个职业**的局面得出的。
+///    不清就会拿学者的结论去指导白魔（和"跨职业静态污染"同一类问题）。
+///
+///    ⚠️ 切职业还必须**重新初始化**（不只是清空）：
+///       否则 AI 有一段"哑"的窗口（倾向=未知、阈值偏移=0），
+///       开场那几秒等于没有 AI。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+internal static class Ai层挂载
+{
+    /// <summary>入口 Build 时调（5 个职业入口共用）</summary>
+    public static void 挂载()
+    {
+        // ── 记忆采集（原版不挂 → 什么也不发生）──
+        记忆钩子.记决策 = (id, 名) => 战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
+        记忆钩子.每帧 = 战斗记忆.每帧更新;
+
+        // ── ① 换副本：清状态就够 ──
+        状态重置钩子.重置 = () =>
+        {
+            清AI状态();
+            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
+        };
+
+        // ── ② 切职业 / 重载 ACR：清状态 **并且** 重新初始化 ──
+        记忆钩子.进入循环 = () =>
+        {
+            清AI状态();
+            Ai初始化.重置();          // 先清"已完成/进行中"的标记，否则 开始() 会被挡掉
+            Ai调试.日志("切换职业 -> 已重置 AI 层，重新初始化");
+
+            // 重新跑一次完整请求，让 AI 立刻拿到**新职业**的结论
+            Ai初始化.开始();
+        };
+
+        // ── 启动初始化 ──
+        //   加载后立刻跑一次完整请求，否则前 10 秒它是"哑"的。
+        Ai初始化.开始();
+
+        // ── 「解除熔断」QT 开关接到实际动作 ──
+        HealQt.解除熔断请求 = () =>
+        {
+            DeepSeekClient.解除熔断();
+            Ai初始化.重置();
+            Ai调试.日志("手动解除熔断");
+            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
+        };
+
+        AiHookInstaller.挂载();     // 挂上 AI 阈值钩子
+    }
+
+    /// <summary>清 AI 层的所有状态（换本 / 切职业都走这里）</summary>
+    private static void 清AI状态()
+    {
+        try { AiStrategyLayer.重置(); } catch { }
+        try { AiDecisionLayer.重置(); } catch { }
+        try { AiThresholdAdapter.重置平滑(); } catch { }
+        try { 坦克压力.重置(); } catch { }
+        try { 局面监控.重置(); } catch { }   // 血量/目标基准必须归零
+    }
+
+    /// <summary>退出时卸载，避免影响其他 ACR</summary>
+    public static void 卸载()
+    {
+        AiHookInstaller.卸载();
+        记忆钩子.卸载();
+        状态重置钩子.卸载();
+        HealQt.解除熔断请求 = null;
+    }
+}
+
 /// <summary>白魔 —— AI 接管实验版</summary>
 public class BlueWhaleWhiteMageEntry : WHMRotationEntry
 {
@@ -60,49 +149,17 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
 
         AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
 
-        // 挂上记忆采集钩子（原版不挂 → 什么也不发生）
-        HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
-            战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
-        HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
-
-        // ★ 挂上状态重置钩子 ★
-        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
-        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
-        HealerACR.Common.状态重置钩子.重置 = () =>
-        {
-            AiStrategyLayer.重置();
-            AiDecisionLayer.重置();
-            AiThresholdAdapter.重置平滑();
-            坦克压力.重置();
-            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
-        };
-
-        // ★ 启动 AI 初始化 ★
-        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
-        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
-        Ai初始化.开始();
-
-        // 把「解除熔断」这个 QT 开关接到实际动作上
-        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
-        HealerACR.Common.HealQt.解除熔断请求 = () =>
-        {
-            DeepSeekClient.解除熔断();
-            Ai初始化.重置();
-            Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
-        };
-
-        AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
+        // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
+        //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
+        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
+        Ai层挂载.挂载();
 
         return rot;
     }
 
     public override void Dispose()
     {
-        AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
-        HealerACR.Common.记忆钩子.卸载();
-        HealerACR.Common.状态重置钩子.卸载();
+        Ai层挂载.卸载();                         // 卸载，避免影响其他 ACR
         base.Dispose();
     }
 
@@ -174,49 +231,17 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
 
         AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
 
-        // 挂上记忆采集钩子（原版不挂 → 什么也不发生）
-        HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
-            战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
-        HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
-
-        // ★ 挂上状态重置钩子 ★
-        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
-        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
-        HealerACR.Common.状态重置钩子.重置 = () =>
-        {
-            AiStrategyLayer.重置();
-            AiDecisionLayer.重置();
-            AiThresholdAdapter.重置平滑();
-            坦克压力.重置();
-            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
-        };
-
-        // ★ 启动 AI 初始化 ★
-        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
-        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
-        Ai初始化.开始();
-
-        // 把「解除熔断」这个 QT 开关接到实际动作上
-        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
-        HealerACR.Common.HealQt.解除熔断请求 = () =>
-        {
-            DeepSeekClient.解除熔断();
-            Ai初始化.重置();
-            Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
-        };
-
-        AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
+        // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
+        //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
+        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
+        Ai层挂载.挂载();
 
         return rot;
     }
 
     public override void Dispose()
     {
-        AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
-        HealerACR.Common.记忆钩子.卸载();
-        HealerACR.Common.状态重置钩子.卸载();
+        Ai层挂载.卸载();                         // 卸载，避免影响其他 ACR
         base.Dispose();
     }
 
@@ -288,49 +313,17 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
 
         AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
 
-        // 挂上记忆采集钩子（原版不挂 → 什么也不发生）
-        HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
-            战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
-        HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
-
-        // ★ 挂上状态重置钩子 ★
-        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
-        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
-        HealerACR.Common.状态重置钩子.重置 = () =>
-        {
-            AiStrategyLayer.重置();
-            AiDecisionLayer.重置();
-            AiThresholdAdapter.重置平滑();
-            坦克压力.重置();
-            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
-        };
-
-        // ★ 启动 AI 初始化 ★
-        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
-        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
-        Ai初始化.开始();
-
-        // 把「解除熔断」这个 QT 开关接到实际动作上
-        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
-        HealerACR.Common.HealQt.解除熔断请求 = () =>
-        {
-            DeepSeekClient.解除熔断();
-            Ai初始化.重置();
-            Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
-        };
-
-        AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
+        // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
+        //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
+        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
+        Ai层挂载.挂载();
 
         return rot;
     }
 
     public override void Dispose()
     {
-        AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
-        HealerACR.Common.记忆钩子.卸载();
-        HealerACR.Common.状态重置钩子.卸载();
+        Ai层挂载.卸载();                         // 卸载，避免影响其他 ACR
         base.Dispose();
     }
 
@@ -402,49 +395,17 @@ public class BlueWhaleSageEntry : SGERotationEntry
 
         AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
 
-        // 挂上记忆采集钩子（原版不挂 → 什么也不发生）
-        HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
-            战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
-        HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
-
-        // ★ 挂上状态重置钩子 ★
-        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
-        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
-        HealerACR.Common.状态重置钩子.重置 = () =>
-        {
-            AiStrategyLayer.重置();
-            AiDecisionLayer.重置();
-            AiThresholdAdapter.重置平滑();
-            坦克压力.重置();
-            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
-        };
-
-        // ★ 启动 AI 初始化 ★
-        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
-        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
-        Ai初始化.开始();
-
-        // 把「解除熔断」这个 QT 开关接到实际动作上
-        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
-        HealerACR.Common.HealQt.解除熔断请求 = () =>
-        {
-            DeepSeekClient.解除熔断();
-            Ai初始化.重置();
-            Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
-        };
-
-        AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
+        // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
+        //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
+        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
+        Ai层挂载.挂载();
 
         return rot;
     }
 
     public override void Dispose()
     {
-        AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
-        HealerACR.Common.记忆钩子.卸载();
-        HealerACR.Common.状态重置钩子.卸载();
+        Ai层挂载.卸载();                         // 卸载，避免影响其他 ACR
         base.Dispose();
     }
 
@@ -793,49 +754,17 @@ public override Rotation Build(string settingFolder)
 
         AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
 
-        // 挂上记忆采集钩子（原版不挂 → 什么也不发生）
-        HealerACR.Common.记忆钩子.记决策 = (id, 名) =>
-            战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
-        HealerACR.Common.记忆钩子.每帧 = 战斗记忆.每帧更新;
-
-        // ★ 挂上状态重置钩子 ★
-        //   换本时把 AI 层的状态清掉 —— 否则上个副本的判断会带过来
-        //   （比如上个本一直打小怪判"激进"，进 Boss 本还是激进）。
-        HealerACR.Common.状态重置钩子.重置 = () =>
-        {
-            AiStrategyLayer.重置();
-            AiDecisionLayer.重置();
-            AiThresholdAdapter.重置平滑();
-            坦克压力.重置();
-            局面监控.重置();          // ★ 换本后血量/目标基准必须归零 ★
-            Ai调试.日志("换本 -> 已重置倾向 / 建议队列 / 阈值平滑");
-        };
-
-        // ★ 启动 AI 初始化 ★
-        //   加载后立刻跑一次完整请求，让 AI 先把局面过一遍 ——
-        //   否则前 10 秒它是"哑"的（倾向=未知，阈值偏移=0）。
-        Ai初始化.开始();
-
-        // 把「解除熔断」这个 QT 开关接到实际动作上
-        // （用户能在 QT 控制台给它绑快捷键 → 按一下就解除熔断）
-        HealerACR.Common.HealQt.解除熔断请求 = () =>
-        {
-            DeepSeekClient.解除熔断();
-            Ai初始化.重置();
-            Ai调试.日志("手动解除熔断");
-            屏幕提示.成功("熔断已手动解除", "ai-manual-unfuse");
-        };
-
-        AiHookInstaller.挂载();                  // 挂上 AI 阈值钩子
+        // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
+        //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
+        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
+        Ai层挂载.挂载();
 
         return rot;
     }
 
     public override void Dispose()
     {
-        AiHookInstaller.卸载();                  // 卸载，避免影响其他 ACR
-        HealerACR.Common.记忆钩子.卸载();
-        HealerACR.Common.状态重置钩子.卸载();
+        Ai层挂载.卸载();                         // 卸载，避免影响其他 ACR
         base.Dispose();
     }
 }

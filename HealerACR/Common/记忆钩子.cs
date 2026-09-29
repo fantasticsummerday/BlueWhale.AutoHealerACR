@@ -30,6 +30,24 @@ public static class 记忆钩子
     /// <summary>战斗重置</summary>
     public static Action? 重置;
 
+    /// <summary>
+    /// **进入本职业的循环时触发** —— 也就是"切换到本职业 / 重新加载本 ACR"。
+    ///
+    /// ⚠️ 和 <see cref="重置"/> 的区别（两个都要挂，各管一件事）：
+    ///   · `重置`：**换副本**时清状态（OnTerritoryChanged）
+    ///   · `进入循环`：**切职业**时清状态 **+ 重新初始化 AI**
+    ///
+    /// 为什么必须是两件事：换本是"同一个职业进新地图"，
+    /// 而切职业是"换了一套技能表和一套判断逻辑" ——
+    /// AI 的倾向 / 阈值偏移 / 预取队列全是按**上一个职业**的局面得出的，
+    /// 不清掉就会拿学者的结论去指导白魔（和"跨职业静态污染"是同一类问题）。
+    ///
+    /// 另外切职业时**必须重新初始化**（不只是清空）：
+    /// 否则 AI 会有一段"哑"的窗口（倾向=未知、阈值偏移=0），
+    /// 开场那几秒等于没有 AI。
+    /// </summary>
+    public static Action? 进入循环;
+
     /// <summary>安全调用：没挂载就什么也不做</summary>
     public static void 通知决策(uint 技能Id, string 技能名)
     {
@@ -43,10 +61,18 @@ public static class 记忆钩子
         catch { }
     }
 
+    /// <summary>通知"进入了本职业的循环"（切职业 / 重载 ACR）</summary>
+    public static void 通知进入循环()
+    {
+        try { 进入循环?.Invoke(); }
+        catch { }
+    }
+
     public static void 卸载()
     {
         记决策 = null;
         每帧 = null;
         重置 = null;
+        进入循环 = null;
     }
 }
