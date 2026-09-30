@@ -1275,32 +1275,52 @@ public static class AiSettingPage
         }
         段("e-模型循环完成");
 
+        段("f1-NewLine 前");
         ImGui.NewLine();
+        段("f2-NewLine 后 即将 TextDisabled 1");
         ImGui.TextDisabled("  deepseek-flash   = 快、便宜，适合高频决策（推荐先用这个）");
+        段("f3-TextDisabled 1 后 即将 TextDisabled 2");
         ImGui.TextDisabled("  deepseek-v4-pro = 慢、贵、推理更强，适合低频策略");
+        段("f4-两个 TextDisabled 完成");
 
         // ★ 从 API 拉真实列表 —— 根治"模型名会过期" ★
+        段("g1-Button 前");
         if (ImGui.Button("从 API 拉取模型列表")) _ = DeepSeekClient.拉取模型列表();
+        段("g2-Button 后 即将 SameLine");
         ImGui.SameLine();
-        ImGui.TextDisabled(DeepSeekClient.模型列表状态);
+        段("g3-SameLine 后 即将读 模型列表状态");
+        var 状态串 = DeepSeekClient.模型列表状态 ?? "";
+        段("g4-读到状态串 len=" + 状态串.Length);
+        ImGui.TextDisabled(状态串);
+        段("g5-状态串已画");
 
         // 自定义（模型名会变，留个口子）
         var 模型名 = s.Model ?? "";
+        段("h1-SetNextItemWidth 前");
         ImGui.SetNextItemWidth(240);
+        段("h2-InputText(模型名) 前");
         if (ImGui.InputText("模型名（可手填）", ref 模型名, 64)) s.Model = 模型名;
+        段("h3-InputText(模型名) 后");
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("模型名");
+        段("h4-模型名段完成");
         ImGui.TextDisabled("  模型名随版本会变。如果上面两个都不通，去 DeepSeek 文档查当前名称填这里。");
 
+        段("i1-InputText(接口地址) 前");
         ImGui.SetNextItemWidth(200);
         ImGui.InputText("接口地址", ref s.Endpoint, 200);
+        段("i2-InputText(接口地址) 后");
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("接口地址");
         ImGui.TextDisabled("  默认 https://api.deepseek.com");
 
+        段("j1-SliderInt(超时) 前");
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("超时（毫秒）", ref s.超时毫秒, 500, 10000);
+        段("j2-SliderInt(超时) 后");
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("超时");
 
+        段("k1-Button(保存设置) 前");
         if (ImGui.Button("保存设置")) { AiSettings.保存(); LogHelper.Info("[BlueWhale.AI] 设置已保存"); }
+        段("k2-Button(保存设置) 后");
 
         // ---- 两个阶段 ----
         ImGui.Separator();
