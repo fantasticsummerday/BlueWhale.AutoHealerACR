@@ -187,7 +187,7 @@ public class AiSuggestionResolver : ISlotResolver
             }
 
             // 输出类还必须真的有选中敌人 —— 没有就别建议（盲打）
-            if (目标类型 == 施法目标类型.敌人 && HealTargetHelper.当前目标() == null)
+            if (目标类型 == 施法目标类型.敌人 && 建议施法目标(建议.目标Id, 建议.施法目标模式) == null)
             {
                 拦截("需要目标但没有目标");
                 return -1;
@@ -239,7 +239,7 @@ public class AiSuggestionResolver : ISlotResolver
             //   只在**输出类**上判：治疗类打的是队友，硬套"敌人视线检查"
             //   会把"柱子后面的队友治不了"变成"不治了" —— 那是致命的。
             if (目标类型 == 施法目标类型.敌人
-                && !技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(id)))
+                && !技能数据.打得到(建议施法目标(建议.目标Id, 建议.施法目标模式), 技能数据.取有效射程(id)))
             {
                 拦截("视线被挡 / 超出射程");
                 Ai调试.调试($"建议 {id} 的当前目标被挡住或太远 -> 放弃（改用原逻辑）");
@@ -276,7 +276,7 @@ public class AiSuggestionResolver : ISlotResolver
             if (是DoT技能(id))
             {
                 var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
-                var 目标 = HealTargetHelper.当前目标();
+                var 目标 = 建议施法目标(建议.目标Id, 建议.施法目标模式);
 
                 // ⚠️ 表可能为 null —— `取当前职业技能表()` 现在**会在查不到时返回 null**，
                 //    而不是退回"别的职业的表"（那会串职业，是个已修的真 bug）。
@@ -342,7 +342,12 @@ public class AiSuggestionResolver : ISlotResolver
 
                 if (表 != null)
                 {
-                    var 需要 = Math.Max(1, 表.AOE最少敌人数);
+                    // [!] **必须用 `AOE门槛(等级)`，不是 `AOE最少敌人数`**（GAP-3，审计确认）——
+                    //     白魔 ≥72 / 贤者 ≥94 时门槛是 **3**（2 只怪时 AOE 是负收益，算术核实过），
+                    //     而 `AOE最少敌人数` 恒为 2 ==> 守卫会**放行**按负收益放的 AOE。
+                    //     本地、候选集、提示词用的都是 `AOE门槛(等级)` —— 这里原来不一致，
+                    //     而它自己的注释还写着「判据和候选集逐字相同」。
+                    var 需要 = Math.Max(1, 表.AOE门槛((int)Core.Me.Level));
                     var 半径 = Math.Max(1f, 表.AOE伤害范围);
 
                     var 敌数 = 0;
@@ -933,6 +938,47 @@ public class AiSuggestionResolver : ISlotResolver
     ///    同一个技能可能同时出现在多个栏位（比如贤者 诊断 既是
     ///    `单体治疗GCD` 又是 `单体盾`）—— 那没关系，它们的目标类型一样。
     /// </summary>
+    /// <summary>
+    /// **这条建议真正会打谁** —— 所有守卫都必须用它，不能用 `当前目标()`。
+    ///
+    /// ══════════════════════════════════════════════════════════════
+    ///  [!] 修的是一个**真 bug**（审计确认，`AiSuggestionResolver` 的 4 处判据）：
+    ///
+    ///      守卫判的是 `HealTargetHelper.当前目标()`（= 玩家选中的那个，
+    ///      **只判 CurrentHp > 0，可以是队友**），
+    ///      而 `Build` 按候选带来的 `目标Id` 施法（`输出目标.选()` 挑的**敌人**）。
+    ///
+    ///  [!] 为什么两者必然不同：
+    ///      `输出目标.当前选中的()` 对**友方目标返回 null**
+    ///      ==> 奶妈选中坦克（奶妈的常态）时，
+    ///          `输出目标.选()` 会另挑一个有仇恨的敌人。
+    ///
+    ///  ==> 后果：
+    ///      ① `打得到(坦克)` 恒过 ==> 可以往**够不着/被挡**的敌人身上放
+    ///      ② `Dot补判.该补(坦克,…)` 查不到记录 ==> 返回 true
+    ///         ==> **每 4.9 秒补一次 DoT那个保险丝被绕过**
+    ///      ③ `周围敌人数量(…, 25f)` 是**围着坦克**数的 ==> AOE 判据错
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    private static IBattleChara? 建议施法目标(ulong 目标Id, 候选集.目标模式 模式)
+    {
+        try
+        {
+            // 候选带了具体敌人 -> 就是它（和 `Build` 找的是同一个）
+            if (目标Id != 0)
+            {
+                var 找到 = 找目标(目标Id, 模式);
+                if (找到 != null) return 找到;
+            }
+    
+            // 老格式（AI 直接报技能 ID）没有候选 -> 退回玩家选中的
+            var 当前 = HealTargetHelper.当前目标();
+            if (当前 != null && 当前.IsEnemy()) return 当前;
+        }
+        catch { }
+        return null;
+    }
+    
     private static 施法目标类型 判目标类型(uint id)
     {
         if (id == 0) return 施法目标类型.不支持;
@@ -950,6 +996,11 @@ public class AiSuggestionResolver : ISlotResolver
             if (id == 表.群体输出) return 施法目标类型.敌人;   // AOE 也以敌人为目标（落点由它决定）
             if (id == 表.Dot技能) return 施法目标类型.敌人;
             if (id == 表.移动填充技) return 施法目标类型.敌人;
+            // [!] **站定填充技 必须在这里**（GAP-1，审计确认）——
+            //     候选集和散文清单都列出了它，但这里原来没有 ==>
+            //     `判不出该给谁用` 把它拒了 ==> 学者 Lv38-81 永远放不出「毁灭」，
+            //     而且那个死候选还占掉输出桶 3 个名额之一。
+            if (id == 表.站定填充技) return 施法目标类型.敌人;
             if (表.输出能力技 != null && Array.IndexOf(表.输出能力技, id) >= 0)
                 return 施法目标类型.敌人;
 

@@ -1,0 +1,136 @@
+
+### PVE_RunSlotHelper+<RunSlot>d__5
+  --- MoveNext ---
+    IL_0000:  ldarg.0
+    IL_0001:  ldfld  <RunSlot>d__5.<>1__state
+    IL_0006:  stloc.0
+    IL_0007:  ldloc.0
+    IL_0008:  brfalse  L00aa
+    IL_000d:  ldc.i4.s  16
+    IL_000f:  ldc.i4.2
+    IL_0010:  newobj  DefaultInterpolatedStringHandler..ctor
+    IL_0015:  stloc.2
+    IL_0016:  ldloca.s  2
+    IL_0018:  ldstr  "决策构建Slot InSeq:"
+    IL_001d:  call  DefaultInterpolatedStringHandler.AppendLiteral
+    IL_0022:  ldloca.s  2
+    IL_0024:  ldarg.0
+    IL_0025:  ldfld  <RunSlot>d__5.s
+    IL_002a:  ldfld  Slot.InSequence
+    IL_002f:  call  DefaultInterpolatedStringHandler.AppendFormatted<T>
+    IL_0034:  ldloca.s  2
+    IL_0036:  ldstr  " "
+    IL_003b:  call  DefaultInterpolatedStringHandler.AppendLiteral
+    IL_0040:  ldloca.s  2
+    IL_0042:  ldarg.0
+    IL_0043:  ldfld  <RunSlot>d__5.s
+    IL_0048:  callvirt  Slot.ToStringSameline
+    IL_004d:  call  DefaultInterpolatedStringHandler.AppendFormatted
+    IL_0052:  ldloca.s  2
+    IL_0054:  call  DefaultInterpolatedStringHandler.ToStringAndClear
+    IL_0059:  call  LogHelper.Info
+    IL_005e:  ldarg.0
+    IL_005f:  ldfld  <RunSlot>d__5.s
+    IL_0064:  ldarg.0
+    IL_0065:  ldfld  <RunSlot>d__5.battleData
+    IL_006a:  ldarg.0
+    IL_006b:  ldfld  <RunSlot>d__5.isNextSlot
+    IL_0070:  call  PVE_RunSlotHelper.Run
+    IL_0075:  callvirt  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.GetAwaiter
+    IL_007a:  stloc.3
+    IL_007b:  ldloca.s  3
+    IL_007d:  call  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.get_IsCompleted
+    IL_0082:  brtrue  L00c6
+    IL_0087:  ldarg.0
+    IL_0088:  ldc.i4.0
+    IL_0089:  dup
+    IL_008a:  stloc.0
+    IL_008b:  stfld  <RunSlot>d__5.<>1__state
+    IL_0090:  ldarg.0
+    IL_0091:  ldloc.3
+    IL_0092:  stfld  <RunSlot>d__5.<>u__1
+    IL_0097:  ldarg.0
+    IL_0098:  ldflda  <RunSlot>d__5.<>t__builder
+    IL_009d:  ldloca.s  3
+    IL_009f:  ldarg.0
+    IL_00a0:  call  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.AwaitUnsafeOnCompleted<T>
+    IL_00a5:  leave  L0198
+    IL_00aa:  ldarg.0
+    IL_00ab:  ldfld  <RunSlot>d__5.<>u__1
+    IL_00b0:  stloc.3
+    IL_00b1:  ldarg.0
+    IL_00b2:  ldflda  <RunSlot>d__5.<>u__1
+    IL_00b7:  initobj  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>
+    IL_00bd:  ldarg.0
+    IL_00be:  ldc.i4.m1
+    IL_00bf:  dup
+    IL_00c0:  stloc.0
+    IL_00c1:  stfld  <RunSlot>d__5.<>1__state
+    IL_00c6:  ldloca.s  3
+    IL_00c8:  call  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.GetResult
+    IL_00cd:  brfalse  L0161
+    IL_00d2:  ldarg.0
+    IL_00d3:  ldfld  <RunSlot>d__5.s
+    IL_00d8:  ldfld  Slot.Wait2NextGcd
+    IL_00dd:  brfalse  L00f8
+    IL_00e2:  ldarg.0
+    IL_00e3:  ldfld  <RunSlot>d__5.battleData
+    IL_00e8:  ldarg.0
+    IL_00e9:  ldfld  <RunSlot>d__5.s
+    IL_00ee:  callvirt  BattleData.set_WaitGcdSlot
+    IL_00f3:  br  L015a
+    IL_00f8:  ldarg.0
+    IL_00f9:  ldfld  <RunSlot>d__5.s
+    IL_00fe:  ldfld  Slot.AppendedSequenceData
+    IL_0103:  brfalse  L013e
+    IL_0108:  ldarg.0
+    IL_0109:  ldfld  <RunSlot>d__5.s
+    IL_010e:  ldfld  Slot.AppendedSequenceData
+    IL_0113:  ldarg.0
+    IL_0114:  ldfld  <RunSlot>d__5.s
+    IL_0119:  callvirt  Slot.get_CompletedAction
+    IL_011e:  stfld  Q7iOu3mQ1sFWqYRDZ4L.CompeltedAction
+    IL_0123:  ldarg.0
+    IL_0124:  ldfld  <RunSlot>d__5.battleData
+    IL_0129:  ldarg.0
+    IL_012a:  ldfld  <RunSlot>d__5.s
+    IL_012f:  ldfld  Slot.AppendedSequenceData
+    IL_0134:  callvirt  BattleData.boamvHrZor
+    IL_0139:  br  L015a
+    IL_013e:  ldarg.0
+    IL_013f:  ldfld  <RunSlot>d__5.s
+    IL_0144:  callvirt  Slot.get_CompletedAction
+    IL_0149:  dup
+    IL_014a:  brtrue  L0155
+    IL_014f:  pop
+    IL_0150:  br  L015a
+    IL_0155:  callvirt  Action.Invoke
+    IL_015a:  ldc.i4.1
+    IL_015b:  stloc.1
+    IL_015c:  leave  L0184
+    IL_0161:  ldc.i4.0
+    IL_0162:  stloc.1
+    IL_0163:  leave  L0184
+    IL_0168:  stloc.s  4
+    IL_016a:  ldarg.0
+    IL_016b:  ldc.i4.s  -2
+    IL_016d:  stfld  <RunSlot>d__5.<>1__state
+    IL_0172:  ldarg.0
+    IL_0173:  ldflda  <RunSlot>d__5.<>t__builder
+    IL_0178:  ldloc.s  4
+    IL_017a:  call  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.SetException
+    IL_017f:  leave  L0198
+    IL_0184:  ldarg.0
+    IL_0185:  ldc.i4.s  -2
+    IL_0187:  stfld  <RunSlot>d__5.<>1__state
+    IL_018c:  ldarg.0
+    IL_018d:  ldflda  <RunSlot>d__5.<>t__builder
+    IL_0192:  ldloc.1
+    IL_0193:  call  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.SetResult
+    IL_0198:  ret
+  --- SetStateMachine ---
+    IL_0000:  ldarg.0
+    IL_0001:  ldflda  <RunSlot>d__5.<>t__builder
+    IL_0006:  ldarg.1
+    IL_0007:  call  ?<void,bool,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,>.SetStateMachine
+    IL_000c:  ret

@@ -1338,6 +1338,8 @@ public static class AiDecisionLayer
             if (id == 表.群体输出) return true;
             if (id == 表.Dot技能) return true;
             if (id == 表.移动填充技) return true;
+            // [!] **站定填充技 也必须放行**（GAP-1）—— 否则 AI 按清单建议它就是「幻觉」
+            if (id == 表.站定填充技) return true;
             if (id == 表.单体治疗GCD) return true;
             if (id == 表.群体治疗GCD) return true;
             if (id == 表.紧急单奶) return true;
