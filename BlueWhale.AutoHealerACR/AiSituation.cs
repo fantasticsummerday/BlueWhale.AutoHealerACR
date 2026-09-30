@@ -212,7 +212,22 @@ public static class AiSituation
     /// <summary>静态段落的起始标记（超长时从它开始砍）</summary>
     private const string 静态段标记 = "【技能类别说明";
 
-    public static string 采集()
+    /// <summary>
+    /// 采集一份局面报告。
+    ///
+    /// [!] <paramref name="快照"/> 传进来时，**候选段就用那一份**，
+    ///     不再自己生成 —— 这是"一个 Snapshot 贯穿请求与响应"的关键。
+    ///
+    ///     为什么必须这样（第三轮审阅第 3 条）：
+    ///       原来 `预取()` 先取一个快照号，然后 `采集()` 内部**又**调
+    ///       `候选集.描述()`（它会自己 `生成()`）。当前实现下这两次
+    ///       各自拿到自己的号，**结果是对的**；但正确性依赖
+    ///       "300ms 缓存期内没人新建快照"这个巧合 ——
+    ///       将来改缓存策略、或某次生成耗时超 300ms，就会出现
+    ///       "提示词来自旧快照、解析按新快照"这类**难以复现**的错位。
+    ///       => 显式传同一份，把这个巧合变成保证。
+    /// </summary>
+    public static string 采集(候选集.快照? 快照 = null)
     {
         var sb = new StringBuilder();
 
@@ -242,7 +257,7 @@ public static class AiSituation
         }
         catch { }
 
-        采可选技能(sb);
+        采可选技能(sb, 快照);
 
         // ★ 实测读条 —— 放时间轴**之前**：事实优先于预测
         //   （时间轴只有 45% 副本有，而且是"猜下一条"；读条是 Boss 正在放）
@@ -1226,7 +1241,7 @@ public static class AiSituation
     /// 有了清单，提示词里就能写"只能从这里选"，
     /// 而且返回后还能做白名单校验（见 AiDecisionLayer.解析）。
     /// </summary>
-    private static void 采可选技能(StringBuilder sb)
+    private static void 采可选技能(StringBuilder sb, 候选集.快照? 快照 = null)
     {
         try
         {
@@ -1247,7 +1262,7 @@ public static class AiSituation
             //      （`技能ID|理由`）回答，不会因为候选层坏了就整个失效。
             //      => 向后兼容，不是冗余。
             // ══════════════════════════════════════════════════════════════
-            var 候选段 = 候选集.描述();
+            var 候选段 = 候选集.描述(快照);
             if (!string.IsNullOrEmpty(候选段))
             {
                 sb.Append(候选段);
