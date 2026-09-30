@@ -1471,21 +1471,50 @@ public static class AiSettingPage
         }
 
         段("T13-建议显示完成");
+
         // ══════════════════════════════════════════════════════════════
         //  ★ 阶段 B 命中率统计（实测要看的一屏）★
         //
         //    旧版只显示「命中 X / 过期 Y」，看不出**为什么**没命中 ——
         //    所以装上实测时只能看到一个难看的数字，不知道该调哪里。
         //    现在把"被终审拦下的原因"也列出来，一次就能定位。
+        //
+        //  [!] 逐句标记 —— 定位"点设置后卡 16 秒再崩" ★
+        //      实测：`T13` 打出后 **16 秒**才崩（17:13:10 → 17:13:26），
+        //      而 `2.5-AiSettingPage 已返回` 从未打印
+        //      => 卡在下面这几行里面。它们都在读**共享状态**
+        //      （`AiDecisionLayer` 的队列/字典、`局面监控` 的状态），
+        //      而后台线程（AI 请求的续体）正在写这些 —— 高度怀疑是**死锁**。
         // ══════════════════════════════════════════════════════════════
+        段("U1-Separator 前");
         ImGui.Separator();
+        段("U2-标题前");
         ImGui.TextDisabled("阶段 B 命中率统计");
-        ImGui.TextWrapped("  " + AiDecisionLayer.状态描述());
-        ImGui.TextWrapped("  被终审拦下：" + AiDecisionLayer.拦截摘要());
-        ImGui.TextDisabled($"  其中排在队列第 2 位之后才过期的：{AiDecisionLayer.排队过期条数} 条");
-        ImGui.TextDisabled("  " + 局面监控.状态描述());
+
+        段("U3-AiDecisionLayer.状态描述() 前");
+        var 决策状态 = AiDecisionLayer.状态描述();
+        段("U4-AiDecisionLayer.状态描述() 后");
+        ImGui.TextWrapped("  " + 决策状态);
+
+        段("U5-AiDecisionLayer.拦截摘要() 前");
+        var 拦截 = AiDecisionLayer.拦截摘要();
+        段("U6-AiDecisionLayer.拦截摘要() 后");
+        ImGui.TextWrapped("  被终审拦下：" + 拦截);
+
+        段("U7-排队过期条数 前");
+        var 排队过期 = AiDecisionLayer.排队过期条数;
+        段("U8-排队过期条数 后=" + 排队过期);
+        ImGui.TextDisabled($"  其中排在队列第 2 位之后才过期的：{排队过期} 条");
+
+        段("U9-局面监控.状态描述() 前");
+        var 局面 = 局面监控.状态描述();
+        段("U10-局面监控.状态描述() 后");
+        ImGui.TextDisabled("  " + 局面);
+
+        段("U11-说明行 前");
         ImGui.TextDisabled("  说明：『过期』= 生成后在队列里放着没人用就超时了；");
         ImGui.TextDisabled("        命中率 = 命中 /(命中 + 过期)，被局面剧变清空的条数不计入分母。");
+        段("U12-全部完成，即将 return");
     }
 }
 

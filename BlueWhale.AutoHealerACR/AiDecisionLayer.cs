@@ -88,7 +88,11 @@ public static class AiDecisionLayer
 
     private static int 队列计数()
     {
-        lock (_队列锁) return 队列计数();
+        // [!] 必须用**字段的原始成员** `_队列.Count` ——
+        //     这里原来写的是 `return 队列计数();`（调用自己），
+        //     是批量替换包装方法时误伤的 => **无限递归** => 栈溢出 => 闪退。
+        //     包装方法内部**绝不能再调包装方法**。
+        lock (_队列锁) return _队列.Count;
     }
 
     /// <summary>入队（**线程池线程也会调**）</summary>
@@ -126,10 +130,14 @@ public static class AiDecisionLayer
     /// <summary>清空，返回清掉几条</summary>
     private static int 清空队列()
     {
+        // [!] 同样必须用原始成员 —— 这里原来是
+        //       `var n = 队列计数(); 清空队列();`
+        //     后者是**调用自己**（无限递归），前者是多余的再取锁。
+        //     正确写法：取长度 + 清空，都走 `_队列`。
         lock (_队列锁)
         {
-            var n = 队列计数();
-            清空队列();
+            var n = _队列.Count;
+            _队列.Clear();
             return n;
         }
     }
