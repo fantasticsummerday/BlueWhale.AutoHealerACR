@@ -301,6 +301,32 @@ public class SCHSpellTable : JobSpellTable
     };
 
 
+    /// <summary>
+    /// **学者的 MP 消耗表**（用户实测确认：破阵法 500 / 毁灭 400）。
+    ///
+    /// [!] 为什么要给填充技 MP：见 `JobSpellTable.查MP` 的说明 ——
+    ///     破阵法 和 毁灭 **威力持平（150）**，但破阵法多花 100 蓝
+    ///     ⇒ 单目标时该用毁灭。原来按纯威力排序会让破阵法一直赢。
+    ///
+    /// [!] 数据来源是**游戏内技能说明**（权威表查不到，见 `查MP` 的说明）。
+    ///     只有这几个填充技需要 —— 治疗技的 MP 已经在 `治疗候选` 里了。
+    /// </summary>
+    public override int 查MP(uint 技能Id)
+    {
+        if (技能Id == SpellIds.取("毁灭")) return 400;
+        if (技能Id == SpellIds.取("毁坏")) return 400;   // 同族，同一档
+        if (技能Id == SpellIds.取("破阵法")) return 500;
+        if (技能Id == SpellIds.取("裂阵法")) return 500;
+
+        // 炎法那条链（气炎法/魔炎法/死炎法/极炎法）按同级单体填充技算
+        if (技能Id == SpellIds.取("气炎法")) return 400;
+        if (技能Id == SpellIds.取("魔炎法")) return 400;
+        if (技能Id == SpellIds.取("死炎法")) return 400;
+        if (技能Id == SpellIds.取("极炎法")) return 400;
+
+        return 0;
+    }
+
     protected override (int 等级, int 威力)[]? 威力表(uint 技能Id)
     {
         // 破阵法（46 级学）→ 54 级提升一档
