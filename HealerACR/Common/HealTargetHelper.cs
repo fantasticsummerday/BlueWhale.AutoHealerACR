@@ -479,6 +479,51 @@ public static class HealTargetHelper
 
         return 数;
     }
+    
+    /// <summary>
+    /// **诊断版**：返回命中数 + 每个被数进来的敌人的明细。
+    ///
+    /// [!] 为什么需要它：用户报「50 级究极神兵（单体）还在打破阵法」，
+    ///     已确认是**本地**选的（日志有 `CastSpell success: 16539`，
+    ///     而 AI 的采纳数是 0），且本地规则看起来是对的
+    ///     （字典序：威力优先、5% 内同级、同级比蓝耗）。
+    ///     ==> 嫌疑落在 `自身周围敌人数量(5)` 数出了 >1。
+    ///     **不该靠怀疑改判据** —— 先让它把实际数字打出来。
+    ///
+    /// [!] `- HitboxRadius` 是重点怀疑对象：究极神兵体型巨大，
+    ///     减掉一个很大的 `HitboxRadius` 之后，远处的敌人也会落进半径。
+    /// </summary>
+    public static string 自身周围敌人明细(float 半径 = 5f)
+    {
+        var sb = new System.Text.StringBuilder();
+        var 数 = 0;
+        try
+        {
+            var 我 = Core.Me.Position;
+            sb.Append($"半径{半径:F1} 我({我.X:F1},{我.Z:F1}) ");
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null) continue;
+                var 名 = "?";
+                try { 名 = 敌人.Name.ToString(); } catch { }
+                if (敌人.CurrentHp <= 0) { sb.Append($"[{名}:死] "); continue; }
+                try
+                {
+                    if (!敌人.IsTargetable) { sb.Append($"[{名}:不可选] "); continue; }
+                    if (敌人.MaxHp > 0 && 敌人.CurrentHp / (float)敌人.MaxHp <= 0.001f)
+                    { sb.Append($"[{名}:濒死] "); continue; }
+                    var 直 = Vector3.Distance(我, 敌人.Position);
+                    var 距 = 直 - 敌人.HitboxRadius;
+                    sb.Append($"[{名} 直{直:F1}-圈{敌人.HitboxRadius:F1}={距:F1}] ");
+                    if (距 <= 半径) 数++;
+                }
+                catch { sb.Append($"[{名}:读失败] "); }
+            }
+            sb.Append($"=> 命中{数}");
+        }
+        catch (Exception e) { sb.Append("异常:" + e.Message); }
+        return sb.ToString();
+    }
 
     /// <summary>当前选中的敌人（挂 DoT / 打输出用）</summary>
     public static IBattleChara? 当前目标()
