@@ -1774,6 +1774,23 @@ public class HealRotationEventHandler : IRotationEventHandler
         //      （编译通过、看着正常 —— 正是本项目反复栽的那种错。）
         try { 空中检测.重置(); } catch { }
 
+        // ★ 幻觉校验的统计也要清（换本 = 新的等级/副本环境）★
+        //   [!] 不清的话，50 级本里抓到的"越级建议"会一直留在数字里，
+        //      看起来像"进了满级本还在越级"。
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.幻觉校验", false);
+                if (类型 == null) continue;
+                类型.GetMethod("重置",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                    ?.Invoke(null, null);
+                break;
+            }
+        }
+        catch { }
+
         // ★ 清掉输出目标选择器的粘滞 ★
         //   不清的话，上个副本那只怪的 ID 会一直"粘"着，
         //   新副本第一帧找不到它 → 白等一次重挑。

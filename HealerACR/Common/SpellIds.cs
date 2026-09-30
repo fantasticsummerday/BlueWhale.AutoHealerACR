@@ -239,6 +239,27 @@ public static class SpellIds
     public static bool 有(string 中文名) => 表.ContainsKey(中文名);
 
     /// <summary>
+    /// **内置表里的全部技能名** —— 给"AI 幻觉校验"用。
+    ///
+    /// [!] 为什么要它：要判断"AI 回复里提到的中文词是不是技能名"，
+    ///     就得有"全部技能名"这个集合做白名单。
+    ///     否则"治疗""坦克""输出"这些词全会被当成技能名误报。
+    ///
+    /// [!] 返回的是**副本** —— 调用方可能排序/遍历，不能让它改到内部表。
+    /// </summary>
+    public static IReadOnlyList<string> 全部技能名()
+    {
+        try
+        {
+            return 表.Keys.ToArray();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>
     /// 反查：ID → 中文名。给 AI 描述"这个技能 ID 是什么"用。
     /// 找不到返回空字符串（AI 那边就会把它当无效 ID）。
     /// </summary>

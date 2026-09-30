@@ -1232,6 +1232,10 @@ public static class AiSettingPage
         var 决策状态 = AiDecisionLayer.状态描述();
         ImGui.TextWrapped("  " + 决策状态);
 
+        // ★ AI 幻觉校验（用户要求）★ —— 与调试窗读的是**同一个**字段，
+        //   两处显示必然一致（之前用户报过"两个界面数据不一致"）。
+        ImGui.TextWrapped("  " + 幻觉校验.状态描述());
+
         var 拦截 = AiDecisionLayer.拦截摘要();
         ImGui.TextWrapped("  被终审拦下：" + 拦截);
 

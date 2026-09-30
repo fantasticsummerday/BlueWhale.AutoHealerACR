@@ -519,6 +519,11 @@ public static class 调试窗
                                $" 失败={AiDecisionLayer.预取失败次数}" +
                                $"｜解析失败={AiDecisionLayer.解析失败次数}" +
                                $"｜幻觉丢弃={AiDecisionLayer.丢弃幻觉次数}");
+            // ★ AI 幻觉校验 —— 它提到过当前等级用不了的技能吗（用户要求）★
+            //   [!] 这是把"AI 又编了"变成**可量化数字**的唯一手段 ——
+            //      提示词约束无法在执行层验证（AI 的输出是自由文本）。
+            ImGui.TextDisabled($"      幻觉校验：{幻觉校验.状态描述()}");
+
             ImGui.TextDisabled($"      局面剧变清空={AiDecisionLayer.清空次数} 次" +
                                $"（丢 {AiDecisionLayer.清空丢弃条数} 条）" +
                                $"｜格式噪声={AiDecisionLayer.格式噪声次数}");
