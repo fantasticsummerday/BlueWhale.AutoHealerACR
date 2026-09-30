@@ -1112,9 +1112,15 @@ public abstract class HealerEntryBase : IRotationEntry
         try
         {
             if (_画AI设置 == null) _画AI设置 = 找静态无参方法("BlueWhale.AutoHealerACR.AiSettingPage", "画");
-            _画AI设置?.Invoke();
+            if (_画AI设置 == null) return;   // 反射没找到（AI 层没加载）—— 正常，不打日志刷屏
+            _画AI设置();
         }
-        catch { }
+        catch (Exception e)
+        {
+            // [!] **必须打日志** —— 原来静默 catch，用户报"闪退"时查不到任何线索。
+            //     绘制期抛异常在 ImGui 里很危险（窗口栈会失衡）。
+            只报一次(ref _报过设置页异常, "[HealerACR] AI 设置页绘制异常（已捕获，不影响战斗）：", e);
+        }
     }
 
     private static void 画AI层记忆库()
@@ -1122,9 +1128,26 @@ public abstract class HealerEntryBase : IRotationEntry
         try
         {
             if (_画记忆库 == null) _画记忆库 = 找静态无参方法("BlueWhale.AutoHealerACR.记忆库页面", "画");
-            _画记忆库?.Invoke();
+            if (_画记忆库 == null) return;
+            _画记忆库();
         }
-        catch { }
+        catch (Exception e)
+        {
+            只报一次(ref _报过记忆库异常, "[HealerACR] 记忆库页面绘制异常（已捕获）：", e);
+        }
+    }
+
+    // [!] 绘制每帧都跑 —— 异常也每帧都抛，不能每帧打一条日志（会刷爆）。
+    //     用 bool 记住"已经报过"，只报第一次。
+    private static bool _报过设置页异常;
+    private static bool _报过记忆库异常;
+    // [!] 调试窗**不用**这个 —— 它有自己的失败计数 + 自禁用（见 画AI层调试窗）。
+
+    private static void 只报一次(ref bool 报过, string 前缀, Exception e)
+    {
+        if (报过) return;
+        报过 = true;
+        try { LogHelper.Error(前缀 + e.Message + "\n" + e.StackTrace); } catch { }
     }
 
     /// <summary>按"类型全名 + 方法名"找静态无参方法并转成 Action（找不到返回 null）</summary>
@@ -1150,8 +1173,18 @@ public abstract class HealerEntryBase : IRotationEntry
         return null;
     }
 
+    /// <summary>调试窗连续失败几次就自动关掉（防止每帧抛异常）</summary>
+    private static int _调试窗失败次数;
+    private const int 调试窗失败上限 = 5;
+
     private static void 画AI层调试窗()
     {
+        // [!] 自禁用：连抛 N 次就关掉它 ——
+        //     绘制函数每帧都跑，一个持续异常会**每帧抛一次**，
+        //     在 ImGui 里很容易把窗口栈搞乱（那是闪退级的问题）。
+        //     宁可少一个调试窗，也不能让它在战斗里反复抛。
+        if (_调试窗失败次数 >= 调试窗失败上限) return;
+
         try
         {
             if (_画调试窗 == null)
@@ -1172,9 +1205,40 @@ public abstract class HealerEntryBase : IRotationEntry
                 }
             }
 
-            _画调试窗?.Invoke();
+            if (_画调试窗 == null) return;
+            _画调试窗();
+
+            _调试窗失败次数 = 0;   // 成功一次就清零（偶发失败不算）
         }
-        catch { }
+        catch (Exception e)
+        {
+            _调试窗失败次数++;
+
+            if (_调试窗失败次数 == 1)
+            {
+                try
+                {
+                    LogHelper.Error("[HealerACR] 调试窗绘制异常：" + e.Message + "\n" + e.StackTrace);
+                }
+                catch { }
+            }
+
+            if (_调试窗失败次数 >= 调试窗失败上限)
+            {
+                // 自动关掉开关 —— 否则每帧抛，而且用户看不出为什么
+                try
+                {
+                    if (HealSettings.Instance != null)
+                    {
+                        HealSettings.Instance.启用调试窗 = false;
+                        HealSettings.Instance.Save();
+                    }
+                    LogHelper.Error($"[HealerACR] 调试窗连续失败 {调试窗失败上限} 次，" +
+                                    "已**自动关闭**它（避免每帧抛异常影响战斗）");
+                }
+                catch { }
+            }
+        }
     }
 
     internal static void 尝试挂载AI层反射()
