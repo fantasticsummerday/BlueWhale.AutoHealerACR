@@ -341,16 +341,79 @@ public static class 调试窗
             一行("复活", 表.复活);
             一行("驱散", 表.驱散);
 
-            // ── 治疗候选表：列"现在能用几个" ──
+            // ── 治疗候选表：列"现在能用几个" + **为什么不能用的** ──
+            //
+            //  [!] 为什么不只给个数（用户实测）：
+            //      截图显示"解锁 5 个，可用 0 个"，但**看不出原因** ——
+            //      `SpellUtil.可用()` 只返回 bool，不返回理由。
+            //      而"可用 0 个"直接导致治疗候选为空、AI 退回技能 ID 模式，
+            //      是这一整类问题的源头 => 必须能一眼看出卡在哪。
+            //
+            //  [!] 每个属性都要单独 try —— 框架在非战斗时读某些属性会抛。
             try
             {
                 var 候选 = 表.治疗候选.已解锁();
                 var 能用 = 0;
+                var 不能用明细 = new System.Text.StringBuilder();
+
                 foreach (var 技 in 候选)
                 {
-                    try { if (SpellUtil.可用(技.Id)) 能用++; } catch { }
+                    var 可 = false;
+                    try { 可 = SpellUtil.可用(技.Id); } catch { }
+                    if (可) { 能用++; continue; }
+
+                    // ── 不能用 -> 查原因 ──
+                    var 原因 = new System.Text.StringBuilder();
+                    try
+                    {
+                        var sp = SpellUtil.Get(技.Id);
+                        if (sp == null) 原因.Append("读不到");
+
+                        if (sp != null)
+                        {
+                            // 未解锁
+                            try { if (!sp.IsUnlock()) 原因.Append("未解锁 "); } catch { }
+                            // 冷却
+                            try
+                            {
+                                var cd = sp.Cooldown;
+                                if (cd > TimeSpan.Zero) 原因.Append($"CD{cd.TotalSeconds:F1}s ");
+                            }
+                            catch { }
+                            // 移动（读条技）
+                            try
+                            {
+                                if (技.咏唱 > 0f && !SpellUtil.移动中能放(技.Id))
+                                    原因.Append("移动中 ");
+                            }
+                            catch { }
+                            // 正在读条
+                            try
+                            {
+                                if (Core.Me.IsCasting) 原因.Append("在读条 ");
+                            }
+                            catch { }
+                            // 资源
+                            try
+                            {
+                                if (!sp.IsReadyWithCanCast() && 原因.Length == 0)
+                                    原因.Append("CanCast失败（资源/条件）");
+                            }
+                            catch { 原因.Append("CanCast抛异常 "); }
+                        }
+                    }
+                    catch { 原因.Append("查询异常"); }
+
+                    if (原因.Length == 0) 原因.Append("未知");
+                    if (不能用明细.Length < 150)
+                        不能用明细.Append(技.名).Append('[').Append(原因.ToString().Trim()).Append("] ");
                 }
-                ImGui.TextDisabled($"  治疗候选：解锁 {候选.Count} 个，其中现在可用 {能用} 个");
+
+                if (能用 > 0 || 候选.Count == 0)
+                    ImGui.TextDisabled($"  治疗候选：解锁 {候选.Count} 个，其中现在可用 {能用} 个");
+                else
+                    ImGui.TextColored(new Vector4(1f, 0.6f, 0.4f, 1f),
+                        $"  治疗候选：解锁 {候选.Count} 个，可用 0 个 —— {不能用明细.ToString().Trim()}");
             }
             catch { }
 
