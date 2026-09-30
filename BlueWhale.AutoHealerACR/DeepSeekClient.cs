@@ -16,6 +16,50 @@ namespace BlueWhale.AutoHealerACR;
 /// </summary>
 public static class DeepSeekClient
 {
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 按通道取消在途请求（外部审阅第 18 条）★
+    //
+    //  [!] 为什么需要：
+    //      `重置()`（切职业 / 结束战斗）与「局面剧变」时，旧请求**还在跑** ——
+    //      它仍占用网络、仍烧 Token，而回来时又因为世代对不上被**整条丢弃**。
+    //      ==> 纯浪费；而且 `AiDecisionLayer._预取世代` 要等它回来才释放。
+    //
+    //  [!] 取消**不算失败** ——
+    //      被取消和超时都抛 `OperationCanceledException`，
+    //      若把取消也记进 `记失败`，一次重置就能把通道顶到熔断（假故障）。
+    //      判据见 `发一次` 的 catch：看外部令牌是否已被取消。
+    // ══════════════════════════════════════════════════════════════════
+    private static readonly Dictionary<通道, CancellationTokenSource> _在途 = new();
+    private static readonly object _在途锁 = new();
+    
+    /// <summary>
+    /// **取消某个通道当前在途的请求**（没有在途的就什么都不做）。
+    ///
+    /// [!] 调用点：`AiDecisionLayer.重置()` / 局面剧变 / 切职业。
+    ///     取消是**零成本**的 —— 不取消的话那次请求的结果也会被丢弃，
+    ///     只是白白多花一次 Token 和一段等待。
+    /// </summary>
+    public static void 取消在途(通道 道)
+    {
+        CancellationTokenSource? cts = null;
+        lock (_在途锁)
+        {
+            if (_在途.TryGetValue(道, out cts)) _在途.Remove(道);
+        }
+    
+        try { cts?.Cancel(); } catch { }
+        try { cts?.Dispose(); } catch { }
+    }
+    
+    /// <summary>取消**全部**通道的在途请求（重置 / 切职业时用）。</summary>
+    public static void 取消全部在途()
+    {
+        // [!] 先快照再逐个取消 —— 取消过程中 `_在途` 会被改，不能边遍历边改
+        var 快照 = new List<通道>();
+        lock (_在途锁) { 快照.AddRange(_在途.Keys); }
+        foreach (var 道 in 快照) 取消在途(道);
+    }
+    
     private static readonly HttpClient _http = new()
     {
         // ⚠️ 这个值必须 **≥** 所有调用点里最长的超时，否则它会**静默砍掉**它们。
@@ -827,6 +871,18 @@ public static class DeepSeekClient
     {
         var s = AiSettings.Instance;
 
+        // ★ 外部取消令牌**必须在 try 之前声明** ★
+        //
+        //  [!] 为什么：`try` 的嵌入语句块是一个**独立声明空间**，
+        //      `catch` 子句是另一个 —— 在 try 里声明的局部变量
+        //      **catch 里引用不到**（这是 C# 语言规则，不是编码问题；
+        //      码点已逐字节验证一致，报错却是当前上下文中不存在名称）。
+        //
+        //  [!] 而 catch 里**必须**能看到它 —— 要靠它区分：
+        //      · 外部取消 = 上层说不要了（重置 / 切职业 / 局面剧变）-> 不记失败
+        //      · 超时     = 真的失败 -> 记失败
+        using var 外部cts = new CancellationTokenSource();
+        
         try
         {
             // ══════════════════════════════════════════════════════════════
@@ -889,7 +945,15 @@ public static class DeepSeekClient
 
             // 调用方指定了就用它的，否则用设置里的
             var 本次超时 = 超时毫秒 > 0 ? 超时毫秒 : s.超时毫秒;
-            using var cts = new CancellationTokenSource(Math.Max(500, 本次超时));
+            // ★ 超时令牌 + 外部取消令牌 合起来 ★
+            //   [!] 两个都要：超时是这个请求自己该活多久；
+            //      外部是上层说这次不要了（重置 / 场面剧变）。
+            using var 超时cts = new CancellationTokenSource(Math.Max(500, 本次超时));
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(超时cts.Token, 外部cts.Token);
+            
+            // 登记为本通道当前在途 —— 同通道的上一个请求作废（它必然已过期）
+            try { 取消在途(道); } catch { }
+            lock (_在途锁) { _在途[道] = 外部cts; }
 
             using var resp = await _http.SendAsync(req, cts.Token).ConfigureAwait(false);
 
@@ -903,6 +967,8 @@ public static class DeepSeekClient
             }
 
             var json = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            // 已拿到响应 -> 从在途表摘掉（避免被后续的新请求误取消）
+            try { lock (_在途锁) { if (_在途.TryGetValue(道, out var cur) && cur == 外部cts) _在途.Remove(道); } } catch { }
 
             using var doc = JsonDocument.Parse(json);
 
@@ -1059,6 +1125,24 @@ public static class DeepSeekClient
         }
         catch (OperationCanceledException)
         {
+            // ══════════════════════════════════════════════════════════
+            //  ★ **必须区分「外部取消」和「超时」** ★
+            //
+            //  [!] 两者抛的是同一个异常类型，但含义完全不同：
+            //      · 超时     = 这次请求真的失败了 -> 记失败（会累积到熔断）
+            //      · 外部取消 = **上层主动说不要了**（重置 / 切职业 / 局面剧变）
+            //                   -> **绝不能记失败**
+            //
+            //  [!] 记错的后果：
+            //      重置一次就顶一次失败计数，连做几次重置 => 通道被**假性熔断**，
+            //      之后正常的请求全被拒（用户看到“AI 不动了”却找不到原因）。
+            //
+            //  [!] 判据用**外部令牌**而不是异常消息 —— 消息会随运行库措辞变，
+            //      那是本项目反复踩过的坑（见 `记失败` 注释：状态码优先）。
+            // ══════════════════════════════════════════════════════════
+            if (外部cts.IsCancellationRequested)
+                return (null, false);      // 上层取消，不算失败、不重试
+        
             记失败("超时", 道: 道);
             return (null, false);          // 超时，重试没用（会又超时）
         }
