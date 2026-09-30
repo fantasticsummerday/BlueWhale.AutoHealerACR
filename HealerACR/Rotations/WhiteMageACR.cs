@@ -625,7 +625,7 @@ public class WHM_AfflatusMisery : ISlotResolver
         if (HealTargetHelper.当前目标() == null) return -1;
 
         // 视线/射程：和别的输出技同一套判断（对着柱子放等于白按）
-        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+        if (!技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(技能))) return -6;
 
         // 需求 2 + 5：残血小怪不交，但木桩模式不省
         if (!HealTargetHelper.木桩模式)
@@ -727,7 +727,7 @@ public class WHM_GlareIV : ISlotResolver
         if (HealTargetHelper.当前目标() == null) return -1;
 
         // 视线/射程（和别的输出技同一套判断）
-        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+        if (!技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(技能))) return -6;
 
         // 二次确认：按 开发约定 E 节，不拿没吃透的 API 当**唯一**依据，
         // 但也不让它把已经确定该放的技能挡掉 —— 挡掉时留下证据。

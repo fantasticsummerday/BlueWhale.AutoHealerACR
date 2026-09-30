@@ -25,7 +25,8 @@ public class Res_OffensiveAbility : ISlotResolver
 
         // 视线被挡就别交 —— 输出能力技是对敌人的，打不出去等于白按
         // （诊断日志里"所有条件都 True 但技能不放"的成因之一就是这个）
-        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+        // [!] 传**这个技能自己的**有效射程 —— 自身中心 AOE 按 25 米判会误放
+        if (!技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(_t.输出能力技[0]))) return -6;
 
         // 残血小怪不交（木桩模式例外）——
         // 和 Res_Dot / Res_BaseDamage / 苦难之心 保持同一套判断。

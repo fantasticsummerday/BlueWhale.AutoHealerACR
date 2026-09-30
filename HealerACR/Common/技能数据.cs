@@ -73,6 +73,49 @@ public static class 技能数据
             return 0;
         }
     }
+    
+    /// <summary>
+    /// **打得到这个目标需要多近** —— 按技能真实数据算，不要一律 25 米。
+    ///
+    /// ══════════════════════════════════════════════════════════════
+    ///  [!] 修的是一个实测问题：
+    ///      学者的「破阵法」是**自身中心 AOE** ——
+    ///          Action.Range       = 0    （没有施法距离）
+    ///          Action.EffectRange = 5    （以自己为中心 5 米）
+    ///      ==> **必须在 5 米内**才打得到。
+    ///
+    ///      但 `打得到()` 的射程参数默认 25 米，调用点又没传 ==>
+    ///      **离怪老远也判打得到** ==> 一直试图放 AOE 却打空
+    ///      （用户实测：「离怪还有点距离一直在 aoe」）。
+    ///
+    ///  [!] 取值规则：
+    ///      · 自身中心技能 -> `EffectRange`（那才是真正的够得着距离）
+    ///      · 其它         -> `Range`（施法距离）
+    ///      · 都拿不到     -> 返回 0，由调用方决定退回什么默认值
+    ///        （**宁可放行** —— 判不了就当能打，否则技能会永远不放）
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    public static int 取有效射程(uint 技能Id)
+    {
+        try
+        {
+            if (技能Id == 0) return 0;
+    
+            var 行 = LuminaHelper.GetExcelRow<Lumina.Excel.Sheets.Action>(技能Id);
+            if (行 == null) return 0;
+    
+            var a = 行.Value;
+    
+            // 自身中心 AOE / 地面技能：Range 是 0，真正的距离是 EffectRange
+            if (a.Range == 0 && a.EffectRange > 0) return a.EffectRange;
+    
+            return a.Range;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
 
     /// <summary>技能效果范围（米），拿不到返回 0</summary>
     public static int 取效果范围(uint 技能Id)

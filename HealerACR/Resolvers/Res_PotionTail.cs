@@ -59,7 +59,8 @@ public class Res_PotionTailDamage : ISlotResolver
 
         // ② 输出环境
         if (HealTargetHelper.当前目标() == null) return -1;
-        if (!技能数据.打得到(HealTargetHelper.当前目标())) return -6;
+        // [!] 传真实射程（见 `取有效射程`）
+        if (!技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(技))) return -6;
 
         // ⚠️ 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备）→ 现在该打闪飒，
         //    不是我们这条。硬放会被游戏拒绝。

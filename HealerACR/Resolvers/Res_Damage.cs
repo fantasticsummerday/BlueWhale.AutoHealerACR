@@ -47,7 +47,8 @@ public class Res_Dot : ISlotResolver
         // ── 视线检查：目标在柱子/墙后面时距离够也打不到 ──
         //    不检查的话会一直"选中了技能但打不出去"，表现为输出卡住。
         //    （兜底偏向放行，见 技能数据.打得到 的说明）
-        if (!技能数据.打得到(target)) return -6;
+        // [!] **必须传技能真实射程** —— 自身中心 AOE（破阵法 5 米）按默认 25 米判会「离怪老远也判打得到」（用户实测）
+        if (!技能数据.打得到(target, 技能数据.取有效射程(_t.Dot技能) is var 射程 && 射程 > 0 ? 射程 : 25f)) return -6;
 
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
 
@@ -211,7 +212,8 @@ public class Res_AoEDamage : ISlotResolver
         if (最佳 == null) return -1;
 
         // 落点也得看得见（AOE 是打在地上的，视线被墙挡住同样打不到）
-        if (!技能数据.打得到(最佳)) return -6;
+        // [!] **必须传技能真实射程** —— 自身中心 AOE（破阵法 5 米）按默认 25 米判会「离怪老远也判打得到」（用户实测）
+        if (!技能数据.打得到(最佳, 技能数据.取有效射程(spell.Id) is var 射程 && 射程 > 0 ? 射程 : 25f)) return -6;
 
         return spell.IsReadyWithCanCast() ? 5 : -1;
     }
@@ -315,7 +317,8 @@ public class Res_BaseDamage : ISlotResolver
         if (目标 == null) return -1;
 
         // 视线被挡就别按了 —— 按了也放不出去，白白占着 GCD 让循环卡住
-        if (!技能数据.打得到(目标)) return -6;
+        // [!] **必须传技能真实射程** —— 自身中心 AOE（破阵法 5 米）按默认 25 米判会「离怪老远也判打得到」（用户实测）
+        if (!技能数据.打得到(目标, 技能数据.取有效射程(_t.基础输出) is var 射程 && 射程 > 0 ? 射程 : 25f)) return -6;
 
         // 基础输出被游戏替换掉了（白魔神速期间 = 闪飒预备），硬放会失败
         if (_t.有特殊输出形态) return -5;
