@@ -87,6 +87,28 @@ public static class 机制读条
 
         /// <summary>找得到权威数据吗（false = 官表里没有这条）</summary>
         public bool 有权威数据;
+
+        /// <summary>
+        /// **这次读条是「死刑」还是「AOE」** —— AI 铺减伤时的**第一个决定**。
+        ///
+        /// ══════════════════════════════════════════════════════════════════
+        ///  [!] 为什么必须区分（审查发现）★
+        ///
+        ///    本地靠两个不同 API 就能区分（`MitigationHelper.cs`）：
+        ///        `targetCastingIsBossAOE`             -> 全体 AOE
+        ///        `targetCastingIsDeathSentenceWithTime` -> 死刑（单体，打坦克）
+        ///
+        ///    而 AI 只看到「Boss 在读条 N 秒」，**没有这个区分** ——
+        ///    可这恰恰是它要做的第一个决定：
+        ///        · 死刑 -> 给**坦克**单体减伤 / 单盾
+        ///        · AOE  -> 给**团队**减伤 / 群盾
+        ///    给错了就是白交一个长 CD（几十秒到两分钟）。
+        /// ══════════════════════════════════════════════════════════════════
+        /// </summary>
+        public bool 是死刑;
+
+        /// <summary>是不是会打全队的 AOE 读条</summary>
+        public bool 是AOE;
     }
 
     private static readonly List<在读> _缓存 = new();
@@ -137,6 +159,34 @@ public static class 机制读条
                         已读 = 已,
                         有权威数据 = 权威 != null,
                     };
+
+                    // ══════════════════════════════════════════════════════════
+                    //  ★ 死刑 / AOE 分类 —— AI 铺减伤的**第一个决定** ★
+                    //
+                    //  [!] 用和本地 `减伤Helper` **完全相同**的两个 API
+                    //      （`MitigationHelper.cs`）：
+                    //        targetCastingIsBossAOE             -> 全体 AOE
+                    //        targetCastingIsDeathSentenceWithTime -> 死刑（单体，打坦克）
+                    //
+                    //  [!] 为什么要传给 AI：它原来只看到「Boss 在读条 N 秒」，
+                    //      于是不知道给**坦克单体减伤**还是**团队减伤/群盾** ——
+                    //      给错了就是白交一个几十秒到两分钟的长 CD。
+                    //
+                    //  [!] 用 2500ms 提前量（和本地预铺窗口一致）——
+                    //      不做成两个不同的数，免得"本地在铺、AI 以为还早"。
+                    // ══════════════════════════════════════════════════════════
+                    try
+                    {
+                        读.是AOE = AEAssist.Helper.TargetHelper.targetCastingIsBossAOE(敌, 2500);
+                    }
+                    catch { }
+                    
+                    try
+                    {
+                        读.是死刑 = AEAssist.Helper.TargetHelper
+                            .targetCastingIsDeathSentenceWithTime(敌, 2500);
+                    }
+                    catch { }
 
                     if (权威 != null)
                     {
