@@ -41,6 +41,88 @@ public static class DeepSeekClient
     private static int _连续失败;
     private static long _熔断到;             // 熔断解除的时间戳（TimeHelper.Now()）
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 错误分类 + 指数退避 ★
+    //
+    //  ══ 为什么要分类（原来的问题）══
+    //    `记失败` 原来只分"超时 / 其他"两类，于是：
+    //      · **401/403（Key 错）** 和网络抖动走同一条路 ——
+    //        但 Key 错是**配置问题，重试一万次也不会好**，
+    //        只会白烧时间和额度，还把熔断器推上去**连累正常的层**。
+    //      · **429（限流）** 用固定冷却 → 每 5 秒撞一次 → **请求风暴**。
+    //      · 日志里分不出"该改配置"还是"该等一等"。
+    //
+    //  ══ 五类 ══
+    //    鉴权    401/403 —— **长时间停手**，日志直接说"去改 Key"
+    //    限流    429     —— 指数退避 + 抖动
+    //    服务端  5xx     —— 指数退避（基准短一点）
+    //    超时            —— 推理模型的**预期行为**，走原有宽松上限
+    //    其他            —— 未知，走原有上限
+    //
+    //  ⚠️ 退避**只决定"下一次请求要不要等"**，不影响 ACR 战斗逻辑 ——
+    //     AI 停手时全部走本地原逻辑（既有设计）。
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>错误类别</summary>
+    public enum 错误类别 { 无, 鉴权, 限流, 服务端, 超时, 其他 }
+
+    private static 错误类别 _上次错误 = 错误类别.无;
+
+    /// <summary>连续的同类别错误次数（用于算退避）</summary>
+    private static int _同类连续失败;
+
+    /// <summary>退避到什么时候为止（这个时刻之前不发请求）</summary>
+    private static long _退避到;
+
+    /// <summary>当前错误类别（给界面 / 日志用）</summary>
+    public static 错误类别 上次错误 => _上次错误;
+
+    /// <summary>
+    /// **退避中吗** —— 退避期间不发请求（比熔断轻，不改变"该走原版逻辑"的判定）。
+    ///
+    /// ⚠️ 和熔断的区别：
+    ///     熔断 = "AI 整体不可用"（`该走原版逻辑` 为 true，界面显示熔断）
+    ///     退避 = "这一次先别发"（AI 仍可用，只是要等）
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 退避中 => TimeHelper.Now() < _退避到;
+
+    /// <summary>还要退避多少秒（0 = 没在退避）</summary>
+    public static double 退避剩余秒
+    {
+        get
+        {
+            var 剩 = _退避到 - TimeHelper.Now();
+            return 剩 > 0 ? 剩 / 1000.0 : 0;
+        }
+    }
+
+    /// <summary>
+    /// 按类别算退避时长（毫秒）。
+    ///
+    /// ⚠️ 指数退避 + **抖动**：
+    ///     `2 / 5 / 15 / 30` 秒，再加 0~500ms 随机。
+    ///     抖动的作用是**避免多个请求在同一毫秒一起重试**（惊群）。
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    private static long 算退避毫秒(错误类别 类)
+    {
+        // 鉴权错误是**配置问题** —— 退很久，等用户去改 Key。
+        //   不给"无限"是因为用户可能改好了想立刻恢复，10 分钟是个折中。
+        if (类 == 错误类别.鉴权) return 10 * 60 * 1000L;
+
+        long[] 阶梯 = 类 == 错误类别.限流
+            ? new[] { 2000L, 5000L, 15000L, 30000L }
+            : new[] { 1000L, 3000L, 8000L, 20000L };   // 服务端：基准短一点
+
+        var i = Math.Clamp(_同类连续失败 - 1, 0, 阶梯.Length - 1);
+        var 基础 = 阶梯[i];
+
+        // 抖动 0~500ms（用时间戳低位当伪随机，避免引 Random 的线程安全问题）
+        var 抖动 = (int)(TimeHelper.Now() % 500);
+        return 基础 + 抖动;
+    }
+
     /// <summary>现在是不是被熔断了（连续失败太多次）</summary>
     public static bool 熔断中 => TimeHelper.Now() < _熔断到;
 
@@ -356,6 +438,108 @@ public static class DeepSeekClient
         catch { }
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 拉取模型列表 ★
+    //
+    //  ⚠️ 为什么需要（这是一个**真实发生过**的 bug）：
+    //     代码里硬编码了 `deepseek-pro` 作为预设选项，
+    //     但官方**没有这个模型名** —— 用户点了它就会收到 400。
+    //     而报错文案还写着更老的名字（`deepseek-chat` / `deepseek-reasoner`）。
+    //
+    //  ⇒ 模型名**会随版本变**，硬编码一定会过期。
+    //     所以提供"从 API 拉真实列表"这个按钮，
+    //     预设值只作**兜底**（拉不到时才用）。
+    //
+    //  官方接口：`GET /models`（见 api-docs.deepseek.com/api/list-models）
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>上一次拉到的模型列表（空 = 还没拉过）</summary>
+    public static IReadOnlyList<string> 模型列表 { get; private set; } = Array.Empty<string>();
+
+    /// <summary>拉取结果描述（给界面显示）</summary>
+    public static string 模型列表状态 { get; private set; } = "（还没拉取过，用的是内置预设）";
+
+    /// <summary>
+    /// **从 API 拉取可用模型列表**（设置界面按钮调）。
+    ///
+    /// ⚠️ 失败不影响任何东西 —— 拉不到就继续用内置预设。
+    /// </summary>
+    public static async Task<bool> 拉取模型列表()
+    {
+        var s = AiSettings.Instance;
+        if (!s.已配置)
+        {
+            模型列表状态 = "拉取失败：还没填 API Key";
+            return false;
+        }
+
+        try
+        {
+            var 地址 = s.Endpoint?.TrimEnd('/') ?? "";
+            if (!地址.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
+            {
+                // 用户可能填的是 .../v1 或裸域名，都补成 /models
+                地址 = 地址.Replace("/chat/completions", "") + "/models";
+            }
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, 地址);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.ApiKey);
+
+            using var cts = new CancellationTokenSource(10_000);
+            using var resp = await _http.SendAsync(req, cts.Token).ConfigureAwait(false);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var 码 = (int)resp.StatusCode;
+                模型列表状态 = 码 == 401 || 码 == 403
+                    ? $"拉取失败：HTTP {码}（API Key 无效或没权限）"
+                    : $"拉取失败：HTTP {码}";
+                return false;
+            }
+
+            var json = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("data", out var data) ||
+                data.ValueKind != JsonValueKind.Array)
+            {
+                模型列表状态 = "拉取失败：返回里没有 data 数组（接口变了？）";
+                return false;
+            }
+
+            var 列表 = new List<string>();
+            foreach (var m in data.EnumerateArray())
+            {
+                if (m.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
+                {
+                    var 名 = id.GetString();
+                    if (!string.IsNullOrWhiteSpace(名) && !列表.Contains(名)) 列表.Add(名);
+                }
+            }
+
+            if (列表.Count == 0)
+            {
+                模型列表状态 = "拉取成功，但列表是空的";
+                return false;
+            }
+
+            模型列表 = 列表;
+            模型列表状态 = $"已拉到 {列表.Count} 个模型：" + string.Join("、", 列表);
+            LogHelper.Info("[BlueWhale.AI] " + 模型列表状态);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            模型列表状态 = "拉取失败：超时";
+            return false;
+        }
+        catch (Exception e)
+        {
+            模型列表状态 = "拉取失败：" + e.Message;
+            return false;
+        }
+    }
+
     /// <summary>重置缓存统计（换职业 / 换本时调，便于分段观察）</summary>
     public static void 重置缓存统计()
     {
@@ -393,6 +577,24 @@ public static class DeepSeekClient
 
         if (!s.已配置) return null;
         if (熔断中) return null;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 退避闸门 —— 限流 / 服务端 / 鉴权后退避期内**不发请求** ★
+        //
+        //  ⚠️ 和熔断的区别（语义不同，别混）：
+        //     熔断 = "AI 整体不可用"，界面显示熔断、`该走原版逻辑` 变 true
+        //     退避 = "这一次先别发"，AI 仍算可用，只是要等几秒
+        //
+        //  ⚠️ 为什么必须有这道闸：
+        //     没有它，退避就只是"记了个时间戳" ——
+        //     调用方照样每轮发请求，**限流时反而打得更凶**。
+        // ══════════════════════════════════════════════════════════════
+        if (退避中)
+        {
+            Ai调试.调试(
+                $"退避中（还剩 {退避剩余秒:F1} 秒，上次错误 {_上次错误}），本次不发请求");
+            return null;
+        }
 
         var 本次额度 = 最大Token > 0 ? 最大Token : 默认最大Token;
 
@@ -485,7 +687,10 @@ public static class DeepSeekClient
 
             if (!resp.IsSuccessStatusCode)
             {
-                记失败($"HTTP {(int)resp.StatusCode}");
+                // ⚠️ 把状态码**单独传**给 `记失败` —— 不要让它从字符串里认。
+                //    字符串匹配（"HTTP 401".Contains("401")）看着能用，
+                //    但改一次措辞就静默失效 —— 那是本项目反复踩过的坑。
+                记失败($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
                 return (null, false);          // HTTP 错误，重试没用
             }
 
@@ -566,9 +771,12 @@ public static class DeepSeekClient
                 }
             }
 
-            // 成功 → 清空失败计数
+            // 成功 → 清空失败计数**和退避状态**
             _连续失败 = 0;
             上次失败原因 = "";
+            _上次错误 = 错误类别.无;
+            _同类连续失败 = 0;
+            _退避到 = 0;
 
             if (s.记录原始回复)
             {
@@ -589,9 +797,58 @@ public static class DeepSeekClient
         }
     }
 
-    private static void 记失败(string 原因)
+    /// <summary>
+    /// **把一次失败归类**。
+    ///
+    /// ⚠️ 状态码优先 —— 它最准；只有在没有状态码（超时 / 异常）时才看原因文本。
+    ///    本项目踩过"靠字符串匹配判类型"的坑（改一次措辞就静默失效）。
+    /// </summary>
+    private static 错误类别 分类错误(int 状态码, string 原因)
+    {
+        // ── 有状态码：按 HTTP 语义分 ──
+        if (状态码 > 0)
+        {
+            if (状态码 == 401 || 状态码 == 403) return 错误类别.鉴权;
+            if (状态码 == 429) return 错误类别.限流;
+            if (状态码 >= 500) return 错误类别.服务端;
+            return 错误类别.其他;         // 其他 4xx（请求格式等）—— 重试无用但也不退避
+        }
+
+        // ── 没状态码：看原因文本 ──
+        if (原因.Contains("超时") || 原因.Contains("Timeout")
+            || 原因.Contains("TaskCanceled") || 原因.Contains("OperationCanceled"))
+            return 错误类别.超时;
+
+        return 错误类别.其他;
+    }
+
+    private static void 记失败(string 原因, int http状态码 = 0)
     {
         _连续失败++;
+
+        // ══════════════════════════════════════════════════════════
+        //  ★ 分类 ★
+        //
+        //  ⚠️ 状态码优先（它最准）；没状态码时才退回看原因文本。
+        // ══════════════════════════════════════════════════════════
+        var 类 = 分类错误(http状态码, 原因);
+
+        if (类 == _上次错误) _同类连续失败++;
+        else { _上次错误 = 类; _同类连续失败 = 1; }
+
+        // ══ 鉴权错误：**确定性失败，重试无用** ══
+        //    401/403 = Key 错 / 无权限 —— 这是**配置问题**。
+        //    不进"连续失败"熔断器（那会连累正常的层），只设退避。
+        if (类 == 错误类别.鉴权)
+        {
+            _退避到 = TimeHelper.Now() + 算退避毫秒(类);
+            _连续失败--;          // 撤销上面那次 ++：它不该计入熔断
+            LogHelper.Error(
+                "[BlueWhale.AI] **鉴权失败（401/403）** —— 这是配置问题，重试没用。" +
+                "请检查设置里的 API Key（sk- 开头、没有多余空格）和账号权限。" +
+                "已暂停 AI 请求 10 分钟。");
+            return;
+        }
 
         // ★ 存下原因 ★ —— 初始化失败时要靠它告诉用户"具体为什么"
         //   （只说"失败了"没法排查：是 Key 错、网络不通、还是超时？）
@@ -611,6 +868,31 @@ public static class DeepSeekClient
         //      → 明明 Key 和网络都好，AI 却完全不工作了。
         //
         //  所以超时给一个宽松得多的上限。
+        // ══════════════════════════════════════════════════════════
+        //  ★ 限流 / 服务端：**指数退避**（不进熔断器）★
+        //
+        //  ⚠️ 为什么不进熔断器：
+        //     熔断的语义是"AI 整体不可用"，会改变界面显示和 `该走原版逻辑`。
+        //     而 429 / 5xx 是**暂时性**的 —— 退避几秒就好，
+        //     没必要把整个 AI 判定成不可用。
+        //
+        //  ⚠️ 为什么不能固定冷却：
+        //     固定 5 秒在限流时会形成**请求风暴** ——
+        //     每 5 秒撞一次、每次都失败、每次都推高计数。
+        //     指数退避（2/5/15/30 秒 + 抖动）才能真的错开。
+        // ══════════════════════════════════════════════════════════
+        if (类 == 错误类别.限流 || 类 == 错误类别.服务端)
+        {
+            var 退避 = 算退避毫秒(类);
+            _退避到 = TimeHelper.Now() + 退避;
+
+            Ai调试.日志(
+                $"请求失败（{原因}，{(类 == 错误类别.限流 ? "限流" : "服务端")}），" +
+                $"第 {_同类连续失败} 次同类失败 → 退避 {退避 / 1000.0:F1} 秒");
+
+            return;
+        }
+
         // ══════════════════════════════════════════════════════════
         var 是超时 = 原因.Contains("超时")
                   || 原因.Contains("Timeout")
@@ -662,6 +944,9 @@ public static class DeepSeekClient
                 LogHelper.Info($"[BlueWhale.AI] 初始化成功，清零累计失败计数（原 {_连续失败} 次）");
 
             _连续失败 = 0;
+            _上次错误 = 错误类别.无;
+            _同类连续失败 = 0;
+            _退避到 = 0;
         }
         catch { }
     }
@@ -678,6 +963,9 @@ public static class DeepSeekClient
         _连续失败 = 0;
         _熔断到 = 0;
         强制熔断 = false;
+        _上次错误 = 错误类别.无;
+        _同类连续失败 = 0;
+        _退避到 = 0;
     }
 
     // ══════════════════════════════════════════════════════════════

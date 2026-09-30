@@ -792,9 +792,18 @@ public static class AiSettingPage
         ImGui.Separator();
         ImGui.TextDisabled("模型（点一下切换，也可以直接手填）");
 
-        // 预设：当前 DeepSeek 的模型是 flash / pro
-        // ⚠️ 模型名会随版本变（之前是 chat / reasoner），所以下面保留了自定义输入框
-        var 模型列表 = new[] { "deepseek-flash", "deepseek-pro" };
+        // ══════════════════════════════════════════════════════════
+        //  ⚠️ 模型名**会随版本变**，硬编码一定会过期 ——
+        //     这里踩过一次真 bug：预设里写的是 `deepseek-pro`，
+        //     而官方**没有这个模型名**（正确的是 `deepseek-v4-pro`），
+        //     用户点了就 400。
+        //
+        //  ⇒ 所以：**优先用从 API 拉到的真实列表**，拉不到才退回内置预设。
+        //     预设值只作兜底，不作为唯一依据。
+        // ══════════════════════════════════════════════════════════
+        var 模型列表 = DeepSeekClient.模型列表.Count > 0
+            ? DeepSeekClient.模型列表.ToArray()
+            : new[] { "deepseek-flash", "deepseek-v4-pro" };
 
         for (var i = 0; i < 模型列表.Length; i++)
         {
@@ -804,8 +813,13 @@ public static class AiSettingPage
         }
 
         ImGui.NewLine();
-        ImGui.TextDisabled("  deepseek-flash = 快、便宜，适合高频决策（推荐先用这个）");
-        ImGui.TextDisabled("  deepseek-pro   = 慢、贵、推理更强，适合低频策略");
+        ImGui.TextDisabled("  deepseek-flash   = 快、便宜，适合高频决策（推荐先用这个）");
+        ImGui.TextDisabled("  deepseek-v4-pro = 慢、贵、推理更强，适合低频策略");
+
+        // ★ 从 API 拉真实列表 —— 根治"模型名会过期" ★
+        if (ImGui.Button("从 API 拉取模型列表")) _ = DeepSeekClient.拉取模型列表();
+        ImGui.SameLine();
+        ImGui.TextDisabled(DeepSeekClient.模型列表状态);
 
         // 自定义（模型名会变，留个口子）
         var 模型名 = s.Model ?? "";
@@ -892,7 +906,7 @@ public static class AiSettingPage
                     LogHelper.Error("    · Key 填错或已失效（检查 sk- 开头、有没有多余空格）");
                     LogHelper.Error("    · 网络不通 / 需要代理");
                     LogHelper.Error("    · 账户余额不足");
-                    LogHelper.Error("    · 模型名写错（应该是 deepseek-chat 或 deepseek-reasoner）");
+                    LogHelper.Error("    · 模型名写错（点『从 API 拉取模型列表』看真实可用的名字）");
                     LogHelper.Error("[BlueWhale.AI] 具体错误看上面那行『请求失败（...）』的原因。");
                     _测试结果 = "连接失败 —— 看日志最后几行（Key / 网络 / 余额 / 模型名）";
                     _测试中 = false;

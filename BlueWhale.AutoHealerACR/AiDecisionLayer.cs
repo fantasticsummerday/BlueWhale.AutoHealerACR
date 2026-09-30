@@ -1,6 +1,7 @@
 using AEAssist;
 using AEAssist.Extension;
 using AEAssist.Helper;
+using HealerACR.Common;
 using System.Text.RegularExpressions;
 
 namespace BlueWhale.AutoHealerACR;
@@ -58,8 +59,80 @@ public static class AiDecisionLayer
         public long 已等毫秒 => TimeHelper.Now() - 生成时间;
     }
 
-    /// <summary>预取队列（先进先出）</summary>
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ AI 建议队列 —— **跨线程访问，必须串行化** ★
+    //
+    //  ── 为什么（已核实的竞争路径）──
+    //      预取是 `await ... .ConfigureAwait(false)`，
+    //      ⇒ 它回来时在**线程池线程**上，接着就 `解析并填充 → Enqueue`。
+    //      而游戏线程同时在 `Peek / Dequeue / Clear`。
+    //      `Queue<T>` **不是线程安全容器** —— 并发读写下内部数组会错乱：
+    //      丢条目、读到已移除项、极端情况抛异常。
+    //
+    //  ── 为什么用锁，不直接换 `ConcurrentQueue` ──
+    //      `ConcurrentQueue` 只保证**单次操作**原子；
+    //      而本文件有 `Peek` → 判断 → `Dequeue` 这种**复合序列**
+    //      （见 `清理过期()`），换容器挡不住序列交错。
+    //      锁能一次盖住整段，且队列操作都是 O(1)，开销可忽略。
+    //
+    //  ── 不去碰游戏状态 ──
+    //      线程池线程**只做入队**。队列元素是纯数据
+    //      （技能 Id / 理由 / 时间戳 / 批次）。
+    //      真正的游戏交互（选目标 / 施法）全在游戏线程的 Check/Build 里。
+    //      ⇒ "后台线程永远不要直接修改游戏决策状态"。
+    // ══════════════════════════════════════════════════════════════════
     private static readonly Queue<建议> _队列 = new();
+
+    /// <summary>队列锁 —— 所有队列访问都必须持有它</summary>
+    private static readonly object _队列锁 = new();
+
+    private static int 队列计数()
+    {
+        lock (_队列锁) return 队列计数();
+    }
+
+    /// <summary>入队（**线程池线程也会调**）</summary>
+    private static void 入队(建议 条)
+    {
+        lock (_队列锁) _队列.Enqueue(条);
+    }
+
+    /// <summary>取队首但不移除；空队列返回 null</summary>
+    private static 建议? 看队首()
+    {
+        lock (_队列锁) return _队列.Count > 0 ? _队列.Peek() : null;
+    }
+
+    /// <summary>移除队首</summary>
+    private static void 出队()
+    {
+        lock (_队列锁)
+        {
+            if (_队列.Count > 0) _队列.Dequeue();
+        }
+    }
+
+    /// <summary>找第一个还新鲜的（不移除，给 UI / 取建议用）</summary>
+    private static 建议? 找新鲜()
+    {
+        lock (_队列锁)
+        {
+            foreach (var s in _队列)
+                if (s.还新鲜) return s;
+        }
+        return null;
+    }
+
+    /// <summary>清空，返回清掉几条</summary>
+    private static int 清空队列()
+    {
+        lock (_队列锁)
+        {
+            var n = 队列计数();
+            清空队列();
+            return n;
+        }
+    }
 
     /// <summary>队列维持的目标长度 —— 低于这个数就去补货</summary>
     private const int 目标长度 = 3;
@@ -72,18 +145,14 @@ public static class AiDecisionLayer
     private static long _上次局面变化;   // 局面剧变时强制清空队列重来
 
     public static bool 预取中 => _预取中;
-    public static int 队列长度 => _队列.Count;
+    public static int 队列长度 => 队列计数();
 
     /// <summary>队首建议（不消费），给 UI 显示用</summary>
     public static 建议? 当前建议
     {
         get
         {
-            foreach (var s in _队列)
-            {
-                if (s.还新鲜) return s;
-            }
-            return null;
+            return 找新鲜();
         }
     }
 
@@ -236,7 +305,7 @@ public static class AiDecisionLayer
                $"｜预取成功 {预取成功次数} 失败 {预取失败次数}" +
                $"｜幻觉丢弃 {丢弃幻觉次数} 解析失败 {解析失败次数} 格式噪声 {格式噪声次数}" +
                $"｜局面清空 {清空次数} 次({清空丢弃条数} 条)" +
-               $"｜队列 {_队列.Count}/{目标长度}";
+               $"｜队列 {队列计数()}/{目标长度}";
     }
 
     /// <summary>给"装上实测"看的两行完整统计</summary>
@@ -252,6 +321,87 @@ public static class AiDecisionLayer
     }
 
     // ==================== 每帧驱动 ====================
+
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 局面指纹 —— AI 请求去重 ★
+    //
+    //  ⚠️ 为什么要（两份评估都提到，且是对的）：
+    //     `每帧更新()` 的补货只看"队列长度 + 节流时间"，
+    //     **局面完全没变时照样发请求**。
+    //     典型浪费：接怪前、木桩阶段、战斗平稳期。
+    //
+    //  ⚠️ 为什么要**量化**而不是哈希原始值：
+    //     原始血量一直在小幅抖动（自然回复、平A、HoT），
+    //     精确哈希每帧都不一样 → **等于没去重**。
+    //     所以按档位量化：血量 **5% 一档**、MP **10% 一档**。
+    //
+    //  ⚠️ 量化粒度的取舍：
+    //     太细 → 指纹一直变，去重失效
+    //     太粗 → 局面真的变了却不发请求，**漏掉该有的决策**
+    //     5% / 10% 是折中：跨档才重新请求。
+    //
+    //  ⚠️ **局限（必须说清）**：只省"有货可发"时的重复请求。
+    //     队列空了照样补货 —— 否则就没建议可用了。
+    //     ⇒ 主要省的是**平稳期 / 接怪前**，不是战斗中的高频决策。
+    // ══════════════════════════════════════════════════════════════
+    private static long _上次局面指纹;
+    private static int 去重跳过次数;
+
+    /// <summary>局面指纹（量化后的状态摘要的哈希）</summary>
+    private static long 算局面指纹()
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder(64);
+
+            // ── 自己：HP 5% 一档、MP 10% 一档 ──
+            var 我 = AEAssist.Core.Me;
+            sb.Append((int)(我.血量比例() * 20));      // 0~20
+            sb.Append(':').Append((int)(我.蓝量比例() * 10));   // 0~10
+
+            // ── 队友：按 id 排序后取血量档位（顺序稳定才可比）──
+            var 队 = HealTargetHelper.可治疗队友(50f);
+            var 项 = new List<(ulong Id, int 档)>(队.Count);
+            foreach (var r in 队)
+            {
+                if (r == null) continue;
+                项.Add((r.GameObjectId, (int)(r.有效血量比例() * 20)));
+            }
+            项.Sort((a, b) => a.Id.CompareTo(b.Id));
+            foreach (var (id, 档) in 项) sb.Append('|').Append(档);
+
+            // ── 敌人数量（不取血量 —— 小怪血量抖得厉害）──
+            sb.Append('#').Append(HealTargetHelper.附近敌人总数(30f));
+
+            // ── 时间轴：有没有"接下来要来的伤害"（这是关键决策输入）──
+            sb.Append('@').Append(HealTargetHelper.木桩模式 ? 1 : 0);
+            try
+            {
+                sb.Append('~').Append(HealerACR.Timeline.TimelineManager.未来有减伤(4.0) ? 1 : 0);
+            }
+            catch { }
+
+            // ── 必须奶满机制（有人中 Doom 时局面性质完全不同）──
+            try
+            {
+                sb.Append('!').Append(HealerACR.Common.必须奶满.找目标() != null ? 1 : 0);
+            }
+            catch { }
+
+            // FNV-1a 64 位
+            var 哈希 = 1469598103934665603UL;
+            foreach (var c in sb.ToString())
+            {
+                哈希 ^= c;
+                哈希 *= 1099511628211UL;
+            }
+            return unchecked((long)哈希);
+        }
+        catch
+        {
+            return 0;     // 算不出来 → 返回 0，调用方会当作"变了"照常请求
+        }
+    }
 
     /// <summary>每帧调用（很轻：只维护队列 + 到点启动一次后台任务）</summary>
     public static void 每帧更新()
@@ -270,11 +420,28 @@ public static class AiDecisionLayer
         if (DeepSeekClient.该走原版逻辑) return;
 
         // ② 队列够长 → 不用补货（这是"预取"的关键：有货就不问）
-        if (_队列.Count >= 目标长度) return;
+        if (队列计数() >= 目标长度) return;
 
         // ③ 补货节流
         var 间隔 = Math.Max(300, s.决策预取毫秒);
         if (TimeHelper.Now() - _上次预取 < 间隔) return;
+
+        // ══════════════════════════════════════════════════════════
+        //  ★ ④ 局面指纹去重 —— 局面没变就别问 ★
+        //
+        //  ⚠️ 只在**队列里还有货**时才跳 ——
+        //     队列空了必须补，否则就没建议可用了。
+        //     （这条限制决定了它主要省"平稳期"，见上面字段处的说明。）
+        // ══════════════════════════════════════════════════════════
+        var 指纹 = 算局面指纹();
+        if (指纹 != 0 && 指纹 == _上次局面指纹 && 队列计数() > 0)
+        {
+            去重跳过次数++;
+            if (去重跳过次数 % 20 == 1)   // 不刷屏：每 20 次报一条
+                Ai调试.调试($"局面未变（指纹 {指纹:X}），跳过本次预取（累计跳 {去重跳过次数} 次）");
+            return;
+        }
+        _上次局面指纹 = 指纹;
 
         _上次预取 = TimeHelper.Now();
         _ = 预取();
@@ -283,12 +450,12 @@ public static class AiDecisionLayer
     private static void 清理过期()
     {
         // 队列是 FIFO，过期的都在前面
-        while (_队列.Count > 0)
+        while (true)
         {
-            var 头 = _队列.Peek();
-            if (头.还新鲜) break;
+            var 头 = 看队首();
+            if (头 == null || 头.还新鲜) break;
 
-            _队列.Dequeue();
+            出队();
             过期次数++;
 
             // ★ 区分"排太后面等过期"和"AI 建议得不对" ★
@@ -337,11 +504,12 @@ public static class AiDecisionLayer
     {
         try
         {
-            if (_队列.Count == 0) return;
+            if (队列计数() == 0) return;
 
-            var 丢掉 = _队列.Count;
-            _队列.Clear();
+            var 丢掉 = 队列计数();
+            清空队列();
             _上次局面变化 = TimeHelper.Now();
+            _上次局面指纹 = 0;      // 局面剧变 → 指纹作废，下次一定请求
 
             // ★ 计入统计 ★
             //   不记的话，"命中率低"到底是被丢弃、过期，还是被局面剧变清掉，
@@ -398,7 +566,7 @@ public static class AiDecisionLayer
         //  ★ 世代号：过期的预取结果**一个字都不许进队列** ★
         //
         //  ── 为什么（和 `Ai初始化` 刚修的是同一个 bug）──
-        //    `重置()` 把 `_队列.Clear()`、`_预取中 = false`，
+        //    `重置()` 把 `清空队列()`、`_预取中 = false`，
         //    **但已经发出去的异步请求还在飞**。
         //    它回来时会直接 `解析并填充 → Enqueue`，
         //    把**按旧局面/旧职业**得出的建议塞进**新队列**。
@@ -456,7 +624,7 @@ public static class AiDecisionLayer
             if (条数 > 0)
             {
                 预取成功次数++;
-                Ai调试.日志($"预取 {条数} 步（批次 {本批}，队列 {_队列.Count}/{目标长度}）");
+                Ai调试.日志($"预取 {条数} 步（批次 {本批}，队列 {队列计数()}/{目标长度}）");
             }
             else
             {
@@ -756,12 +924,12 @@ public static class AiDecisionLayer
                     continue;
                 }
 
-                _队列.Enqueue(new 建议
+                入队(new 建议
                 {
                     技能Id = id,
                     理由 = 段.Length > 1 ? 段[1].Trim() : "",
                     生成时间 = TimeHelper.Now(),
-                    出生时队列位置 = _队列.Count,   // 排在它前面的已有几条
+                    出生时队列位置 = 队列计数(),   // 排在它前面的已有几条
                     批次 = 批次,
                 });
 
@@ -799,9 +967,11 @@ public static class AiDecisionLayer
     {
         清理过期();
 
-        if (_队列.Count == 0) return null;
-
-        var s = _队列.Dequeue();
+        // ⚠️ 用"看队首 + 出队"两个包装方法，而不是"判空再 Dequeue" ——
+        //    后者是**复合序列**，两步之间队列可能被线程池线程改动。
+        var s = 看队首();
+        if (s == null) return null;
+        出队();
 
         // ⚠️ 这里**不**加命中计数 —— 命中只应由 消费() 记。
         //
@@ -825,9 +995,10 @@ public static class AiDecisionLayer
         try
         {
             清理过期();
-            if (_队列.Count == 0) return;
 
-            _队列.Dequeue();
+            // ⚠️ 出队本身已经是"空队列就什么都不做"，不需要先判空 ——
+            //    判空再出队是**复合序列**，两步之间队列可能被改动。
+            出队();
             命中次数++;
         }
         catch { }
@@ -835,7 +1006,7 @@ public static class AiDecisionLayer
 
     public static void 重置()
     {
-        _队列.Clear();
+        清空队列();
         _上次预取 = 0;
         _上次局面变化 = 0;
         _上次汇总 = 0;

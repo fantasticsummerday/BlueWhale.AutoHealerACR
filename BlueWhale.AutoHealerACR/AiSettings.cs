@@ -19,7 +19,7 @@ public class AiSettings
     /// <summary>接口地址。换别的兼容 OpenAI 格式的服务也能用。</summary>
     public string Endpoint = "https://api.deepseek.com";
 
-    /// <summary>模型名。deepseek-flash（快、便宜）/ deepseek-pro（慢、贵、更强）。模型名会随版本变，所以界面允许自定义。</summary>
+    /// <summary>模型名。deepseek-flash（快、便宜）/ deepseek-v4-pro（慢、贵、更强）。模型名会随版本变，所以界面允许自定义。</summary>
     public string Model = "deepseek-flash";
 
     /// <summary>单次请求超时（毫秒）。超过就当失败，走降级。</summary>
