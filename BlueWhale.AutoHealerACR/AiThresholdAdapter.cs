@@ -22,13 +22,13 @@ public static class AiThresholdAdapter
     /// <summary>调整后的单体治疗阈值</summary>
     public static float 单体治疗阈值(float 原值)
     {
-        return Math.Clamp(原值 + 偏移(), 0.30f, 0.95f);
+        return Math.Clamp(原值 + 偏移(HealerACR.Common.可调参数.单体治疗阈值), 0.30f, 0.95f);
     }
 
     /// <summary>调整后的群体治疗阈值</summary>
     public static float 群体治疗阈值(float 原值)
     {
-        return Math.Clamp(原值 + 偏移(), 0.30f, 0.95f);
+        return Math.Clamp(原值 + 偏移(HealerACR.Common.可调参数.群体治疗阈值), 0.30f, 0.95f);
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public static class AiThresholdAdapter
     /// </summary>
     public static float 紧急单奶阈值(float 原值)
     {
-        return Math.Clamp(原值 + 偏移(), 0.10f, 0.80f);
+        return Math.Clamp(原值 + 偏移(HealerACR.Common.可调参数.紧急单奶阈值), 0.10f, 0.80f);
     }
 
     /// <summary>
@@ -53,13 +53,13 @@ public static class AiThresholdAdapter
     /// </summary>
     public static float 预铺血线(float 原值)
     {
-        return Math.Clamp(原值 + 偏移(), 0.30f, 0.98f);
+        return Math.Clamp(原值 + 偏移(HealerACR.Common.可调参数.预铺血线), 0.30f, 0.98f);
     }
 
     /// <summary>调整后的妖精契约血线（学者）—— 同上，保守时更早交。</summary>
     public static float 妖精契约血线(float 原值)
     {
-        return Math.Clamp(原值 + 偏移(), 0.30f, 0.98f);
+        return Math.Clamp(原值 + 偏移(HealerACR.Common.可调参数.妖精契约血线), 0.30f, 0.98f);
     }
 
     /// <summary>
@@ -138,7 +138,29 @@ public static class AiThresholdAdapter
     ///  保留趋势，滤掉抖动。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
-    private static float 偏移()
+    /// <summary>
+    /// 某个参数的**最终偏移** = 倾向偏移（粗粒度）+ AI 逐参数微调（细粒度）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么要**相加**而不是二选一：
+    ///      · 倾向表达"整体该偏保守还是激进"——粗粒度，已验证
+    ///      · 参数微调表达"某个阈值需要和整体不一样"——细粒度
+    ///      两者是**不同粒度**的信息，相加才都能生效。
+    ///
+    ///  [!] 相加后仍然各自夹过范围（各自的 Clamp 在自己的函数里），
+    ///      所以两层都失常的最坏情况也不会推出极端值。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static float 偏移(string? 参数 = null)
+    {
+        var 倾向偏移 = 倾向偏移量();
+        if (参数 == null) return 倾向偏移;
+        try { return 倾向偏移 + Ai策略参数.取(参数); }
+        catch { return 倾向偏移; }
+    }
+
+    /// <summary>倾向带来的偏移（原来是 `偏移()` 的全体）。</summary>
+    private static float 倾向偏移量()
     {
         // ══════════════════════════════════════════════════════════════
         //  ★ **AI 不在了就返回 0（= 回到本地基线）** ★
