@@ -43,6 +43,54 @@ public static class 调试窗
 
     private static bool _首次定位 = true;
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 诊断输出 ★
+    //
+    //  [!] 为什么需要：这个窗口出过"开关勾着但窗口不出现，而且日志里
+    //      一条线索都没有"的问题。根本原因是**整条路径上有三处静默失败**：
+    //        ① `画AI层调试窗()` 里反射失败 -> 静默 return
+    //        ② `_调试窗失败次数 >= 5` -> 永久静默（唯一一次日志在 ==1 时）
+    //        ③ 设置页那个 `catch { }` -> 把上层异常也吞了
+    //      ⇒ 必须有一份**看得见的**输出，否则只能靠猜。
+    //
+    //  [!] 只在状态变化时写（避免每帧刷盘），写到 Documents 下便于直接发出来。
+    // ══════════════════════════════════════════════════════════════════
+    private static string? _诊断路径;
+    private static string _上次诊断 = "";
+
+    /// <summary>诊断文件路径（`我的文档\BlueWhale调试窗诊断.txt`）。</summary>
+    public static string 诊断路径
+    {
+        get
+        {
+            if (_诊断路径 != null) return _诊断路径;
+            try
+            {
+                var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                _诊断路径 = System.IO.Path.Combine(文档, "BlueWhale调试窗诊断.txt");
+            }
+            catch
+            {
+                _诊断路径 = "BlueWhale调试窗诊断.txt";
+            }
+            return _诊断路径;
+        }
+    }
+
+    /// <summary>写一行诊断（**只在内容变化时**落盘）。</summary>
+    private static void 记诊断(string 内容)
+    {
+        try
+        {
+            if (内容 == _上次诊断) return;
+            _上次诊断 = 内容;
+
+            var 行 = $"[{DateTime.Now:HH:mm:ss}] {内容}{Environment.NewLine}";
+            System.IO.File.AppendAllText(诊断路径, 行);
+        }
+        catch { }
+    }
+
     /// <summary>用户拖动后的目标位置（null = 还没拖过，用默认贴右缘）。</summary>
     private static Vector2? _目标位置;
 
@@ -86,6 +134,11 @@ public static class 调试窗
     /// </summary>
     public static void 画()
     {
+        // ★ 诊断：先记【被调到了】，再判开关 ★
+        //   [!] 顺序很重要 —— 先 return 再记的话，就分不清
+        //      【没被调到】和【被调到但开关是关的】这两种情况。
+        记诊断($"画() 被调用：开关={开}");
+        
         if (!开) return;
 
         try
@@ -172,8 +225,13 @@ public static class 调试窗
             //  [!] 现在贴右缘的定位（见上）已经降低了"超出边界"的概率，
             //      但**判据本身必须是对的** —— 不能靠"窗口位置算得好"来回避。
             // ══════════════════════════════════════════════════════════════
-            if (!ImGui.Begin("小鲸鱼 · 实时数据（只读）", ref 显示,
-                             ImGuiWindowFlags.NoCollapse))
+            var begin结果 = ImGui.Begin("小鲸鱼 · 实时数据（只读）", ref 显示,
+                                        ImGuiWindowFlags.NoCollapse);
+
+            记诊断($"Begin={begin结果} 屏={屏.X:F0}x{屏.Y:F0} " +
+                   $"请求位置=({x:F0},{y:F0}) 请求尺寸=({宽:F0},{高:F0})");
+
+            if (!begin结果)
             {
                 return;      // [!] 不调 End —— Begin=false 时没有配对的 End
             }

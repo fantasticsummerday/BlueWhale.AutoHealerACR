@@ -1215,13 +1215,33 @@ public abstract class HealerEntryBase : IRotationEntry
         catch { }
     }
     
+    /// <summary>
+    /// **写一行调试窗诊断**（`我的文档\BlueWhale调试窗诊断.txt`）。
+    ///
+    /// [!] 为什么不走 LogHelper：这条路径上有三处静默失败
+    ///     （失败次数上限 / 反射失败 / catch 吞异常），
+    ///     而用户遇到过的现象正是【开关勾着但窗口不出现、日志里也没线索】。
+    ///     必须有一份用户能直接发出来的输出，否则只能靠猜。
+    /// </summary>
+    private static void 写诊断(string 内容)
+    {
+        try
+        {
+            var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var 路径 = System.IO.Path.Combine(文档, "BlueWhale调试窗诊断.txt");
+            System.IO.File.AppendAllText(路径,
+                $"[{DateTime.Now:HH:mm:ss}] [HealerACR] {内容}{Environment.NewLine}");
+        }
+        catch { }
+    }
+    
     private static void 画AI层调试窗()
     {
         // [!] 自禁用：连抛 N 次就关掉它 ——
         //     绘制函数每帧都跑，一个持续异常会**每帧抛一次**，
         //     在 ImGui 里很容易把窗口栈搞乱（那是闪退级的问题）。
         //     宁可少一个调试窗，也不能让它在战斗里反复抛。
-        if (_调试窗失败次数 >= 调试窗失败上限) return;
+        if (_调试窗失败次数 >= 调试窗失败上限) { 写诊断($"跳过：失败次数={_调试窗失败次数} 已达上限"); return; }
 
         try
         {
@@ -1239,17 +1259,19 @@ public abstract class HealerEntryBase : IRotationEntry
                     if (方法 == null) continue;
 
                     _画调试窗 = (Action?)Delegate.CreateDelegate(typeof(Action), 方法, false);
+                    写诊断("反射成功：已挂上 调试窗.画");
                     break;
                 }
             }
 
-            if (_画调试窗 == null) return;
+            if (_画调试窗 == null) { 写诊断("反射失败：找不到 调试窗.画"); return; }
             _画调试窗();
 
             _调试窗失败次数 = 0;   // 成功一次就清零（偶发失败不算）
         }
         catch (Exception e)
         {
+        写诊断("画() 抛异常：" + e.GetType().Name + " " + e.Message);
             _调试窗失败次数++;
 
             if (_调试窗失败次数 == 1)
