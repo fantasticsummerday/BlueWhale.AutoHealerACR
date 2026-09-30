@@ -250,10 +250,13 @@ public class Res_AoEDamage : ISlotResolver
         {
             if (智能选目标.是直线技能(技能Id))
             {
-                return 智能选目标.按形状选最优(技能Id, _t.AOE伤害范围, _t.AOE最少敌人数);
+                // [!] 用**按等级**的门槛 —— 白魔 72+/贤者 94+ 恰好 2 只怪时
+            //     群体技是负收益（算术核实），详见 `AOE门槛(int)`。
+            return 智能选目标.按形状选最优(技能Id, _t.AOE伤害范围, 门槛());
             }
 
-            return TargetHelper.GetMostCanTargetObjects(技能Id, _t.AOE最少敌人数);
+            // [!] 同上：按等级的门槛
+            return TargetHelper.GetMostCanTargetObjects(技能Id, 门槛());
         }
         catch
         {
@@ -277,6 +280,18 @@ public class Res_AoEDamage : ISlotResolver
 
         slot.Add(spell);
     }
+        /// <summary>
+        /// **当前等级下的 AOE 门槛** —— 只把 `AOE门槛(等级)` 包一层取等级。
+        ///
+        /// [!] 为什么不直接写 `_t.AOE门槛((int)Core.Me.Level)`：
+        ///      Check 和 Build **两处**都要用（开发约定 F③ 要求同源），
+        ///      取等级的写法容易改一处忘一处。集中在这里更稳。
+        /// </summary>
+        private int 门槛()
+        {
+            try { return _t.AOE门槛((int)Core.Me.Level); }
+            catch { return _t.AOE最少敌人数; }
+        }
 }
 
 /// <summary>兜底单体输出。必须是 GCD 队列的最后一个。</summary>

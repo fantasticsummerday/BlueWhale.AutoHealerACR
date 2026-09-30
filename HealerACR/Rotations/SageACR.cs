@@ -22,6 +22,18 @@ public class SGESpellTable : JobSpellTable
     public override uint 药尾声填充技 => SpellIds.取("注药");
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("失衡II"), SpellIds.取("失衡"));
+
+    /// <summary>
+    /// **贤者的 AOE 门槛：94 级起用 3**（不是 2）。
+    ///
+    /// [!] 算术依据（恰好 2 只怪时群体技是负收益）：
+    ///     94+：失衡II 170×2 = 340  <  注药III 380  -> 少 40 威力（10.5%）
+    ///
+    /// [!] 82-94 段：失衡II 340  vs  注药III 330 -> **正收益**，保持 2。
+    ///     72-82 段：失衡 320 vs 注药II 320 -> **持平**，
+    ///     持平时不改门槛（改了没收益，反而少覆盖一只怪）。
+    /// </summary>
+    public override int AOE门槛(int 等级) => 等级 >= 94 ? 3 : 2;
     // 写"注药III/II/注药"的等级链：均衡注药是它们的形态，
     // 只写 1 级的"注药"的话，高等级取不到"均衡注药III"
     /// <summary>

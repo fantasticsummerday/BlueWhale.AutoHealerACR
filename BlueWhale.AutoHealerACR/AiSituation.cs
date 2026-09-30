@@ -1043,7 +1043,14 @@ public static class AiSituation
                 var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
                 if (表 != null && 表.群体输出 != 0 && SpellUtil.已解锁(表.群体输出))
                 {
-                    var 需要几个 = Math.Max(1, 表.AOE最少敌人数);
+                    // [!] 用**按等级**的门槛 —— 白魔 72+/贤者 94+ 时恰好 2 只怪
+                //     放群体技是负收益（算术核实），详见 `AOE门槛(int)`。
+                // [!] 等级要在这里取 —— 这个作用域里没有现成的 `等级` 变量。
+                //     用 `Core.Me.Level`（等级同步后的值），和 `AOE门槛` 的调用点一致。
+                var 等级 = 0;
+                try { 等级 = (int)Core.Me.Level; } catch { }
+
+                var 需要几个 = Math.Max(1, 表.AOE门槛(等级));
                     var 半径 = Math.Max(1, 表.AOE伤害范围);
                     var 够数 = HealTargetHelper.周围敌人数量(半径);
 

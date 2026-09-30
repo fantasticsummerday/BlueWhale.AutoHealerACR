@@ -28,6 +28,19 @@ public class WHMSpellTable : JobSpellTable
         SpellIds.取("飞石"));   // 1
     public override uint 群体输出 => SpellUtil.取已解锁(SpellIds.取("豪圣"), SpellIds.取("神圣"));
 
+    /// <summary>
+    /// **白魔的 AOE 门槛：72 级起用 3**（不是 2）。
+    ///
+    /// [!] 算术依据（恰好 2 只怪时群体技是**负收益**）：
+    ///     72-82：神圣 140×2 = 280  <  闪耀 290   -> 少 10 威力
+    ///     82-94：豪圣 150×2 = 300  <  闪灼 310   -> 少 10 威力
+    ///     94+  ：豪圣 150×2 = 300  <  闪灼 350   -> 少 50 威力（14.3%）
+    ///
+    /// [!] 72 级以下的单体填充技威力低（垒石 220 / 崩石 260），
+    ///     2 只怪时神圣 280 是**正收益** ⇒ 门槛保持 2。
+    /// </summary>
+    public override int AOE门槛(int 等级) => 等级 >= 72 ? 3 : 2;
+
     /// <summary>药尾声补刀用的瞬发填充技 —— 白魔：闪灼（25859）—— 基础输出，即刻下变瞬发。</summary>
     public override uint 药尾声填充技 => SpellIds.取("闪灼");
     /// <summary>
