@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -92,7 +93,21 @@ public class HealSettings
     public bool 奶人 = true;
 
     /// <summary>低于这条血线 → 交能力技大加（天赐 / 深谋 / 先天禀赋 / 白牛…）</summary>
-    public float 紧急单奶阈值 = 0.30f;   // 更晚才动用紧急资源，平时靠普通治疗
+    [System.Text.Json.Serialization.JsonPropertyName("紧急单奶阈值")]
+    public float 紧急单奶阈值_基础 = 0.30f;   // 更晚才动用紧急资源，平时靠普通治疗
+
+    /// <summary>
+    /// 实际生效的紧急单奶阈值（**经过钩子**）。
+    ///
+    /// [!] 原来它是**裸字段**，AI 调不了 —— 而它是"什么时候动用救命资源"的开关，
+    ///     恰恰是最该让 AI 随局面调整的一个（用户目标：「随时调整策略，各类阈值」）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public float 紧急单奶阈值
+    {
+        get => 阈值钩子.应用(紧急单奶阈值_基础, 可调参数.紧急单奶阈值);
+        set => 紧急单奶阈值_基础 = value;
+    }
 
     /// <summary>低于这条血线 → 用 GCD 单体治疗</summary>
     /// <summary>单条治疗阈值的基础值（用户设置的原值，存 json）</summary>
@@ -111,7 +126,7 @@ public class HealSettings
     [System.Text.Json.Serialization.JsonIgnore]
     public float 单体治疗阈值
     {
-        get => 阈值钩子.应用(单体治疗阈值_基础);
+        get => 阈值钩子.应用(单体治疗阈值_基础, 可调参数.单体治疗阈值);
         set => 单体治疗阈值_基础 = value;
     }
 
@@ -126,7 +141,7 @@ public class HealSettings
     [System.Text.Json.Serialization.JsonIgnore]
     public float 群体治疗阈值
     {
-        get => 阈值钩子.应用(群体治疗阈值_基础);
+        get => 阈值钩子.应用(群体治疗阈值_基础, 可调参数.群体治疗阈值);
         set => 群体治疗阈值_基础 = value;
     }
 
@@ -237,7 +252,16 @@ public class HealSettings
     public bool 用苦难之心 = true;
 
     /// <summary>学者：妖精契约的触发血线（坦克低于这个才挂）</summary>
-    public float 妖精契约血线 = 0.80f;
+    [System.Text.Json.Serialization.JsonPropertyName("妖精契约血线")]
+    public float 妖精契约血线_基础 = 0.80f;
+
+    /// <summary>实际生效的妖精契约血线（经过钩子，AI 可调）。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public float 妖精契约血线
+    {
+        get => 阈值钩子.应用(妖精契约血线_基础, 可调参数.妖精契约血线);
+        set => 妖精契约血线_基础 = value;
+    }
 
     /// <summary>学者：以太低于这个数就不放"能力技群奶"，退回 GCD 群奶</summary>
     public int 以太保留数 = 1;
@@ -433,15 +457,82 @@ public class HealSettings
 /// </summary>
 public static class 阈值钩子
 {
-    /// <summary>治疗阈值调整函数。输入原值，返回调整后的值。</summary>
+    /// <summary>
+    /// 治疗阈值调整函数（**通用**，所有阈值共用）。
+    /// 输入原值，返回调整后的值。
+    /// </summary>
     public static Func<float, float>? 治疗阈值调整;
 
-    public static float 应用(float 原值)
+    /// <summary>
+    /// **具名参数调整** —— 让外部可以**分别**调不同阈值。
+    ///
+    /// ══════════════════════════════════════════════════════════════
+    ///  [!] 为什么需要它（用户的目标）：
+    ///      「AI 的目的就是**随时调整策略**（各类阈值，风格是激进还是保守等）优化」
+    ///
+    ///      而原来只有上面那**一个** `治疗阈值调整` ——
+    ///      它"对任何传进来的值做同样变换"，**无法分别调**：
+    ///        想让「群体阈值更保守、但紧急阈值更激进」做不到。
+    ///
+    ///  [!] 优先级：**具名 > 通用**。
+    ///      具名没挂就退回通用，通用也没挂就是原值（原设计要点：不挂钩子=原值）。
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    private static readonly Dictionary<string, Func<float, float>> _具名 = new();
+
+    /// <summary>挂/换一个具名参数的调整函数（传 null = 摘掉）。</summary>
+    public static void 挂具名(string 参数, Func<float, float>? 调整)
     {
+        try
+        {
+            if (调整 == null) _具名.Remove(参数);
+            else _具名[参数] = 调整;
+        }
+        catch { }
+    }
+
+    /// <summary>按参数名应用调整。具名没挂 -> 通用 -> 原值。</summary>
+    public static float 应用(float 原值, string? 参数 = null)
+    {
+        try
+        {
+            if (参数 != null && _具名.TryGetValue(参数, out var 具))
+                return float.IsFinite(具(原值)) ? 具(原值) : 原值;
+        }
+        catch { }
+
         try { return 治疗阈值调整?.Invoke(原值) ?? 原值; }
         catch { return 原值; }   // 钩子里出任何问题都退回原值
     }
 
-    /// <summary>卸载钩子（BlueWhale 退出/换职业时调）</summary>
-    public static void 卸载() => 治疗阈值调整 = null;
+    /// <summary>卸载全部钩子（BlueWhale 退出/换职业时调）</summary>
+    public static void 卸载()
+    {
+        治疗阈值调整 = null;
+        try { _具名.Clear(); } catch { }
+    }
+
+    /// <summary>当前挂了几个具名参数（给设置界面/诊断看）</summary>
+    public static int 具名数量
+    {
+        get { try { return _具名.Count; } catch { return 0; } }
+    }
+}
+
+/// <summary>
+/// **AI 可以调的策略参数名** —— 集中在这里，避免各处写裸字符串。
+///
+/// [!] 为什么用常量字符串而不是散落各处的字面量：
+///     写错一个字的后果是"钩子静默不生效"（不报错、只是没作用），
+///     那是这个项目里已经出现过多次的失效类型。集中定义至少能靠引用查。
+/// </summary>
+public static class 可调参数
+{
+    public const string 单体治疗阈值 = "单体治疗阈值";
+    public const string 群体治疗阈值 = "群体治疗阈值";
+    public const string 紧急单奶阈值 = "紧急单奶阈值";
+    public const string 预铺血线 = "预铺血线";
+    public const string 妖精契约血线 = "妖精契约血线";
+    public const string 以太保留数 = "以太保留数";
+    public const string 蛇胆保留数 = "蛇胆保留数";
 }

@@ -116,7 +116,7 @@ public static class 职业面板
         ImGui.Text("小仙女 / 炽天使");
         ImGui.Separator();
         ImGui.SetNextItemWidth(240);
-        ImGui.SliderFloat("妖精契约血线", ref s.妖精契约血线, 0.3f, 1.0f, "%.2f");
+        ImGui.SliderFloat("妖精契约血线", ref s.妖精契约血线_基础, 0.3f, 1.0f, "%.2f");
         ImGui.TextDisabled("仙光的低语（群奶 HoT）/ 异想的幻光（减伤）会自动放");
     }
 

@@ -235,6 +235,7 @@ public static class AiSituation
         采副本(sb);
         采自己(sb);
         采资源(sb);
+        采技能冷却(sb);   // ★ 大技能还剩多久 —— 资源规划的前提（见该函数说明）
         采队友(sb);
         采必须奶满(sb);      // ★ 致死机制：必须放在队友之后、敌人之前 —— 它是最高优先信息
         采敌人(sb);
@@ -648,6 +649,96 @@ public static class AiSituation
 
     // ==================== 职业资源 ====================
 
+    /// <summary>
+    /// **大技能的冷却剩余** —— 「资源最大化利用」的前提。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么必须有（用户目标：「AI 随时调整策略…**资源最大化利用**」）：
+    ///
+    ///      原来 AI 能看到职业资源**计数**（以太/百合/蛇胆/手牌…），
+    ///      但**看不到大技能还剩多久转好** —— 而该省还是该花完全取决于后者：
+    ///        · 「深谋远虑之策 还剩 3 秒」-> 再撑一下就有大招，别交便宜技能
+    ///        · 「天赐祝福 还剩 200 秒」  -> 指望不上，该用 GCD 就用
+    ///        · 「以太超流 还剩 2 秒」    -> 手里豆子马上溢出，赶紧卸
+    ///      ==> 缺了 CD，AI 的资源规划只能瞎猜。
+    ///
+    ///  [!] 只列**还在转的**（就绪的不列）—— 省字符，而且就绪是默认期待。
+    ///  [!] 泛化遍历技能表，**不写死技能清单** ——
+    ///      写死会在加技能/改等级时**静默漏掉**（这个项目反复踩的坑）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static void 采技能冷却(StringBuilder sb)
+    {
+        try
+        {
+            var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+            if (表 == null) return;
+    
+            // 值得报 CD 的槽位（大招 / 长 CD）——
+            // 输出填充技不在内（它们没有长 CD，报了是噪声）
+            var 槽 = new (string 名, uint Id)[]
+            {
+                ("紧急单奶", 表.紧急单奶),
+                ("群体治疗能力技", 表.群体治疗能力技),
+                ("预铺单奶", 表.预铺单奶能力技),
+                ("瞬发单奶", 表.瞬发单奶能力技),
+                ("单体盾", 表.单体盾),
+                ("群体盾", 表.群体盾),
+                ("团队减伤", 表.团队减伤),
+                ("个人减伤", 表.个人减伤),
+                ("单体HoT", 表.单体HoT),
+            };
+    
+            var 行 = new List<string>();
+            var 见过 = new HashSet<uint>();
+            foreach (var (名, id) in 槽)
+            {
+                if (id == 0 || !见过.Add(id)) continue;
+                var 剩 = HealerACR.Common.SpellUtil.冷却剩余秒(id);
+                if (剩 <= 0.5f) continue;      // 就绪的不列
+                行.Add($"{技能名(id)} {剩:F0}s");
+            }
+    
+            // 数组槽位（输出能力技 / 脱战准备）也带上
+            try
+            {
+                foreach (var id in 表.输出能力技 ?? Array.Empty<uint>())
+                {
+                    if (id == 0 || !见过.Add(id)) continue;
+                    var 剩 = HealerACR.Common.SpellUtil.冷却剩余秒(id);
+                    if (剩 <= 0.5f) continue;
+                    行.Add($"{技能名(id)} {剩:F0}s");
+                }
+            }
+            catch { }
+    
+            if (行.Count == 0) return;     // 全就绪 -> 整段省略（省字符）
+    
+            sb.AppendLine("【大技能冷却】还在转的（**决定该省还是该花**）：");
+            // [!] **上限 6 条** —— 局面报告预算只有 6000，这段是「增强」不是「必需」。
+            //     超出的折成 `+N`（AI 知道还有别的在转就够了，不必逐个看）。
+            const int 上限 = 6;
+            var 显示 = 行.Count <= 上限
+                ? string.Join("｜", 行)
+                : string.Join("｜", 行.GetRange(0, 上限)) + $"｜+{行.Count - 上限}";
+            
+            sb.AppendLine("  " + 显示);
+            sb.AppendLine();
+        }
+        catch { }
+    }
+    
+    /// <summary>技能名（读不到就退回 ID，便于排查）。</summary>
+    private static string 技能名(uint id)
+    {
+        try
+        {
+            var 名 = SpellIds.反查(id);
+            return string.IsNullOrEmpty(名) ? id.ToString() : 名;
+        }
+        catch { return id.ToString(); }
+    }
+    
     private static void 采资源(StringBuilder sb)
     {
         try

@@ -32,6 +32,37 @@ public static class AiThresholdAdapter
     }
 
     /// <summary>
+    /// 调整后的**紧急单奶阈值** —— 这是"什么时候动用救命资源"的开关。
+    ///
+    /// [!] 它原来**连钩子都没有**（是裸字段）==> AI 根本调不了。
+    ///     而用户的目标是「AI 随时调整策略（**各类阈值**）」——
+    ///     "什么时候该交天赐/深谋"恰恰是最该随局面变的一个：
+    ///       · 后面还有大伤害 -> 提高（留着，别为了 40% 就交掉）
+    ///       · 这波快完了 -> 降低（该交就交，留着也是浪费）
+    /// </summary>
+    public static float 紧急单奶阈值(float 原值)
+    {
+        return Math.Clamp(原值 + 偏移(), 0.10f, 0.80f);
+    }
+
+    /// <summary>
+    /// 调整后的**预铺血线** —— "提前多久铺盾/预铺"。
+    ///
+    /// [!] 比治疗阈值**反向**：保守时希望"更早铺"（血线更高），
+    ///     所以用的是 `-偏移()` 的反号 —— 偏移为正 = 保守 = 阈值更高 = 更早动手。
+    /// </summary>
+    public static float 预铺血线(float 原值)
+    {
+        return Math.Clamp(原值 + 偏移(), 0.30f, 0.98f);
+    }
+
+    /// <summary>调整后的妖精契约血线（学者）—— 同上，保守时更早交。</summary>
+    public static float 妖精契约血线(float 原值)
+    {
+        return Math.Clamp(原值 + 偏移(), 0.30f, 0.98f);
+    }
+
+    /// <summary>
     /// 调整后的以太保留数。
     /// 保守 → 多留（+1）；激进 → 少留（-1，最低 0）。
     /// </summary>
@@ -263,6 +294,21 @@ public static class AiHookInstaller
 
         try
         {
+            // ── 具名参数：让 AI 能**分别**调每个阈值（而不是一个通用的）──
+            //   [!] 用户的目标：「AI 随时调整策略（各类阈值，风格是激进还是保守等）」
+            //       通用钩子做不到"群体更保守但紧急更激进"，所以必须具名。
+            HealerACR.Common.阈值钩子.挂具名(
+                HealerACR.Common.可调参数.单体治疗阈值, AiThresholdAdapter.单体治疗阈值);
+            HealerACR.Common.阈值钩子.挂具名(
+                HealerACR.Common.可调参数.群体治疗阈值, AiThresholdAdapter.群体治疗阈值);
+            HealerACR.Common.阈值钩子.挂具名(
+                HealerACR.Common.可调参数.紧急单奶阈值, AiThresholdAdapter.紧急单奶阈值);
+            HealerACR.Common.阈值钩子.挂具名(
+                HealerACR.Common.可调参数.预铺血线, AiThresholdAdapter.预铺血线);
+            HealerACR.Common.阈值钩子.挂具名(
+                HealerACR.Common.可调参数.妖精契约血线, AiThresholdAdapter.妖精契约血线);
+
+            // 通用钩子也留着 —— 兜住"将来新加的、还没单独挂钩子的阈值"
             HealerACR.Common.阈值钩子.治疗阈值调整 = AiThresholdAdapter.单体治疗阈值;
             _已挂 = true;
             Ai调试.日志("阈值钩子已挂载 —— AI 的保守/激进会影响实际治疗阈值");

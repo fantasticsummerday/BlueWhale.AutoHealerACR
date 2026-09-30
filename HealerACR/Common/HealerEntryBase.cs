@@ -666,7 +666,7 @@ public abstract class HealerEntryBase : IRotationEntry
         ImGui.Separator();
 
         ImGui.SetNextItemWidth(240);
-        ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值, 0.05f, 0.90f, "%.2f");
+        ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值_基础, 0.05f, 0.90f, "%.2f");
         ImGui.SetNextItemWidth(240);
         ImGui.SliderFloat("单体治疗阈值", ref s.单体治疗阈值_基础, 0.10f, 1.00f, "%.2f");
         ImGui.SetNextItemWidth(240);
@@ -864,7 +864,7 @@ public abstract class HealerEntryBase : IRotationEntry
         if (ImGui.CollapsingHeader("治疗", ImGuiTreeNodeFlags.DefaultOpen))
         {
             ImGui.Checkbox("奶人", ref s.奶人);
-            ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值, 0.1f, 1f, "%.2f");
+            ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值_基础, 0.1f, 1f, "%.2f");
             ImGui.SliderFloat("单体治疗阈值", ref s.单体治疗阈值_基础, 0.1f, 1f, "%.2f");
             ImGui.SliderFloat("群体治疗阈值", ref s.群体治疗阈值_基础, 0.1f, 1f, "%.2f");
             ImGui.SliderInt("群奶最少人数", ref s.群奶最少人数, 1, 8);
@@ -938,7 +938,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Checkbox("用苦难之心", ref s.用苦难之心);
             ImGui.Separator();
             ImGui.TextDisabled("学者 / 贤者");
-            ImGui.SliderFloat("妖精契约血线", ref s.妖精契约血线, 0.3f, 1f, "%.2f");
+            ImGui.SliderFloat("妖精契约血线", ref s.妖精契约血线_基础, 0.3f, 1f, "%.2f");
             ImGui.SliderInt("以太保留数", ref s.以太保留数, 0, 3);
             ImGui.SliderInt("蛇胆保留数", ref s.蛇胆保留数, 0, 3);
             ImGui.SliderInt("箭毒泄刺阈值", ref s.箭毒泄刺阈值, 1, 3);
