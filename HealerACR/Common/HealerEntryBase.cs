@@ -1120,7 +1120,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// </summary>
     private static Action? _画AI设置;
     private static Action? _画记忆库;
-    private static Action? _画调试窗;
+    private static Action<bool>? _画调试窗;
 
     /// <summary>
     /// **画 AI 设置页**（反射调 `BlueWhale.AutoHealerACR.AiSettingPage.画`）。
@@ -1306,11 +1306,18 @@ public abstract class HealerEntryBase : IRotationEntry
                     catch { }
                     if (类型 == null) continue;
 
-                    var 方法 = 类型.GetMethod("画",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                    if (方法 == null) continue;
+                    // [!] **必须显式指定参数签名** —— `调试窗` 有 `画(bool)` 与 `画()` 两个重载，
+                    //     `GetMethod("画", flags)` 在有重载时可能抛 AmbiguousMatchException
+                    //     或返回不确定的那个 ⇒ 用 `GetMethod(name, Type[])` 明确要 `画(bool)`。
+                    var 方法 = 类型.GetMethod(
+                        "画",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                        null,
+                        new[] { typeof(bool) },
+                        null);
 
-                    _画调试窗 = (Action?)Delegate.CreateDelegate(typeof(Action), 方法, false);
+                    if (方法 == null) continue;
+                    _画调试窗 = (Action<bool>?)Delegate.CreateDelegate(typeof(Action<bool>), 方法, false);
                     写诊断($"反射成功：方法={方法.DeclaringType?.FullName}.{方法.Name} 参数数={方法.GetParameters().Length} 返回={方法.ReturnType.Name}");
                     break;
                 }
@@ -1321,7 +1328,10 @@ public abstract class HealerEntryBase : IRotationEntry
             写诊断($"即将调用第{调用次数}次（委托={_画调试窗.Method.DeclaringType?.FullName}.{_画调试窗.Method.Name}）");
             try
             {
-                _画调试窗();
+                // [!] **把本程序集读到的开关值传进去** —— 两个 DLL 的 HealSettings.Instance 是两份，
+                //     不传的话画() 读的是它自己那份，可能永远是 false（这就是那个 bug）。
+                var 开关 = HealSettings.Instance?.启用调试窗 ?? false;
+                _画调试窗(开关);
                 写诊断($"调用返回正常（第{调用次数}次）");
             }
             catch (Exception 内层)

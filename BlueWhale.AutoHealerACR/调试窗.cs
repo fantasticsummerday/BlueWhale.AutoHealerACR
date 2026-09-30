@@ -57,8 +57,22 @@ public static class 调试窗
     // ══════════════════════════════════════════════════════════════════
     private static string? _诊断路径;
     private static string _上次诊断 = "";
-
-    /// <summary>诊断文件路径（`我的文档\BlueWhale调试窗诊断.txt`）。</summary>
+    /// <summary>
+    /// 诊断文件路径（`%APPDATA%\BlueWhale\调试窗-绘制.txt`）。
+    ///
+    /// [!] **为什么和 HealerACR 那份分开** —— 这是个排查结论，不是随意选的
+    ///
+    ///   原来两边都写 `我的文档\BlueWhale调试窗诊断.txt`。而：
+    ///     · HealerACR 的 `写诊断` 用 `StreamWriter { AutoFlush = true }`
+    ///       —— **句柄一直不释放**
+    ///     · 这边的 `记诊断` 用 `File.AppendAllText` —— 每次开关文件
+    ///   实测：HealerACR 侧 500 行（撞上它自己的总量闸门），
+    ///   **这边一行都没有** —— 分不清是"写被锁住"还是"根本没执行到"。
+    ///
+    ///   换独立文件后两种可能立刻可分辨：
+    ///     · 有内容 -> 之前是文件共享冲突
+    ///     · 仍为空 -> `画()` 没走到那句（要往更前面查）
+    /// </summary>
     public static string 诊断路径
     {
         get
@@ -66,12 +80,22 @@ public static class 调试窗
             if (_诊断路径 != null) return _诊断路径;
             try
             {
-                var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                _诊断路径 = System.IO.Path.Combine(文档, "BlueWhale调试窗诊断.txt");
+                var 根 = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var 目录 = System.IO.Path.Combine(根, "BlueWhale");
+                System.IO.Directory.CreateDirectory(目录);
+                _诊断路径 = System.IO.Path.Combine(目录, "调试窗-绘制.txt");
             }
             catch
             {
-                _诊断路径 = "BlueWhale调试窗诊断.txt";
+                try
+                {
+                    _诊断路径 = System.IO.Path.Combine(
+                        System.IO.Path.GetTempPath(), "BlueWhale调试窗-绘制.txt");
+                }
+                catch
+                {
+                    _诊断路径 = "BlueWhale调试窗-绘制.txt";
+                }
             }
             return _诊断路径;
         }
@@ -92,10 +116,23 @@ public static class 调试窗
             if (_记诊断次数 > 5 && 内容 == _上次诊断) return;
             _上次诊断 = 内容;
 
-            var 行 = $"[{DateTime.Now:HH:mm:ss}] {内容}{Environment.NewLine}";
+            var 行 = $"[{DateTime.Now:HH:mm:ss}] #{_记诊断次数} {内容}{Environment.NewLine}";
             System.IO.File.AppendAllText(诊断路径, 行);
         }
-        catch { }
+        catch (Exception e)
+        {
+            // [!] **写失败也要留痕** —— 否则"写不进去"和"没执行到"看起来一样。
+            //     这是这次排查踩的坑：HealerACR 侧有输出、这边一片空白，
+            //     但完全看不出是哪种原因。
+            try
+            {
+                var 兜底 = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "BlueWhale调试窗-写失败.txt");
+                System.IO.File.AppendAllText(兜底,
+                    $"[{DateTime.Now:HH:mm:ss}] 写 {诊断路径} 失败：{e.GetType().Name} {e.Message}{Environment.NewLine}");
+            }
+            catch { }
+        }
     }
 
     /// <summary>用户拖动后的目标位置（null = 还没拖过，用默认贴右缘）。</summary>
@@ -139,16 +176,45 @@ public static class 调试窗
     ///     画一次之后会自己留在屏幕上（ImGui 的窗口是持久的），
     ///     所以"每帧画"实际效果就是"窗口一直开着、数据一直刷新"。
     /// </summary>
-    public static void 画()
+    /// <summary>
+    /// **每帧画**（由 HealerACR 的设置页调用）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] **为什么要收一个 `启用` 参数**（这是个真 bug 的修法）
+    ///
+    ///    `HealSettings` 被 `<Compile Include="..\HealerACR\**\*.cs">`
+    ///    编译进了**两个 DLL** ⇒ `HealSettings.Instance` 是**两份独立的静态字段**：
+    ///        HealerACR.dll 的 Instance.启用调试窗   <- 设置页写的是这个
+    ///        BlueWhale.dll 的 Instance.启用调试窗   <- 之前 画() 读的是这个
+    ///
+    ///    ⇒ 设置页明明勾上了，`画()` 里 `开` 却是 false
+    ///      ⇒ 在 `if (!开) return;` 直接返回
+    ///      ⇒ **窗口永不出现，而且没有任何线索**（这个现象排查了很久）。
+    ///
+    ///  [!] 修法：开关值由**设置页所在的程序集**直接传进来，
+    ///      不再依赖跨程序集共享的静态状态。这样无论两个 DLL 怎么分都是对的。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static void 画(bool 启用)
     {
-        // ★ 诊断：先记【被调到了】，再判开关 ★
+        // ★ 诊断：先记【被调到了】+ 【收到的开关值】，再判开关 ★
         //   [!] 顺序很重要 —— 先 return 再记的话，就分不清
-        //      【没被调到】和【被调到但开关是关的】这两种情况。
-        记诊断($"画() 被调用（第{++_画次数}次）：开关={开} " +
-                   $"屏={ImGui.GetIO().DisplaySize.X:F0}x{ImGui.GetIO().DisplaySize.Y:F0}");
-        
-        if (!开) return;
+        //      【没被调到】和【被调到但开关是关的】。
+        记诊断($"画(启用={启用}) 被调用（第{++_画次数}次） " +
+               $"屏={ImGui.GetIO().DisplaySize.X:F0}x{ImGui.GetIO().DisplaySize.Y:F0} " +
+               $"本程序集读到的开={开}");
 
+        if (!启用) return;
+
+        绘制();
+    }
+
+    /// <summary>无参版（兼容旧调用点）—— 用本程序集读到的开关值。</summary>
+    public static void 画() => 画(开);
+
+    /// <summary>真正的绘制（开关已由调用方决定）。</summary>
+    private static void 绘制()
+    {
         try
         {
             // ══════════════════════════════════════════════════════════════
