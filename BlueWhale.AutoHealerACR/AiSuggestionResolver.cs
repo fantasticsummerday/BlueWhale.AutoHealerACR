@@ -228,6 +228,51 @@ public class AiSuggestionResolver : ISlotResolver
             //     （即刻咏唱 / 连续咏唱 / 光速 / 炽天附体），
             //     所以"开着即刻想移动中拉人"不会被误挡。
             // ══════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ 本地兜底闸门 —— AI 路径**必须同样遵守** ★★
+            //
+            //  [!] 修的是两条AI 开着比关掉更差的路径（兜底审计确认）：
+            //
+            //   ① **低蓝闸门被绕过**
+            //      `Res_低蓝闸门.套上()` 是在 `HealerEntryBase.构建决策队列()` 里
+            //      **就地包装**的，而本 resolver 是之后 `Insert(0)` 进去的
+            //      ==> **从来没被包过**；`低蓝停手` 在 BlueWhale 里**零引用**。
+            //      后果：AI 关掉时 2000 蓝以下所有输出全停、蓝留给治疗；
+            //            AI 开着时**可以继续输出把最后的蓝花光** ==> 然后治不了人。
+            //
+            //   ② **必须奶满 被输出建议抢占**
+            //      `Res_MustFullHeal` 在 AI 路径上**没有对应物**，而唯一那条
+            //      治疗优先闸门是按**血线**判的 —— 提示词自己都写着
+            //      「那个人可能血量看着很健康（比如 80%）」==> 闸门不触发。
+            //      后果：AI 一条输出建议就能把必须奶满挤掉。
+            //
+            //  [!] 判据用**本地同一个函数**（`蓝量.低蓝停手()` / `必须奶满.找目标()`），
+            //      不自己造（开发约定 F③：同一决策只有一种判法）。
+            // ══════════════════════════════════════════════════════════════
+            try
+            {
+                var 是输出技 = 这个ID是输出技(id);
+            
+                // ① 低蓝停手（和本地装饰器同源）
+                if (是输出技 && HealerACR.Common.蓝量.低蓝停手())
+                {
+                    拦截("低蓝停手：输出让位，蓝留给治疗");
+                    return -1;
+                }
+            
+                // ② 有人「必须奶满」-> 非治疗建议一律让位
+                if (!是治疗技(id))
+                {
+                    var 要紧的 = HealerACR.Common.必须奶满.找目标();
+                    if (要紧的 != null)
+                    {
+                        拦截("有人必须奶满：先救他，其余建议让位");
+                        return -1;
+                    }
+                }
+            }
+            catch { }
+            
             if (!SpellUtil.移动中可用(id))
             {
                 拦截("移动中，读条技能放不出来");
@@ -977,6 +1022,34 @@ public class AiSuggestionResolver : ISlotResolver
         }
         catch { }
         return null;
+    }
+    
+    /// <summary>**这条建议是不是输出技**（低蓝时要停的那类）。</summary>
+    private static bool 这个ID是输出技(uint id)
+    {
+        try
+        {
+            var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+            if (表 == null) return false;
+            if (id == 表.基础输出 || id == 表.群体输出 || id == 表.Dot技能) return true;
+            if (id == 表.移动填充技 || id == 表.站定填充技) return true;
+            if (表.输出能力技 != null && Array.IndexOf(表.输出能力技, id) >= 0) return true;
+            if (表.自身AOE候选 != null && Array.IndexOf(表.自身AOE候选, id) >= 0) return true;
+        }
+        catch { }
+        return false;
+    }
+    
+    /// <summary>**这条建议是不是治疗/减伤/复活/驱散**（必须奶满时要放行的）。</summary>
+    private static bool 是治疗技(uint id)
+    {
+        try
+        {
+            var t = 判目标类型(id);
+            return t == 施法目标类型.队友 || t == 施法目标类型.自己
+                || t == 施法目标类型.待复活队友;
+        }
+        catch { return false; }
     }
     
     private static 施法目标类型 判目标类型(uint id)
