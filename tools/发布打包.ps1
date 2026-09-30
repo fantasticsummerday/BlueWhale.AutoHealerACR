@@ -71,21 +71,30 @@ function 数时间轴($目录) {
 #    `HealerACR-1.4.0` 会排在 `HealerACR-1.34.0` 后面（"4" > "3"），
 #    于是会选中很旧的包（实测差点选中 1.4.0）。
 function 最新旧包($release目录, $前缀) {
+    # [!] 用 .NET 的 `[version]` 比较，**不要**自己拼整数。
+    #
+    # ⚠️ 原来写的是 `主*1000000 + 次*1000 + 修订`（只取前三段）——
+    #    版本号前缀改成 `0.3.x` 之后，`0.3.19.53` 算出来是 3019，
+    #    而旧的 `3.19.53` 算出来是 3019053
+    #    ==> **"最新包"会被判成比旧包更旧**，兜底取到错误的包。
+    #
+    # [!] `[version]` 按**段**做数值比较，而且 3 段 / 4 段混用没问题
+    #     （段数少的按 0 补）：`[version]"3.19.53"` > `[version]"0.3.19.53"`。正确。
+    #
+    # [!] 排序仍要按**比较结果**来，不能用字符串 —— 那正是这个函数注释里
+    #     记着的另一个坑（`1.4.0` 会排在 `1.34.0` 后面）。
     Get-ChildItem $release目录 -Directory -Filter "$前缀-*" |
         ForEach-Object {
             $v = $_.Name.Substring($前缀.Length + 1)
-            $parts = $v.Split(".")
-            $num = 0
-            if ($parts.Count -ge 3 -and
-                [int]::TryParse($parts[0], [ref]$num)) {
-                # 拼成可比较的数字：主*1000000 + 次*1000 + 修订
+            $parsed = $null
+            if ([version]::TryParse($v, [ref]$parsed)) {
                 [pscustomobject]@{
                     目录 = $_
-                    序 = [int]$parts[0] * 1000000 + [int]$parts[1] * 1000 + [int]$parts[2]
+                    版本 = $parsed
                 }
             }
         } |
-        Sort-Object 序 -Descending |
+        Sort-Object 版本 -Descending |
         Select-Object -First 1
 }
 
