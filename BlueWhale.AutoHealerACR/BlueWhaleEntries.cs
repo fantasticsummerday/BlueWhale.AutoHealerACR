@@ -1065,7 +1065,11 @@ public static class AiSettingPage
         ImGui.TextDisabled("  AI 判断『这波该保守还是该激进』，然后微调治疗阈值");
 
         if (ImGui.Checkbox("阶段 B：决策层（出技能建议，高频）", ref s.启用决策层)) 保存并提示("阶段B开关");
-        ImGui.TextDisabled("  对延迟敏感（GCD 只有 2.5 秒），建议先只开阶段 A");
+        // [!] 原来这里写"对延迟敏感（GCD 只有 2.5 秒），建议先只开阶段 A"。
+        //     那句基于"延迟压不下来"，而延迟的根因（官方**默认开启思考 + effort=high**）
+        //     已经关掉了 —— 开着思考时中位 2.6 秒，比 GCD 还长，那才是问题所在。
+        //     => 现在不该再劝阻开阶段 B。
+        ImGui.TextDisabled("  出技能建议（预取队列备货）。关思考后延迟已明显改善");
 
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("策略刷新（秒）", ref s.策略刷新秒, 3, 60);
@@ -1135,7 +1139,11 @@ public static class AiSettingPage
         // ---- 实时状态 ----
         ImGui.Separator();
         ImGui.Text("AI 当前状态");
-        ImGui.Text($"  状态：{DeepSeekClient.状态描述()}    连续失败：{DeepSeekClient.连续失败数}");
+        // [!] "连续失败" 原来是**各通道求和** —— 直接显示会和下面的
+        //     "连续失败上限" 对不上（上限是**单通道**的）。
+        //     做了通道独立熔断之后，该看的是**哪个通道**在失败。
+        ImGui.Text($"  状态：{DeepSeekClient.状态描述()}");
+        ImGui.TextDisabled($"  通道：{DeepSeekClient.通道摘要()}");
 
         // ══════════════════════════════════════════════════════════════
         //  ── 最近的 AI 请求历史 ──
