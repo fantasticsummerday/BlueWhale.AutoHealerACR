@@ -136,7 +136,7 @@ public class Res_TeamMitigation : ISlotResolver
                 try
                 {
                     // ② T 站定了没
-                    var 主坦 = HealTargetHelper.血量最低的坦克();
+                    var 主坦 = HealTargetHelper.队伍里的坦克();
                     if (主坦 != null && !HealerACR.Common.敌人移动检测.玩家站得稳(主坦))
                         return -7;      // T 还在动（或数据不足）-> 先别铺
             
@@ -155,7 +155,7 @@ public class Res_TeamMitigation : ISlotResolver
             //    （参考同类 ACR 的罩子 Check 里的 409/811/810）
             try
             {
-                var 主坦 = HealTargetHelper.血量最低的坦克();
+                var 主坦 = HealTargetHelper.队伍里的坦克();
                 if (主坦 != null && 主坦.处于假死状态()) return -5;
             }
             catch { }

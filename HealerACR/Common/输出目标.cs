@@ -221,7 +221,7 @@ public static class 输出目标
 
                 // 活着 + 有仇恨 + 够得着，三个都满足才继续粘
                 if (e.CurrentHp == 0) return null;
-                if (!HealTargetHelper.有仇恨(e)) return null;
+                if (!HealTargetHelper.稳定仇恨(e)) return null;
 
                 var 距离 = Vector3.Distance(Core.Me.Position, e.Position);
                 if (距离 > 可打距离) return null;
@@ -275,7 +275,7 @@ public static class 输出目标
                 var 分 = 0f;
 
                 // ① 硬门槛：没仇恨直接跳过（绝不 ADD）
-                if (!HealTargetHelper.有仇恨(e)) continue;
+                if (!HealTargetHelper.稳定仇恨(e)) continue;
 
                 var 距离 = Vector3.Distance(Core.Me.Position, e.Position);
                 if (距离 > 可打距离) continue;

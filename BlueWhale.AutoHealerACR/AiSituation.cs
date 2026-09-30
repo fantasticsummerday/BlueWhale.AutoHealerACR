@@ -877,7 +877,7 @@ public static class AiSituation
             sb.AppendLine($"低于 35%：{危急} 人（不含自己）");
 
             // 坦克单独列 —— 治疗最关心它
-            var 坦克 = HealTargetHelper.血量最低的坦克();
+            var 坦克 = HealTargetHelper.队伍里的坦克();
             if (坦克 != null)
             {
                 sb.AppendLine($"最危险的坦克：{坦克.Name}（{坦克.血量比例() * 100f:F0}%）");
