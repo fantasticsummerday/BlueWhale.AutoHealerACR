@@ -324,7 +324,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 白魔";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管治疗输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管白魔的输出决策";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -428,7 +428,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 学者";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管治疗输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管学者的输出决策";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -532,7 +532,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 占星";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管治疗输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管占星的输出决策";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -636,7 +636,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 贤者";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管治疗输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管贤者的输出决策";
 
     /// <summary>
     /// ★ 必须 override ★

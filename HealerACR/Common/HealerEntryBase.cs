@@ -406,7 +406,7 @@ public abstract class HealerEntryBase : IRotationEntry
         //      现象是"已经切到别的 ACR 了，左下角还在刷小鲸鱼的日志"。
         //      （静态类不依赖实例，所以照样执行、照样打日志。）
         // ══════════════════════════════════════════════════════════════
-        _本入口代次 = ++_全局代次;
+        登记身份();
 
         try
         {
@@ -423,28 +423,7 @@ public abstract class HealerEntryBase : IRotationEntry
                 //  [!] 任一不满足就**直接返回**，且**不打日志** ——
                 //      打日志同样会刷屏，那正是用户看到的现象。
                 // ══════════════════════════════════════════════════════
-                if (_本入口代次 != _全局代次) return;
-
-                try
-                {
-                    var 当前 = AEAssist.CombatRoutine.Data.currRotation;
-                    if (当前 == null) return;
-
-                    // [!] 三条判据叠加，任何一条不符就返回 ——
-                    //     因为每一条单独都可能在某个场景失效（见下）。
-                    //
-                    //  ⚠️ 为什么不用视图窗口比对：
-                    //     `GetRotationUI()` 是**入口类**的方法，
-                    //     而 `Data.currRotation` 是框架的 `Rotation` —— 类型对不上。
-                    if (当前.TargetJob != TargetJob) return;
-
-                    // ⚠️ 代次是 static，**程序集重载时会从 0 重来** ⇒ 光靠它不够；
-                    //    TargetJob 只区分职业 ⇒ 别的 ACR 也做学者时挡不住。
-                    //    `Description` 是本项目自己写死的字符串，能唯一标识本 ACR。
-                    if (!string.Equals(当前.Description, Description, StringComparison.Ordinal))
-                        return;
-                }
-                catch { return; }   // 读不到就当作"不是当前"：宁可少跑，不抢别人的帧
+                if (!ACR身份.是当前()) return;
 
                 // ★ 进本识别：必须在这里，不能只在 OnBattleUpdate ★
                 //
@@ -938,13 +917,34 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>全局代次 —— 每次 `Build()` 递增。**必须是 static**（跨实例共享）</summary>
     private static long _全局代次;
 
-    /// <summary>本入口是第几代 —— 回调靠它判断"有没有被后来的 Build 取代"</summary>
-    private long _本入口代次;
 
 
 
     /// <summary>本入口注册的每帧回调 —— `Dispose` 要按引用清掉它</summary>
     private Action? _每帧回调;
+
+    /// <summary>
+    /// **登记本入口的身份** —— 供静态判据 <see cref="ACR身份.是当前"/> 使用。
+    ///
+    /// [!] 为什么必须登记（实测 bug，两处都栽过）：
+    ///     · 每帧回调：重载 ACR 后旧回调还在跑
+    ///     · `OnEnterRotation()`：**框架会对所有已加载的 ACR 调它**
+    ///       => 没被选中的小鲸鱼也被拉起来初始化（白花 API 请求）
+    ///
+    /// [!] 为什么写成静态：`OnEnterRotation()` 在 `HealRotationEventHandler` 里，
+    ///     那是独立类，拿不到入口实例。
+    /// </summary>
+    protected void 登记身份()
+    {
+        try
+        {
+            ACR身份.全局代次 = ++_全局代次;
+            ACR身份.本入口代次 = _全局代次;
+            ACR身份.描述 = Description;
+            ACR身份.职业 = (int)TargetJob;
+        }
+        catch { }
+    }
 
     public virtual void Dispose()
     {
@@ -963,7 +963,7 @@ public abstract class HealerEntryBase : IRotationEntry
         //      （`OnBattleUpdate` 只在战斗里跑就是最典型的一次），
         //      所以 ②③ 必须在，`Dispose` 只是主动一点。
         // ══════════════════════════════════════════════════════════════
-        try { _本入口代次 = -1; } catch { }
+        try { ACR身份.本入口代次 = -1; } catch { }
         _每帧回调 = null;
 
         // ══════════════════════════════════════════════════════════════
@@ -1333,10 +1333,28 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ② 队伍规模要重新判定（切职业常常伴随换队伍 / 换本）
         try { HealTargetHelper.刷新队伍规模(); } catch { }
 
-        // ③ 通知 AI 层：清状态 **并且** 重新初始化
-        try { 记忆钩子.通知进入循环(); } catch { }
-
-        LogHelper.Info("[HealerACR] 进入职业循环 -> 已清理本地状态并通知 AI 层");
+        // ══════════════════════════════════════════════════════════════
+        //  ★ ③ 通知 AI 层 —— **只在"我确实是当前 ACR"时才通知** ★
+        //
+        //  [!] 这是实测 bug 的根因（第二次修）：
+        //      ACR 重载时框架会对**所有已加载的 ACR** 调 `OnEnterRotation`。
+        //      原来这里无条件通知 ⇒ 没被选中的小鲸鱼也被拉起来初始化，
+        //      现象是"界面明明默认是别的 ACR，小鲸鱼却完成了初始化"，
+        //      而且**白花 API 请求**（初始化是完整的一轮请求）。
+        //
+        //  [!] 为什么本地层重置（①②）**不**加守卫：
+        //      它们幂等、代价极小，而且是"万一真被选中"该做的准备。
+        //      只有**发 API 请求 / 打日志**的部分必须挡住。
+        // ══════════════════════════════════════════════════════════════
+        if (ACR身份.是当前())
+        {
+            try { 记忆钩子.通知进入循环(); } catch { }
+            LogHelper.Info("[HealerACR] 进入职业循环（当前 ACR）-> 已清理本地状态并通知 AI 层");
+        }
+        else
+        {
+            LogHelper.Info("[HealerACR] 进入职业循环（非当前 ACR）-> 只清本地状态，不惊动 AI 层");
+        }
     }
 
     public void OnExitRotation()
@@ -1397,4 +1415,72 @@ public class HealRotationEventHandler : IRotationEventHandler
     }
 
 
+}
+
+/// <summary>
+/// **ACR 身份判据** —— "我是不是当前生效的那个 ACR？"
+///
+/// ══════════════════════════════════════════════════════════════════
+///  [!] 为什么需要它（实测 bug，两处都栽过）
+///
+///    · 每帧回调：重载 ACR 后旧回调还在跑
+///      -> 切到别的 ACR 了还刷小鲸鱼的日志
+///    · `HealRotationEventHandler.OnEnterRotation()`：
+///      **框架会对所有已加载的 ACR 调它**
+///      -> 没被选中的小鲸鱼也被拉起来初始化（白花 API 请求）
+///
+///  [!] 为什么做成静态
+///
+///    `OnEnterRotation()` 在 `HealRotationEventHandler` 里，
+///    那是**独立的类**，拿不到入口实例 —— 所以判据只能是静态的。
+///
+///  [!] 为什么用**多条**判据叠加（每条单独都会在某个场景失效）
+///
+///    · 代次       —— `static` 字段，**程序集重载时从 0 重来** => 光靠它不够
+///    · `TargetJob`  —— 只区分**职业**，别的 ACR 也做学者时挡不住
+///    · 描述串     —— 本项目自己写死的串，能唯一标识本 ACR
+///
+///  [!] 读不到 `currRotation` 时返回 **false**（当作"不是我"）——
+///      宁可少做，也不要在别人的 ACR 里乱动、乱发请求。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public static class ACR身份
+{
+    /// <summary>全局代次 —— 每次入口 `构建QT()` 递增</summary>
+    public static long 全局代次;
+
+    /// <summary>当前入口的代次</summary>
+    public static long 本入口代次;
+
+    /// <summary>当前入口的 Description（能唯一标识本 ACR）</summary>
+    public static string 描述 = "";
+
+    /// <summary>当前入口的 TargetJob</summary>
+    public static int 职业;
+
+    /// <summary>**我是不是当前生效的那个 ACR？**</summary>
+    public static bool 是当前()
+    {
+        try
+        {
+            // ① 代次：挡住"同一次会话里被后来的 Build 取代"
+            if (本入口代次 > 0 && 本入口代次 != 全局代次) return false;
+
+            var 当前 = AEAssist.CombatRoutine.Data.currRotation;
+            if (当前 == null) return false;
+
+            // ② 职业
+            if ((int)当前.TargetJob != 职业) return false;
+
+            // ③ 描述串
+            if (!string.Equals(当前.Description, 描述, StringComparison.Ordinal))
+                return false;
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
