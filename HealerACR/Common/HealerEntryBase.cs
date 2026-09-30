@@ -145,6 +145,21 @@ public abstract class HealerEntryBase : IRotationEntry
             Description = Description,
         };
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 记下本入口的旋转对象 —— 每帧回调靠它确认"我还是当前 ACR 吗" ★
+        //
+        //  [!] 为什么必须记（实测 bug）：
+        //      框架把回调存进 `JobViewWindow.UpdateAction`，**每帧无条件调**。
+        //      小鲸鱼有 5 个入口，只用"是不是小鲸鱼"判断的话，
+        //      **5 个回调会互相抢帧**（每个都以为自己是当前的那个）。
+        //      用引用比对才能唯一确定"这个回调属于被选中的那个入口"。
+        //
+        //  [!] 赋值位置在 rotation 构造之后、回调注册之前 ——
+        //      `构建QT()`（回调在那里注册）跑在 `base.Build()` 里，
+        //      比这里**早**，所以回调第一次执行时字段已经赋值了。
+        // ══════════════════════════════════════════════════════════════
+        _本入口旋转 = rotation;
+
         var rot = rotation
             .SetRotationEventHandler(new HealRotationEventHandler())
             // 日随用的"起手"其实只会做开怪倒计时预铺，序列是空的
@@ -406,7 +421,6 @@ public abstract class HealerEntryBase : IRotationEntry
         //      现象是"已经切到别的 ACR 了，左下角还在刷小鲸鱼的日志"。
         //      （静态类不依赖实例，所以照样执行、照样打日志。）
         // ══════════════════════════════════════════════════════════════
-        登记身份();
 
         try
         {
@@ -423,7 +437,28 @@ public abstract class HealerEntryBase : IRotationEntry
                 //  [!] 任一不满足就**直接返回**，且**不打日志** ——
                 //      打日志同样会刷屏，那正是用户看到的现象。
                 // ══════════════════════════════════════════════════════
-                if (!ACR身份.是当前()) return;
+                // ══════════════════════════════════════════════════════
+                //  ★ 守卫：这个回调还属于本入口吗 ★
+                //
+                //  [!] 这里比"挂载门"更严格 —— 必须排除**兄弟入口**：
+                //      小鲸鱼有 5 个入口（白魔/学者/占星/贤者/幻术师），
+                //      如果只用"是不是小鲸鱼"，5 个回调会**互相抢帧**
+                //      （每个都以为自己是当前的那个）。
+                //      => 用 `ReferenceEquals` 比对本入口的旋转对象。
+                //
+                //  [!] 判据：`Data.currRotation` 是不是**本入口 Build 出来的那个**
+                //      `_本入口旋转` 在 `Build()` 里赋值（那时 rotation 已构造完）。
+                //      只有被选中的那个入口的旋转会成为 `currRotation`。
+                //
+                //  [!] 读不到就返回（宁可少跑，不抢别人的帧），且**不打日志**。
+                // ══════════════════════════════════════════════════════
+                try
+                {
+                    var 当前 = AEAssist.CombatRoutine.Data.currRotation;
+                    if (当前 == null) return;
+                    if (!ReferenceEquals(当前, _本入口旋转)) return;
+                }
+                catch { return; }
 
                 // ★ 进本识别：必须在这里，不能只在 OnBattleUpdate ★
                 //
@@ -934,14 +969,17 @@ public abstract class HealerEntryBase : IRotationEntry
     //  ★ 每帧回调的存活判定（见 `Build` 里的说明）★
     // ══════════════════════════════════════════════════════════════
 
-    /// <summary>全局代次 —— 每次 `Build()` 递增。**必须是 static**（跨实例共享）</summary>
-    private static long _全局代次;
-
 
 
 
     /// <summary>本入口注册的每帧回调 —— `Dispose` 要按引用清掉它</summary>
     private Action? _每帧回调;
+
+    /// <summary>
+    /// 本入口 `Build()` 造出来的旋转对象 —— 每帧回调靠它确认
+    /// "我还是当前 ACR 吗"（排除 5 个兄弟入口互相抢帧）。
+    /// </summary>
+    private Rotation? _本入口旋转;
 
     /// <summary>
     /// **登记本入口的身份** —— 供静态判据 <see cref="ACR身份.是当前"/> 使用。
@@ -969,6 +1007,13 @@ public abstract class HealerEntryBase : IRotationEntry
     /// </summary>
     internal static void 尝试挂载AI层反射()
     {
+        // [!] **故意不缓存"找过"** ——
+        //     这个方法的用途正是**兜底**：只要哪一帧发现自己是当前 ACR 就该挂上。
+        //     如果缓存"找过"，那么第一帧（BlueWhale 可能还没加载完）找不到之后，
+        //     用户再切到小鲸鱼时也会被缓存挡掉 —— **兜底彻底失效**。
+        //
+        //     性能不是问题：挂上之后 `尝试挂载AI层()` 里 `_已挂载` 立即短路，
+        //     所以这段反射只在**没挂上**时每帧跑 —— 那本来就是异常状态。
         try
         {
             foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
@@ -983,18 +1028,6 @@ public abstract class HealerEntryBase : IRotationEntry
                 方法?.Invoke(null, null);
                 return;
             }
-        }
-        catch { }
-    }
-
-    protected void 登记身份()
-    {
-        try
-        {
-            ACR身份.全局代次 = ++_全局代次;
-            ACR身份.本入口代次 = _全局代次;
-            ACR身份.描述 = Description;
-            ACR身份.职业 = (int)TargetJob;
         }
         catch { }
     }
@@ -1016,7 +1049,6 @@ public abstract class HealerEntryBase : IRotationEntry
         //      （`OnBattleUpdate` 只在战斗里跑就是最典型的一次），
         //      所以 ②③ 必须在，`Dispose` 只是主动一点。
         // ══════════════════════════════════════════════════════════════
-        try { ACR身份.本入口代次 = -1; } catch { }
         _每帧回调 = null;
 
         // ══════════════════════════════════════════════════════════════
@@ -1517,41 +1549,82 @@ public class HealRotationEventHandler : IRotationEventHandler
 /// </summary>
 public static class ACR身份
 {
-    /// <summary>全局代次 —— 每次入口 `构建QT()` 递增</summary>
-    public static long 全局代次;
+    /// <summary>
+    /// 本 ACR 的 Description 前缀 —— 用来判断"当前旋转是不是我们小鲸鱼的"。
+    ///
+    /// [!] 为什么用前缀而不是"精确匹配某个入口的 Description"：
+    ///     小鲸鱼有 5 个入口（白魔/学者/占星/贤者/幻术师），
+    ///     它们的 Description **都是这个前缀开头**。
+    ///     "要不要初始化 AI"是**整套 AI 层**的事，5 个入口共用一份 ——
+    ///     所以只要当前是小鲸鱼的任意一个入口就该挂上。
+    /// </summary>
+    public const string 本ACR前缀 = "BlueWhale.AutoHealerACR";
 
-    /// <summary>当前入口的代次</summary>
-    public static long 本入口代次;
-
-    /// <summary>当前入口的 Description（能唯一标识本 ACR）</summary>
-    public static string 描述 = "";
-
-    /// <summary>当前入口的 TargetJob</summary>
-    public static int 职业;
-
-    /// <summary>**我是不是当前生效的那个 ACR？**</summary>
+    /// <summary>
+    /// **当前生效的 ACR 是不是我们小鲸鱼的？**
+    ///
+    /// ══════════════════════════════════════════════════════════════
+    ///  [!] 为什么不能靠"入口自己登记的身份"（前三版都栽在这里）
+    ///
+    ///    原来设计成：每个入口 `Build()` 时把自己的 Description / 职业
+    ///    写进一个**静态持有者**，判据再拿它和 `currRotation` 比。
+    ///    根本问题：**5 个入口共用一个持有者，后写的覆盖先写的** ——
+    ///    Build 循环跑完只剩"最后一个入口"的身份，
+    ///    而当前 ACR 可能是其中**任何一个** => 判据**不可能对**。
+    ///
+    ///  [!] 为什么这个判据对
+    ///
+    ///    · 5 个入口的 Description **都有本前缀** => 五个都匹配
+    ///    · 别的 ACR（Shiyu / YouShu）没有这个前缀 => 挡住
+    ///    · 不依赖"哪个入口"、不依赖代次
+    ///      => **发现阶段 / 重载 / 切换职业都成立**
+    ///
+    ///  [!] 读不到 `currRotation` 时返回 **false**（当作"不是我"）——
+    ///      宁可少做，也不要在别人的 ACR 里乱发请求。
+    ///
+    ///  [!] 这个判据**只用于挂载门**。每帧回调的存活判定要更严格
+    ///      （排除 5 个兄弟入口互相抢帧），那边用引用比对。
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
     public static bool 是当前()
     {
         try
         {
-            // ① 代次：挡住"同一次会话里被后来的 Build 取代"
-            if (本入口代次 > 0 && 本入口代次 != 全局代次) return false;
-
             var 当前 = AEAssist.CombatRoutine.Data.currRotation;
             if (当前 == null) return false;
 
-            // ② 职业
-            if ((int)当前.TargetJob != 职业) return false;
+            var 描述 = 当前.Description;
+            if (string.IsNullOrEmpty(描述)) return false;
 
-            // ③ 描述串
-            if (!string.Equals(当前.Description, 描述, StringComparison.Ordinal))
-                return false;
-
-            return true;
+            return 描述.StartsWith(本ACR前缀, StringComparison.Ordinal);
         }
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// **诊断串** —— 判据失败时打出来，方便一眼看出当时的真实值。
+    ///
+    /// 前三版都是"猜为什么没匹配上"，加上这个就不用猜了。
+    /// </summary>
+    public static string 诊断()
+    {
+        try
+        {
+            var 当前 = AEAssist.CombatRoutine.Data.currRotation;
+            if (当前 == null) return "currRotation=null";
+
+            string 描;
+            try { 描 = 当前.Description ?? ""; } catch { 描 = "(读取异常)"; }
+
+            return $"currRotation.Description=『{描}』 期望前缀=『{本ACR前缀}』"
+                 + $" TargetJob={当前.TargetJob}";
+        }
+        catch (Exception e)
+        {
+            return "诊断异常: " + e.Message;
         }
     }
 }

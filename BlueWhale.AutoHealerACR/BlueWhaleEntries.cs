@@ -339,17 +339,18 @@ public static class Ai层挂载
                 if (现在 - _上次跳过日志 > 30000)
                 {
                     _上次跳过日志 = 现在;
-                    LogHelper.Info("[BlueWhale.AI] 本次触发不是当前 ACR（"
-                        + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
-                            ? "身份未登记"
-                            : HealerACR.Common.ACR身份.描述)
-                        + "）-> 跳过 AI 层挂载（不发请求）");
+                    // [!] 带上诊断串 —— 前三版都是"猜为什么没匹配上"，
+                    //     有它就不用猜了（直接看到真实的 currRotation 是什么）。
+                    LogHelper.Info("[BlueWhale.AI] 当前 ACR 不是小鲸鱼 -> 跳过 AI 层挂载（不发请求）｜"
+                        + HealerACR.Common.ACR身份.诊断());
                 }
                 return;
             }
 
             挂载();
             _已挂载 = true;
+            LogHelper.Info("[BlueWhale.AI] 当前 ACR 是小鲸鱼 -> AI 层已挂载｜"
+                + HealerACR.Common.ACR身份.诊断());
         }
         catch (Exception e)
         {
@@ -565,22 +566,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
         //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
         //      真正被选中时 `OnEnterRotation` 会补上。
         // ══════════════════════════════════════════════════════════════
-        if (HealerACR.Common.ACR身份.是当前())
-        {
-            Ai层挂载.尝试挂载AI层();
-        }
-        else
-        {
-            try
-            {
-                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
-                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
-                        ? "身份未登记"
-                        : HealerACR.Common.ACR身份.描述)
-                    + "）-> 跳过 AI 层挂载（不发请求）");
-            }
-            catch { }
-        }
+        Ai层挂载.尝试挂载AI层();
 
 
         return rot;
@@ -705,22 +691,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
         //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
         //      真正被选中时 `OnEnterRotation` 会补上。
         // ══════════════════════════════════════════════════════════════
-        if (HealerACR.Common.ACR身份.是当前())
-        {
-            Ai层挂载.尝试挂载AI层();
-        }
-        else
-        {
-            try
-            {
-                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
-                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
-                        ? "身份未登记"
-                        : HealerACR.Common.ACR身份.描述)
-                    + "）-> 跳过 AI 层挂载（不发请求）");
-            }
-            catch { }
-        }
+        Ai层挂载.尝试挂载AI层();
 
 
         return rot;
@@ -845,22 +816,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
         //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
         //      真正被选中时 `OnEnterRotation` 会补上。
         // ══════════════════════════════════════════════════════════════
-        if (HealerACR.Common.ACR身份.是当前())
-        {
-            Ai层挂载.尝试挂载AI层();
-        }
-        else
-        {
-            try
-            {
-                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
-                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
-                        ? "身份未登记"
-                        : HealerACR.Common.ACR身份.描述)
-                    + "）-> 跳过 AI 层挂载（不发请求）");
-            }
-            catch { }
-        }
+        Ai层挂载.尝试挂载AI层();
 
 
         return rot;
@@ -1292,22 +1248,7 @@ public override Rotation Build(string settingFolder)
         //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
         //      真正被选中时 `OnEnterRotation` 会补上。
         // ══════════════════════════════════════════════════════════════
-        if (HealerACR.Common.ACR身份.是当前())
-        {
-            Ai层挂载.尝试挂载AI层();
-        }
-        else
-        {
-            try
-            {
-                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
-                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
-                        ? "身份未登记"
-                        : HealerACR.Common.ACR身份.描述)
-                    + "）-> 跳过 AI 层挂载（不发请求）");
-            }
-            catch { }
-        }
+        Ai层挂载.尝试挂载AI层();
 
 
         return rot;
