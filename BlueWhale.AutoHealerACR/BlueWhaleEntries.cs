@@ -1180,6 +1180,17 @@ public static class AiSettingPage
         ImGui.TextWrapped("  " + AiThresholdAdapter.状态描述());
 
         ImGui.TextDisabled($"  策略层：启用={s.启用策略层}  刷新中={AiStrategyLayer.刷新中}  成功={AiStrategyLayer.成功次数} 次");
+        // ★ 把"AI 就绪"和"策略真的生效了"分开显示 ★
+        //   原来两者混在一起：面板写「AI 就绪」时策略可能还是 Unknown，
+        //   用户会以为阈值已经被 AI 调过了（见 `AiStrategyLayer.立刻刷新` 的说明）。
+        {
+            var 倾向未知 = AiStrategyLayer.当前倾向 == AiStrategyLayer.倾向.未知;
+            if (倾向未知)
+                ImGui.TextColored(new System.Numerics.Vector4(1f, 0.75f, 0.2f, 1f),
+                    "  ⚠ 策略还是『未知』—— 治疗阈值用的仍是本地默认值（等第一次策略刷新）");
+            else
+                ImGui.TextDisabled($"  当前倾向：{AiStrategyLayer.当前倾向}（{AiStrategyLayer.说明}）");
+        }
         ImGui.TextDisabled($"  上次结果：{AiStrategyLayer.上次结果}");
 
         var 建议 = AiDecisionLayer.当前建议;

@@ -38,8 +38,138 @@ public static class DeepSeekClient
         Timeout = TimeSpan.FromSeconds(60),
     };
 
-    private static int _连续失败;
-    private static long _熔断到;             // 熔断解除的时间戳（TimeHelper.Now()）
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 通道独立熔断 ★
+    //
+    //  [!] 为什么改（第三方审阅指出、已核实）：
+    //      原来所有调用共用一个 `_连续失败` + 一个 `_熔断到`：
+    //          初始化 / 策略层 / 决策层 / 记忆提炼
+    //      => **决策层高频失败会把熔断器推上去，连累正常的策略层**。
+    //
+    //      这个隐患代码注释里其实写出来过（原 L965-966）：
+    //        「决策层超时 -> 熔断 -> 策略层也被停掉（两层共用一个熔断器）」
+    //      当时的对策是"给超时单独放宽上限" —— 缓解了症状，根因还在。
+    //
+    //  [!] 语义：
+    //      · 每个通道有自己的失败计数 / 熔断时刻 / 退避时刻
+    //      · 一个通道熔断，别的通道照常工作
+    //      · **强制熔断（人手动的）仍然是全局的** —— 那是用户的意图，不是故障
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>AI 调用通道 —— 熔断 / 退避按通道独立维护</summary>
+    public enum 通道
+    {
+        初始化,      // 一次性：加载后 / 进本时
+        策略,        // 低频：倾向判断
+        决策,        // 高频：技能预取（**最容易失败，也最不该拖累别人**）
+        记忆,        // 一次性：对局提炼
+        其他,        // 兜底
+    }
+
+    /// <summary>单个通道的熔断 / 退避状态</summary>
+    private sealed class 通道状态
+    {
+        public int 连续失败;
+        public long 熔断到;
+        public long 退避到;
+        public 错误类别 上次错误 = 错误类别.无;
+        public int 同类连续失败;
+    }
+
+    private static readonly Dictionary<通道, 通道状态> _通道表 = new()
+    {
+        [通道.初始化] = new 通道状态(),
+        [通道.策略] = new 通道状态(),
+        [通道.决策] = new 通道状态(),
+        [通道.记忆] = new 通道状态(),
+        [通道.其他] = new 通道状态(),
+    };
+
+    private static readonly object _通道锁 = new();
+
+    /// <summary>取通道状态（不存在就建一个，容错）</summary>
+    private static 通道状态 状态(通道 道)
+    {
+        lock (_通道锁)
+        {
+            if (!_通道表.TryGetValue(道, out var s))
+            {
+                s = new 通道状态();
+                _通道表[道] = s;
+            }
+            return s;
+        }
+    }
+
+    /// <summary>**这个通道**是否在熔断中</summary>
+    public static bool 熔断中(通道 道 = 通道.其他)
+        => TimeHelper.Now() < 状态(道).熔断到;
+
+    /// <summary>**这个通道**是否在退避中（`提问()` 用）</summary>
+    private static bool 本通道退避中(通道 道)
+        => TimeHelper.Now() < 状态(道).退避到;
+
+    /// <summary>**这个通道**退避剩余秒数</summary>
+    private static double 本通道退避剩余秒(通道 道)
+        => Math.Max(0, (状态(道).退避到 - TimeHelper.Now()) / 1000.0);
+
+    // ══════════════════════════════════════════════════════════════
+    //  兼容用：原来的全局属性改成"任一通道熔断"
+    //
+    //  [!] 为什么保留"任一"语义：
+    //      `该走原版逻辑` 在 `AiHeartbeat` 里当**完全不发请求**的闸，
+    //      那里宁可保守 —— 有任何一层在熔断就先别发。
+    //      真正精细的按通道判断在 `提问()` 里。
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>任一通道熔断（保守语义，给"完全不发请求"的闸用）</summary>
+    public static bool 任一通道熔断
+    {
+        get
+        {
+            var 现在 = TimeHelper.Now();
+            lock (_通道锁)
+                foreach (var kv in _通道表)
+                    if (现在 < kv.Value.熔断到) return true;
+            return false;
+        }
+    }
+
+    /// <summary>所有通道的连续失败之和（界面显示用）</summary>
+    public static int 连续失败数
+    {
+        get
+        {
+            var 和 = 0;
+            lock (_通道锁)
+                foreach (var kv in _通道表) 和 += kv.Value.连续失败;
+            return 和;
+        }
+    }
+
+    /// <summary>各通道状态的紧凑描述（界面 / 日志用）</summary>
+    public static string 通道摘要()
+    {
+        try
+        {
+            var 段 = new List<string>();
+            var 现在 = TimeHelper.Now();
+            lock (_通道锁)
+            {
+                foreach (var kv in _通道表)
+                {
+                    if (kv.Value.连续失败 == 0 && 现在 >= kv.Value.熔断到) continue;
+                    var 状 = 现在 < kv.Value.熔断到 ? "熔断" : $"{kv.Value.连续失败} 次失败";
+                    段.Add($"{kv.Key}={状}");
+                }
+            }
+            return 段.Count == 0 ? "全部正常" : string.Join("｜", 段);
+        }
+        catch
+        {
+            return "";
+        }
+    }
 
     // ══════════════════════════════════════════════════════════════════
     //  ★ 错误分类 + 指数退避 ★
@@ -66,34 +196,55 @@ public static class DeepSeekClient
     /// <summary>错误类别</summary>
     public enum 错误类别 { 无, 鉴权, 限流, 服务端, 超时, 其他 }
 
-    private static 错误类别 _上次错误 = 错误类别.无;
-
-    /// <summary>连续的同类别错误次数（用于算退避）</summary>
-    private static int _同类连续失败;
-
-    /// <summary>退避到什么时候为止（这个时刻之前不发请求）</summary>
-    private static long _退避到;
-
-    /// <summary>当前错误类别（给界面 / 日志用）</summary>
-    public static 错误类别 上次错误 => _上次错误;
+    /// <summary>
+    /// 当前错误类别（给界面 / 日志用）—— 取"最近出错的那个通道"的类别。
+    ///
+    /// [!] 按通道之后没有单一的"上次错误"了，这里保留一个全局视图纯为显示。
+    ///     真正参与逻辑判断的是每通道的 `上次错误`。
+    /// </summary>
+    public static 错误类别 上次错误
+    {
+        get
+        {
+            lock (_通道锁)
+            {
+                foreach (var kv in _通道表)
+                    if (kv.Value.上次错误 != 错误类别.无) return kv.Value.上次错误;
+            }
+            return 错误类别.无;
+        }
+    }
 
     /// <summary>
-    /// **退避中吗** —— 退避期间不发请求（比熔断轻，不改变"该走原版逻辑"的判定）。
+    /// **退避中吗**（任一通道）—— 退避期间不发请求。
     ///
-    /// ⚠️ 和熔断的区别：
-    ///     熔断 = "AI 整体不可用"（`该走原版逻辑` 为 true，界面显示熔断）
-    ///     退避 = "这一次先别发"（AI 仍可用，只是要等）
-    /// ══════════════════════════════════════════════════════════════
+    /// [!] 这里保留"任一"语义是**保守**：只要有任何通道在退避，
+    ///     说明刚刚出过错，先等一下比立刻重试好。
+    ///     按通道的精细判断在 `提问()` 里（它只查自己那个通道）。
     /// </summary>
-    public static bool 退避中 => TimeHelper.Now() < _退避到;
+    public static bool 退避中
+    {
+        get
+        {
+            var 现在 = TimeHelper.Now();
+            lock (_通道锁)
+                foreach (var kv in _通道表)
+                    if (现在 < kv.Value.退避到) return true;
+            return false;
+        }
+    }
 
-    /// <summary>还要退避多少秒（0 = 没在退避）</summary>
+    /// <summary>还要退避多少秒（0 = 没在退避）—— 取最长的那个通道</summary>
     public static double 退避剩余秒
     {
         get
         {
-            var 剩 = _退避到 - TimeHelper.Now();
-            return 剩 > 0 ? 剩 / 1000.0 : 0;
+            var 现在 = TimeHelper.Now();
+            var 最 = 0L;
+            lock (_通道锁)
+                foreach (var kv in _通道表)
+                    if (kv.Value.退避到 - 现在 > 最) 最 = kv.Value.退避到 - 现在;
+            return 最 > 0 ? 最 / 1000.0 : 0;
         }
     }
 
@@ -105,7 +256,7 @@ public static class DeepSeekClient
     ///     抖动的作用是**避免多个请求在同一毫秒一起重试**（惊群）。
     /// ══════════════════════════════════════════════════════════════
     /// </summary>
-    private static long 算退避毫秒(错误类别 类)
+    private static long 算退避毫秒(错误类别 类, 通道 道 = 通道.其他)
     {
         // 鉴权错误是**配置问题** —— 退很久，等用户去改 Key。
         //   不给"无限"是因为用户可能改好了想立刻恢复，10 分钟是个折中。
@@ -115,18 +266,13 @@ public static class DeepSeekClient
             ? new[] { 2000L, 5000L, 15000L, 30000L }
             : new[] { 1000L, 3000L, 8000L, 20000L };   // 服务端：基准短一点
 
-        var i = Math.Clamp(_同类连续失败 - 1, 0, 阶梯.Length - 1);
+        var i = Math.Clamp(状态(道).同类连续失败 - 1, 0, 阶梯.Length - 1);
         var 基础 = 阶梯[i];
 
         // 抖动 0~500ms（用时间戳低位当伪随机，避免引 Random 的线程安全问题）
         var 抖动 = (int)(TimeHelper.Now() % 500);
         return 基础 + 抖动;
     }
-
-    /// <summary>现在是不是被熔断了（连续失败太多次）</summary>
-    public static bool 熔断中 => TimeHelper.Now() < _熔断到;
-
-    public static int 连续失败数 => _连续失败;
 
     /// <summary>
     /// 最近一次失败的具体原因（成功时清空）。
@@ -569,14 +715,34 @@ public static class DeepSeekClient
     ///  ✅ `max_tokens` 是**上限不是计费量** —— 给大本身不花钱，
     ///     给小的唯一效果就是截断。所以宁可给宽。
     /// </param>
+    /// <param name="关思考">
+    /// **关闭思考模式** —— 高频调用点（决策层预取）必须传 true。
+    ///
+    /// [!] 官方默认是**开启思考 + effort = high**（api-docs.deepseek.com/guides/thinking_mode）。
+    ///     不显式关掉的话，一个"备货"用的高频请求也在做最强推理 ——
+    ///     实测中位耗时 2.6 秒，而 GCD 只有 2.5 秒，答案回来就已经过期。
+    ///
+    /// [!] 低频调用点（策略层 / 初始化 / 记忆提炼）**不要传** ——
+    ///     那边要的是推理质量，多等几秒没关系。
+    /// </param>
     public static async Task<string?> 提问(string systemPrompt, string userPrompt,
                                            int 超时毫秒 = 0, int 最大Token = 0,
-                                           bool 期望_ID理由格式 = false)
+                                           bool 期望_ID理由格式 = false,
+                                           bool 关思考 = false,
+                                           通道 道 = 通道.其他)
     {
         var s = AiSettings.Instance;
 
         if (!s.已配置) return null;
-        if (熔断中) return null;
+
+        // ★ 按通道判断熔断 —— 别的通道熔断不该停掉这一层 ★
+        //   [!] 这是本次改造的核心：原来所有调用共用一个熔断器，
+        //       决策层高频失败会把策略层一起停掉。
+        if (熔断中(道))
+        {
+            Ai调试.调试($"通道【{道}】熔断中，本次不发请求（其他通道不受影响）");
+            return null;
+        }
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 退避闸门 —— 限流 / 服务端 / 鉴权后退避期内**不发请求** ★
@@ -589,10 +755,11 @@ public static class DeepSeekClient
         //     没有它，退避就只是"记了个时间戳" ——
         //     调用方照样每轮发请求，**限流时反而打得更凶**。
         // ══════════════════════════════════════════════════════════════
-        if (退避中)
+        if (本通道退避中(道))
         {
             Ai调试.调试(
-                $"退避中（还剩 {退避剩余秒:F1} 秒，上次错误 {_上次错误}），本次不发请求");
+                $"通道【{道}】退避中（还剩 {本通道退避剩余秒(道):F1} 秒，" +
+                $"上次错误 {状态(道).上次错误}），本次不发请求");
             return null;
         }
 
@@ -624,7 +791,7 @@ public static class DeepSeekClient
         {
             var (文本, 是截断) = await 发一次(systemPrompt, userPrompt,
                                                超时毫秒, 本次额度,
-                                               期望_ID理由格式).ConfigureAwait(false);
+                                               期望_ID理由格式, 关思考, 道).ConfigureAwait(false);
 
             if (文本 != null) return 文本;
 
@@ -647,25 +814,58 @@ public static class DeepSeekClient
     /// </returns>
     private static async Task<(string? 文本, bool 是截断)> 发一次(
         string systemPrompt, string userPrompt,
-        int 超时毫秒, int 最大Token, bool 期望_ID理由格式)
+        int 超时毫秒, int 最大Token, bool 期望_ID理由格式,
+        bool 关思考 = false, 通道 道 = 通道.其他)
     {
         var s = AiSettings.Instance;
 
         try
         {
-            var body = new
-            {
-                model = s.Model,
-                messages = new[]
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 思考模式控制（官方文档：api-docs.deepseek.com/guides/thinking_mode）★
+            //
+            //  [!] 官方默认是**开启思考 + effort = high** ——
+            //      所以不显式关掉的话，高频预取也在用最强推理，白等好几秒。
+            //      实测中位耗时 2.6 秒，而 GCD 只有 2.5 秒。
+            //
+            //  [!] 关思考的写法（OpenAI 兼容格式）：
+            //        {"thinking": {"type": "disabled"}}
+            //      开启是 `enabled`，强度另用 `reasoning_effort`。
+            //
+            //  [!] `temperature` 在**思考模式下无效**（官方原文：
+            //      "设置这些参数不会触发错误，但也不会生效"）。
+            //      所以只在**关思考**时才传温度 —— 那时它才真的起作用。
+            //      开着思考还传温度只会让人**误以为**已经调了稳定性。
+            // ══════════════════════════════════════════════════════════════
+            object body = 关思考
+                ? new
                 {
-                    new { role = "system", content = 加上语言要求(systemPrompt) },
-                    new { role = "user", content = userPrompt },
-                },
-                // 低温度：我们要的是稳定决策，不是创意
-                temperature = 0.2,
-                max_tokens = 最大Token,
-                stream = false,
-            };
+                    model = s.Model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = 加上语言要求(systemPrompt) },
+                        new { role = "user", content = userPrompt },
+                    },
+                    // 关思考时温度才生效：要稳定决策，不要创意
+                    temperature = 0.2,
+                    max_tokens = 最大Token,
+                    stream = false,
+                    thinking = new { type = "disabled" },
+                }
+                : new
+                {
+                    model = s.Model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = 加上语言要求(systemPrompt) },
+                        new { role = "user", content = userPrompt },
+                    },
+                    // ⚠️ 思考模式下**不传 temperature** —— 传了也不生效，
+                    //    留着只会误导（以为调了稳定性，其实没有）
+                    max_tokens = 最大Token,
+                    stream = false,
+                    thinking = new { type = "enabled" },
+                };
 
             // Endpoint 允许只填域名（https://api.deepseek.com），这里补上路径
             var 地址 = s.Endpoint?.TrimEnd('/') ?? "";
@@ -690,7 +890,7 @@ public static class DeepSeekClient
                 // ⚠️ 把状态码**单独传**给 `记失败` —— 不要让它从字符串里认。
                 //    字符串匹配（"HTTP 401".Contains("401")）看着能用，
                 //    但改一次措辞就静默失效 —— 那是本项目反复踩过的坑。
-                记失败($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
+                记失败($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode, 道: 道);
                 return (null, false);          // HTTP 错误，重试没用
             }
 
@@ -722,7 +922,41 @@ public static class DeepSeekClient
             // ══════════════════════════════════════════════════════════
             记缓存用量(doc.RootElement);
 
-            var 消息 = doc.RootElement.GetProperty("choices")[0].GetProperty("message");
+            var 首选项 = doc.RootElement.GetProperty("choices")[0];
+            var 消息 = 首选项.GetProperty("message");
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 读 API 的 `finish_reason` —— 把"是否截断"从启发式变成有依据 ★
+            //
+            //  [!] 为什么必需（第三方审阅指出、已核实）：
+            //      原来**完全没用**这个字段，靠"正文空 + 有推理内容"来猜截断。
+            //      缺口是：`finish_reason == "length"` 但**正文非空**时
+            //      （正文写了一半被额度截断）会被当成完整回复交上去。
+            //
+            //  [!] 为什么"残缺正文"比"空正文"更危险：
+            //      空正文 -> `解析并填充` 解析出 0 条 -> 安全（走原版逻辑）
+            //      残缺正文 -> 可能解析出**前半截的建议**，
+            //                  而它们基于的局面可能已经不成立了
+            //                  => 会真的被执行
+            //
+            //  [!] 取值（OpenAI 兼容接口）：
+            //      `stop`   正常结束
+            //      `length` 达到 max_tokens 被截断
+            //      `content_filter` 被内容过滤
+            //      其他 / 缺失 -> 当作未知，退回启发式
+            // ══════════════════════════════════════════════════════════════
+            var 收尾原因 = "";
+            try
+            {
+                if (首选项.TryGetProperty("finish_reason", out var fr) &&
+                    fr.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    收尾原因 = fr.GetString() ?? "";
+                }
+            }
+            catch { }
+
+            var 因额度截断 = string.Equals(收尾原因, "length", StringComparison.OrdinalIgnoreCase);
 
             // ⚠️ 推理型模型的正文可能在 reasoning_content，content 会是空字符串。
             //    但**不能无条件拿 reasoning_content 当答案** —— 那是"思考过程"，
@@ -741,6 +975,23 @@ public static class DeepSeekClient
                 推理 = rc.GetString();
             }
 
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 正文非空、但 `finish_reason == "length"` ⇒ **残缺正文，必须丢弃** ★
+            //
+            //  [!] 这是原实现的真实缺口：只检查"正文是否为空"，
+            //      于是"写了一半被截断"的正文会当成完整回复交上去。
+            //      对 `ID|理由` 这种多行输出，残缺点可能是**任何地方** ——
+            //      最后一行不完整、甚至中间某行被切断。
+            //      => 宁可当作没回复（走原版逻辑），也不要用残缺内容做决策。
+            // ══════════════════════════════════════════════════════════════
+            if (因额度截断 && !string.IsNullOrWhiteSpace(文本))
+            {
+                Ai调试.日志($"回复被额度截断（finish_reason=length），正文 {文本.Length} 字符" +
+                            " **整体丢弃** —— 残缺内容比空内容更危险（可能解析出前半截的建议）");
+                记失败("回复被额度截断，正文残缺已丢弃", 道: 道);
+                return (null, true);     // 标为截断 ⇒ 调用方会自动加大额度重试一次
+            }
+
             if (string.IsNullOrWhiteSpace(文本))
             {
                 // 正文为空、但有思考内容 → 交给 处理推理型回复（它按调用方格式决定捞不捞）
@@ -755,11 +1006,15 @@ public static class DeepSeekClient
                     //      → 收尾原因(reason=length) 或思考很长 ⇒ **是截断**，值得加大额度重试
                     //    · 连思考都没有 = 模型真的没答
                     //      → 重试也没用，不标截断
+                    // ★ 优先用 API 的权威字段；没有才退回启发式 ★
+                    //   （`因额度截断` 上面已经返回了，走到这里说明 finish_reason 不是 length）
                     var 是截断 = !string.IsNullOrWhiteSpace(推理);
+
+                    if (因额度截断) 是截断 = true;   // 双保险（理论上到不了这里）
 
                     记失败(是截断
                         ? "正文为空（推理型模型把额度用在思考上、没来得及输出正文）"
-                        : "正文为空，未产出可用回复（详见日志）");
+                        : "正文为空，未产出可用回复（详见日志）", 道: 道);
 
                     if (是截断)
                     {
@@ -771,12 +1026,21 @@ public static class DeepSeekClient
                 }
             }
 
-            // 成功 → 清空失败计数**和退避状态**
-            _连续失败 = 0;
+            // 成功 → 清空**本通道**的失败计数和退避状态
+            //   [!] 只清本通道 —— 别的通道的失败不该被"顺带治好"，
+            //       否则一个通道反复失败会被另一个通道的成功不断清零，
+            //       永远触发不了熔断。
+            var 本次通道 = 状态(道);
+            if (本次通道.连续失败 > 0)
+            {
+                LogHelper.Info($"[BlueWhale.AI] 通道【{道}】请求成功，" +
+                               $"清零该通道失败计数（原 {本次通道.连续失败} 次）");
+            }
+            本次通道.连续失败 = 0;
+            本次通道.上次错误 = 错误类别.无;
+            本次通道.同类连续失败 = 0;
+            本次通道.退避到 = 0;
             上次失败原因 = "";
-            _上次错误 = 错误类别.无;
-            _同类连续失败 = 0;
-            _退避到 = 0;
 
             if (s.记录原始回复)
             {
@@ -787,12 +1051,12 @@ public static class DeepSeekClient
         }
         catch (OperationCanceledException)
         {
-            记失败("超时");
+            记失败("超时", 道: 道);
             return (null, false);          // 超时，重试没用（会又超时）
         }
         catch (Exception e)
         {
-            记失败(e.GetType().Name + ": " + e.Message);
+            记失败(e.GetType().Name + ": " + e.Message, 道: 道);
             return (null, false);
         }
     }
@@ -822,9 +1086,10 @@ public static class DeepSeekClient
         return 错误类别.其他;
     }
 
-    private static void 记失败(string 原因, int http状态码 = 0)
+    private static void 记失败(string 原因, int http状态码 = 0, 通道 道 = 通道.其他)
     {
-        _连续失败++;
+        var 本通道 = 状态(道);
+        本通道.连续失败++;
 
         // ══════════════════════════════════════════════════════════
         //  ★ 分类 ★
@@ -833,16 +1098,16 @@ public static class DeepSeekClient
         // ══════════════════════════════════════════════════════════
         var 类 = 分类错误(http状态码, 原因);
 
-        if (类 == _上次错误) _同类连续失败++;
-        else { _上次错误 = 类; _同类连续失败 = 1; }
+        if (类 == 本通道.上次错误) 本通道.同类连续失败++;
+        else { 本通道.上次错误 = 类; 本通道.同类连续失败 = 1; }
 
         // ══ 鉴权错误：**确定性失败，重试无用** ══
         //    401/403 = Key 错 / 无权限 —— 这是**配置问题**。
         //    不进"连续失败"熔断器（那会连累正常的层），只设退避。
         if (类 == 错误类别.鉴权)
         {
-            _退避到 = TimeHelper.Now() + 算退避毫秒(类);
-            _连续失败--;          // 撤销上面那次 ++：它不该计入熔断
+            本通道.退避到 = TimeHelper.Now() + 算退避毫秒(类, 道);
+            本通道.连续失败--;    // 撤销上面那次 ++：它不该计入熔断
             LogHelper.Error(
                 "[BlueWhale.AI] **鉴权失败（401/403）** —— 这是配置问题，重试没用。" +
                 "请检查设置里的 API Key（sk- 开头、没有多余空格）和账号权限。" +
@@ -883,12 +1148,13 @@ public static class DeepSeekClient
         // ══════════════════════════════════════════════════════════
         if (类 == 错误类别.限流 || 类 == 错误类别.服务端)
         {
-            var 退避 = 算退避毫秒(类);
-            _退避到 = TimeHelper.Now() + 退避;
+            var 退避 = 算退避毫秒(类, 道);
+            本通道.退避到 = TimeHelper.Now() + 退避;
 
             Ai调试.日志(
                 $"请求失败（{原因}，{(类 == 错误类别.限流 ? "限流" : "服务端")}），" +
-                $"第 {_同类连续失败} 次同类失败 → 退避 {退避 / 1000.0:F1} 秒");
+                $"第 {本通道.同类连续失败} 次同类失败 → 退避 {退避 / 1000.0:F1} 秒" +
+                $"（通道 {道}，其他通道不受影响）");
 
             return;
         }
@@ -901,16 +1167,17 @@ public static class DeepSeekClient
 
         var 上限 = 是超时 ? Math.Max(s.连续失败上限 * 4, 12) : s.连续失败上限;
 
-        if (_连续失败 >= 上限)
+        if (本通道.连续失败 >= 上限)
         {
-            _熔断到 = TimeHelper.Now() + s.失败冷却秒 * 1000L;
+            本通道.熔断到 = TimeHelper.Now() + s.失败冷却秒 * 1000L;
             LogHelper.Error(
-                $"[BlueWhale.AI] 连续失败 {_连续失败} 次（{原因}），" +
-                $"熔断 {s.失败冷却秒} 秒 —— 期间全部走原有逻辑，不影响战斗。");
+                $"[BlueWhale.AI] 通道【{道}】连续失败 {本通道.连续失败} 次（{原因}），" +
+                $"熔断 {s.失败冷却秒} 秒 —— **该通道**期间走原有逻辑；" +
+                "其他通道不受影响（通道独立熔断）。");
         }
         else
         {
-            Ai调试.日志($"请求失败（{原因}），第 {_连续失败} 次，走降级。" +
+            Ai调试.日志($"请求失败（{原因}），通道【{道}】第 {本通道.连续失败} 次，走降级。" +
                 (是超时 ? $"（超时上限 {上限} 次，属预期行为）" : ""));
         }
     }
@@ -932,7 +1199,7 @@ public static class DeepSeekClient
     ///    这时候不清零，那些超时就成了**已经还清的债还挂在账上**。
     ///
     ///  ⚠️ 和 `解除熔断()` 的区别：
-    ///     `解除熔断()` 会**同时清掉 `_熔断到`**（把熔断状态也解除）。
+    ///     `解除熔断()` 会**同时清掉熔断状态**（不只是计数）。
     ///     这里只清计数 —— 熔断状态该由熔断器自己管，不越权。
     /// ══════════════════════════════════════════════════════════════
     /// </summary>
@@ -940,13 +1207,14 @@ public static class DeepSeekClient
     {
         try
         {
-            if (_连续失败 > 0)
-                LogHelper.Info($"[BlueWhale.AI] 初始化成功，清零累计失败计数（原 {_连续失败} 次）");
+            var 原 = 连续失败数;
+            if (原 > 0)
+                LogHelper.Info($"[BlueWhale.AI] 初始化成功，清零全部通道的失败计数（原共 {原} 次）");
 
-            _连续失败 = 0;
-            _上次错误 = 错误类别.无;
-            _同类连续失败 = 0;
-            _退避到 = 0;
+            // [!] 清**全部通道** —— 初始化成功是"整条链路验证通过"的信号，
+            //     这时所有通道的旧失败都该视为已还清（超时是预期行为，
+            //     不清的话它们会一直挂在通道计数上）。
+            清空所有通道计数();
         }
         catch { }
     }
@@ -960,12 +1228,24 @@ public static class DeepSeekClient
     /// </summary>
     public static void 解除熔断()
     {
-        _连续失败 = 0;
-        _熔断到 = 0;
+        清空所有通道计数();
         强制熔断 = false;
-        _上次错误 = 错误类别.无;
-        _同类连续失败 = 0;
-        _退避到 = 0;
+    }
+
+    /// <summary>清掉所有通道的失败计数 / 熔断 / 退避（手动解除时用）</summary>
+    private static void 清空所有通道计数()
+    {
+        lock (_通道锁)
+        {
+            foreach (var kv in _通道表)
+            {
+                kv.Value.连续失败 = 0;
+                kv.Value.熔断到 = 0;
+                kv.Value.退避到 = 0;
+                kv.Value.上次错误 = 错误类别.无;
+                kv.Value.同类连续失败 = 0;
+            }
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -989,7 +1269,14 @@ public static class DeepSeekClient
     public static bool 强制熔断 { get; private set; }
 
     /// <summary>综合判断：自动熔断 **或** 强制熔断</summary>
-    public static bool 该走原版逻辑 => 熔断中 || 强制熔断;
+    /// <summary>
+    /// 该走原版逻辑吗（任一通道熔断 / 强制熔断）。
+    ///
+    /// [!] 这里用**任一通道**的保守语义 —— 它在 `AiHeartbeat` 里当
+    ///     "完全不发请求"的闸，宁可保守。
+    ///     真正按通道的精细判断在 `提问()` 里（只查自己那个通道）。
+    /// </summary>
+    public static bool 该走原版逻辑 => 任一通道熔断 || 强制熔断;
 
     /// <summary>
     /// **熔断状态描述**（给界面用的）。
@@ -1001,7 +1288,7 @@ public static class DeepSeekClient
     public static string 状态描述()
     {
         if (强制熔断) return "强制熔断（手动开关）";
-        if (熔断中) return $"自动熔断（连续失败 {_连续失败} 次）";
+        if (任一通道熔断) return $"自动熔断（{通道摘要()}）";
         return "正常";
     }
 
@@ -1016,7 +1303,7 @@ public static class DeepSeekClient
 
             if (开)
             {
-                _连续失败 = 0;   // 清掉计数，免得解除后立刻又触发自动熔断
+                清空所有通道计数();   // 免得解除后立刻又触发自动熔断
                 LogHelper.Info("[BlueWhale.AI] 已**强制熔断** —— " +
                                "期间不走任何 AI 请求，全部用原有逻辑，不影响战斗。");
             }

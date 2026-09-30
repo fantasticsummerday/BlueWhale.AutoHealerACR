@@ -319,7 +319,9 @@ public static class 记忆库
             //    超时也要放宽：提炼比决策慢得多，用 30 秒。
             return await DeepSeekClient.提问(提炼提示词, 统计,
                 超时毫秒: 30000,
-                最大Token: 5000);   // 总结一场完整副本：2500 偏紧，会截在句子中间
+                最大Token: 5000,   // 总结一场完整副本：2500 偏紧，会截在句子中间
+                // ★ 独立通道 —— 提炼失败（比如额度不够）不该停掉战斗中的决策
+                道: DeepSeekClient.通道.记忆);
         }
         catch (Exception e)
         {
@@ -375,23 +377,82 @@ public static class 记忆库
     /// </summary>
     private static List<记忆条目> 读全部()
     {
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 主线程**永不读盘** ★
+        //
+        //  [!] 为什么改（第三方审阅指出、已核实）：
+        //      本方法被 `概览()` 调用，而 `概览()` 在设置面板**每帧**画。
+        //      原来缓存未命中时会在**游戏线程同步** `File.ReadAllLines`
+        //      + 逐行 JSON 反序列化 —— 库一大就是可见卡顿。
+        //
+        //  [!] 策略：
+        //      · 缓存有效        -> 直接返回（本来就没 IO）
+        //      · 缓存失效        -> **启动后台重载**，本次先返回旧缓存（或空）
+        //                          => 数据几帧后就位，主线程不阻塞
+        //      · 首次加载        -> 同步读一次（没有旧数据可退，
+        //                          且只在插件加载后第一次打开面板时发生）
+        //
+        //  [!] 缓存字段加锁：后台线程写、主线程读。
+        //      这是本项目栽过的坑（`AiStrategyLayer.历史` 就是这么崩的）。
+        // ══════════════════════════════════════════════════════════════
         try
         {
             var f = 库文件();
 
             if (!File.Exists(f))
             {
-                _缓存 = new List<记忆条目>();
-                _缓存文件时间 = 0;
+                lock (_缓存锁)
+                {
+                    _缓存 = new List<记忆条目>();
+                    _缓存文件时间 = 0;
+                }
                 条目数 = 0;
-                return _缓存;
+                return new List<记忆条目>();
             }
 
-            // ★ 失效检查 ①：文件写时间变了才重读 ★
             var 写时间 = File.GetLastWriteTimeUtc(f).Ticks;
-            if (_缓存 != null && 写时间 == _缓存文件时间) return _缓存;
 
-            var 结果 = new List<记忆条目>();
+            lock (_缓存锁)
+            {
+                // 缓存有效 -> 直接返回（最常见路径，零 IO）
+                if (_缓存 != null && 写时间 == _缓存文件时间) return _缓存;
+
+                // 有旧缓存但失效 -> 后台重载，本次先返回旧的（不阻塞主线程）
+                if (_缓存 != null)
+                {
+                    启动后台重载(f, 写时间);
+                    return _缓存;
+                }
+            }
+
+            // 首次加载：同步一次（只发生一次）
+            var 结果 = 读文件(f);
+            lock (_缓存锁)
+            {
+                _缓存 = 结果;
+                _缓存文件时间 = 写时间;
+            }
+            条目数 = 结果.Count;
+            return 结果;
+        }
+        catch
+        {
+            lock (_缓存锁) return _缓存 ?? new List<记忆条目>();
+        }
+    }
+
+    /// <summary>缓存锁 —— 后台线程写、主线程读</summary>
+    private static readonly object _缓存锁 = new();
+
+    /// <summary>后台重载是否在跑（避免重复启动）</summary>
+    private static bool _重载中;
+
+    /// <summary>真正读盘 + 反序列化（**只允许后台线程或首次加载调**）</summary>
+    private static List<记忆条目> 读文件(string f)
+    {
+        var 结果 = new List<记忆条目>();
+        try
+        {
             foreach (var 行 in File.ReadAllLines(f))
             {
                 if (string.IsNullOrWhiteSpace(行)) continue;
@@ -402,16 +463,35 @@ public static class 记忆库
                 }
                 catch { }
             }
+        }
+        catch { }
+        return 结果;
+    }
 
-            _缓存 = 结果;
-            _缓存文件时间 = 写时间;
-            条目数 = 结果.Count;
-            return _缓存;
-        }
-        catch
+    /// <summary>启动后台重载（幂等 —— 已在跑就不重复启动）</summary>
+    private static void 启动后台重载(string f, long 写时间)
+    {
+        if (_重载中) return;
+        _重载中 = true;
+
+        _ = Task.Run(() =>
         {
-            return _缓存 ?? new List<记忆条目>();
-        }
+            try
+            {
+                var 结果 = 读文件(f);
+                lock (_缓存锁)
+                {
+                    _缓存 = 结果;
+                    _缓存文件时间 = 写时间;
+                }
+                条目数 = 结果.Count;
+            }
+            catch { }
+            finally
+            {
+                _重载中 = false;
+            }
+        });
     }
 
     /// <summary>条目缓存（null = 还没读过）</summary>
