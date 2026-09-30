@@ -44,7 +44,14 @@ namespace BlueWhale.AutoHealerACR;
 ///       开场那几秒等于没有 AI。
 /// ══════════════════════════════════════════════════════════════════
 /// </summary>
-internal static class Ai层挂载
+/// <summary>
+/// **AI 层挂载 / 卸载** —— 五个职业入口共用同一套。
+///
+/// [!] 为什么是 public：`HealerEntryBase.OnEnterRotation()` 要用**反射**
+///     调 `尝试挂载AI层()`（它属于 HealerACR 项目，不能直接引用 BlueWhale），
+///     而反射找不到 internal 类型。
+/// </summary>
+public static class Ai层挂载
 {
     /// <summary>入口 Build 时调（5 个职业入口共用）</summary>
     public static void 挂载()
@@ -289,6 +296,67 @@ internal static class Ai层挂载
         try { 对局收尾.重置(); } catch { }   // 副本收尾计时（换本后重新算）
     }
 
+    /// <summary>是否已经挂载过（`挂载()` **不是幂等的** —— 每次都会重设钩子 + 重新初始化）</summary>
+    private static bool _已挂载;
+
+    /// <summary>"跳过挂载"诊断日志的节流时间戳（每帧回调会反复触发）</summary>
+    private static long _上次跳过日志;
+
+    /// <summary>
+    /// **尝试挂载 AI 层** —— 只在"我确实是当前 ACR"时才真挂。
+    ///
+    /// ══════════════════════════════════════════════════════════════
+    ///  [!] 为什么需要身份判断（实测 bug 的根因）
+    ///
+    ///    `Build()` 在 **ACR 发现阶段** 对**每一个** ACR 都跑，
+    ///    而入口的 `Build()` 里原本无条件 `Ai层挂载.挂载()` ——
+    ///    它会挂阈值钩子 + `Ai初始化.开始()`（**真实 API 请求**）。
+    ///    于是"选的是别的 ACR，小鲸鱼照样初始化"。
+    ///
+    ///  [!] 为什么由本方法统一判、而不是各调用点自己判
+    ///
+    ///    5 个职业入口 + `OnEnterRotation` 一共 6 个触发点，
+    ///    各写一遍迟早漏一个（本项目在这种"漏一处"上栽过多次）。
+    ///
+    ///  [!] 为什么要"只挂一次"
+    ///
+    ///    `挂载()` 每次都会重设钩子并重新 `Ai初始化.开始()`
+    ///    ⇒ 重复调会白花 API 请求。
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    public static void 尝试挂载AI层()
+    {
+        if (_已挂载) return;
+
+        try
+        {
+            if (!HealerACR.Common.ACR身份.是当前())
+            {
+                // [!] 必须节流：每帧回调也会调到这里（第三道兜底），
+                //     不节流的话"没选中小鲸鱼"时会**每帧写一行日志**。
+                //     30 秒一条足够核对"到底跳过了没有"。
+                var 现在 = AEAssist.Helper.TimeHelper.Now();
+                if (现在 - _上次跳过日志 > 30000)
+                {
+                    _上次跳过日志 = 现在;
+                    LogHelper.Info("[BlueWhale.AI] 本次触发不是当前 ACR（"
+                        + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
+                            ? "身份未登记"
+                            : HealerACR.Common.ACR身份.描述)
+                        + "）-> 跳过 AI 层挂载（不发请求）");
+                }
+                return;
+            }
+
+            挂载();
+            _已挂载 = true;
+        }
+        catch (Exception e)
+        {
+            LogHelper.Error("[BlueWhale.AI] 尝试挂载 AI 层失败：" + e.Message);
+        }
+    }
+
     /// <summary>退出时卸载，避免影响其他 ACR</summary>
     public static void 卸载()
     {
@@ -307,6 +375,9 @@ internal static class Ai层挂载
         // ⚠️ 必须退订施法事件 —— 事件持有回调，
         //    不退订的话 ACR 停用了回调还会被触发（详见 记录模式.卸载 的说明）
         记录模式.卸载();
+
+        // 复位"已挂载"——否则卸载后再被选中时不会再挂上去
+        _已挂载 = false;
     }
 }
 
@@ -353,10 +424,23 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
 
         AiSettings.初始化(settingFolder);        // ★ 先告诉 AiSettings 设置存哪 ★
 
-        // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
-        //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
-        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
-        Ai层挂载.挂载();
+        //  ★ 尝试挂载 AI 层 —— 只在"我确实是当前 ACR"时真挂 ★
+        //
+        //  [!] 为什么需要判断（实测 bug 的根因，第三次修）：
+        //      `Build()` 在 **ACR 发现阶段** 对 **每一个** ACR 都跑 ——
+        //      日志实证：
+        //          16:46:28.845  加载全部ACR : D:/FF14/ACR   <- 扫描发现
+        //          16:46:29.197  阈值钩子已挂载               <- AI 层被挂载
+        //          16:46:29.198  成功加载acr: BlueWhaleWhiteMageEntry
+        //          16:46:29.597  LoadRotation Success: Shiyuvi Scholar <- 用户选的 Shiyu
+        //      => 不管选谁，小鲸鱼都挂钩子 + **发一整轮 API 请求**。
+        //
+        //  [!] 为什么"两处都试"而不是只看这里：
+        //      发现阶段 `Data.currRotation` **可能还是 null**
+        //      => 只在这里判会把"真被选中"那次也挡掉，AI 永远不初始化。
+        //      所以 `OnEnterRotation()` 也会再试一次；`挂载()` 自带"只挂一次"开关。
+        // ══════════════════════════════════════════════════════════════
+        Ai层挂载.尝试挂载AI层();
 
 
         return rot;
@@ -459,8 +543,44 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
 
         // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
         //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
-        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
-        Ai层挂载.挂载();
+        //      加钩子只改 Ai层挂载.尝试挂载AI层() 一处，避免"漏改某个职业"的静默 bug。
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 只在"我确实是当前 ACR"时才挂载 AI 层 ★
+        //
+        //  [!] 这是实测 bug 的根因（第三次修，前两次修错了地方）：
+        //      `Build()` 在 **ACR 发现阶段** 对 **每一个** ACR 都跑 ——
+        //      日志实证：
+        //          16:46:28.845  加载全部ACR : D:/FF14/ACR        <- 扫描发现
+        //          16:46:29.197  阈值钩子已挂载                    <- AI 层被挂载
+        //          16:46:29.198  成功加载acr: BlueWhaleWhiteMageEntry
+        //          16:46:29.597  LoadRotation Success: Shiyuvi Scholar  <- 用户选的 Shiyu
+        //      => 不管选谁，小鲸鱼都会挂钩子 + **发一整轮 API 请求**。
+        //
+        //  [!] 为什么守卫放这里而不是 `OnEnterRotation`：
+        //      重载时 `OnEnterRotation` **压根没被调**
+        //      （日志里"进入职业循环"只出现过 1 次，且不在重载时刻）。
+        //      而 `Build()` 是每次都会跑的那个点 —— 判身份后在这里做最稳。
+        //
+        //  [!] 不是当前 ACR 时什么都**不做**：
+        //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
+        //      真正被选中时 `OnEnterRotation` 会补上。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.ACR身份.是当前())
+        {
+            Ai层挂载.尝试挂载AI层();
+        }
+        else
+        {
+            try
+            {
+                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
+                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
+                        ? "身份未登记"
+                        : HealerACR.Common.ACR身份.描述)
+                    + "）-> 跳过 AI 层挂载（不发请求）");
+            }
+            catch { }
+        }
 
 
         return rot;
@@ -563,8 +683,44 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
 
         // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
         //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
-        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
-        Ai层挂载.挂载();
+        //      加钩子只改 Ai层挂载.尝试挂载AI层() 一处，避免"漏改某个职业"的静默 bug。
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 只在"我确实是当前 ACR"时才挂载 AI 层 ★
+        //
+        //  [!] 这是实测 bug 的根因（第三次修，前两次修错了地方）：
+        //      `Build()` 在 **ACR 发现阶段** 对 **每一个** ACR 都跑 ——
+        //      日志实证：
+        //          16:46:28.845  加载全部ACR : D:/FF14/ACR        <- 扫描发现
+        //          16:46:29.197  阈值钩子已挂载                    <- AI 层被挂载
+        //          16:46:29.198  成功加载acr: BlueWhaleWhiteMageEntry
+        //          16:46:29.597  LoadRotation Success: Shiyuvi Scholar  <- 用户选的 Shiyu
+        //      => 不管选谁，小鲸鱼都会挂钩子 + **发一整轮 API 请求**。
+        //
+        //  [!] 为什么守卫放这里而不是 `OnEnterRotation`：
+        //      重载时 `OnEnterRotation` **压根没被调**
+        //      （日志里"进入职业循环"只出现过 1 次，且不在重载时刻）。
+        //      而 `Build()` 是每次都会跑的那个点 —— 判身份后在这里做最稳。
+        //
+        //  [!] 不是当前 ACR 时什么都**不做**：
+        //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
+        //      真正被选中时 `OnEnterRotation` 会补上。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.ACR身份.是当前())
+        {
+            Ai层挂载.尝试挂载AI层();
+        }
+        else
+        {
+            try
+            {
+                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
+                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
+                        ? "身份未登记"
+                        : HealerACR.Common.ACR身份.描述)
+                    + "）-> 跳过 AI 层挂载（不发请求）");
+            }
+            catch { }
+        }
 
 
         return rot;
@@ -667,8 +823,44 @@ public class BlueWhaleSageEntry : SGERotationEntry
 
         // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
         //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
-        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
-        Ai层挂载.挂载();
+        //      加钩子只改 Ai层挂载.尝试挂载AI层() 一处，避免"漏改某个职业"的静默 bug。
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 只在"我确实是当前 ACR"时才挂载 AI 层 ★
+        //
+        //  [!] 这是实测 bug 的根因（第三次修，前两次修错了地方）：
+        //      `Build()` 在 **ACR 发现阶段** 对 **每一个** ACR 都跑 ——
+        //      日志实证：
+        //          16:46:28.845  加载全部ACR : D:/FF14/ACR        <- 扫描发现
+        //          16:46:29.197  阈值钩子已挂载                    <- AI 层被挂载
+        //          16:46:29.198  成功加载acr: BlueWhaleWhiteMageEntry
+        //          16:46:29.597  LoadRotation Success: Shiyuvi Scholar  <- 用户选的 Shiyu
+        //      => 不管选谁，小鲸鱼都会挂钩子 + **发一整轮 API 请求**。
+        //
+        //  [!] 为什么守卫放这里而不是 `OnEnterRotation`：
+        //      重载时 `OnEnterRotation` **压根没被调**
+        //      （日志里"进入职业循环"只出现过 1 次，且不在重载时刻）。
+        //      而 `Build()` 是每次都会跑的那个点 —— 判身份后在这里做最稳。
+        //
+        //  [!] 不是当前 ACR 时什么都**不做**：
+        //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
+        //      真正被选中时 `OnEnterRotation` 会补上。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.ACR身份.是当前())
+        {
+            Ai层挂载.尝试挂载AI层();
+        }
+        else
+        {
+            try
+            {
+                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
+                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
+                        ? "身份未登记"
+                        : HealerACR.Common.ACR身份.描述)
+                    + "）-> 跳过 AI 层挂载（不发请求）");
+            }
+            catch { }
+        }
 
 
         return rot;
@@ -1078,8 +1270,44 @@ public override Rotation Build(string settingFolder)
 
         // ★ 挂载 AI 层（记忆采集 + 换本重置 + 切职业重新初始化 + 启动初始化）★
         //   ⚠️ 别在这里内联展开 —— 5 个职业入口共用同一套，
-        //      加钩子只改 Ai层挂载.挂载() 一处，避免"漏改某个职业"的静默 bug。
-        Ai层挂载.挂载();
+        //      加钩子只改 Ai层挂载.尝试挂载AI层() 一处，避免"漏改某个职业"的静默 bug。
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 只在"我确实是当前 ACR"时才挂载 AI 层 ★
+        //
+        //  [!] 这是实测 bug 的根因（第三次修，前两次修错了地方）：
+        //      `Build()` 在 **ACR 发现阶段** 对 **每一个** ACR 都跑 ——
+        //      日志实证：
+        //          16:46:28.845  加载全部ACR : D:/FF14/ACR        <- 扫描发现
+        //          16:46:29.197  阈值钩子已挂载                    <- AI 层被挂载
+        //          16:46:29.198  成功加载acr: BlueWhaleWhiteMageEntry
+        //          16:46:29.597  LoadRotation Success: Shiyuvi Scholar  <- 用户选的 Shiyu
+        //      => 不管选谁，小鲸鱼都会挂钩子 + **发一整轮 API 请求**。
+        //
+        //  [!] 为什么守卫放这里而不是 `OnEnterRotation`：
+        //      重载时 `OnEnterRotation` **压根没被调**
+        //      （日志里"进入职业循环"只出现过 1 次，且不在重载时刻）。
+        //      而 `Build()` 是每次都会跑的那个点 —— 判身份后在这里做最稳。
+        //
+        //  [!] 不是当前 ACR 时什么都**不做**：
+        //      不挂钩子、不发 API 请求、不上屏；只写一行日志便于以后核对。
+        //      真正被选中时 `OnEnterRotation` 会补上。
+        // ══════════════════════════════════════════════════════════════
+        if (HealerACR.Common.ACR身份.是当前())
+        {
+            Ai层挂载.尝试挂载AI层();
+        }
+        else
+        {
+            try
+            {
+                LogHelper.Info("[BlueWhale.AI] 本次 Build 不是当前 ACR（"
+                    + (string.IsNullOrEmpty(HealerACR.Common.ACR身份.描述)
+                        ? "身份未登记"
+                        : HealerACR.Common.ACR身份.描述)
+                    + "）-> 跳过 AI 层挂载（不发请求）");
+            }
+            catch { }
+        }
 
 
         return rot;

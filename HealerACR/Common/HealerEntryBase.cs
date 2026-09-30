@@ -439,6 +439,26 @@ public abstract class HealerEntryBase : IRotationEntry
 
                 // ★ 彩蛋：同理，木桩/城里也要能唱 ★
                 try { 彩蛋.每帧更新(); } catch { }
+
+                // ══════════════════════════════════════════════════════
+                //  ★ 兜底：确保 AI 层一定有机会被挂上 ★
+                //
+                //  [!] 为什么需要第三道（前两道都可能失效，都已有实证）：
+                //      · `Build()` —— 每次都会跑，但 ACR 发现阶段
+                //        `Data.currRotation` 可能还是 null
+                //      · `OnEnterRotation()` —— 真被选中时会跑，
+                //        但**重载时日志实证它没被调**
+                //
+                //  [!] 为什么多这一道是安全的：
+                //      `尝试挂载AI层()` 自带"只挂一次"开关 ——
+                //      重复调无害，只是每帧一次反射查找；挂上后立即短路。
+                //
+                //  [!] 为什么值得：
+                //      **"AI 永远不初始化"比"不该初始化时初始化了"更糟** ——
+                //      前者是功能完全失效（副本里毫无反应，还不知道为什么），
+                //      后者只是白花一次请求。
+                // ══════════════════════════════════════════════════════
+                尝试挂载AI层反射();
             };
 
             视图窗口.SetUpdateAction(_每帧回调);
@@ -934,6 +954,39 @@ public abstract class HealerEntryBase : IRotationEntry
     /// [!] 为什么写成静态：`OnEnterRotation()` 在 `HealRotationEventHandler` 里，
     ///     那是独立类，拿不到入口实例。
     /// </summary>
+    /// <summary>
+    /// **反射调用 BlueWhale 层的 `Ai层挂载.尝试挂载AI层()`**。
+    ///
+    /// [!] 为什么用反射：`HealerEntryBase` 属于 HealerACR，
+    ///     不能直接引用 BlueWhale（两个项目各自编译一份这些类，
+    ///     直接引用会循环依赖）。反射让 HealerACR 仍能独立编译。
+    ///
+    /// [!] 为什么遍历已加载程序集而不是拼 `, BlueWhale`：
+    ///     插件在 Dalamud 里**从内存加载**（`Assembly.Location` 返回空），
+    ///     程序集限定名不一定能解析。
+    ///
+    /// [!] 找不到就**静默返回** —— 没装 BlueWhale 时这是正常情况。
+    /// </summary>
+    internal static void 尝试挂载AI层反射()
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.Ai层挂载", false); }
+                catch { }
+                if (类型 == null) continue;
+
+                var 方法 = 类型.GetMethod("尝试挂载AI层",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                方法?.Invoke(null, null);
+                return;
+            }
+        }
+        catch { }
+    }
+
     protected void 登记身份()
     {
         try
@@ -1355,6 +1408,24 @@ public class HealRotationEventHandler : IRotationEventHandler
         {
             LogHelper.Info("[HealerACR] 进入职业循环（非当前 ACR）-> 只清本地状态，不惊动 AI 层");
         }
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 补一次"挂载 AI 层"的机会 ★
+        //
+        //  [!] 为什么需要：`Build()` 跑在 ACR **发现阶段**，
+        //      那时 `Data.currRotation` 可能还是 null
+        //      => `Build()` 里的身份守卫会把"真正被选中"那次也挡掉。
+        //      这里再试一次，两条路都不会漏。
+        //
+        //  [!] `尝试挂载AI层()` 自带"只挂一次"开关 —— 重复调无害。
+        //
+        //  [!] 用全限定名而不是 using：
+        //      `BlueWhale` 命名空间只在 BlueWhale 那个 dll 里存在，
+        //      单独编译 HealerACR 时没有那个类 —— 所以放在 try 里，
+        //      编译期**不要**直接引用（否则独立编译会失败）。
+        //      这里用反射调用，两边都能编译。
+        // ══════════════════════════════════════════════════════════════
+        HealerEntryBase.尝试挂载AI层反射();
     }
 
     public void OnExitRotation()
