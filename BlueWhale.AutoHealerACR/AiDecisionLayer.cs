@@ -177,10 +177,30 @@ public static class AiDecisionLayer
     private const int 每次请求步数 = 3;
 
     private static long _上次预取;
-    private static bool _预取中;
+    /// <summary>
+    /// **谁持有预取标志**（0 = 没有请求在飞）。存的是**持有者的世代号**。
+    ///
+    /// [!] 为什么不用 bool（这是个真 bug 的修法）——
+    ///     原来 finally 里写的是：
+    ///         if (我的世代 == _世代) _预取世代 = 0;
+    ///     **只有最新一代才清零**。于是：
+    ///         世代 10 的请求在飞 -> 局面剧变到世代 11
+    ///         -> 请求返回时 我的世代(10) != 当前世代(11) -> **不清零**
+    ///         -> 标志永久为 true -> **AI 决策完全停止**
+    ///     而且恰好发生在最需要 AI 重新决策的局面剧变时刻。
+    ///
+    /// [!] 也不能简单改成无条件清零 —— 那会让过期请求的 finally
+    ///     把仍在跑的新请求标志清掉，放行出第三个并发请求。
+    ///
+    /// [!] 正解：把标志存成**持有者的世代号**，只有持有者能释放，
+    ///     且释放时**不需要等于当前世代**。这样：
+    ///       · 永远只有一个请求在飞（非 0 就挡住新的）
+    ///       · 请求返回后一定释放（不存在过期就永远不清）
+    /// </summary>
+    private static int _预取世代;   // 0 = 空闲
     private static long _上次局面变化;   // 局面剧变时强制清空队列重来
 
-    public static bool 预取中 => _预取中;
+    public static bool 预取中 => _预取世代 != 0;
     public static int 队列长度 => 队列计数();
 
     /// <summary>队首建议（不消费），给 UI 显示用</summary>
@@ -452,7 +472,7 @@ public static class AiDecisionLayer
         // ①.5 定期把统计打一条日志（装上去实测时靠这个看命中率）
         定期汇总();
 
-        if (_预取中) return;
+        if (_预取世代 != 0) return;
         // ★ 只查**决策通道** —— 别的通道熔断不该停掉预取（P1-11）★
         if (DeepSeekClient.该停发(DeepSeekClient.通道.决策)) return;
 
@@ -608,7 +628,7 @@ public static class AiDecisionLayer
 
             var s = AiSettings.Instance;
             if (!s.启用决策层 || !s.已配置) return;
-            if (_预取中) return;
+            if (_预取世代 != 0) return;
             // ★ 只查**决策通道** —— 别的通道熔断不该停掉预取（P1-11）★
         if (DeepSeekClient.该停发(DeepSeekClient.通道.决策)) return;
 
@@ -622,7 +642,7 @@ public static class AiDecisionLayer
 
     private static async Task 预取()
     {
-        _预取中 = true;
+        // 记下**本请求持有的世代号** —— 只有它能释放（见 finally）
         var 本批 = ++_批次号;
 
         // ══════════════════════════════════════════════════════════════
@@ -648,6 +668,8 @@ public static class AiDecisionLayer
         //    和 `Ai初始化` 完全一致：记下自己的世代，回来时对不上就丢弃。
         // ══════════════════════════════════════════════════════════════
         var 我的世代 = _世代;
+        // 记下**本请求持有的世代号** —— 只有它能释放（见 finally）
+        _预取世代 = 我的世代;
 
         try
         {
@@ -761,10 +783,10 @@ public static class AiDecisionLayer
         }
         finally
         {
-            // ⚠️ 只有**最新一代**才能清 `_预取中`。
-            //    过期的那次如果也清了，就会把仍在跑的新请求
-            //    "放行"出第三个并发请求。
-            if (我的世代 == _世代) _预取中 = false;
+            // ⚠️ **只有持有者能释放** —— 判据是「本请求是否持有」，
+            //     **不是**「是否最新一代」。用后者会让过期请求永不释放
+            //     ==> 标志永久为 true ==> AI 决策完全停止（见字段注释）。
+            if (_预取世代 == 我的世代) _预取世代 = 0;
         }
     }
 
@@ -1233,7 +1255,7 @@ public static class AiDecisionLayer
         _上次预取 = 0;
         _上次局面变化 = 0;
         _上次汇总 = 0;
-        _预取中 = false;
+        _预取世代 = 0;
         _批次号 = 0;
 
         // ★ 让"还在飞的旧预取"作废 ★
