@@ -43,6 +43,39 @@ public static class 调试窗
 
     private static bool _首次定位 = true;
 
+    /// <summary>用户拖动后的目标位置（null = 还没拖过，用默认贴右缘）。</summary>
+    private static Vector2? _目标位置;
+
+    /// <summary>用户调整后的目标尺寸（null = 用默认 440x600）。</summary>
+    private static Vector2? _目标尺寸;
+
+    /// <summary>
+    /// **把窗口拉回屏幕内**（设置页的补救按钮用）。
+    ///
+    /// [!] 为什么要这个按钮：万一还是遇到"窗口不见了"，
+    ///     点一下就能复位，不用去猜/去删 ImGui 配置。
+    /// </summary>
+    public static void 复位位置()
+    {
+        _首次定位 = true;
+        _目标位置 = null;
+        _目标尺寸 = null;
+    }
+
+    /// <summary>当前窗口坐标（设置页显示用，方便报问题时贴出来）。</summary>
+    public static string 位置描述
+    {
+        get
+        {
+            try
+            {
+                if (_目标位置 == null) return "（默认：贴屏幕右缘）";
+                return $"({_目标位置.Value.X:F0}, {_目标位置.Value.Y:F0})";
+            }
+            catch { return "?"; }
+        }
+    }
+
     /// <summary>
     /// **每帧画**（在 ACR 设置页里调 —— 那一页每帧都画）。
     ///
@@ -67,21 +100,55 @@ public static class 调试窗
             //      ACR 设置面板在左边，右边那片是空的 => 贴右缘最不容易挡。
             //      仍然完全可拖动（ImGui 默认就能拖标题栏）。
             // ══════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 窗口位置/尺寸：**每帧钳进可视区** ★
+            //
+            //  [!] 修的是一个"窗口打不开、而且不报错"的真问题
+            //
+            //      原来只在 `_首次定位` 时用 `ImGuiCond.FirstUseEver` 设一次，
+            //      之后 ImGui 用自己 ini 里存的位置。
+            //      一旦那个位置落在**可视区外**（换分辨率 / 多显示器 /
+            //      上次拖到边外），`Begin` 就恒返回 **false**
+            //      ⇒ 走下面 `return` ⇒ **窗口永不出现，且不产生任何日志**
+            //        （用户实测：设置里开关是 true，但窗口不出现，
+            //          Dalamud 日志里连一条异常都没有 —— 就是这个原因）
+            //
+            //  [!] `NoCollapse` 只禁了"折叠"，**没禁"在可视区外"** ——
+            //      所以这条路径是真实可达的，不能靠"位置算得好"回避。
+            //
+            //  [!] 修法：每帧都把位置夹进屏幕（`ImGuiCond.Always`）。
+            //      **仍然可以自由拖动** —— 只要拖到的位置在屏幕内就尊重它，
+            //      只有拖出可视区时才被拉回来。
+            // ══════════════════════════════════════════════════════════════
+            var 屏 = ImGui.GetIO().DisplaySize;
+            const float 默认宽 = 440f;
+            const float 默认高 = 600f;
+
             if (_首次定位)
             {
                 _首次定位 = false;
-
-                var 屏 = ImGui.GetIO().DisplaySize;
-                const float 宽 = 440f;
-                const float 高 = 600f;
-
-                // 贴着右缘留一点边距；太窄的屏幕就退回左上（别压中间）
-                var x = 屏.X > 宽 + 80f ? 屏.X - 宽 - 16f : 16f;
-                var y = 屏.Y > 高 + 80f ? 屏.Y * 0.12f : 16f;
-
-                ImGui.SetNextWindowPos(new Vector2(x, y), ImGuiCond.FirstUseEver);
-                ImGui.SetNextWindowSize(new Vector2(宽, 高), ImGuiCond.FirstUseEver);
+                _目标位置 = null;   // 第一次由下面的逻辑算
             }
+
+            // 位置：第一次贴右缘；之后沿用 ImGui 记的位置（但会被夹进屏幕）
+            var 要用位置 = _目标位置;
+            if (要用位置 == null)
+            {
+                要用位置 = new Vector2(
+                    屏.X > 默认宽 + 80f ? 屏.X - 默认宽 - 16f : 16f,
+                    屏.Y > 默认高 + 80f ? 屏.Y * 0.12f : 16f);
+            }
+
+            // 夹进可视区：留 8 像素边距，并保证**标题栏一定在屏幕内**
+            //（否则拖不回来 —— ImGui 的拖动要靠标题栏）
+            const float 边距 = 8f;
+            var 宽 = Math.Clamp(_目标尺寸?.X ?? 默认宽, 320f, MathF.Max(320f, 屏.X - 边距 * 2));
+            var 高 = Math.Clamp(_目标尺寸?.Y ?? 默认高, 240f, MathF.Max(240f, 屏.Y - 边距 * 2));
+            var x = Math.Clamp(要用位置.Value.X, 边距, MathF.Max(边距, 屏.X - 宽 - 边距));
+            var y = Math.Clamp(要用位置.Value.Y, 边距, MathF.Max(边距, 屏.Y - 高 - 边距));
+
+            ImGui.SetNextWindowPos(new Vector2(x, y), ImGuiCond.Always);
+            ImGui.SetNextWindowSize(new Vector2(宽, 高), ImGuiCond.Always);
 
             var 显示 = true;
 
@@ -110,6 +177,16 @@ public static class 调试窗
             {
                 return;      // [!] 不调 End —— Begin=false 时没有配对的 End
             }
+
+            // ── 记住用户拖动后的位置（下一帧的钳制基于它）──
+            try
+            {
+                var 实际 = ImGui.GetWindowPos();
+                if (实际.X > 0f || 实际.Y > 0f) _目标位置 = 实际;
+                var 实际尺寸 = ImGui.GetWindowSize();
+                if (实际尺寸.X >= 320f && 实际尺寸.Y >= 240f) _目标尺寸 = 实际尺寸;
+            }
+            catch { }
 
             // [!] 说明窗**可以拖** —— 用户实测遇到"AI 设置不见了"，
             //     实际是这个窗口压在了设置面板上。写一句省得再困惑。

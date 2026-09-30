@@ -789,6 +789,11 @@ public abstract class HealerEntryBase : IRotationEntry
                 }
                 ImGui.SameLine();
                 ImGui.TextDisabled("  只读，可一直开着");
+                ImGui.SameLine();
+                
+                //  [!] 兜底按钮：万一窗口被 ImGui 放到屏幕外（换分辨率 / 多显示器），
+                //      窗口本身不会出现也不报错，用户无从下手 —— 点这里复位。
+                if (ImGui.SmallButton("把窗口拉回屏幕内")) 复位调试窗位置();
             }
 
             画AI层调试窗();
@@ -1177,6 +1182,39 @@ public abstract class HealerEntryBase : IRotationEntry
     private static int _调试窗失败次数;
     private const int 调试窗失败上限 = 5;
 
+    /// <summary>
+    /// **把调试窗拉回屏幕内**（反射调 AI 层的 `调试窗.复位位置()`）。
+    ///
+    /// [!] 为什么要这个按钮：ImGui 的窗口位置是持久化的。
+    ///     一旦位置落在可视区外（换分辨率 / 多显示器 / 拖出边界），
+    ///     窗口就**永远不会出现，而且不产生任何日志** ——
+    ///     用户看到的是「开关是勾上的，但窗口不见了」，无从下手。
+    ///
+    /// [!] 窗口本身现在每帧会把位置夹进屏幕（见 `调试窗.画`），
+    ///     所以正常情况下不会再发生；这个按钮是**兜底**。
+    /// </summary>
+    private static void 复位调试窗位置()
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
+                catch { }
+                if (类型 == null) continue;
+    
+                var 方法 = 类型.GetMethod("复位位置",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                if (方法 == null) continue;
+    
+                方法.Invoke(null, null);
+                return;
+            }
+        }
+        catch { }
+    }
+    
     private static void 画AI层调试窗()
     {
         // [!] 自禁用：连抛 N 次就关掉它 ——
