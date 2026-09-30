@@ -474,65 +474,9 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
-        // ══════════════════════════════════════════════════════════════
-        //  ★ 阶段日志 —— 定位"点设置就闪退"（实测 bug）★
-        //
-        //  [!] 为什么加：这个闪退推理了五次都没定位（Dispose / OnEnterRotation /
-        //      Build / ACR身份 / 递归 全否）。`OnDrawSetting` 是**唯一的确定入口**
-        //      （用户点设置就崩）—— 所以在每一步打日志，
-        //      **崩溃前最后打出来的那一行就是崩溃点所在阶段**。
-        //
-        //  [!] 为什么要 try/catch：托管异常能被挡住并记下来（那就是普通 bug）；
-        //      挡不住的是栈溢出（闪退的常见原因）——
-        //      那种情况下"最后一行的阶段名"仍然有效。
-        //
-        //  [!] 为什么不直接二分回退版本：回退只能定位到"哪个提交"，
-        //      而那个提交里有 5 处改动，还得再猜。日志能直接定位到**哪一行**。
-        // ══════════════════════════════════════════════════════════════
-        static void 记(string 阶段)
-        {
-            try { LogHelper.Info("[设置诊断] 进入阶段：" + 阶段); } catch { }
-        }
-
-        记("0-开始");
-        try
-        {
-            记("1-base.OnDrawSetting（原版设置）");
-            base.OnDrawSetting();
-            记("1-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] base.OnDrawSetting 抛异常：" + e);
-            记("1-异常已捕获");
-        }
-
-        try
-        {
-            记("2-AiSettingPage.画");
-            AiSettingPage.画();
-            记("2.5-AiSettingPage 已返回");   // ★ 区分"A 没返回"还是"B 卡在后面"
-            记("2-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] AiSettingPage.画 抛异常：" + e);
-            记("2-异常已捕获");
-        }
-
-        try
-        {
-            记("3-记忆库页面.画");
-            记忆库页面.画();
-            记("3-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] 记忆库页面.画 抛异常：" + e);
-            记("3-异常已捕获");
-        }
-
-        记("9-全部完成");
+        base.OnDrawSetting();
+        AiSettingPage.画();
+        记忆库页面.画();
     }
 
     /// <summary>
@@ -647,64 +591,9 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
-        // ══════════════════════════════════════════════════════════════
-        //  ★ 阶段日志 —— 定位"点设置就闪退"（实测 bug）★
-        //
-        //  [!] 为什么加：这个闪退推理了五次都没定位（Dispose / OnEnterRotation /
-        //      Build / ACR身份 / 递归 全否）。`OnDrawSetting` 是**唯一的确定入口**
-        //      （用户点设置就崩）—— 所以在每一步打日志，
-        //      **崩溃前最后打出来的那一行就是崩溃点所在阶段**。
-        //
-        //  [!] 为什么要 try/catch：托管异常能被挡住并记下来（那就是普通 bug）；
-        //      挡不住的是栈溢出（闪退的常见原因）——
-        //      那种情况下"最后一行的阶段名"仍然有效。
-        //
-        //  [!] 为什么不直接二分回退版本：回退只能定位到"哪个提交"，
-        //      而那个提交里有 5 处改动，还得再猜。日志能直接定位到**哪一行**。
-        // ══════════════════════════════════════════════════════════════
-        static void 记(string 阶段)
-        {
-            try { LogHelper.Info("[设置诊断] 进入阶段：" + 阶段); } catch { }
-        }
-
-        记("0-开始");
-        try
-        {
-            记("1-base.OnDrawSetting（原版设置）");
-            base.OnDrawSetting();
-            记("1-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] base.OnDrawSetting 抛异常：" + e);
-            记("1-异常已捕获");
-        }
-
-        try
-        {
-            记("2-AiSettingPage.画");
-            AiSettingPage.画();
-            记("2-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] AiSettingPage.画 抛异常：" + e);
-            记("2-异常已捕获");
-        }
-
-        try
-        {
-            记("3-记忆库页面.画");
-            记忆库页面.画();
-            记("3-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] 记忆库页面.画 抛异常：" + e);
-            记("3-异常已捕获");
-        }
-
-        记("9-全部完成");
+        base.OnDrawSetting();
+        AiSettingPage.画();
+        记忆库页面.画();
     }
 
     /// <summary>
@@ -827,64 +716,9 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
-        // ══════════════════════════════════════════════════════════════
-        //  ★ 阶段日志 —— 定位"点设置就闪退"（实测 bug）★
-        //
-        //  [!] 为什么加：这个闪退推理了五次都没定位（Dispose / OnEnterRotation /
-        //      Build / ACR身份 / 递归 全否）。`OnDrawSetting` 是**唯一的确定入口**
-        //      （用户点设置就崩）—— 所以在每一步打日志，
-        //      **崩溃前最后打出来的那一行就是崩溃点所在阶段**。
-        //
-        //  [!] 为什么要 try/catch：托管异常能被挡住并记下来（那就是普通 bug）；
-        //      挡不住的是栈溢出（闪退的常见原因）——
-        //      那种情况下"最后一行的阶段名"仍然有效。
-        //
-        //  [!] 为什么不直接二分回退版本：回退只能定位到"哪个提交"，
-        //      而那个提交里有 5 处改动，还得再猜。日志能直接定位到**哪一行**。
-        // ══════════════════════════════════════════════════════════════
-        static void 记(string 阶段)
-        {
-            try { LogHelper.Info("[设置诊断] 进入阶段：" + 阶段); } catch { }
-        }
-
-        记("0-开始");
-        try
-        {
-            记("1-base.OnDrawSetting（原版设置）");
-            base.OnDrawSetting();
-            记("1-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] base.OnDrawSetting 抛异常：" + e);
-            记("1-异常已捕获");
-        }
-
-        try
-        {
-            记("2-AiSettingPage.画");
-            AiSettingPage.画();
-            记("2-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] AiSettingPage.画 抛异常：" + e);
-            记("2-异常已捕获");
-        }
-
-        try
-        {
-            记("3-记忆库页面.画");
-            记忆库页面.画();
-            记("3-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] 记忆库页面.画 抛异常：" + e);
-            记("3-异常已捕获");
-        }
-
-        记("9-全部完成");
+        base.OnDrawSetting();
+        AiSettingPage.画();
+        记忆库页面.画();
     }
 
     /// <summary>
@@ -1007,64 +841,9 @@ public class BlueWhaleSageEntry : SGERotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
-        // ══════════════════════════════════════════════════════════════
-        //  ★ 阶段日志 —— 定位"点设置就闪退"（实测 bug）★
-        //
-        //  [!] 为什么加：这个闪退推理了五次都没定位（Dispose / OnEnterRotation /
-        //      Build / ACR身份 / 递归 全否）。`OnDrawSetting` 是**唯一的确定入口**
-        //      （用户点设置就崩）—— 所以在每一步打日志，
-        //      **崩溃前最后打出来的那一行就是崩溃点所在阶段**。
-        //
-        //  [!] 为什么要 try/catch：托管异常能被挡住并记下来（那就是普通 bug）；
-        //      挡不住的是栈溢出（闪退的常见原因）——
-        //      那种情况下"最后一行的阶段名"仍然有效。
-        //
-        //  [!] 为什么不直接二分回退版本：回退只能定位到"哪个提交"，
-        //      而那个提交里有 5 处改动，还得再猜。日志能直接定位到**哪一行**。
-        // ══════════════════════════════════════════════════════════════
-        static void 记(string 阶段)
-        {
-            try { LogHelper.Info("[设置诊断] 进入阶段：" + 阶段); } catch { }
-        }
-
-        记("0-开始");
-        try
-        {
-            记("1-base.OnDrawSetting（原版设置）");
-            base.OnDrawSetting();
-            记("1-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] base.OnDrawSetting 抛异常：" + e);
-            记("1-异常已捕获");
-        }
-
-        try
-        {
-            记("2-AiSettingPage.画");
-            AiSettingPage.画();
-            记("2-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] AiSettingPage.画 抛异常：" + e);
-            记("2-异常已捕获");
-        }
-
-        try
-        {
-            记("3-记忆库页面.画");
-            记忆库页面.画();
-            记("3-完成");
-        }
-        catch (Exception e)
-        {
-            LogHelper.Error("[设置诊断] 记忆库页面.画 抛异常：" + e);
-            记("3-异常已捕获");
-        }
-
-        记("9-全部完成");
+        base.OnDrawSetting();
+        AiSettingPage.画();
+        记忆库页面.画();
     }
 
     /// <summary>
@@ -1205,29 +984,8 @@ public static class AiSettingPage
     }
     public static void 画()
     {
-        // ══════════════════════════════════════════════════════════════
-        //  ★ 阶段日志 —— 定位"点设置就闪退"（实测，已缩到此方法内）★
-        //
-        //  [!] 外面那层已经证明了崩溃点在这里：
-        //        [设置诊断] 进入阶段：2-AiSettingPage.画   <- 最后一行
-        //      没有 "2-完成"，也没有 "2-异常已捕获"
-        //      => 崩在本方法内，且**不是托管异常**（原生 AV / 栈溢出）
-        //      => 只能靠"最后进入的阶段"定位
-        //
-        //  [!] 为什么插这么密：原生 AV 抓不到堆栈，
-        //      唯一可行的办法就是把范围一段段缩到单行。
-        //      定位后这些日志会被删掉（它们是诊断用的，不是功能）。
-        // ══════════════════════════════════════════════════════════════
-        static void 段(string 名)
-        {
-            try { LogHelper.Info("[画诊断] " + 名); } catch { }
-        }
-
-        段("a-取 Instance");
         var s = AiSettings.Instance;
-        段("a-完成");
 
-        段("b-第一次 ImGui 调用");
         ImGui.Separator();
         ImGui.TextDisabled("════ BlueWhale AI 决策层（可选，不填也完全可用）════");
 
@@ -1238,7 +996,6 @@ public static class AiSettingPage
         // ★ 失焦即保存 ★ —— 不用再手动点「保存设置」，重载后 Key 还在
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("API Key");
         ImGui.TextDisabled("  sk- 开头。留空 = 不启用 AI，走原版逻辑。只存本地 json。");
-        段("c-API Key 段完成");
 
         // ---- 只有填了 Key 才显示后面的 ----
         // （按你的要求：提供了 api key 再选择模型）
@@ -1247,7 +1004,6 @@ public static class AiSettingPage
             ImGui.TextDisabled("  ^ 填入 Key 后，下面会出现模型选择和开关。");
             return;
         }
-        段("d-已配置，进入模型段");
 
         // ---- 模型选择 ----
         ImGui.Separator();
@@ -1265,66 +1021,43 @@ public static class AiSettingPage
         var 模型列表 = DeepSeekClient.模型列表.Count > 0
             ? DeepSeekClient.模型列表.ToArray()
             : new[] { "deepseek-flash", "deepseek-v4-pro" };
-        段("e-模型列表长度=" + 模型列表.Length);
 
         for (var i = 0; i < 模型列表.Length; i++)
         {
-            段("e" + i + "-RadioButton " + (模型列表[i] ?? "(null)"));
             var 选中 = s.Model == 模型列表[i];
             if (ImGui.RadioButton(模型列表[i] ?? "(null)", 选中)) { s.Model = 模型列表[i]; AiSettings.保存(); }
             ImGui.SameLine();
         }
-        段("e-模型循环完成");
 
-        段("f1-NewLine 前");
         ImGui.NewLine();
-        段("f2-NewLine 后 即将 TextDisabled 1");
         ImGui.TextDisabled("  deepseek-flash   = 快、便宜，适合高频决策（推荐先用这个）");
-        段("f3-TextDisabled 1 后 即将 TextDisabled 2");
         ImGui.TextDisabled("  deepseek-v4-pro = 慢、贵、推理更强，适合低频策略");
-        段("f4-两个 TextDisabled 完成");
 
         // ★ 从 API 拉真实列表 —— 根治"模型名会过期" ★
-        段("g1-Button 前");
         if (ImGui.Button("从 API 拉取模型列表")) _ = DeepSeekClient.拉取模型列表();
-        段("g2-Button 后 即将 SameLine");
         ImGui.SameLine();
-        段("g3-SameLine 后 即将读 模型列表状态");
         var 状态串 = DeepSeekClient.模型列表状态 ?? "";
-        段("g4-读到状态串 len=" + 状态串.Length);
         ImGui.TextDisabled(状态串);
-        段("g5-状态串已画");
 
         // 自定义（模型名会变，留个口子）
         var 模型名 = s.Model ?? "";
-        段("h1-SetNextItemWidth 前");
         ImGui.SetNextItemWidth(240);
-        段("h2-InputText(模型名) 前");
         if (ImGui.InputText("模型名（可手填）", ref 模型名, 64)) s.Model = 模型名;
-        段("h3-InputText(模型名) 后");
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("模型名");
-        段("h4-模型名段完成");
         ImGui.TextDisabled("  模型名随版本会变。如果上面两个都不通，去 DeepSeek 文档查当前名称填这里。");
 
-        段("i1-InputText(接口地址) 前");
         ImGui.SetNextItemWidth(200);
         ImGui.InputText("接口地址", ref s.Endpoint, 200);
-        段("i2-InputText(接口地址) 后");
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("接口地址");
         ImGui.TextDisabled("  默认 https://api.deepseek.com");
 
-        段("j1-SliderInt(超时) 前");
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("超时（毫秒）", ref s.超时毫秒, 500, 10000);
-        段("j2-SliderInt(超时) 后");
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("超时");
 
-        段("k1-Button(保存设置) 前");
         if (ImGui.Button("保存设置")) { AiSettings.保存(); LogHelper.Info("[BlueWhale.AI] 设置已保存"); }
-        段("k2-Button(保存设置) 后");
 
         // ---- 两个阶段 ----
-        段("T01-决策层开关 段");
         ImGui.Separator();
         ImGui.TextDisabled("决策层开关");
 
@@ -1340,7 +1073,6 @@ public static class AiSettingPage
         ImGui.SliderInt("决策预取（毫秒）", ref s.决策预取毫秒, 500, 3000);
 
         // ---- 安全阀 ----
-        段("T02-安全阀 段");
         ImGui.Separator();
         ImGui.TextDisabled("安全阀（AI 失败绝不影响战斗）");
 
@@ -1349,11 +1081,9 @@ public static class AiSettingPage
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("失败冷却（秒）", ref s.失败冷却秒, 10, 300);
 
-        段("T03-记录原始回复 前");
         ImGui.Checkbox("记录原始回复（调试）", ref s.记录原始回复);
 
         // ★ 调试模式 ★ —— 开启后 AI 日志直接显示在游戏里
-        段("T04-调试模式 前");
         if (ImGui.Checkbox("调试模式（AI 日志上屏）", ref s.调试模式))
         {
             AiSettings.保存();
@@ -1362,13 +1092,11 @@ public static class AiSettingPage
         }
         ImGui.TextDisabled("  开启后 AI 的请求/回复/采纳都会打到屏幕上（日志文件照常写）");
 
-        段("T05-解除熔断 前");
         if (ImGui.Button("解除熔断")) DeepSeekClient.解除熔断();
 
         ImGui.SameLine();
 
         // ★ 测试连接 —— 最直接的"AI 到底通不通"判断方式 ★
-        段("T06-测试连接 前");
         if (ImGui.Button("测试连接"))
         {
             LogHelper.Info("[BlueWhale.AI] 开始测试连接…");
@@ -1405,7 +1133,6 @@ public static class AiSettingPage
         }
 
         // ---- 实时状态 ----
-        段("T07-AI当前状态 段");
         ImGui.Separator();
         ImGui.Text("AI 当前状态");
         ImGui.Text($"  状态：{DeepSeekClient.状态描述()}    连续失败：{DeepSeekClient.连续失败数}");
@@ -1429,7 +1156,6 @@ public static class AiSettingPage
         //
         //  => `历史快照()` 返回副本，遍历副本永远安全。
         // ══════════════════════════════════════════════════════════════
-        段("T08-历史快照 前");
         var 历史 = AiStrategyLayer.历史快照();
         if (历史.Count > 0)
         {
@@ -1442,24 +1168,20 @@ public static class AiSettingPage
             }
         }
 
-        段("T09-保存提示 前");
         if (_保存提示.Length > 0)
         {
             ImGui.TextDisabled("  " + _保存提示);
         }
 
-        段("T10-测试结果 前");
         if (_测试中 || _测试结果.Length > 0)
         {
             ImGui.TextColored(new System.Numerics.Vector4(1f, 0.9f, 0.3f, 1f), "  " + _测试结果);
         }
-        段("T11-阈值适配器状态 前");
         ImGui.TextWrapped("  " + AiThresholdAdapter.状态描述());
 
         ImGui.TextDisabled($"  策略层：启用={s.启用策略层}  刷新中={AiStrategyLayer.刷新中}  成功={AiStrategyLayer.成功次数} 次");
         ImGui.TextDisabled($"  上次结果：{AiStrategyLayer.上次结果}");
 
-        段("T12-当前建议 前");
         var 建议 = AiDecisionLayer.当前建议;
         if (建议 != null)
         {
@@ -1470,7 +1192,6 @@ public static class AiSettingPage
             ImGui.TextDisabled("  决策建议：无");
         }
 
-        段("T13-建议显示完成");
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 阶段 B 命中率统计（实测要看的一屏）★
@@ -1486,35 +1207,23 @@ public static class AiSettingPage
         //      （`AiDecisionLayer` 的队列/字典、`局面监控` 的状态），
         //      而后台线程（AI 请求的续体）正在写这些 —— 高度怀疑是**死锁**。
         // ══════════════════════════════════════════════════════════════
-        段("U1-Separator 前");
         ImGui.Separator();
-        段("U2-标题前");
         ImGui.TextDisabled("阶段 B 命中率统计");
 
-        段("U3-AiDecisionLayer.状态描述() 前");
         var 决策状态 = AiDecisionLayer.状态描述();
-        段("U4-AiDecisionLayer.状态描述() 后");
         ImGui.TextWrapped("  " + 决策状态);
 
-        段("U5-AiDecisionLayer.拦截摘要() 前");
         var 拦截 = AiDecisionLayer.拦截摘要();
-        段("U6-AiDecisionLayer.拦截摘要() 后");
         ImGui.TextWrapped("  被终审拦下：" + 拦截);
 
-        段("U7-排队过期条数 前");
         var 排队过期 = AiDecisionLayer.排队过期条数;
-        段("U8-排队过期条数 后=" + 排队过期);
         ImGui.TextDisabled($"  其中排在队列第 2 位之后才过期的：{排队过期} 条");
 
-        段("U9-局面监控.状态描述() 前");
         var 局面 = 局面监控.状态描述();
-        段("U10-局面监控.状态描述() 后");
         ImGui.TextDisabled("  " + 局面);
 
-        段("U11-说明行 前");
         ImGui.TextDisabled("  说明：『过期』= 生成后在队列里放着没人用就超时了；");
         ImGui.TextDisabled("        命中率 = 命中 /(命中 + 过期)，被局面剧变清空的条数不计入分母。");
-        段("U12-全部完成，即将 return");
     }
 }
 
