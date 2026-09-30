@@ -538,7 +538,7 @@ public class Res_HealBooster : ISlotResolver
         // 掉血够多 / 伤害要来 → 值得强化
         var s = HealSettings.Instance;
         var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
-        var 掉血多 = HealTargetHelper.低于阈值人数(s.群体治疗阈值) >= s.群奶最少人数;
+        var 掉血多 = HealTargetHelper.低于阈值人数(s.大招血线) >= s.群奶最少人数;
 
         if (!要来了 && !掉血多) return -1;
 
@@ -613,7 +613,7 @@ public class Res_BigAoEHeal : ISlotResolver
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
 
             var s = HealSettings.Instance;
-            var 人够多 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= s.群奶最少人数;   // 20 米：大宇宙 25874
+            var 人够多 = HealTargetHelper.低于阈值人数(s.大招血线, 20f) >= s.群奶最少人数;   // 20 米：大宇宙 25874
             var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
             if (!人够多 && !要来了) return -1;

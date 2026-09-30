@@ -63,6 +63,17 @@ public static class AiThresholdAdapter
     }
 
     /// <summary>
+    /// 调整后的**大招血线**（秘策 / 炽天召唤 / 炽天附体）。
+    ///
+    /// [!] 上限比别的阈值大（0.20）—— 因为"留大招"的幅度本来就该更大：
+    ///     把 62% 抬到 82% 才交，是完全合理的策略（等真正的团血危机）。
+    /// </summary>
+    public static float 大招血线(float 原值)
+    {
+        return Math.Clamp(原值 + 偏移(HealerACR.Common.可调参数.大招血线), 0.30f, 0.98f);
+    }
+
+    /// <summary>
     /// 调整后的以太保留数。
     /// 保守 → 多留（+1）；激进 → 少留（-1，最低 0）。
     /// </summary>
@@ -329,6 +340,8 @@ public static class AiHookInstaller
                 HealerACR.Common.可调参数.预铺血线, AiThresholdAdapter.预铺血线);
             HealerACR.Common.阈值钩子.挂具名(
                 HealerACR.Common.可调参数.妖精契约血线, AiThresholdAdapter.妖精契约血线);
+            HealerACR.Common.阈值钩子.挂具名(
+                HealerACR.Common.可调参数.大招血线, AiThresholdAdapter.大招血线);
 
             // 通用钩子也留着 —— 兜住"将来新加的、还没单独挂钩子的阈值"
             HealerACR.Common.阈值钩子.治疗阈值调整 = AiThresholdAdapter.单体治疗阈值;

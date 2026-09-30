@@ -32,7 +32,7 @@ public class SCH_Seraphism : ISlotResolver
         if (Core.Me.有该技能的Buff(技能)) return -3;
 
         var s = HealSettings.Instance;
-        var 掉血多 = HealTargetHelper.低于阈值人数(s.群体治疗阈值) >= s.群奶最少人数;
+        var 掉血多 = HealTargetHelper.低于阈值人数(s.大招血线) >= s.群奶最少人数;
         var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
         if (!掉血多 && !要来了) return -1;

@@ -779,7 +779,7 @@ public class SCH_Seraph : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.炽天使剩余 > 0) return -3;
 
-        var 团队掉血 = HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值)
+        var 团队掉血 = HealTargetHelper.低于阈值人数(HealSettings.Instance.大招血线)
                        >= HealSettings.Instance.群奶最少人数;
         var 要来伤害 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
@@ -820,7 +820,7 @@ public class SCH_Consolation : ISlotResolver
         if (TimeHelper.Now() - 上次慰藉 < 限流) return -7;
 
         var s = HealSettings.Instance;
-        var 团队掉血 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= s.群奶最少人数;   // 慰藉 20 米
+        var 团队掉血 = HealTargetHelper.低于阈值人数(s.大招血线, 20f) >= s.群奶最少人数;   // 慰藉 20 米
         var 要来伤害 = TimelineManager.未来有减伤(2.0) || 减伤Helper.即将来大伤害();
 
         if (!团队掉血 && !要来伤害) return -1;
