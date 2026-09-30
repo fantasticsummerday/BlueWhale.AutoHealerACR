@@ -290,6 +290,7 @@ public static class Ai层挂载
     {
         try { AiStrategyLayer.重置();
             Ai策略参数.重置(); } catch { }
+            try { 战斗指标.重置(); } catch { }
         try { AiDecisionLayer.重置(); } catch { }
         try { AiThresholdAdapter.重置平滑(); } catch { }
         try { 坦克压力.重置(); } catch { }
@@ -1273,6 +1274,7 @@ public class AiHeartbeat : ISlotResolver
         {
             AiStrategyLayer.每帧更新();
             Ai策略参数.每帧更新();   // AI 的逐参数微调（见该类说明）   // 阶段 A
+            战斗指标.每帧更新();        // 综合效果指标（先测不判断，见该类说明）
             AiDecisionLayer.每帧更新();   // 阶段 B
             AiSettingPage.每帧更新();     // 收集"测试连接"的异步结果
             AiSettings.每帧更新();        // 脱战后补写攒下的设置保存（避免战斗中做 IO）

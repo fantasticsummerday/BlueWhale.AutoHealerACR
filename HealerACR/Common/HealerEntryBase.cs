@@ -1697,6 +1697,10 @@ public class HealRotationEventHandler : IRotationEventHandler
         }
         catch { }
 
+            // ★ 综合效果指标：记放了一次治疗（**本地和 AI 共用的出口**，所以两条路都覆盖）
+            //   [!] 恢复力在 HealerACR 这侧查（技能表在这里），查不到就静默跳过。
+            try { 指标钩子.记治疗(spell?.Id ?? 0); } catch { }
+
         // ★ 记忆采集（通过钩子转出去，本类不知道采集器是谁）★
         //   原版 HealerACR 没挂这个钩子 → 什么也不发生。
         try

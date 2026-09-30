@@ -828,6 +828,13 @@ public static class 调试窗
             ImGui.TextDisabled($"  配置：Key={(!string.IsNullOrEmpty(s.ApiKey) ? "有" : "无")}" +
                                $"｜模型={s.Model}｜策略层={s.启用策略层}｜决策层={s.启用决策层}");
             ImGui.TextDisabled($"  通道：{DeepSeekClient.通道摘要()}");
+            
+            // ★ 综合效果指标（本局）—— 用来回答AI 调参到底有没有变好★
+            //   [!] 只**如实测量**，不合成分数、不做判断 ——
+            //       什么算好和各项权重是策略取舍（见 `战斗指标` 的类注释）。
+            ImGui.TextDisabled($"  本局指标：{战斗指标.摘要()}");
+            if (!string.IsNullOrEmpty(战斗指标.当前参数快照))
+                ImGui.TextDisabled($"      本局生效参数：{战斗指标.当前参数快照}");
             ImGui.TextDisabled($"  缓存：{DeepSeekClient.缓存描述()}");
 
             ImGui.Separator();
