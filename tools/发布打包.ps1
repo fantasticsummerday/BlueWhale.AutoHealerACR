@@ -229,10 +229,16 @@ foreach ($d in @($H包, $B包)) {
 # ⚠️ 这一条是刻意的：旧做法"从上一个包复制"是 310 份时间轴丢失的**直接原因**
 #    （复制源在提取之前，而且链条上没人报错）。
 #    从仓库当前状态取，就不会有"上游过期"的问题。
+#  ⚠️ 后两个是「判断逻辑说明」文档 —— 用户要求随包发布：
+#     · 判断逻辑说明-本地与AI.md   架构总览（明确区分本地层与 AI 层职责）
+#     · 审查材料-输出与治疗逻辑.md  第三方审查用（每个结论带文件行号 + 数据来源）
+#     放仓库根（随代码演进），不是 release\_support\（那是历史遗留文件的位置）。
 foreach ($pair in @(
         @("HealerACR\README.md", "README.md"),
         @("HealerACR\CHANGELOG.md", "CHANGELOG.md"),
-        @("HealerACR\开发约定.md", "开发约定.md"))) {
+        @("HealerACR\开发约定.md", "开发约定.md"),
+        @("判断逻辑说明-本地与AI.md", "判断逻辑说明-本地与AI.md"),
+        @("审查材料-输出与治疗逻辑.md", "审查材料-输出与治疗逻辑.md"))) {
     $src = Join-Path $仓库根 $pair[0]
     if (Test-Path $src) {
         Copy-Item $src (Join-Path $H包 $pair[1]) -Force
