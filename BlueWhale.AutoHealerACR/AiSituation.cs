@@ -1,4 +1,5 @@
 using System.Text;
+using System.Numerics;
 using AEAssist;
 using AEAssist.Extension;
 using AEAssist.Helper;
@@ -559,6 +560,20 @@ public static class AiSituation
                 {
                     sb.AppendLine($"  ⚠️ **等级同步中**：真实 {真实等级} 级，本副本内只按 {等级} 级算 ——" +
                                   "技能按这个等级解锁，别建议没解锁的");
+            
+            // [!] **治疗阈值必须给**（H3，审计确认）—— 原来阈值一个都不给，
+            //     而提示词里硬编码了个「全队 >85% 别治疗」的**假阈值**；
+            //     AI 的建议又以优先级 100 执行 ==> **绕过本地的血线**。
+            //     这里给的是**AI 偏移后的生效值**（`HealSettings` 的 getter 已过钩子）。
+            try
+            {
+                var 设 = HealerACR.Common.HealSettings.Instance;
+                if (设 != null)
+                    sb.AppendLine($"本地治疗阈值：单体 {设.单体治疗阈值 * 100f:F0}% / " +
+                                  $"群体 {设.群体治疗阈值 * 100f:F0}% / " +
+                                  $"紧急单奶 {设.紧急单奶阈值 * 100f:F0}%");
+            }
+            catch { }
                 }
             }
             catch { }
@@ -940,7 +955,9 @@ public static class AiSituation
             var 是Boss = false;
             try { 是Boss = 目标.IsBoss(); } catch { }
 
-            sb.AppendLine($"当前目标：{目标.Name}");
+            // [!] **距离必须给**（GAP-15，审计确认）—— 规则 22e 让 AI 判「站远了别交自身中心 AOE」，
+            //     但原来**它看不到自己站多远**；近战填充那条分支（够得到目标圈）也判不了。
+            sb.AppendLine($"当前目标：{目标.Name}（距离 {Vector3.Distance(Core.Me.Position, 目标.Position):F0}m）");
             sb.AppendLine($"  类型：{(是Boss ? "Boss" : "普通怪")}");
             sb.AppendLine($"  血量：{目标.血量比例() * 100f:F0}%（{目标.CurrentHp} / {目标.MaxHp}）");
 
@@ -1831,7 +1848,12 @@ public static class AiSituation
             // ── 静态参考：每个类别"是什么用的" ──
             //   ⚠️ 这块是**静态**的（每轮都一样），所以它是超长时
             //      第一个该被砍掉的部分 —— 见 采集() 里的截断逻辑。
-            采技能效果说明(sb);
+            // [!] 「技能类别说明」**已搬到系统提示**（见 `AiDecisionLayer.系统提示`）。
+            //     理由：它**每轮一字不变**，占着局面报告 6000 的预算，而系统提示是
+            //     另一个独立通道、**不受那个上限约束**，而且每轮也发。
+            //     搬走 = **信息一个字不丢**，局面报告腾出空间给真正的当前事实。
+            //     内容见系统提示的「技能类别说明」小节（含 DoT 补判标准那条防幻觉约束）。
+            // 采技能效果说明(sb);   // <- 搬到系统提示了
         }
         catch (Exception e)
         {
