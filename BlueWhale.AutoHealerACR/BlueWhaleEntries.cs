@@ -474,9 +474,9 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
+        // [!] AI 设置页 / 记忆库页面**由 base.OnDrawSetting 统一画**（在最前面，
+        //     用户点进来第一眼就看到）。这里**不能**再调一次 —— 会画两遍。
         base.OnDrawSetting();
-        AiSettingPage.画();
-        记忆库页面.画();
     }
 
     /// <summary>
@@ -591,9 +591,9 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
+        // [!] AI 设置页 / 记忆库页面**由 base.OnDrawSetting 统一画**（在最前面，
+        //     用户点进来第一眼就看到）。这里**不能**再调一次 —— 会画两遍。
         base.OnDrawSetting();
-        AiSettingPage.画();
-        记忆库页面.画();
     }
 
     /// <summary>
@@ -716,9 +716,9 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
+        // [!] AI 设置页 / 记忆库页面**由 base.OnDrawSetting 统一画**（在最前面，
+        //     用户点进来第一眼就看到）。这里**不能**再调一次 —— 会画两遍。
         base.OnDrawSetting();
-        AiSettingPage.画();
-        记忆库页面.画();
     }
 
     /// <summary>
@@ -841,9 +841,9 @@ public class BlueWhaleSageEntry : SGERotationEntry
     /// </summary>
     public override void OnDrawSetting()
     {
+        // [!] AI 设置页 / 记忆库页面**由 base.OnDrawSetting 统一画**（在最前面，
+        //     用户点进来第一眼就看到）。这里**不能**再调一次 —— 会画两遍。
         base.OnDrawSetting();
-        AiSettingPage.画();
-        记忆库页面.画();
     }
 
     /// <summary>
@@ -1335,8 +1335,7 @@ public class BlueWhale幻术师Entry : HealerACR.Rotations.幻术师RotationEntr
 
     public override void OnDrawSetting()
     {
-        base.OnDrawSetting();
-        AiSettingPage.画();
+        base.OnDrawSetting();   // AI 设置页由 base 统一画
     }
 
 public override Rotation Build(string settingFolder)

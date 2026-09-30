@@ -753,6 +753,20 @@ public abstract class HealerEntryBase : IRotationEntry
     public virtual void OnDrawSetting()
     {
         // ══════════════════════════════════════════════════════════════
+        //  ★★ AI 设置放最前面 ★★
+        //
+        //  [!] 为什么（用户实测反馈"AI 设置没了"）：
+        //      它原来挂在 5 个子类 `OnDrawSetting` 的**末尾** ——
+        //      也就是这一大页通用设置**之后**，要滚到最底才看得到。
+        //      用户点进「ACR 设置」看到的是治疗/阈值/资源/其他，
+        //      **很自然会以为 AI 设置不存在**。
+        //
+        //  [!] 现在放**第一段** —— 点进来第一眼就是它。
+        //      实现走反射（HealerACR 编译期看不到 BlueWhale 命名空间）。
+        // ══════════════════════════════════════════════════════════════
+        try { 画AI层设置页(); } catch { }
+
+        // ══════════════════════════════════════════════════════════════
         //  ★ 实时调试窗 ★
         //
         //  [!] 为什么画在这里：这一页是**确定每帧都会执行**的地方。
@@ -798,6 +812,9 @@ public abstract class HealerEntryBase : IRotationEntry
 
         ImGui.TextDisabled("提示：按职业区分的开关在 QT 面板的「职业」页里，这里放通用设置。");
         ImGui.Separator();
+
+        // [!] 记忆库页面也收进 base（原子类末尾）——
+        //     只有幻术师那个入口原来没画它，统一之后行为一致。
 
         if (ImGui.CollapsingHeader("治疗", ImGuiTreeNodeFlags.DefaultOpen))
         {
@@ -1000,6 +1017,10 @@ public abstract class HealerEntryBase : IRotationEntry
             else
                 ImGui.TextDisabled("（让它随便哼两句）");
         }
+
+        // ★ 记忆库页面也收进 base（原子类末尾）★
+        //   [!] 原来 5 个入口里只有幻术师那个没画它 —— 统一之后行为一致。
+        try { 画AI层记忆库(); } catch { }
     }
 
     /// <summary>「哼一段」按钮的提示显示到什么时候（时间戳，毫秒）</summary>
@@ -1070,7 +1091,64 @@ public abstract class HealerEntryBase : IRotationEntry
     ///      而且它每帧都调，反射找类型太贵。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    private static Action? _画AI设置;
+    private static Action? _画记忆库;
     private static Action? _画调试窗;
+
+    /// <summary>
+    /// **画 AI 设置页**（反射调 `BlueWhale.AutoHealerACR.AiSettingPage.画`）。
+    ///
+    /// [!] 为什么放最前面（用户反馈"AI 设置没了"）：
+    ///      它原来挂在 5 个子类 `OnDrawSetting` 的**末尾** ——
+    ///      也就是一大页通用设置**之后**，要滚到最底才看得到。
+    ///      用户点进「ACR 设置」看到的是治疗/阈值/资源，很自然会以为 AI 没了。
+    ///
+    /// [!] 反射 + 缓存：HealerACR 编译期看不到 BlueWhale 命名空间
+    ///      （两个程序集，BlueWhale 引用 HealerACR，反过来不行）。
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    private static void 画AI层设置页()
+    {
+        try
+        {
+            if (_画AI设置 == null) _画AI设置 = 找静态无参方法("BlueWhale.AutoHealerACR.AiSettingPage", "画");
+            _画AI设置?.Invoke();
+        }
+        catch { }
+    }
+
+    private static void 画AI层记忆库()
+    {
+        try
+        {
+            if (_画记忆库 == null) _画记忆库 = 找静态无参方法("BlueWhale.AutoHealerACR.记忆库页面", "画");
+            _画记忆库?.Invoke();
+        }
+        catch { }
+    }
+
+    /// <summary>按"类型全名 + 方法名"找静态无参方法并转成 Action（找不到返回 null）</summary>
+    private static Action? 找静态无参方法(string 类型全名, string 方法名)
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType(类型全名, false); }
+                catch { }
+                if (类型 == null) continue;
+
+                var 方法 = 类型.GetMethod(方法名,
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                if (方法 == null) continue;
+
+                return (Action?)Delegate.CreateDelegate(typeof(Action), 方法, false);
+            }
+        }
+        catch { }
+        return null;
+    }
 
     private static void 画AI层调试窗()
     {

@@ -57,14 +57,30 @@ public static class 调试窗
 
         try
         {
-            // 第一次出现时给个合适的位置和大小，之后由用户自己拖
+            // ══════════════════════════════════════════════════════════════
+            //  [!] 初始位置要**贴屏幕右缘**，不能按比例放（用户实测踩的坑）
+            //
+            //      原来写的是 `屏.X * 0.62f` + 宽度 460 ——
+            //      屏幕不够宽时窗口会**压在 ACR 设置面板上**，
+            //      用户点开设置看到的是调试窗，"AI 设置不见了"。
+            //
+            //      ACR 设置面板在左边，右边那片是空的 => 贴右缘最不容易挡。
+            //      仍然完全可拖动（ImGui 默认就能拖标题栏）。
+            // ══════════════════════════════════════════════════════════════
             if (_首次定位)
             {
                 _首次定位 = false;
+
                 var 屏 = ImGui.GetIO().DisplaySize;
-                ImGui.SetNextWindowPos(new Vector2(屏.X * 0.62f, 屏.Y * 0.18f),
-                                       ImGuiCond.FirstUseEver);
-                ImGui.SetNextWindowSize(new Vector2(460, 620), ImGuiCond.FirstUseEver);
+                const float 宽 = 440f;
+                const float 高 = 600f;
+
+                // 贴着右缘留一点边距；太窄的屏幕就退回左上（别压中间）
+                var x = 屏.X > 宽 + 80f ? 屏.X - 宽 - 16f : 16f;
+                var y = 屏.Y > 高 + 80f ? 屏.Y * 0.12f : 16f;
+
+                ImGui.SetNextWindowPos(new Vector2(x, y), ImGuiCond.FirstUseEver);
+                ImGui.SetNextWindowSize(new Vector2(宽, 高), ImGuiCond.FirstUseEver);
             }
 
             var 显示 = true;
@@ -74,6 +90,11 @@ public static class 调试窗
                 ImGui.End();
                 return;
             }
+
+            // [!] 说明窗**可以拖** —— 用户实测遇到"AI 设置不见了"，
+            //     实际是这个窗口压在了设置面板上。写一句省得再困惑。
+            ImGui.TextDisabled("  这个窗可以拖标题栏移动；挡住设置面板时拖开即可");
+            ImGui.Separator();
 
             try
             {
@@ -247,9 +268,14 @@ public static class 调试窗
             catch { }
 
             ImGui.Separator();
-            ImGui.TextWrapped($"坦克压力：{坦克压力.状态描述()}");
+
+            // [!] `状态描述()` **自带**"坦克压力："前缀 —— 再加一个会重复
+            ImGui.TextWrapped(坦克压力.状态描述());
+
+            // [!] `波动很大` / `波动中等` 是**方法不是属性** ——
+            //     漏括号会打印出 `System.Func`1[System.Boolean]`（用户实测截到）。
             ImGui.TextDisabled($"  波动={坦克压力.波动幅度:P0}" +
-                               $"（很大={坦克压力.波动很大} 中等={坦克压力.波动中等}）" +
+                               $"（很大={坦克压力.波动很大()} 中等={坦克压力.波动中等()}）" +
                                $"｜最高={坦克压力.最高血量:P0} 最低={坦克压力.最低血量:P0}");
             ImGui.TextDisabled($"  无敌中={坦克压力.无敌中}｜有减伤={坦克压力.有减伤}" +
                                $"｜命中的减伤={坦克压力.命中的减伤}");
