@@ -354,6 +354,18 @@ public static class 调试窗
             }
             catch { }
 
+            // ★ 本地治疗选择（诊断）★
+            //   [!] 用户实测的疑点：日志里 AI 说"用能力技单奶自己"，
+            //      但实际一直看到医术 —— 分不清是 AI 选了、还是本地选了。
+            //      这一行直接给出答案：`选[医术]=1.23｜候选：医术=1.23 鼓舞激励之策=1.10`
+            try
+            {
+                var 选 = HealerACR.Common.治疗决策.最近选择;
+                if (!string.IsNullOrWhiteSpace(选))
+                    ImGui.TextDisabled($"  本地治疗选择：{选}");
+            }
+            catch { }
+
             // ── Dot 补判状态 ──
             //   [!] 用**当前选中目标**来问"该补吗" —— 那是 DoT 真正会打的人。
             try
@@ -478,12 +490,12 @@ public static class 调试窗
                     //   [!] 只显示"0 个"等于没线索 —— 四个生成器各有多个提前
                     //      return（拿不到技能表 / 没队友受伤 / 没敌人 / 减伤没配置…），
                     //      必须能当场看出卡在哪。
-                    ImGui.TextDisabled("      诊断：" + 候选集.生成诊断());
+                    ImGui.TextDisabled("      诊断：" + 快.生成诊断);
                 }
                 else
                 {
                     // 有候选时也把诊断挂一行（看各生成器的贡献）
-                    ImGui.TextDisabled("      " + 候选集.生成诊断());
+                    ImGui.TextDisabled("      " + 快.生成诊断);
                 }
 
                 foreach (var c in 快.候选表)
