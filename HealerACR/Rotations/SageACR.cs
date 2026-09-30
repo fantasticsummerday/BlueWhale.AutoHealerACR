@@ -250,7 +250,24 @@ public class SGERotationEntry : HealerEntryBase
             new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_GroupShield(_spells), SlotMode.Gcd),
-            new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
+                        // ══════════════════════════════════════════════════════════════
+            //  ★ 移动中开即刻咏唱 ★
+            //
+            //  [!] 为什么需要（用户实测："全程移动 ai 不奶了"）：
+            //      `SpellUtil.移动中能放()` 只**尊重**即刻 buff，
+            //      **没有任何地方主动开它** —— 全项目只有 `Res_PotionTail`
+            //      （爆发药）和 `Res_Raise`（拉人）用了即刻。
+            //      => 移动中所有读条治疗/盾全被挡住，oGCD 治疗资源一空就一口都放不出来。
+            //
+            //  [!] 位置：在第一个 GCD 治疗之前（否则那个 GCD 会被别处抢走），
+            //      但在 `Res_MustFullHeal` / `Res_HealEmergency` / `Res_Raise` 之后
+            //      —— 那些是真救命，不能被"开即刻"抢在前面。
+            //
+            //  [!] 它自己会判"真的有东西需要即刻吗"（血线告急 / 马上挨大伤害），
+            //      不是一移动就烧 60 秒 CD —— 详见 Res_移动开即刻 的注释。
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new Res_移动开即刻(_spells), SlotMode.Gcd),
+new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
             // AOE 优先：3 个以上敌人时不该先给单只怪挂 DoT
