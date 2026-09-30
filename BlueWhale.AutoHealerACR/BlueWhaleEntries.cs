@@ -1323,6 +1323,7 @@ public static class AiSettingPage
         段("k2-Button(保存设置) 后");
 
         // ---- 两个阶段 ----
+        段("T01-决策层开关 段");
         ImGui.Separator();
         ImGui.TextDisabled("决策层开关");
 
@@ -1338,6 +1339,7 @@ public static class AiSettingPage
         ImGui.SliderInt("决策预取（毫秒）", ref s.决策预取毫秒, 500, 3000);
 
         // ---- 安全阀 ----
+        段("T02-安全阀 段");
         ImGui.Separator();
         ImGui.TextDisabled("安全阀（AI 失败绝不影响战斗）");
 
@@ -1346,9 +1348,11 @@ public static class AiSettingPage
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("失败冷却（秒）", ref s.失败冷却秒, 10, 300);
 
+        段("T03-记录原始回复 前");
         ImGui.Checkbox("记录原始回复（调试）", ref s.记录原始回复);
 
         // ★ 调试模式 ★ —— 开启后 AI 日志直接显示在游戏里
+        段("T04-调试模式 前");
         if (ImGui.Checkbox("调试模式（AI 日志上屏）", ref s.调试模式))
         {
             AiSettings.保存();
@@ -1357,11 +1361,13 @@ public static class AiSettingPage
         }
         ImGui.TextDisabled("  开启后 AI 的请求/回复/采纳都会打到屏幕上（日志文件照常写）");
 
+        段("T05-解除熔断 前");
         if (ImGui.Button("解除熔断")) DeepSeekClient.解除熔断();
 
         ImGui.SameLine();
 
         // ★ 测试连接 —— 最直接的"AI 到底通不通"判断方式 ★
+        段("T06-测试连接 前");
         if (ImGui.Button("测试连接"))
         {
             LogHelper.Info("[BlueWhale.AI] 开始测试连接…");
@@ -1398,6 +1404,7 @@ public static class AiSettingPage
         }
 
         // ---- 实时状态 ----
+        段("T07-AI当前状态 段");
         ImGui.Separator();
         ImGui.Text("AI 当前状态");
         ImGui.Text($"  状态：{DeepSeekClient.状态描述()}    连续失败：{DeepSeekClient.连续失败数}");
@@ -1421,6 +1428,7 @@ public static class AiSettingPage
         //
         //  => `历史快照()` 返回副本，遍历副本永远安全。
         // ══════════════════════════════════════════════════════════════
+        段("T08-历史快照 前");
         var 历史 = AiStrategyLayer.历史快照();
         if (历史.Count > 0)
         {
@@ -1433,20 +1441,24 @@ public static class AiSettingPage
             }
         }
 
+        段("T09-保存提示 前");
         if (_保存提示.Length > 0)
         {
             ImGui.TextDisabled("  " + _保存提示);
         }
 
+        段("T10-测试结果 前");
         if (_测试中 || _测试结果.Length > 0)
         {
             ImGui.TextColored(new System.Numerics.Vector4(1f, 0.9f, 0.3f, 1f), "  " + _测试结果);
         }
+        段("T11-阈值适配器状态 前");
         ImGui.TextWrapped("  " + AiThresholdAdapter.状态描述());
 
         ImGui.TextDisabled($"  策略层：启用={s.启用策略层}  刷新中={AiStrategyLayer.刷新中}  成功={AiStrategyLayer.成功次数} 次");
         ImGui.TextDisabled($"  上次结果：{AiStrategyLayer.上次结果}");
 
+        段("T12-当前建议 前");
         var 建议 = AiDecisionLayer.当前建议;
         if (建议 != null)
         {
@@ -1457,6 +1469,7 @@ public static class AiSettingPage
             ImGui.TextDisabled("  决策建议：无");
         }
 
+        段("T13-建议显示完成");
         // ══════════════════════════════════════════════════════════════
         //  ★ 阶段 B 命中率统计（实测要看的一屏）★
         //
