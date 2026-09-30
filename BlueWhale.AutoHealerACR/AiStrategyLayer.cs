@@ -46,8 +46,48 @@ public static class AiStrategyLayer
     /// <summary>累计成功次数</summary>
     public static int 成功次数 { get; private set; }
 
-    /// <summary>最近的几次请求结果（面板上展示，最多留 8 条）</summary>
-    public static readonly List<string> 历史 = new();
+    // ══════════════════════════════════════════════════════════════
+    //  ★ 历史记录 —— **必须跨线程安全** ★
+    //
+    //  [!] 实测闪退根因（用户报"点 ACR 设置先无响应再崩"）：
+    //      写点在本类的 `记历史()` —— 它跑在**后台线程**上
+    //        （AI 请求的 await 续体，`ConfigureAwait(false)` 之后）；
+    //      读点在设置面板的 `foreach` —— 跑在**游戏渲染线程**上。
+    //      裸 `List<T>` 被两边同时碰 => 遍历走进损坏的内部状态
+    //      => 卡住（无响应）=> 最终原生访问违规（0xc0000005）=> **闪退**。
+    //
+    //      这类崩溃**绕过所有 try/catch**，所以日志里什么都没有 ——
+    //      只能靠"先无响应再崩"这个特征反推是并发写坏了集合。
+    //
+    //  [!] 修法：所有写点进锁；对外只给 `历史快照()`（副本）。
+    //      调用方遍历副本，永远不碰原集合 —— 从根上消除遍历期并发修改。
+    //
+    //  [!] 为什么不用 `ConcurrentQueue`：这里要的是"只留最近 8 条"的
+    //      有界语义 + 给 UI 画一帧的**一致快照**，加锁 + 副本更直接，
+    //      也和 `AiDecisionLayer` 队列的处理方式一致。
+    // ══════════════════════════════════════════════════════════════
+    private static readonly List<string> _历史 = new();
+
+    /// <summary>历史记录的锁 —— 写点在后台线程，读点在渲染线程</summary>
+    private static readonly object _历史锁 = new();
+
+    /// <summary>
+    /// **历史快照**（副本）—— 给 UI 遍历用。
+    ///
+    /// [!] 不要直接暴露 `_历史`：那样调用方会在渲染线程上
+    ///     遍历一个正在被后台线程改的集合，就是这次闪退的原因。
+    /// </summary>
+    public static List<string> 历史快照()
+    {
+        try
+        {
+            lock (_历史锁) return new List<string>(_历史);
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
     public static string 说明 => _说明;
     public static bool 刷新中 => _刷新中;
 
@@ -74,10 +114,17 @@ public static class AiStrategyLayer
         try
         {
             var 时间 = DateTime.Now.ToString("HH:mm:ss");
-            历史.Add($"[{时间}] {内容}");
 
-            // 只留最近 8 条
-            while (历史.Count > 8) 历史.RemoveAt(0);
+            // [!] 必须进锁 —— 本方法跑在**后台线程**（AI 请求的续体），
+            //     而设置面板在**渲染线程**遍历历史快照，
+            //     裸 List 被两边同时碰 => 遍历走进损坏状态 => 卡住 + 闪退。
+            lock (_历史锁)
+            {
+                _历史.Add($"[{时间}] {内容}");
+
+                // 只留最近 8 条
+                while (_历史.Count > 8) _历史.RemoveAt(0);
+            }
         }
         catch { }
     }
@@ -227,6 +274,6 @@ public static class AiStrategyLayer
         上次成功时间 = 0;
         上次结果 = "（还没请求过）";
         成功次数 = 0;
-        历史.Clear();
+        lock (_历史锁) _历史.Clear();
     }
 }

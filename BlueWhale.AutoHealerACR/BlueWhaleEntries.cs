@@ -1402,13 +1402,32 @@ public static class AiSettingPage
         ImGui.Text("AI 当前状态");
         ImGui.Text($"  状态：{DeepSeekClient.状态描述()}    连续失败：{DeepSeekClient.连续失败数}");
 
-        // ── 最近的 AI 请求历史（对照你提的"多展示几条"）──
-        if (AiStrategyLayer.历史.Count > 0)
+        // ══════════════════════════════════════════════════════════════
+        //  ── 最近的 AI 请求历史 ──
+        //
+        //  [!] 必须用**快照**，不能直接遍历公开集合 ★
+        //
+        //  实测闪退根因：这里原来写的是
+        //      foreach (var 行 in AiStrategyLayer.历史)
+        //  而那个 `历史` 是裸 `List<string>`，**后台线程正在 Add/RemoveAt**
+        //  （AI 请求的 await 续体在别的线程上跑）。
+        //    => 遍历走进损坏的内部状态 => **卡住（无响应）**
+        //    => 最终原生访问违规（0xc0000005）=> **闪退**
+        //       （绕过所有 try/catch，所以日志里什么都没有）
+        //
+        //  [!] 症状为什么是"先无响应一会儿再崩"：
+        //      集合内部状态被写坏后，遍历会在坏掉的链表/索引上打转，
+        //      所以先卡住；等原生层解引用到非法地址才崩。
+        //
+        //  => `历史快照()` 返回副本，遍历副本永远安全。
+        // ══════════════════════════════════════════════════════════════
+        var 历史 = AiStrategyLayer.历史快照();
+        if (历史.Count > 0)
         {
             ImGui.Separator();
             ImGui.TextDisabled("最近几次 AI 请求");
 
-            foreach (var 行 in AiStrategyLayer.历史)
+            foreach (var 行 in 历史)
             {
                 ImGui.TextDisabled("  " + 行);
             }
