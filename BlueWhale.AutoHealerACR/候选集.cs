@@ -113,32 +113,37 @@ public static class 候选集
     }
 
     /// <summary>一个候选动作（构建后不再改动）</summary>
-    public sealed class 候选
+    /// <summary>
+    /// [!] **不可变**：字段全是 `{ get; init; }` —— 构造完就不能改。
+    ///     这样快照之间共享引用也不会被谁偷偷改掉（外部审阅第 26 条），
+    ///     而且"AI 选中的候选"与"执行时读的候选"必然是同一份。
+    /// </summary>
+    public sealed record 候选
     {
         /// <summary>
         /// **稳定身份** —— `S{快照Id}-{序号}`，形如 `S18231-3`。
         /// [!] 这是**唯一**用于解析的身份；位置编号（C1/C2）只是给人看。
         /// </summary>
-        public string 候选Id = "";
+        public string 候选Id { get; init; } = "";
 
         /// <summary>显示用短编号（C1/C2…）—— **不参与解析身份**</summary>
-        public string 编号 = "";
+        public string 编号 { get; init; } = "";
 
         /// <summary>类别 —— 决定分桶（见 `类别` 的说明）</summary>
-        public 类别 类 = 类别.治疗;
+        public 类别 类 { get; init; } = 类别.治疗;
 
-        public uint 技能Id;
-        public string 技能名 = "";
+        public uint 技能Id { get; init; }
+        public string 技能名 { get; init; } = "";
 
         /// <summary>
         /// **技能实际往哪儿放** —— 执行层照这个放。
         /// [!] `队友` / `敌人` 时才看 `目标Id`；`自己` 时不看。
         /// </summary>
-        public 目标模式 施法目标模式 = 目标模式.队友;
+        public 目标模式 施法目标模式 { get; init; } = 目标模式.队友;
 
         /// <summary>施法目标 id（只在 `施法目标模式` 是 队友/敌人 时有效）</summary>
-        public ulong 目标Id;
-        public string 目标名 = "";
+        public ulong 目标Id { get; init; }
+        public string 目标名 { get; init; } = "";
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 关注目标 —— "为什么选这个候选" ★
@@ -155,17 +160,17 @@ public static class 候选集
         // ══════════════════════════════════════════════════════════════
 
         /// <summary>因为谁才提这个候选（0 = 无特定对象）。只给 AI 看。</summary>
-        public ulong 关注目标Id;
+        public ulong 关注目标Id { get; init; }
 
         /// <summary>关注目标的名字</summary>
-        public string 关注目标名 = "";
+        public string 关注目标名 { get; init; } = "";
 
         /// <summary>关注它的原因（一句话，给 AI 解释用）</summary>
-        public string 关注原因 = "";
+        public string 关注原因 { get; init; } = "";
 
-        public bool 群体;
-        public bool 能力技;
-        public bool 瞬发;
+        public bool 群体 { get; init; }
+        public bool 能力技 { get; init; }
+        public bool 瞬发 { get; init; }
 
         /// <summary>
         /// **这个候选是护盾类**（盾的价值 ≠ 恢复量）。
@@ -185,22 +190,22 @@ public static class 候选集
         ///        而不是纯治疗（补不上第二刀）"。
         /// ══════════════════════════════════════════════════════════════════
         /// </summary>
-        public bool 是盾;
+        public bool 是盾 { get; init; }
 
         /// <summary>恢复力 / 威力（AOE 时是**总量** = 单体 × 命中数）</summary>
-        public int 量;
+        public int 量 { get; init; }
 
         /// <summary>命中数（>1 表示 AOE 总量）</summary>
-        public int 命中数 = 1;
+        public int 命中数 { get; init; } = 1;
 
         /// <summary>单体威力（AOE 时给出，避免把总量误当单体值）</summary>
-        public int 单体威力;
+        public int 单体威力 { get; init; }
 
         /// <summary>目标当前缺口（% 最大血，0~1）</summary>
-        public float 缺口;
+        public float 缺口 { get; init; }
 
         /// <summary>预计过量（0~1）</summary>
-        public float 过量;
+        public float 过量 { get; init; }
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 治疗数值模型（第三轮审阅第 16 条）★
@@ -212,17 +217,17 @@ public static class 候选集
         // ══════════════════════════════════════════════════════════════
 
         /// <summary>**即时**治疗量（不含 HoT）—— 救命看它，不是看总量</summary>
-        public int 即时治疗;
+        public int 即时治疗 { get; init; }
 
         /// <summary>3 秒内预计总治疗（即时 + 这 3 秒的 HoT 跳数）</summary>
-        public int 预测3秒;
+        public int 预测3秒 { get; init; }
 
         /// <summary>6 秒内预计总治疗</summary>
-        public int 预测6秒;
+        public int 预测6秒 { get; init; }
 
-        public int 耗蓝;
-        public float 冷却;
-        public int 资源;
+        public int 耗蓝 { get; init; }
+        public float 冷却 { get; init; }
+        public int 资源 { get; init; }
 
         /// <summary>
         /// **紧急等级** —— 桶内优先级的**第一关键字**。
@@ -242,10 +247,10 @@ public static class 候选集
         ///           0  其余
         /// ══════════════════════════════════════════════════════════════
         /// </summary>
-        public int 紧急等级;
+        public int 紧急等级 { get; init; }
 
         /// <summary>本地算分（只用于排序，**不给 AI 看**）</summary>
-        public float 本地分;
+        public float 本地分 { get; init; }
     }
 
     /// <summary>
@@ -474,8 +479,16 @@ public static class 候选集
             var id = ++_下一个快照Id;
             for (var i = 0; i < 选中.Count; i++)
             {
-                选中[i].编号 = "C" + (i + 1);
-                选中[i].候选Id = "S" + id + "-" + (i + 1);
+                // ★ 用 `with` 生成**带编号的副本**，不原地改 ★
+                //
+                //  [!] 为什么不能原地改：候选是 `record` + `init`（不可变），
+                //      而且 `_当前表` 里的元素可能已被别的快照引用 ——
+                //      原地改会把**已经发出去的快照**也改掉（那正是不可变要防的事）。
+                选中[i] = 选中[i] with
+                 {
+                     编号 = "C" + (i + 1),
+                     候选Id = "S" + id + "-" + (i + 1),
+                 };
             }
 
             快照 新 = new()
@@ -1009,30 +1022,31 @@ public static class 候选集
                 }
                 if (有人 == 0 || 最缺 == null) continue;
 
-                var 候选 = 造(技, 最缺, 最缺量);
+                // ★ 群疗：**一次性构造完**，不再构造后改（候选不可变，见类头说明）★
+                //
+                //  [!] 群疗的**施法目标是自己**、最缺的人是「关注目标」：
+                //      项目里群疗的正确写法是（`Res_Heal.cs`）
+                //          slot.Add(new Spell(_t.群体治疗GCD, SpellTargetType.Self));
+                //      群疗是**以自己为中心**的范围技 —— 目标是你自己。
+                //      而「最缺血的队友」只是**为什么现在该群疗**的理由。
+                //
+                //  [!] 原来把那个队友当成施法目标 ⇒ 群疗以他为中心放，
+                //      别人不在范围内就治不到（本轮审阅抓到的真 bug）。
+                var 候选 = 造(技, 最缺, 最缺量,
+                               关注目标Id: 最缺.GameObjectId,
+                               关注目标名: 名(最缺),
+                               关注原因: $"队里 {有人} 人缺血，他最缺（{最缺量 * 100f:F0}%）",
+                               群体: true);
                 if (候选 != null)
                 {
-                    候选.群体 = true;
-
-                    // ★ 群疗的**施法目标是自己**、最缺的人是"关注目标" ★
-                    //
-                    //  [!] 本轮审阅抓到的真 bug（已核实）：
-                    //      项目里群疗的正确写法是（`Res_Heal.cs`）
-                    //          slot.Add(new Spell(_t.群体治疗GCD, SpellTargetType.Self));
-                    //      群疗是**以自己为中心**的范围技 —— 目标是你自己。
-                    //      而"最缺血的队友"只是**为什么现在该群疗**的理由。
-                    //
-                    //      原来候选把那个队友当成了施法目标 =>
-                    //      群疗会以他为中心放，别人不在范围内就治不到。
-                    候选.施法目标模式 = 目标模式.自己;
-                    候选.目标Id = 0;
-                    候选.目标名 = "";
-                    候选.关注目标Id = 最缺.GameObjectId;
-                    候选.关注目标名 = 名(最缺);
-                    候选.关注原因 = $"队里 {有人} 人缺血，他最缺（{最缺量 * 100f:F0}%）";
-
-                    候选.本地分 += Math.Min(1.0f, 有人 * 0.15f);
-                    _当前表.Add(候选);
+                    // 施法目标改成「自己」，并把命中的成员数折成本地分
+                    _当前表.Add(候选 with
+                    {
+                        施法目标模式 = 目标模式.自己,
+                        目标Id = 0,
+                        目标名 = "",
+                        本地分 = 候选.本地分 + Math.Min(1.0f, 有人 * 0.15f),
+                    });
                 }
             }
             else
@@ -1051,7 +1065,9 @@ public static class 候选集
         加即刻候选(队);
     }
 
-    private static 候选? 造(治疗技能 技, IBattleChara 目标, float 缺口)
+    private static 候选? 造(治疗技能 技, IBattleChara 目标, float 缺口,
+                                ulong 关注目标Id = 0, string 关注目标名 = "",
+                                string 关注原因 = "", bool 群体 = false)
     {
         try
         {
@@ -1124,7 +1140,7 @@ public static class 候选集
                 技能名 = string.IsNullOrEmpty(技.名) ? ("技能" + 技.Id) : 技.名,
                 目标Id = 目标Id,
                 目标名 = 名(目标),
-                群体 = 技.群体,
+                群体 = 群体 || 技.群体,   // 技表判定 或 调用方指定
                 能力技 = 技.冷却 > 0f,
                 瞬发 = 技.瞬发,
                 量 = (int)技.总恢复力,
@@ -1139,6 +1155,10 @@ public static class 候选集
                 冷却 = 技.冷却,
                 资源 = 技.资源消耗,
                 本地分 = 覆盖 * 2f - 过量 * 1.5f + (技.冷却 > 0f ? 0.3f : 0f),
+                // ★ 群疗 / 关注目标：**在构造时就定死**（不可变，见类头说明）★
+                关注目标Id = 关注目标Id,
+                关注目标名 = 关注目标名,
+                关注原因 = 关注原因,
             };
         }
         catch { return null; }
