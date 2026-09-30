@@ -14,6 +14,17 @@ namespace HealerACR.Common;
 /// </summary>
 public class HealSettings
 {
+
+    /// <summary>
+    /// **实时调试窗** —— 独立浮窗，显示每帧实际采集到的数据。
+    ///
+    /// [!] 为什么做成设置项而不是内存变量：
+    ///      调试往往要跨几次上线下线（复现一个问题要打几把），
+    ///      每次都要重新打开会很烦。
+    ///
+    /// [!] 它**只读** —— 不改任何战斗状态，可以放心一直开着。
+    /// </summary>
+    public bool 启用调试窗 = false;
     public static HealSettings Instance { get; private set; } = new();
 
     private static string _filePath = string.Empty;

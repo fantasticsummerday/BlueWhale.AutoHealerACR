@@ -747,6 +747,35 @@ public abstract class HealerEntryBase : IRotationEntry
 
     public virtual void OnDrawSetting()
     {
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 实时调试窗 ★
+        //
+        //  [!] 为什么画在这里：这一页是**确定每帧都会执行**的地方。
+        //      调试窗是独立 ImGui 窗口 —— 画一次之后它会自己留在屏幕上，
+        //      所以"每帧画"的效果就是"窗口一直开着、数据一直刷新"。
+        //
+        //  [!] 窗口**只读**，不改任何战斗状态；开关存在设置里（跨上线保留）。
+        //      用户点窗口右上角关闭时，窗口自己会把开关同步回 false。
+        // ══════════════════════════════════════════════════════════════
+        try
+        {
+            var 设置 = HealSettings.Instance;
+            if (设置 != null)
+            {
+                var 调试 = 设置.启用调试窗;
+                if (ImGui.Checkbox("实时调试窗（显示每帧采集到的数据）", ref 调试))
+                {
+                    设置.启用调试窗 = 调试;
+                    设置.Save();
+                }
+                ImGui.SameLine();
+                ImGui.TextDisabled("  只读，可一直开着");
+            }
+
+            画AI层调试窗();
+        }
+        catch { }
+
         // AEAssist 主界面「ACR 设置」标签的内容。
         //
         // 之前这里是空的 —— 用户点进来看到一片空白（虽然设置其实都在
@@ -1017,6 +1046,54 @@ public abstract class HealerEntryBase : IRotationEntry
     ///
     /// [!] 找不到就**静默返回** —— 没装 BlueWhale 时这是正常情况。
     /// </summary>
+    /// <summary>
+    /// AI 层的**实时调试窗**（反射调）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么必须走反射：
+    ///      `HealerACR` 和 `BlueWhale.AutoHealerACR` 是**两个程序集**，
+    ///      而 HealerACR 是**先**被编译的那个（BlueWhale 引用它）。
+    ///      所以 HealerACR 里写不出 `BlueWhale.AutoHealerACR.XXX` ——
+    ///      编译期根本没有那个命名空间。
+    ///
+    ///      （反过来才是行的：BlueWhale 里可以随便用 `HealerACR.Common.XXX`。
+    ///        项目里 HealerACR → BlueWhale 的调用**全部**走这个模式。）
+    ///
+    ///  [!] 这里**缓存方法引用**（和 `尝试挂载AI层反射` 不同）——
+    ///      那个的用途是"兜底挂载"，缓存会让兜底失效；
+    ///      而这个只是**画窗口**，找不到就不画，缓存没有副作用，
+    ///      而且它每帧都调，反射找类型太贵。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static Action? _画调试窗;
+
+    private static void 画AI层调试窗()
+    {
+        try
+        {
+            if (_画调试窗 == null)
+            {
+                foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    Type? 类型 = null;
+                    try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
+                    catch { }
+                    if (类型 == null) continue;
+
+                    var 方法 = 类型.GetMethod("画",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    if (方法 == null) continue;
+
+                    _画调试窗 = (Action?)Delegate.CreateDelegate(typeof(Action), 方法, false);
+                    break;
+                }
+            }
+
+            _画调试窗?.Invoke();
+        }
+        catch { }
+    }
+
     internal static void 尝试挂载AI层反射()
     {
         // [!] **故意不缓存"找过"** ——

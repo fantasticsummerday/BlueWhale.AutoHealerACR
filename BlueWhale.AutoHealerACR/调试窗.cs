@@ -1,0 +1,447 @@
+using System.Numerics;
+using AEAssist;
+using AEAssist.Extension;
+using AEAssist.Helper;
+using Dalamud.Bindings.ImGui;
+using HealerACR.Common;
+using HealerACR.Timeline;
+
+namespace BlueWhale.AutoHealerACR;
+
+/// <summary>
+/// **实时调试窗** —— 把"每帧实际采集到什么"摊开在屏幕上看。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 为什么需要它 ★
+///
+///    在此之前，要验证"AI 到底看到了什么"只能翻日志 ——
+///    而日志是**事后**的，而且看完还得回游戏里对时间。
+///    这个窗口把同一份数据**实时**显示出来，边打边看。
+///
+///  ★ 它显示的是"原始采集"，不是"结论" ★
+///
+///    刻意不放"建议放什么"这类结论 —— 那是 QT 面板的事。
+///    这里放的是**喂给决策的输入**：
+///      副本 / 读条 / 预测 / 技能可用性 / AI 各层状态
+///    这样才能回答"AI 为什么这么选"（输入错了还是判断错了）。
+///
+///  [!] 只读 —— 这个窗口**不改任何状态**，可以放心一直开着。
+///      唯一的写操作是它自己的开关（那个存在设置里）。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public static class 调试窗
+{
+    /// <summary>窗口开着吗（持久化在设置里）</summary>
+    public static bool 开
+    {
+        get
+        {
+            try { return HealSettings.Instance?.启用调试窗 ?? false; }
+            catch { return false; }
+        }
+    }
+
+    private static bool _首次定位 = true;
+
+    /// <summary>
+    /// **每帧画**（在 ACR 设置页里调 —— 那一页每帧都画）。
+    ///
+    /// [!] 为什么放在设置页的绘制里：
+    ///     那是**确定每帧都会执行**的地方。调试窗是独立 ImGui 窗口，
+    ///     画一次之后会自己留在屏幕上（ImGui 的窗口是持久的），
+    ///     所以"每帧画"实际效果就是"窗口一直开着、数据一直刷新"。
+    /// </summary>
+    public static void 画()
+    {
+        if (!开) return;
+
+        try
+        {
+            // 第一次出现时给个合适的位置和大小，之后由用户自己拖
+            if (_首次定位)
+            {
+                _首次定位 = false;
+                var 屏 = ImGui.GetIO().DisplaySize;
+                ImGui.SetNextWindowPos(new Vector2(屏.X * 0.62f, 屏.Y * 0.18f),
+                                       ImGuiCond.FirstUseEver);
+                ImGui.SetNextWindowSize(new Vector2(460, 620), ImGuiCond.FirstUseEver);
+            }
+
+            var 显示 = true;
+            if (!ImGui.Begin("小鲸鱼 · 实时数据（只读）", ref 显示,
+                             ImGuiWindowFlags.NoCollapse))
+            {
+                ImGui.End();
+                return;
+            }
+
+            try
+            {
+                if (!显示)
+                {
+                    // 用户点了右上角关闭 -> 同步回设置（下次不再自动开）
+                    try
+                    {
+                        if (HealSettings.Instance != null)
+                        {
+                            HealSettings.Instance.启用调试窗 = false;
+                            HealSettings.Instance.Save();
+                        }
+                    }
+                    catch { }
+                }
+
+                画基础();
+                画读条();
+                画预测();
+                画技能();
+                画AI();
+            }
+            finally
+            {
+                ImGui.End();
+            }
+        }
+        catch { }
+    }
+
+    // ==================== 基础 ====================
+
+    private static void 画基础()
+    {
+        try
+        {
+            if (!ImGui.CollapsingHeader("基础局面", ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+            var 地图 = TimelineManager.实时副本Id();
+            var 是副本 = 地图 != 0 && 地名.是副本(地图);
+            var 名 = 地图 == 0 ? "未知" : 地名.解析(地图, 是副本: 是副本);
+
+            ImGui.Text($"{(是副本 ? "副本" : "所在地")}：{名}");
+            ImGui.TextDisabled($"  地图 id {地图}｜在副本里={进本识别.在副本里()}");
+
+            try
+            {
+                var 我 = Core.Me;
+                if (我 != null)
+                {
+                    ImGui.Text($"职业：{我.ClassJob.Value.Name}（{Data.PlayerCurrentLevel} 级）");
+                    ImGui.TextDisabled($"  血量 {我.CurrentHp * 100.0 / Math.Max(1, 我.MaxHp):F0}%" +
+                                       $"｜蓝 {我.CurrentMp}");
+                }
+            }
+            catch { }
+
+            try
+            {
+                ImGui.Text($"战斗：{(Core.Me.InCombat() ? "战斗中" : "未战斗")}" +
+                           $"｜移动：{(SpellUtil.在移动() ? "是" : "否")}");
+            }
+            catch { }
+
+            try
+            {
+                ImGui.TextDisabled($"时间轴：{TimelineManager.状态摘要()}");
+                ImGui.TextDisabled($"  在跑={TimelineManager.时间轴在跑()}" +
+                                   $"｜条目={TimelineManager.条目数}" +
+                                   $"｜机制={TimelineManager.机制总数()}");
+            }
+            catch { }
+
+            ImGui.Separator();
+        }
+        catch { }
+    }
+
+    // ==================== 读条（本轮新增的机制身份）====================
+
+    private static void 画读条()
+    {
+        try
+        {
+            var 全 = 机制读条.当前();
+
+            if (!ImGui.CollapsingHeader($"正在读条（{全.Count}）", ImGuiTreeNodeFlags.DefaultOpen))
+                return;
+
+            if (全.Count == 0)
+            {
+                ImGui.TextDisabled("  当前没有敌人在读条");
+                // [!] 说清"没有读条" ≠ "没有机制" ——
+                //     瞬发机制看不到读条。这句话能避免用户误判。
+                ImGui.TextDisabled("  （瞬发机制没有读条，这里看不到，仍靠时间轴）");
+                ImGui.Separator();
+                return;
+            }
+
+            foreach (var r in 全)
+            {
+                var 名 = string.IsNullOrEmpty(r.名) ? ("未知技能" + r.技能Id) : r.名;
+
+                // 快落地的标红 —— 和"还有时间"区分开
+                if (r.剩余 <= 2.5f)
+                    ImGui.TextColored(new Vector4(1f, 0.45f, 0.35f, 1f),
+                        $"  {r.施法者名} → {名}  {r.剩余:F1}s");
+                else
+                    ImGui.Text($"  {r.施法者名} → {名}  {r.剩余:F1}s");
+
+                ImGui.TextDisabled($"      id {r.技能Id}｜总长 {r.总长:F1}s｜已读 {r.已读:F1}s" +
+                                   $"｜射程 {(int)r.射程}m");
+                ImGui.TextDisabled($"      官表={(r.有权威数据 ? "有" : "无")}" +
+                                   $"｜时间轴={(r.在时间轴 ? $"有(第 {r.时间轴次数} 次)" : "无")}" +
+                                   $"｜可能打我={(r.可能打我 ? "是" : "否")}");
+            }
+
+            ImGui.TextDisabled($"  机制数值表：{机制数值表.条数} 条");
+            ImGui.Separator();
+        }
+        catch { }
+    }
+
+    // ==================== 预测 ====================
+
+    private static void 画预测()
+    {
+        try
+        {
+            if (!ImGui.CollapsingHeader("伤害预测 / 坦克压力")) return;
+
+            ImGui.TextWrapped($"预测：{伤害预测.状态描述()}");
+            // [!] 这几个都要传"未来几秒"。统一用 4 秒 ——
+            //     和项目里其它调用点一致（`要预铺` 的默认值就是 4）。
+            const float 展望秒 = 4f;
+            ImGui.TextDisabled($"  未来 {展望秒:F0} 秒：" +
+                               $"预计掉血人数={伤害预测.预计掉血人数(展望秒)}" +
+                               $"｜要预铺={伤害预测.要预铺(展望秒)}" +
+                               $"｜预计机制伤害={伤害预测.预计机制伤害(展望秒):P0}");
+
+            try
+            {
+                var 危 = 伤害预测.最危险(4f);
+                if (危 != null)
+                    ImGui.TextDisabled($"  最危险：{危.Name}（{危.有效血量比例():P0}）");
+            }
+            catch { }
+
+            // [!] 诊断串是"为什么是 0"的答案 ——
+            //     预测返回 0 时要能看出是"真没伤害"还是"没有数据"。
+            try
+            {
+                var 诊 = 伤害预测.最近诊断;
+                if (!string.IsNullOrWhiteSpace(诊))
+                    ImGui.TextDisabled($"  诊断：{诊}");
+            }
+            catch { }
+
+            ImGui.Separator();
+            ImGui.TextWrapped($"坦克压力：{坦克压力.状态描述()}");
+            ImGui.TextDisabled($"  波动={坦克压力.波动幅度:P0}" +
+                               $"（很大={坦克压力.波动很大} 中等={坦克压力.波动中等}）" +
+                               $"｜最高={坦克压力.最高血量:P0} 最低={坦克压力.最低血量:P0}");
+            ImGui.TextDisabled($"  无敌中={坦克压力.无敌中}｜有减伤={坦克压力.有减伤}" +
+                               $"｜命中的减伤={坦克压力.命中的减伤}");
+
+            ImGui.Separator();
+        }
+        catch { }
+    }
+
+    // ==================== 技能读取 ====================
+
+    private static void 画技能()
+    {
+        try
+        {
+            if (!ImGui.CollapsingHeader("技能读取 / 职业表")) return;
+
+            var 表 = HealRotationEventHandler.取当前职业技能表();
+            if (表 == null)
+            {
+                ImGui.TextColored(new Vector4(1f, 0.6f, 0.3f, 1f),
+                    "  拿不到当前职业技能表 —— 技能相关功能全部失效");
+                ImGui.Separator();
+                return;
+            }
+
+            ImGui.TextDisabled($"  移动：{SpellUtil.移动状态描述()}");
+
+            // 关键栏位逐个查"解锁了吗 / 可用吗"
+            void 一行(string 标签, uint id)
+            {
+                if (id == 0)
+                {
+                    ImGui.TextDisabled($"  {标签}：未配置");
+                    return;
+                }
+                能放(标签, id);
+            }
+
+            一行("基础输出", 表.基础输出);
+            一行("群体输出", 表.群体输出);
+            一行("DoT", 表.Dot技能);
+            一行("复活", 表.复活);
+            一行("驱散", 表.驱散);
+
+            // ── 治疗候选表：列"现在能用几个" ──
+            try
+            {
+                var 候选 = 表.治疗候选.已解锁();
+                var 能用 = 0;
+                foreach (var 技 in 候选)
+                {
+                    try { if (SpellUtil.可用(技.Id)) 能用++; } catch { }
+                }
+                ImGui.TextDisabled($"  治疗候选：解锁 {候选.Count} 个，其中现在可用 {能用} 个");
+            }
+            catch { }
+
+            // ── Dot 补判状态 ──
+            //   [!] 用**当前选中目标**来问"该补吗" —— 那是 DoT 真正会打的人。
+            try
+            {
+                var 目标 = HealTargetHelper.当前目标();
+                var 该 = false;
+                try
+                {
+                    // [!] 第二个参数是 `uint[]` —— 用 `表.所有DotBuff`
+                    //     （`DotBuff` 是单个 uint，形状不对）
+                    该 = 目标 != null && Dot补判.该补(目标, 表.所有DotBuff);
+                }
+                catch { }
+
+                ImGui.TextDisabled($"  DoT 补判：距上次 {Dot补判.距上次毫秒}ms" +
+                                   $"｜目标={目标?.Name.ToString() ?? "无"}" +
+                                   $"｜该补={该}");
+            }
+            catch { }
+
+            // ── 效果确认（命中确认挂钩是否正常）──
+            //   [!] `是否确认命中` 要传技能 Id —— 它问的是"这个技能刚确认命中了没"。
+            //     这里用基础输出当探针（它是最常放的技能）。
+            try
+            {
+                var 探针 = 表.基础输出;
+                ImGui.TextDisabled($"  效果确认：已挂载={效果确认.已挂载}" +
+                                   $"｜挂载失败过={效果确认.挂载失败过}" +
+                                   $"｜基础输出已确认={效果确认.是否确认命中(探针)}");
+            }
+            catch { }
+
+            ImGui.Separator();
+        }
+        catch { }
+    }
+
+    /// <summary>画一行技能状态（名字 / 解锁 / 可用 / 距离）</summary>
+    private static void 能放(string 标签, uint id)
+    {
+        try
+        {
+            var 名 = SpellIds.反查(id);
+            var 解锁 = false; var 可用 = false;
+            try { 解锁 = SpellUtil.已解锁(id); } catch { }
+            try { 可用 = SpellUtil.可用(id); } catch { }
+
+            // 颜色区分"能不能放" —— 一眼看出问题在哪
+            var 色 = !解锁 ? new Vector4(0.6f, 0.6f, 0.6f, 1f)      // 灰 = 没解锁
+                   : !可用 ? new Vector4(1f, 0.7f, 0.3f, 1f)        // 橙 = 解锁但不可用（CD/资源）
+                   : new Vector4(0.5f, 1f, 0.5f, 1f);               // 绿 = 可用
+
+            ImGui.TextColored(色, $"  {标签}：{id} {名}" +
+                                  $"｜解锁={解锁} 可用={可用}");
+        }
+        catch { }
+    }
+
+    // ==================== AI 各层状态 ====================
+
+    private static void 画AI()
+    {
+        try
+        {
+            if (!ImGui.CollapsingHeader("AI 各层状态")) return;
+
+            var s = AiSettings.Instance;
+
+            ImGui.TextDisabled($"  配置：Key={(!string.IsNullOrEmpty(s.ApiKey) ? "有" : "无")}" +
+                               $"｜模型={s.Model}｜策略层={s.启用策略层}｜决策层={s.启用决策层}");
+            ImGui.TextDisabled($"  通道：{DeepSeekClient.通道摘要()}");
+            ImGui.TextDisabled($"  缓存：{DeepSeekClient.缓存描述()}");
+
+            ImGui.Separator();
+
+            // ── 策略层 ──
+            ImGui.Text($"  策略层：倾向={AiStrategyLayer.当前倾向}" +
+                       $"｜刷新中={AiStrategyLayer.刷新中}" +
+                       $"｜成功={AiStrategyLayer.成功次数} 次");
+            if (!string.IsNullOrWhiteSpace(AiStrategyLayer.说明))
+                ImGui.TextDisabled($"      说明：{AiStrategyLayer.说明}");
+
+            // ── 决策层 ──
+            ImGui.Text($"  决策层：队列={AiDecisionLayer.队列长度}" +
+                       $"｜预取中={AiDecisionLayer.预取中}" +
+                       $"｜命中={AiDecisionLayer.命中次数} 过期={AiDecisionLayer.过期次数}");
+            ImGui.TextDisabled($"      预取 成功={AiDecisionLayer.预取成功次数}" +
+                               $" 失败={AiDecisionLayer.预取失败次数}" +
+                               $"｜解析失败={AiDecisionLayer.解析失败次数}" +
+                               $"｜幻觉丢弃={AiDecisionLayer.丢弃幻觉次数}");
+            ImGui.TextDisabled($"      局面剧变清空={AiDecisionLayer.清空次数} 次" +
+                               $"（丢 {AiDecisionLayer.清空丢弃条数} 条）" +
+                               $"｜格式噪声={AiDecisionLayer.格式噪声次数}");
+
+            try
+            {
+                var 拦 = AiDecisionLayer.拦截摘要();
+                if (!string.IsNullOrWhiteSpace(拦))
+                    ImGui.TextDisabled($"      拦截：{拦}");
+            }
+            catch { }
+
+            // ── 局面监控 ──
+            ImGui.TextDisabled($"  局面监控：{局面监控.状态描述()}");
+
+            ImGui.Separator();
+
+            // ── 候选集（当前快照长什么样）──
+            //   [!] 这是本轮最重要的可见项：候选**实际**有没有输出类、
+            //      有没有复活 —— 分桶改造的效果一眼可见。
+            try
+            {
+                var 快 = 候选集.生成();
+                ImGui.Text($"  候选快照 #{快.快照Id}（{快.候选表.Count} 个）");
+
+                if (快.候选表.Count == 0)
+                {
+                    ImGui.TextColored(new Vector4(1f, 0.7f, 0.3f, 1f),
+                        "      候选为空 —— AI 会退回技能 ID 模式");
+                }
+
+                foreach (var c in 快.候选表)
+                {
+                    var 类色 = c.类 switch
+                    {
+                        候选集.类别.紧急 => new Vector4(1f, 0.45f, 0.35f, 1f),
+                        候选集.类别.功能 => new Vector4(1f, 0.85f, 0.4f, 1f),
+                        候选集.类别.减伤 => new Vector4(0.6f, 0.8f, 1f, 1f),
+                        候选集.类别.治疗 => new Vector4(0.5f, 1f, 0.6f, 1f),
+                        _ => new Vector4(0.75f, 0.75f, 0.75f, 1f),
+                    };
+
+                    ImGui.TextColored(类色,
+                        $"    {c.编号} [{c.类}] {c.技能名}" +
+                        (c.目标Id != 0 ? $"→{c.目标名}" : "") +
+                        (c.能力技 ? " 能力" : " GCD"));
+
+                    ImGui.TextDisabled($"        量={c.量} 即时={c.即时治疗}" +
+                                       $" 3s={c.预测3秒} 6s={c.预测6秒}" +
+                                       $"｜缺口={c.缺口:P0} 过量={c.过量:P0}" +
+                                       $"｜分={c.本地分:F2}");
+                }
+            }
+            catch { }
+
+            ImGui.Separator();
+        }
+        catch { }
+    }
+}
