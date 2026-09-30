@@ -489,6 +489,10 @@ public static class HealTargetHelper
     /// 用 AEAssist 现成的 GetMostCanTargetObjects，它会挑"这个技能能打到最多敌人"的那个目标；
     /// 选不到就退回当前目标。
     /// </summary>
+    [Obsolete("截至 3.19.33 无生产调用点（只有 `Res_Damage` 注释提过）。" +
+              "**真正的落点选择走 `智能选目标` / `TargetHelper.GetMostCanTargetObjects`** ——" +
+              "别用这个，它的默认 `期望命中数 = 3` 和 `AOE最少敌人数`(=2) 不一致，" +
+              "用了会得到和第二套逻辑不同的答案。")]
     public static IBattleChara? AOE最佳目标(uint 技能Id, int 期望命中数 = 3)
     {
         var 当前 = 当前目标();
@@ -618,6 +622,9 @@ public static class HealTargetHelper
     }
 
     /// <summary>值不值得对当前目标交爆发（需求 2 的统一入口）</summary>
+    [Obsolete("截至 3.19.33 全仓库零调用点，保留备用。" +
+              "如果你要用它，先确认它和 `目标快死了` / `敌人波次要结束` 的关系，" +
+              "别在调用点重新写一套判断。")]
     public static bool 值得交爆发(float 血线 = 0.25f, int ttk秒 = 12)
     {
         return !目标快死了(血线, ttk秒) && !敌人波次要结束();

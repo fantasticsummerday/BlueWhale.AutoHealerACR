@@ -137,6 +137,18 @@ public class SCHSpellTable : JobSpellTable
 
     public override uint 群体治疗能力技 => SpellIds.取("不屈不挠之策");
     public override uint 单体盾 => SpellIds.取("鼓舞激励之策");
+
+    /// <summary>
+    /// **群体盾：士气高扬之策**（审查发现原来没填 = 0）。
+    ///
+    /// [!] 后果：`Res_Mitigation` 的 AoE 盾分支读 `群体盾`，
+    ///     为 0 时直接 `return -102` —— **减伤侧完全不知道学者有群盾**，
+    ///     只会走治疗通路（治疗候选里有它，但那是"补血"语义，不是"预防"）。
+    ///
+    /// [!] 官表说明核实：士气高扬之策 = 恢复力 200 +
+    ///     "附加能够抵御一定伤害的**防护罩**" —— 确实是盾。
+    /// </summary>
+    public override uint 群体盾 => SpellIds.取("士气高扬之策");
     public override uint 团队减伤 => SpellIds.取("野战治疗阵");
 
     public override uint 复活 => SpellIds.取("复生");

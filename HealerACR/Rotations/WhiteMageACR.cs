@@ -284,6 +284,20 @@ public class WHMSpellTable : JobSpellTable
     public override int AOE伤害范围 => 8;
     public override uint 个人减伤 => SpellIds.取("神祝祷");
 
+    /// <summary>
+    /// **单体盾：神祝祷**（审查发现原来 `单体盾` 空着）。
+    ///
+    /// [!] 后果：`Res_HealShield`（预铺单体盾）读的是 `单体盾` ——
+    ///     为 0 时直接 `return -102` => **白魔的单体盾预铺完全不工作**。
+    ///
+    /// [!] 官表说明核实：神祝祷 = "为自身或一名队员附加能够抵御一定伤害的
+    ///     **防护罩**，抵消相当于 500 恢复力的伤害" —— 是真正的盾。
+    ///
+    /// [!] 它**同时**留在 `个人减伤`：那是两个不同的决策
+    ///     （预铺给坦克 vs 给自己），不冲突。
+    /// </summary>
+    public override uint 单体盾 => SpellIds.取("神祝祷");
+
     /// <summary>神速咏唱期间基础输出会被替换成闪飒，这时候不能再硬放闪灼</summary>
     public override bool 有特殊输出形态 =>
         (AuraIds.闪飒预备 != 0 && Core.Me.HasAura(AuraIds.闪飒预备))

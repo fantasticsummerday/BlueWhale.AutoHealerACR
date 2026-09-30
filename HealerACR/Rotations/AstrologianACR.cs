@@ -185,6 +185,15 @@ public class ASTSpellTable : JobSpellTable
 
     public override uint 预铺单奶能力技 => SpellIds.取("天星交错");
 
+    /// <summary>
+    /// **单体盾：天星交错**（审查发现原来 `单体盾` 空着）。
+    ///
+    /// [!] 官表说明核实：天星交错 = 恢复力 200 +
+    ///     "附加能够抵御一定伤害的**防护罩**，抵消相当于治疗量 200% 的伤害"
+    ///     —— 是真正的盾（而且吸收量是治疗量的 2 倍，价值很高）。
+    /// </summary>
+    public override uint 单体盾 => SpellIds.取("天星交错");
+
     /// <summary>先天禀赋：瞬发、不读条的单体治疗（血量越低效果越强）。</summary>
     public override uint 瞬发单奶能力技 => SpellIds.取("先天禀赋");
 
