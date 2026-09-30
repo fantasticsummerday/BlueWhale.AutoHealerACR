@@ -294,6 +294,10 @@ public static class CharacterExt
     {
         var 结果 = new List<(uint, string, float)>();
         if (目标 == null) return 结果;
+        
+        // [!] **必须先确认对象还有效** —— 失效对象读 StatusList 会抛异常，
+        //     而本方法可能被 UI 回调每帧调用 ==> 异常逃逸 = 游戏进程被杀（见 `对象有效`）。
+        if (!目标.对象有效()) return 结果;
 
         try
         {
@@ -649,8 +653,51 @@ public static class CharacterExt
         return false;
     }
 
+    /// <summary>
+    /// **这个游戏对象现在还安全可读吗** —— 读任何字段之前都该先过这一关。
+    ///
+    /// ══════════════════════════════════════════════════════════════
+    ///  [!] 这条是**闪退的直接修复**（Windows 事件 1026，进程 ffxiv_dx11.exe）：
+    ///
+    ///      崩溃堆栈：
+    ///        Dalamud...BattleChara.get_StatusList()
+    ///        HealerACR.Common.HealTargetHelper.<可治疗队友>b__0_1
+    ///        -> 伤害预测.状态描述() -> 调试窗.画预测() -> OnDrawSetting()
+    ///        -> Dalamud.Interface.UiBuilder.OnDraw()
+    ///
+    ///  [!] 触发时机：**出副本那一刻**。
+    ///      此时队伍成员的 `IBattleChara` 已经失效（换区 / 对象回收），
+    ///      读 `StatusList` 抛异常；而这条路径是**调试窗每帧在 UI 回调里**跑的
+    ///      ==> 异常逃逸到 Dalamud 的 `OnDraw` ==> **整个游戏进程被杀**。
+    ///
+    ///  [!] 为什么原来的 `catch { }` 没兜住：
+    ///      异常是在 UI 回调那层逃逸的，不在我们控制得住的 try 里；
+    ///      Dalamud 的绘制回调遇到未处理异常 = 直接终止进程。
+    ///      （所以**光加 try 不够，必须在读之前就判断对象有效性**。）
+    /// ══════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 对象有效(this IBattleChara? c)
+    {
+        if (c == null) return false;
+    
+        try
+        {
+            // [!] 这三项**任意一项**都能筛掉失效对象 ——
+            //     全试一遍是刻意的：不同失效阶段暴露的字段不一样。
+            _ = c.GameObjectId;
+            _ = c.IsValid();
+            _ = c.Address;
+            return c.Address != IntPtr.Zero && c.IsValid();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    
     public static bool 可以治(this IBattleChara c)
-        => c.活着() && !c.死了()
+        // [!] 先判对象有效性 —— 失效对象读 buff 列表会抛异常（闪退根因，见 `对象有效`）
+        => c.对象有效() && c.活着() && !c.死了()
         // 假死 / 无敌类统一走列表（含 810/811/2303/3255/409/1836），
         // 不再单独查某两个 —— 之前单独查的两个里，`出死入生` 还挂错了 id(811)，
         // 现在 id 已按 status 表对齐，集中在这里判断一处就够。
