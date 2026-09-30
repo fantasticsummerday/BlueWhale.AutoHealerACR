@@ -41,7 +41,6 @@ public static class 调试窗
         }
     }
 
-    private static bool _首次定位 = true;
 
     // ══════════════════════════════════════════════════════════════════
     //  ★ 诊断输出 ★
@@ -136,6 +135,12 @@ public static class 调试窗
     }
 
     /// <summary>用户拖动后的目标位置（null = 还没拖过，用默认贴右缘）。</summary>
+            
+    /// <summary>本帧是否需要重新定位（首次 / 复位 / 屏幕变化）。</summary>
+    private static bool _需要定位 = true;
+
+    /// <summary>上次记录的屏幕尺寸（用于检测分辨率变化）。</summary>
+    private static Vector2 _上次屏幕;
     private static Vector2? _目标位置;
 
     /// <summary>用户调整后的目标尺寸（null = 用默认 440x600）。</summary>
@@ -149,7 +154,7 @@ public static class 调试窗
     /// </summary>
     public static void 复位位置()
     {
-        _首次定位 = true;
+        _需要定位 = true;   // 下一帧重新定位（不再用 _首次定位）
         _目标位置 = null;
         _目标尺寸 = null;
     }
@@ -247,35 +252,63 @@ public static class 调试窗
             //      **仍然可以自由拖动** —— 只要拖到的位置在屏幕内就尊重它，
             //      只有拖出可视区时才被拉回来。
             // ══════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════════
+            //  ★ 位置：**只在需要时设**，不要每帧强制 ★
+            //
+            //  [!] 我踩过的坑：为了修"窗口可能在屏幕外"，我原来写的是
+            //        ImGui.SetNextWindowPos(..., ImGuiCond.Always);
+            //      `Always` = **每帧都强制设定位置** ⇒
+            //        用户拖动 -> 下一帧又被钉回原位
+            //        ==> **窗口完全拖不动，只能改大小**（用户实测反馈）。
+            //
+            //  [!] 正确做法：位置只在**这三种情况**下设
+            //        ① 首次出现
+            //        ② 用户点了「把窗口拉回屏幕内」（`复位位置()` 会置 `_需要定位`）
+            //        ③ 屏幕尺寸变了（换分辨率 / 窗口模式）—— 否则窗口可能跑到屏外
+            //      其余时间**完全不碰**，ImGui 自己管拖动。
+            //
+            //  [!] 拖动后的位置照样被下面的 `GetWindowPos()` 记住，
+            //      屏幕变化时就用它做钳制基准。
+            // ══════════════════════════════════════════════════════════════════
             var 屏 = ImGui.GetIO().DisplaySize;
             const float 默认宽 = 440f;
             const float 默认高 = 600f;
-
-            if (_首次定位)
-            {
-                _首次定位 = false;
-                _目标位置 = null;   // 第一次由下面的逻辑算
-            }
-
-            // 位置：第一次贴右缘；之后沿用 ImGui 记的位置（但会被夹进屏幕）
-            var 要用位置 = _目标位置;
-            if (要用位置 == null)
-            {
-                要用位置 = new Vector2(
-                    屏.X > 默认宽 + 80f ? 屏.X - 默认宽 - 16f : 16f,
-                    屏.Y > 默认高 + 80f ? 屏.Y * 0.12f : 16f);
-            }
-
-            // 夹进可视区：留 8 像素边距，并保证**标题栏一定在屏幕内**
-            //（否则拖不回来 —— ImGui 的拖动要靠标题栏）
             const float 边距 = 8f;
-            var 宽 = Math.Clamp(_目标尺寸?.X ?? 默认宽, 320f, MathF.Max(320f, 屏.X - 边距 * 2));
-            var 高 = Math.Clamp(_目标尺寸?.Y ?? 默认高, 240f, MathF.Max(240f, 屏.Y - 边距 * 2));
-            var x = Math.Clamp(要用位置.Value.X, 边距, MathF.Max(边距, 屏.X - 宽 - 边距));
-            var y = Math.Clamp(要用位置.Value.Y, 边距, MathF.Max(边距, 屏.Y - 高 - 边距));
 
-            ImGui.SetNextWindowPos(new Vector2(x, y), ImGuiCond.Always);
-            ImGui.SetNextWindowSize(new Vector2(宽, 高), ImGuiCond.Always);
+            // 屏幕尺寸变化 -> 需要重新定位（否则可能跑到屏外）
+            if (_上次屏幕 != 屏)
+            {
+                _上次屏幕 = 屏;
+                _需要定位 = true;
+            }
+
+            // 尺寸下限：用 **Constraints** 而不是 `SetNextWindowSize(Always)` ——
+            // 后者会把用户调出来的尺寸也一起锁死。
+            ImGui.SetNextWindowSizeConstraints(
+                new Vector2(320f, 240f),
+                new Vector2(MathF.Max(320f, 屏.X - 边距 * 2), MathF.Max(240f, 屏.Y - 边距 * 2)));
+
+            if (_需要定位)
+            {
+                _需要定位 = false;
+
+                // 首次：贴右缘（设置面板在左边，右边那片是空的）
+                var 要用位置 = _目标位置;
+                if (要用位置 == null)
+                {
+                    要用位置 = new Vector2(
+                        屏.X > 默认宽 + 80f ? 屏.X - 默认宽 - 16f : 16f,
+                        屏.Y > 默认高 + 80f ? 屏.Y * 0.12f : 16f);
+                }
+
+                // 夹进可视区，保证**标题栏一定在屏幕内**（否则拖不回来）
+                var 宽 = Math.Clamp(_目标尺寸?.X ?? 默认宽, 320f, MathF.Max(320f, 屏.X - 边距 * 2));
+                var 高 = Math.Clamp(_目标尺寸?.Y ?? 默认高, 240f, MathF.Max(240f, 屏.Y - 边距 * 2));
+                var x = Math.Clamp(要用位置.Value.X, 边距, MathF.Max(边距, 屏.X - 宽 - 边距));
+                var y = Math.Clamp(要用位置.Value.Y, 边距, MathF.Max(边距, 屏.Y - 高 - 边距));
+
+                ImGui.SetNextWindowPos(new Vector2(x, y), ImGuiCond.Always);   // 只在这一帧强制
+            }
 
             var 显示 = true;
 
@@ -302,8 +335,8 @@ public static class 调试窗
             var begin结果 = ImGui.Begin("小鲸鱼 · 实时数据（只读）", ref 显示,
                                         ImGuiWindowFlags.NoCollapse);
 
-            记诊断($"Begin={begin结果} 屏={屏.X:F0}x{屏.Y:F0} " +
-                   $"请求位置=({x:F0},{y:F0}) 请求尺寸=({宽:F0},{高:F0})");
+                   记诊断($"Begin={begin结果} 屏={屏.X:F0}x{屏.Y:F0}");
+                   // 实际位置/尺寸在 Begin 之后才拿得到（见下面的 GetWindowPos）
 
             if (!begin结果)
             {
