@@ -106,6 +106,119 @@ public static class HealTargetHelper
     ///      · `血量最低的坦克(t)` -> 「哪个 T 缺血到该照顾了」（预铺盾 / 心关）
     /// ══════════════════════════════════════════════════════════════
     /// </summary>
+    // ══════════════════════════════════════════════════════════════
+    //  ★★ 主坦（MT）—— 八人本要和副坦（ST）分开 ★★
+    //
+    //  [!] 用户实测要求（原话）：
+    //      「t应该看的是**主仇恨的 mt**，八人本直接就区分 mtst」
+    //
+    //  [!] 为什么必须要它（不是锦上添花）：
+    //      `血量最低的坦克()` 是**跟着谁掉血跑**的。
+    //      而有一批技能**必须钉在 MT 身上**，不能跟着掉血跑：
+    //        · 贤者**心关**     —— 打敌人顺带治 MT，钉错人整场少一大块治疗
+    //        · 学者**妖精契约** —— 持续治疗 MT
+    //        · 白魔**神祝祷** / 贤者**混合** —— 单减 + 增疗给 MT
+    //        · 战士/骑士这类「对搭档生效」的机制也要求稳定指向 MT
+    //      ==> 八人本里 ST 掉血时，这些全会跑到 ST 身上。
+    //
+    //  [!] 判据是**行为证据，不是猜测**：
+    //      Dalamud **不暴露仇恨值**（`输出目标.cs` 注释已写明这条路封死），
+    //      但**「怪在看谁」可读** —— `敌人.TargetObjectId`。
+    //      ==> **被最多敌人盯着的那个 T = MT**。
+    //      副坦没接怪时不会有怪盯着他，而主坦会一直有。
+    //
+    //  [!] 为什么要**粘滞窗口**：
+    //      拉怪分离 / 换 T / 小怪死掉时，计数会抖一下。
+    //      不粘滞的话心关会在两个 T 之间来回跳（心关换人要重新贴，很亏）。
+    //
+    //  [!] 退回顺序（不返回 null，避免调用方突然失去目标）：
+    //      ① 怪最多且 > 0 的那个 T
+    //      ② **队伍顺序的第一个 T**（八人本里游戏本身就把他排在前面）
+    //      ③ 有效血量最低的 T（保持旧行为）
+    // ══════════════════════════════════════════════════════════════
+    /// <summary>粘滞缓存：上次认定的 MT</summary>
+    private static ulong _主坦Id;
+    private static long _主坦时刻;
+    
+    /// <summary>认定了多久之内不再换（防止拉怪/换 T 时抖）</summary>
+    private const long 主坦粘滞毫秒 = 1500;
+    
+    /// <summary>
+    /// **主坦（MT）** —— 需要钉在一个固定的人身上的技能用它，
+    /// 而不是用跟着掉血跑的 `血量最低的坦克()`。
+    /// </summary>
+    public static IBattleChara? 主坦()
+    {
+        try
+        {
+            var 坦克们 = PartyHelper.CastableTanks?.Where(r => r != null && r.活着()).ToList();
+            if (坦克们 == null || 坦克们.Count == 0) return null;
+            if (坦克们.Count == 1) return 坦克们[0];      // 四人本：不用挑
+    
+            var 现在 = TimeHelper.Now();
+    
+            // ① 粘滞期内直接用上次认定的（前提：他还活着）
+            if (_主坦Id != 0 && 现在 - _主坦时刻 < 主坦粘滞毫秒)
+            {
+                var 还 = 坦克们.FirstOrDefault(t => t.GameObjectId == _主坦Id);
+                if (还 != null) return 还;
+            }
+    
+            // ② 数有几个怪在盯着他
+            var 计数 = new Dictionary<ulong, int>();
+            try
+            {
+                foreach (var 敌 in Data.AllHostileTargets)
+                {
+                    if (敌 == null || 敌.CurrentHp <= 0) continue;
+                    var 盯 = 0ul;
+                    try { 盯 = 敌.TargetObjectId; } catch { }
+                    if (盯 == 0)
+                    {
+                        try { 盯 = 敌.CastTargetObjectId; } catch { }
+                    }
+                    if (盯 == 0) continue;
+                    foreach (var t in 坦克们)
+                    {
+                        if (t.GameObjectId != 盯) continue;
+                        计数[盯] = 计数.TryGetValue(盯, out var n) ? n + 1 : 1;
+                    }
+                }
+            }
+            catch { }
+    
+            // ③ 怪最多的那个；同数时取队伍顺序靠前的（游戏本身把 MT 排前面）
+            var 最好 = 坦克们[0];
+            var 最好数 = 计数.TryGetValue(最好.GameObjectId, out var n0) ? n0 : 0;
+            for (var k = 1; k < 坦克们.Count; k++)
+            {
+                var t = 坦克们[k];
+                var c = 计数.TryGetValue(t.GameObjectId, out var n) ? n : 0;
+                if (c > 最好数) { 最好 = t; 最好数 = c; }
+            }
+    
+            // ④ 一个怪都没盯着任何一个 T（还没开怪 / 全在看别人）——
+            //    退回队伍顺序的第一个 T，**不要**退回血最少的（那会跟着掉血跑）
+            if (最好数 == 0) 最好 = 坦克们[0];
+    
+            _主坦Id = 最好.GameObjectId;
+            _主坦时刻 = 现在;
+            return 最好;
+        }
+        catch
+        {
+            // 彻底失败时退回旧行为，**不要返回 null**（调用方会失去目标）
+            try { return 队伍里的坦克(); } catch { return null; }
+        }
+    }
+    
+    /// <summary>重置主坦粘滞（换本 / 战斗重置用）</summary>
+    public static void 清主坦记录()
+    {
+        _主坦Id = 0;
+        _主坦时刻 = 0;
+    }
+    
     public static IBattleChara? 队伍里的坦克()
     {
         try

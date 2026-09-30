@@ -426,7 +426,7 @@ public class Res_SingleMitigation : ISlotResolver
 
         // 给坦克；时间轴预报到伤害时满血也给
         var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
-        var 坦克 = HealTargetHelper.血量最低的坦克(要来 ? 1f : 0.8f);
+        var 坦克 = HealTargetHelper.主坦();
         if (坦克 == null) return -1;
         if (坦克.有该技能的Buff(技能)) return -3;
 
@@ -440,7 +440,7 @@ public class Res_SingleMitigation : ISlotResolver
     public void Build(Slot slot)
     {
         var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
-        var 坦克 = HealTargetHelper.血量最低的坦克(要来 ? 1f : 0.8f);
+        var 坦克 = HealTargetHelper.主坦();
         if (坦克 == null) return;
 
         var spell = SpellUtil.当前形态(技能);
@@ -570,7 +570,7 @@ public class Res_HealAmp : ISlotResolver
 
         // 给快死的坦克 + 伤害要来的时候
         var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
-        var 目标 = HealTargetHelper.血量最低的坦克(要来 ? 0.9f : 0.5f);
+        var 目标 = HealTargetHelper.主坦();
         if (目标 == null) return -1;
         if (目标.有该技能的Buff(技能)) return -3;
 
@@ -580,7 +580,7 @@ public class Res_HealAmp : ISlotResolver
     public void Build(Slot slot)
     {
         var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
-        var 目标 = HealTargetHelper.血量最低的坦克(要来 ? 0.9f : 0.5f);
+        var 目标 = HealTargetHelper.主坦();
         if (目标 == null) return;
 
         var spell = SpellUtil.当前形态(技能);
@@ -877,7 +877,7 @@ public class Res_InstantHealAbility : ISlotResolver
     {
         try
         {
-            var 坦克 = HealTargetHelper.血量最低的坦克(预铺血线);
+            var 坦克 = HealTargetHelper.主坦();
             if (坦克 != null && !坦克.有该技能的Buff(技能) && !坦克.处于假死状态())
                 return 坦克;
 
@@ -986,7 +986,7 @@ public class Res_HealLink : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (Core.Me.有该技能的Buff(技能)) return -3;
 
-        var 坦克 = HealTargetHelper.血量最低的坦克(0.8f);
+        var 坦克 = HealTargetHelper.主坦();
         if (坦克 == null) return -1;
 
         return SpellUtil.可用(技能) ? 7 : -1;
@@ -994,7 +994,7 @@ public class Res_HealLink : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var 坦克 = HealTargetHelper.血量最低的坦克(0.8f);
+        var 坦克 = HealTargetHelper.主坦();
         if (坦克 == null) return;
 
         var spell = SpellUtil.当前形态(技能);

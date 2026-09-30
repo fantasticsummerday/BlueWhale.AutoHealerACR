@@ -1661,7 +1661,9 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 本地施放记录.重置(); } catch { }
         try { 死亡追踪.重置(); } catch { }
         try { 敌人移动检测.重置(); } catch { }
-            try { HealTargetHelper.清盯人记录(); } catch { }
+        try { HealTargetHelper.清盯人记录(); } catch { }
+        // [!] 主坦粘滞也要清 —— 换本之后队伍可能换了，旧认定没意义
+        try { HealTargetHelper.清主坦记录(); } catch { }
         try { Dot黑名单.重置自适应(); } catch { }
         try { 技能熔断.重置(); } catch { }
         // ⚠️ 效果确认也有静态状态（_待确认技能 / _确认记录），

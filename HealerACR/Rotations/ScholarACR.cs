@@ -743,7 +743,7 @@ public class SCH_Aetherpact : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.妖精能量 < 20) return -3;
 
-        var tank = HealTargetHelper.血量最低的坦克(HealSettings.Instance.妖精契约血线);
+        var tank = HealTargetHelper.主坦();
         if (tank == null) return -1;
         if (技能 != 0 && tank.有该技能的Buff(技能)) return -4;
 
@@ -759,7 +759,7 @@ public class SCH_Aetherpact : ISlotResolver
         //      → Build 再查 0.8f 得到 null → **slot 是空的**
         //    → 框架继续扫下一个 resolver → 这个技能**静默不放**。
         //    （F③ 那类"判 A 放不出"：Check 和 Build 必须同源）
-        var tank = HealTargetHelper.血量最低的坦克(HealSettings.Instance.妖精契约血线);
+        var tank = HealTargetHelper.主坦();
         if (tank == null) return;
         slot.Add(new Spell(技能, tank));
     }

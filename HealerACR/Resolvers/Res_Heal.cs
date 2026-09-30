@@ -944,7 +944,7 @@ public class Res_HealShield : ISlotResolver
             var 盾线 = 该铺
                 ? 1f      // 明确的即将来伤害：任何血线都该铺（强判据，同 `Res_Mitigation`）
                 : Math.Clamp(HealSettings.Instance.单体治疗阈值 + 盾提前量, 0.30f, 0.95f);
-            var 坦克 = HealTargetHelper.血量最低的坦克(盾线);
+            var 坦克 = HealTargetHelper.主坦();
             if (坦克 != null) return 坦克;
 
             // ── ② 没有坦克 / 坦克不需要 → 给血线最低的那个人 ──

@@ -476,7 +476,11 @@ public class SGE_Kardia : ISlotResolver
         if (!HealQt.GetQt("自动心关", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        var tank = HealTargetHelper.血量最低的坦克(1f);
+        // [!] **必须用 `主坦()`，不能用血量最低的坦克()**（MT/ST 修正）——
+        //     心关是打敌人顺带治 MT的机制，**钉错人整场少一大块治疗**。
+        //     而 `血量最低的坦克()` 是跟着谁掉血跑的 ==> 八人本 ST 掉血时会跑到 ST 上。
+        //     用户原话：「t应该看的是**主仇恨的 mt**，八人本直接就区分 mtst」。
+        var tank = HealTargetHelper.主坦();
         if (tank == null) return -1;
         if (AuraIds.有心关(tank)) return -3;
 
@@ -485,7 +489,7 @@ public class SGE_Kardia : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var tank = HealTargetHelper.血量最低的坦克(1f);
+        var tank = HealTargetHelper.主坦();
         if (tank == null) return;
         slot.Add(new Spell(技能, tank));
     }
