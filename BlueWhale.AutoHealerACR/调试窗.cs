@@ -101,6 +101,23 @@ public static class 调试窗
     }
 
     /// <summary>写一行诊断（**只在内容变化时**落盘）。</summary>
+    /// <summary>
+    /// **用户点了关闭**（由 HealerACR 侧读取并代为落盘）。
+    ///
+    /// [!] 为什么不在这里直接改设置：`HealSettings` 在两个 DLL 里各有一份，
+    ///     这里改的是 BlueWhale 那份，而设置页读的是 HealerACR 那份
+    ///     ⇒ 点 X 之后勾选框仍是 true ⇒ 窗口又回来（用户实测"关不掉"）。
+    /// </summary>
+    private static bool _请求关闭;
+
+    /// <summary>读取并清除"用户请求关闭"标志（只有 HealerACR 侧该调）。</summary>
+    public static bool 取走关闭请求()
+    {
+        var v = _请求关闭;
+        _请求关闭 = false;
+        return v;
+    }
+
     private static int _记诊断次数;
     private static int _画次数;
 
@@ -363,15 +380,21 @@ public static class 调试窗
                 if (!显示)
                 {
                     // 用户点了右上角关闭 -> 同步回设置（下次不再自动开）
-                    try
-                    {
-                        if (HealSettings.Instance != null)
-                        {
-                            HealSettings.Instance.启用调试窗 = false;
-                            HealSettings.Instance.Save();
-                        }
-                    }
-                    catch { }
+                    // ══════════════════════════════════════════════════════════
+                    //  [!] **不能在这里直接改设置**（跨程序集静态状态的第二处）
+                    //
+                    //      `HealSettings` 编进两个 DLL ⇒ `Instance` 是两份。
+                    //      设置页的勾选框读的是 **HealerACR 那份**，
+                    //      而这里写 `HealSettings.Instance.启用调试窗 = false`
+                    //      改的是 **BlueWhale 那份** ⇒
+                    //      存档改了，但设置页下一帧又读回 true
+                    //      ⇒ 现象是「**点 X 关不掉**，窗口闪一下又回来」（用户实测）。
+                    //
+                    //  [!] 正解：这里只**置一个请求标志**，
+                    //      由 HealerACR 侧（持有设置的那一侧）代为落盘。
+                    //      见 `HealerEntryBase.画AI层调试窗()`。
+                    // ══════════════════════════════════════════════════════════
+                    _请求关闭 = true;
                 }
 
                 画基础();

@@ -819,8 +819,26 @@ public abstract class HealerEntryBase : IRotationEntry
         
         // [!] 这一句**必须独立成块** —— 它是整个窗口的入口，
         //     绝不能被上面任何一段的异常连带挡掉。
+        // [!] 窗口那侧点 X 时会置一个标志 —— **本侧读取并落盘**
+        //     （它改不动本程序集那份 HealSettings，见 取走调试窗关闭请求 的说明）。
+        try
+        {
+            if (取走调试窗关闭请求())
+            {
+                var 设 = HealSettings.Instance;
+                if (设 != null && 设.启用调试窗)
+                {
+                    设.启用调试窗 = false;
+                    设.Save();
+                    写诊断("用户点了关闭 -> 开关已置 false 并存档");
+                }
+            }
+        }
+        catch (Exception e) { 写诊断("消费关闭请求异常：" + e.GetType().Name + " " + e.Message); }
+
         try { 画AI层调试窗(); }
         catch (Exception e) { 写诊断("画AI层调试窗 异常：" + e.GetType().Name + " " + e.Message); }
+        
 
         // AEAssist 主界面「ACR 设置」标签的内容。
         //
@@ -1216,6 +1234,40 @@ public abstract class HealerEntryBase : IRotationEntry
     /// [!] 窗口本身现在每帧会把位置夹进屏幕（见 `调试窗.画`），
     ///     所以正常情况下不会再发生；这个按钮是**兜底**。
     /// </summary>
+    /// <summary>
+    /// **读取并清除「用户点了调试窗关闭按钮」标志**（反射调 AI 层）。
+    ///
+    /// [!] 为什么关闭也要走反射：`HealSettings` 编进了两个 DLL，
+    ///     `Instance` 是两份。调试窗那一侧改的是它自己那份，
+    ///     而设置页的勾选框读的是**本程序集这份** ==>
+    ///     直接在那里改会「点 X 关不掉，窗口闪一下又回来」（用户实测）。
+    ///
+    /// [!] 所以：窗口那侧只置标志，**本侧读取并落盘** ——
+    ///     两边都只碰自己那份 `HealSettings`。
+    /// </summary>
+    private static bool 取走调试窗关闭请求()
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
+                catch { }
+                if (类型 == null) continue;
+    
+                var 方法 = 类型.GetMethod("取走关闭请求",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                    null, Type.EmptyTypes, null);
+                if (方法 == null) continue;
+    
+                return 方法.Invoke(null, null) is bool b && b;
+            }
+        }
+        catch { }
+        return false;
+    }
+    
     private static void 复位调试窗位置()
     {
         try
