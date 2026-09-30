@@ -958,6 +958,23 @@ public static class AiSituation
             // [!] **距离必须给**（GAP-15，审计确认）—— 规则 22e 让 AI 判「站远了别交自身中心 AOE」，
             //     但原来**它看不到自己站多远**；近战填充那条分支（够得到目标圈）也判不了。
             sb.AppendLine($"当前目标：{目标.Name}（距离 {Vector3.Distance(Core.Me.Position, 目标.Position):F0}m）");
+            
+            // [!] **还要说清我们实际在打谁**（GAP-8，审计确认）——
+            //     `当前目标()` 是**玩家手动选中的**那个，而 `输出目标.选()` 才是
+            //     技能真正会打的对象（它不看玩家选谁，自己挑一个该打的敌人）。
+            //     ==> 两者不同时，AI 会**对着 A 推理、技能打到 B**。
+            //     所以两个不一致时必须显式说明。
+            try
+            {
+                var 粘 = HealerACR.Common.输出目标.粘住的目标;
+                if (粘 != 0 && 粘 != 目标.GameObjectId)
+                {
+                    var 在打的 = HealerACR.Common.输出目标.选();
+                    if (在打的 != null)
+                        sb.AppendLine($"  ⚠️ **我们实际在打的是 {在打的.Name}**（不是上面这个）—— 输出技能的落点是它。");
+                }
+            }
+            catch { }
             sb.AppendLine($"  类型：{(是Boss ? "Boss" : "普通怪")}");
             sb.AppendLine($"  血量：{目标.血量比例() * 100f:F0}%（{目标.CurrentHp} / {目标.MaxHp}）");
 
@@ -1034,8 +1051,19 @@ public static class AiSituation
             {
                 var 表9 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
                 var 半径9 = 表9 != null ? Math.Max(1f, 表9.AOE伤害范围) : 5f;
+                // [!] **施法范围要用技能真实射程，不能写死 25 米**（GAP-2/GAP-15 同源）——
+                //     自身中心 AOE（破阵法）只有 5 米，写死 25 会把够不着的怪也数进来。
+                var 射程9 = 表9 != null ? 技能数据.取有效射程(表9.群体输出) : 0f;
+                if (射程9 <= 0f) 射程9 = 25f;
+                // [!] **"不含未进战的怪"是假的**（GAP-12，审计确认）——
+                //     `周围敌人数量` 走 `TargetMgr.EnemysIn25`，它**没有仇恨过滤**
+                //     （只滤 `ValidAttackUnit` + `NotInvulnerable` + 距离）。
+                //     而下面的「其他敌人」列表**是有仇恨过滤的** —— 两者不同源。
+                //     ==> 原来那句话会让 AI 以为这个数"可以安全 AOE"，
+                //         实际它可能包含**还没被拉进战的怪**。
                 sb.AppendLine($"周围敌人数量（以**当前目标**为中心、{半径9:F0} 米内、" +
-                              $"**不含未进战的怪**）：{HealTargetHelper.周围敌人数量(半径9, 25f)}");
+                              $"**未过滤仇恨，可能含还没进战的怪，不能当" + "可以安全 AOE" + "的依据**）：" +
+                              $"{HealTargetHelper.周围敌人数量(半径9, 射程9)}");
             }
             catch
             {
