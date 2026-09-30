@@ -437,7 +437,8 @@ public static class AiDecisionLayer
         定期汇总();
 
         if (_预取中) return;
-        if (DeepSeekClient.该走原版逻辑) return;
+        // ★ 只查**决策通道** —— 别的通道熔断不该停掉预取（P1-11）★
+        if (DeepSeekClient.该停发(DeepSeekClient.通道.决策)) return;
 
         // ② 队列够长 → 不用补货（这是"预取"的关键：有货就不问）
         if (队列计数() >= 目标长度) return;
@@ -592,7 +593,8 @@ public static class AiDecisionLayer
             var s = AiSettings.Instance;
             if (!s.启用决策层 || !s.已配置) return;
             if (_预取中) return;
-            if (DeepSeekClient.该走原版逻辑) return;
+            // ★ 只查**决策通道** —— 别的通道熔断不该停掉预取（P1-11）★
+        if (DeepSeekClient.该停发(DeepSeekClient.通道.决策)) return;
 
             Ai调试.日志("局面剧变 -> 立刻重新预取");
             _ = 预取();
@@ -633,6 +635,16 @@ public static class AiDecisionLayer
 
         try
         {
+            // ★ 记下**本次请求对应的候选快照** ★
+            //
+            //  [!] 为什么必须在"发请求前"取（第二轮审阅 P0-1/P0-3）：
+            //      `C1/C2` 只是排序后的位置，缓存 300ms 一过就重排重编号。
+            //      AI 请求要等 2~8 秒，回来时 C1 很可能已经是**另一个动作**。
+            //      所以：
+            //        · 请求前取一次快照，把"快照号"写进提示词
+            //        · 响应回来时按那个快照号取回**当时那份候选表**解析
+            //        · 取不到（太久远）就整个丢弃 —— 绝不用当前候选凑合
+            var 本次快照 = 候选集.生成().快照Id;
             var 局面 = AiSituation.采集();
 
             // 决策层：给 3 秒 —— 它是在"备货"，不必卡在 GCD 内
@@ -677,7 +689,7 @@ public static class AiDecisionLayer
                 return;
             }
 
-            var 条数 = 解析并填充(回复, 本批);
+            var 条数 = 解析并填充(回复, 本批, 本次快照);
 
             if (条数 > 0)
             {
@@ -935,7 +947,7 @@ public static class AiDecisionLayer
         return s.Trim();
     }
 
-    private static int 解析并填充(string 回复, int 批次 = 0)
+    private static int 解析并填充(string 回复, int 批次 = 0, long 快照号 = 0)
     {
         var 条数 = 0;
 
@@ -992,12 +1004,28 @@ public static class AiDecisionLayer
                     (首段[0] == 'C' || 首段[0] == 'c') &&
                     uint.TryParse(首段.AsSpan(1), out _))
                 {
-                    var 候 = 候选集.按编号(首段);
+                    // ★ 按**请求时那份快照**解析 —— 不是按当前候选 ★
+                    //
+                    //  [!] 这是第二轮审阅 P0-1 的修法核心：
+                    //      用"当前候选"解析会出现
+                    //          AI 请求时 C1 = 治坦克
+                    //          期间候选重排，C1 变成 DoT Boss
+                    //          AI 回 C1 -> 解析成 DoT Boss -> **执行错动作**
+                    //      按请求时的快照解析，C1 永远是 AI 当时看到的那个动作。
+                    var 快照 = 候选集.取快照(快照号);
+                    if (快照 == null)
+                    {
+                        // 快照太旧已被淘汰 -> **整个批次丢弃**（不用当前候选凑合）
+                        解析失败次数++;
+                        Ai调试.日志($"候选快照 #{快照号} 已过期淘汰，本批 {每次请求步数} 条建议全部丢弃");
+                        return 条数;
+                    }
+
+                    var 候 = 快照.解析(首段);
                     if (候 == null)
                     {
-                        // 编号在**当前**候选集里找不到 —— 多半是局面变了、候选已重算
                         解析失败次数++;
-                        Ai调试.调试($"候选 {首段} 不在当前候选集里，丢弃（局面已变？）");
+                        Ai调试.调试($"候选 {首段} 在快照 #{快照号} 里找不到，丢弃");
                         continue;
                     }
 

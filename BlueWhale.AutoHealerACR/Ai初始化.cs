@@ -311,7 +311,8 @@ public static class Ai初始化
 
                 // ── 失败 ──
                 if (我的世代 != _世代) return;          // 重试途中被换掉 → 让位
-                if (DeepSeekClient.该走原版逻辑) break;   // 熔断器叫停 → 不再重试
+                // ★ 只查**初始化通道** —— 别的通道熔断不影响初始化重试（P1-11）★
+            if (DeepSeekClient.该停发(DeepSeekClient.通道.初始化)) break;
 
                 await Task.Delay(退避).ConfigureAwait(false);
                 退避 = Math.Min(退避 * 2, 最大退避毫秒);

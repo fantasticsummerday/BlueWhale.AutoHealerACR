@@ -172,7 +172,8 @@ public static class AiThresholdAdapter
             return "2) Key 已配置，但【阶段 A：策略层】没勾 —— 勾上才会开始请求";
         }
 
-        if (DeepSeekClient.该走原版逻辑)
+        // ★ 只查**决策通道**（阈值适配是决策侧的东西，P1-11）★
+        if (DeepSeekClient.该停发(DeepSeekClient.通道.决策))
         {
             return $"3) {DeepSeekClient.状态描述()}（冷却 {s.失败冷却秒} 秒）—— 期间走原版阈值";
         }
