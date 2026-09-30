@@ -229,6 +229,23 @@ public static class AiHookInstaller
         {
             LogHelper.Error("[BlueWhale.AI] 阈值钩子挂载失败（AI 将只显示不生效）：" + e.Message);
         }
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 注册"ACR 卸载"钩子 —— 让重载 ACR / 切 ACR 时能主动卸掉 AI 层 ★
+        //
+        //  [!] 为什么必需（实测 bug）：
+        //      ACR 卸载路径不会自动调到这里 ——
+        //      结果重载 ACR 并切到别的 ACR 之后，
+        //      小鲸鱼的每帧回调还在跑、AI 的钩子还挂着，
+        //      现象是"已经切到别的 ACR 了，左下角还在刷小鲸鱼的日志"，
+        //      而且**还在发 API 请求**（白花 Key 的钱）。
+        //
+        //  [!] 为什么走钩子而不是让 HealerACR 直接引用本类：
+        //      `HealerACR.csproj` 只编译自己目录，两个 dll 里各有一份
+        //      HealerACR 的类 —— 直接 ProjectReference 会**循环依赖**。
+        // ══════════════════════════════════════════════════════════════
+        try { HealerACR.Common.卸载钩子.卸载 = Ai层挂载.卸载; }
+        catch (Exception e) { LogHelper.Error("[BlueWhale.AI] 卸载钩子注册失败：" + e.Message); }
     }
 
     /// <summary>卸载（退出/换职业时调用，避免影响其他 ACR）</summary>
@@ -242,6 +259,9 @@ public static class AiHookInstaller
             _已挂 = false;
         }
         catch { }
+
+        // 顺手把卸载钩子摘掉（避免它指着一个已经卸过的对象）
+        try { HealerACR.Common.卸载钩子.卸载 = null; } catch { }
     }
 
     public static bool 已挂载 => _已挂;
