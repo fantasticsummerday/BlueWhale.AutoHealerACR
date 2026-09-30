@@ -1204,8 +1204,29 @@ public static class AiSettingPage
     }
     public static void 画()
     {
-        var s = AiSettings.Instance;
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 阶段日志 —— 定位"点设置就闪退"（实测，已缩到此方法内）★
+        //
+        //  [!] 外面那层已经证明了崩溃点在这里：
+        //        [设置诊断] 进入阶段：2-AiSettingPage.画   <- 最后一行
+        //      没有 "2-完成"，也没有 "2-异常已捕获"
+        //      => 崩在本方法内，且**不是托管异常**（原生 AV / 栈溢出）
+        //      => 只能靠"最后进入的阶段"定位
+        //
+        //  [!] 为什么插这么密：原生 AV 抓不到堆栈，
+        //      唯一可行的办法就是把范围一段段缩到单行。
+        //      定位后这些日志会被删掉（它们是诊断用的，不是功能）。
+        // ══════════════════════════════════════════════════════════════
+        static void 段(string 名)
+        {
+            try { LogHelper.Info("[画诊断] " + 名); } catch { }
+        }
 
+        段("a-取 Instance");
+        var s = AiSettings.Instance;
+        段("a-完成");
+
+        段("b-第一次 ImGui 调用");
         ImGui.Separator();
         ImGui.TextDisabled("════ BlueWhale AI 决策层（可选，不填也完全可用）════");
 
@@ -1216,6 +1237,7 @@ public static class AiSettingPage
         // ★ 失焦即保存 ★ —— 不用再手动点「保存设置」，重载后 Key 还在
         if (ImGui.IsItemDeactivatedAfterEdit()) 保存并提示("API Key");
         ImGui.TextDisabled("  sk- 开头。留空 = 不启用 AI，走原版逻辑。只存本地 json。");
+        段("c-API Key 段完成");
 
         // ---- 只有填了 Key 才显示后面的 ----
         // （按你的要求：提供了 api key 再选择模型）
@@ -1224,6 +1246,7 @@ public static class AiSettingPage
             ImGui.TextDisabled("  ^ 填入 Key 后，下面会出现模型选择和开关。");
             return;
         }
+        段("d-已配置，进入模型段");
 
         // ---- 模型选择 ----
         ImGui.Separator();
@@ -1241,13 +1264,16 @@ public static class AiSettingPage
         var 模型列表 = DeepSeekClient.模型列表.Count > 0
             ? DeepSeekClient.模型列表.ToArray()
             : new[] { "deepseek-flash", "deepseek-v4-pro" };
+        段("e-模型列表长度=" + 模型列表.Length);
 
         for (var i = 0; i < 模型列表.Length; i++)
         {
+            段("e" + i + "-RadioButton " + (模型列表[i] ?? "(null)"));
             var 选中 = s.Model == 模型列表[i];
-            if (ImGui.RadioButton(模型列表[i], 选中)) { s.Model = 模型列表[i]; AiSettings.保存(); }
+            if (ImGui.RadioButton(模型列表[i] ?? "(null)", 选中)) { s.Model = 模型列表[i]; AiSettings.保存(); }
             ImGui.SameLine();
         }
+        段("e-模型循环完成");
 
         ImGui.NewLine();
         ImGui.TextDisabled("  deepseek-flash   = 快、便宜，适合高频决策（推荐先用这个）");
