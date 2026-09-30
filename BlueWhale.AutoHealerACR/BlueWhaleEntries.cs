@@ -511,6 +511,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
         {
             记("2-AiSettingPage.画");
             AiSettingPage.画();
+            记("2.5-AiSettingPage 已返回");   // ★ 区分"A 没返回"还是"B 卡在后面"
             记("2-完成");
         }
         catch (Exception e)
