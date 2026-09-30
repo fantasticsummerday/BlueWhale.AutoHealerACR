@@ -134,8 +134,21 @@ public static class 调试窗
 
             try
             {
-                ImGui.Text($"战斗：{(Core.Me.InCombat() ? "战斗中" : "未战斗")}" +
-                           $"｜移动：{(SpellUtil.在移动() ? "是" : "否")}");
+                // [!] 空中单独显示（用户反馈"原地跳跃应该也是移动状态"）：
+                //     框架的 `IsMoving` 只看 `AgentMap.IsPlayerMoving`，
+                //     **跳跃不改变它** —— 所以跳跃时这里"移动=否"是对的，
+                //     但"空中=是"必须能看见，否则没法验证那个修复。
+                var 空中 = 空中检测.在空中;
+                var 文本 = $"战斗：{(Core.Me.InCombat() ? "战斗中" : "未战斗")}" +
+                           $"｜移动：{(SpellUtil.在移动() ? "是" : "否")}" +
+                           $"｜空中：{(空中 ? "是（读条放不出）" : "否")}";
+
+                if (空中)
+                    ImGui.TextColored(new Vector4(1f, 0.75f, 0.3f, 1f), "  " + 文本);
+                else
+                    ImGui.Text("  " + 文本);
+
+                ImGui.TextDisabled($"    移动判定：{SpellUtil.移动状态描述()}");
             }
             catch { }
 

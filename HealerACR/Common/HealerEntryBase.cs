@@ -462,7 +462,7 @@ public abstract class HealerEntryBase : IRotationEntry
                 }
                 catch { return; }
 
-                // ★ 进本识别：必须在这里，不能只在 OnBattleUpdate ★
+            // ★ 进本识别：必须在这里，不能只在 OnBattleUpdate ★
                 //
                 //  `OnBattleUpdate` **只有战斗中才跑**（框架 IL 直证：
                 //  它由 `BattleData.Update` 调，而那条路只有 `AILoop_*` 走）。
@@ -473,6 +473,11 @@ public abstract class HealerEntryBase : IRotationEntry
                 //  （实测日志：`进入新地图` 之后没有任何「进本识别」行。）
                 try { 伤害预测.每帧更新(); } catch { }   // 血量采样（给预测用）
                 try { 进本识别.每帧检查(); } catch { }
+
+                // ★ 空中检测：采样 Y 判断"跳起来了没" ★
+                //   [!] 必须每帧采（跳跃很短），而且必须在这条回调里 ——
+                //      它是**唯一确定的每帧路径**（见上面 OnBattleUpdate 的说明）。
+                try { 空中检测.每帧更新(); } catch { }
 
                 // ★ 彩蛋：同理，木桩/城里也要能唱 ★
                 try { 彩蛋.每帧更新(); } catch { }
@@ -1617,6 +1622,15 @@ public class HealRotationEventHandler : IRotationEventHandler
         //     清了之后，下一个副本会被当成"新的一次进入"，正常输出。
         try { 进本识别.重置(); } catch { }
         try { 彩蛋.重置(); } catch { }        // 换本别把没唱完的句子带过去
+
+        // ★ 空中检测也要清 ★
+        //   [!] 不清的话，跨地图时"上一个地图的 Y"会成为起点，
+        //      地形高度差被算成"跳起了" -> 一直报空中 -> 读条技能全被挡。
+        //
+        //   [!] **这里才是对的位置** —— 我第一次插在了 `_每帧回调` 里，
+        //      结果每帧先重置再采样，永远停在"首次采样"，功能等于没写。
+        //      （编译通过、看着正常 —— 正是本项目反复栽的那种错。）
+        try { 空中检测.重置(); } catch { }
 
         // ★ 清掉输出目标选择器的粘滞 ★
         //   不清的话，上个副本那只怪的 ID 会一直"粘"着，
