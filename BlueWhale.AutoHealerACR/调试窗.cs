@@ -78,11 +78,18 @@ public static class 调试窗
     }
 
     /// <summary>写一行诊断（**只在内容变化时**落盘）。</summary>
+    private static int _记诊断次数;
+    private static int _画次数;
+
     private static void 记诊断(string 内容)
     {
         try
         {
-            if (内容 == _上次诊断) return;
+            // [!] 前 5 次**无条件写** —— 否则「只写变化内容」会让
+            //     「从没被调用」和「调用了但每帧内容相同」看起来一样
+            //     （我上一版就因此误判：文件只有 1 行，分不清是哪一种）。
+            _记诊断次数++;
+            if (_记诊断次数 > 5 && 内容 == _上次诊断) return;
             _上次诊断 = 内容;
 
             var 行 = $"[{DateTime.Now:HH:mm:ss}] {内容}{Environment.NewLine}";
@@ -137,7 +144,8 @@ public static class 调试窗
         // ★ 诊断：先记【被调到了】，再判开关 ★
         //   [!] 顺序很重要 —— 先 return 再记的话，就分不清
         //      【没被调到】和【被调到但开关是关的】这两种情况。
-        记诊断($"画() 被调用：开关={开}");
+        记诊断($"画() 被调用（第{++_画次数}次）：开关={开} " +
+                   $"屏={ImGui.GetIO().DisplaySize.X:F0}x{ImGui.GetIO().DisplaySize.Y:F0}");
         
         if (!开) return;
 

@@ -776,6 +776,17 @@ public abstract class HealerEntryBase : IRotationEntry
         //  [!] 窗口**只读**，不改任何战斗状态；开关存在设置里（跨上线保留）。
         //      用户点窗口右上角关闭时，窗口自己会把开关同步回 false。
         // ══════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════
+        //  [!] **每一块独立 try** —— 这是我踩过的坑
+        //
+        //      原来整段共用一个 `try { ... } catch { }`，而
+        //      `画AI层调试窗()` 是**最后一行**。
+        //      实测后果：前面某个 ImGui 调用抛异常，`画AI层调试窗()`
+        //      就**永远执行不到**，异常又被 `catch { }` 吞掉
+        //      ==> 现象正是【开关勾着、窗口不出现、日志里什么都没有】。
+        //
+        //      ==> 拆成独立小块：一块抛了不影响后面，且每块都记诊断。
+        // ══════════════════════════════════════════════════════════════
         try
         {
             var 设置 = HealSettings.Instance;
@@ -786,19 +797,30 @@ public abstract class HealerEntryBase : IRotationEntry
                 {
                     设置.启用调试窗 = 调试;
                     设置.Save();
+                    写诊断($"开关被改为 {调试}");
                 }
-                ImGui.SameLine();
-                ImGui.TextDisabled("  只读，可一直开着");
-                ImGui.SameLine();
-                
-                //  [!] 兜底按钮：万一窗口被 ImGui 放到屏幕外（换分辨率 / 多显示器），
-                //      窗口本身不会出现也不报错，用户无从下手 —— 点这里复位。
-                if (ImGui.SmallButton("把窗口拉回屏幕内")) 复位调试窗位置();
             }
-
-            画AI层调试窗();
         }
-        catch { }
+        catch (Exception e) { 写诊断("勾选框异常：" + e.GetType().Name + " " + e.Message); }
+        
+        try
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled("  只读，可一直开着");
+        }
+        catch (Exception e) { 写诊断("说明文字异常：" + e.GetType().Name + " " + e.Message); }
+        
+        try
+        {
+            ImGui.SameLine();
+            if (ImGui.SmallButton("把窗口拉回屏幕内")) 复位调试窗位置();
+        }
+        catch (Exception e) { 写诊断("复位按钮异常：" + e.GetType().Name + " " + e.Message); }
+        
+        // [!] 这一句**必须独立成块** —— 它是整个窗口的入口，
+        //     绝不能被上面任何一段的异常连带挡掉。
+        try { 画AI层调试窗(); }
+        catch (Exception e) { 写诊断("画AI层调试窗 异常：" + e.GetType().Name + " " + e.Message); }
 
         // AEAssist 主界面「ACR 设置」标签的内容。
         //
@@ -1180,6 +1202,7 @@ public abstract class HealerEntryBase : IRotationEntry
 
     /// <summary>调试窗连续失败几次就自动关掉（防止每帧抛异常）</summary>
     private static int _调试窗失败次数;
+    private static int 调用次数;
     private const int 调试窗失败上限 = 5;
 
     /// <summary>
@@ -1223,14 +1246,43 @@ public abstract class HealerEntryBase : IRotationEntry
     ///     而用户遇到过的现象正是【开关勾着但窗口不出现、日志里也没线索】。
     ///     必须有一份用户能直接发出来的输出，否则只能靠猜。
     /// </summary>
+    private static string _上次写诊断 = "";
+    private static int _写诊断次数;
+    private static System.IO.StreamWriter? _诊断流;
+
+    /// <summary>
+    /// **写一行调试窗诊断**（`我的文档\BlueWhale调试窗诊断.txt`）。
+    ///
+    /// [!] 为什么不走 LogHelper：这条路径上有三处静默失败
+    ///     （失败次数上限 / 反射失败 / catch 吞异常），
+    ///     而用户遇到过的现象正是【开关勾着但窗口不出现、日志里也没线索】。
+    ///     必须有一份用户能直接发出来的输出。
+    ///
+    /// [!] **性能**：本方法在绘制路径上**每帧**被调 3 次。
+    ///     `File.AppendAllText` 每次都要 open + seek + write + close ——
+    ///     在渲染线程上每帧做 3 次文件 IO 是实打实的卡顿源。
+    ///     ⇒ ① 用 `StreamWriter` 缓存句柄（`AutoFlush` 保证不丢）
+    ///       ② **只在内容变化时写**（诊断的价值就在变化点）
+    ///       ③ 前 10 次无条件写（区分「从没被调」和「调了但内容一样」）
+    ///       ④ 总量闸门：超过 500 行就不再写（防异常循环刷满磁盘）
+    /// </summary>
     private static void 写诊断(string 内容)
     {
         try
         {
-            var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            var 路径 = System.IO.Path.Combine(文档, "BlueWhale调试窗诊断.txt");
-            System.IO.File.AppendAllText(路径,
-                $"[{DateTime.Now:HH:mm:ss}] [HealerACR] {内容}{Environment.NewLine}");
+            _写诊断次数++;
+            if (_写诊断次数 > 500) return;
+            if (_写诊断次数 > 10 && 内容 == _上次写诊断) return;
+            _上次写诊断 = 内容;
+
+            if (_诊断流 == null)
+            {
+                var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                var 路径 = System.IO.Path.Combine(文档, "BlueWhale调试窗诊断.txt");
+                _诊断流 = new System.IO.StreamWriter(路径, append: true) { AutoFlush = true };
+            }
+
+            _诊断流.WriteLine($"[{DateTime.Now:HH:mm:ss}] [HealerACR] #{_写诊断次数} {内容}");
         }
         catch { }
     }
@@ -1259,13 +1311,24 @@ public abstract class HealerEntryBase : IRotationEntry
                     if (方法 == null) continue;
 
                     _画调试窗 = (Action?)Delegate.CreateDelegate(typeof(Action), 方法, false);
-                    写诊断("反射成功：已挂上 调试窗.画");
+                    写诊断($"反射成功：方法={方法.DeclaringType?.FullName}.{方法.Name} 参数数={方法.GetParameters().Length} 返回={方法.ReturnType.Name}");
                     break;
                 }
             }
 
             if (_画调试窗 == null) { 写诊断("反射失败：找不到 调试窗.画"); return; }
-            _画调试窗();
+            调用次数++;
+            写诊断($"即将调用第{调用次数}次（委托={_画调试窗.Method.DeclaringType?.FullName}.{_画调试窗.Method.Name}）");
+            try
+            {
+                _画调试窗();
+                写诊断($"调用返回正常（第{调用次数}次）");
+            }
+            catch (Exception 内层)
+            {
+                写诊断($"调用抛异常（第{调用次数}次）：{内层.GetType().Name} {内层.Message}");
+                throw;
+            }
 
             _调试窗失败次数 = 0;   // 成功一次就清零（偶发失败不算）
         }
