@@ -23,6 +23,22 @@ public class ASTSpellTable : JobSpellTable
     public override uint 药尾声填充技 => SpellIds.取("落陷凶星");
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("中重力"), SpellIds.取("重力"));
+
+    /// <summary>
+    /// **占星的 AOE 伤害范围 = 8 米**（原来没覆写，用了默认 5）。
+    ///
+    /// [!] 游戏数据（`build/healer_shape.tsv`）：
+    ///       3615  重力     EffectRange = 8
+    ///       25872 中重力   EffectRange = 8
+    ///     ⇒ 真实是 8，默认值是 5 ⇒ **少算了 3 米**。
+    ///
+    /// [!] 影响面（如实说）：`Res_AoEDamage` 走框架的
+    ///     `TargetHelper.GetMostCanTargetObjects`，**不读这个常量** ⇒
+    ///     实际放 AOE 的判定没错。受影响的是 `Res_Mitigation` 的
+    ///     "敌人够多"与 AI 候选集里的敌数统计 ——
+    ///     用 5 会**低估**能打到的敌人数 ⇒ 该放 AOE 时判不出来。
+    /// </summary>
+    public override int AOE伤害范围 => 8;
     /// <summary>
     /// **没有"自身 AOE"技** —— 占星的重力（3615）/中重力（25872）都是
     /// `射程=25` 的**目标中心** AOE（见 `tools\CastProbe`），不是以自己为中心。
@@ -110,7 +126,12 @@ public class ASTSpellTable : JobSpellTable
             // ── 单体 GCD 盾 + HoT（吉星相位 = 治疗 + 盾）──
             c.加(new 治疗技能 { Id = SpellIds.取("吉星相位"), 名 = "吉星相位", 等级 = 34,
                 恢复力 = 档位(SpellIds.取("吉星相位"), 250, 200, 85), MP = 400, 咏唱 = 0f, 复唱 = 2.5f,
-                是盾 = true, HoT恢复力 = 档位(SpellIds.取("吉星相位"), 250, 200, 85), HoT持续 = 15f });
+                // [!] **修正：去掉 `是盾`**（数据核对）
+                //     原文只有「恢复目标的体力　恢复力：　追加效果：令目标体力持续恢复」，
+                //     **没有防护罩**。盾只在**中间学派**期间才有（吉星相位 250%），
+                //     那是 buff 条件，不是技能自带的。
+                //     标错 `是盾` 会凭空加一份吸收量 ⇒ 高估它。
+                HoT恢复力 = 档位(SpellIds.取("吉星相位"), 250, 200, 85), HoT持续 = 15f });
 
             // ── 群体 GCD ──
             c.加(new 治疗技能 { Id = SpellIds.取("阳星"), 名 = "阳星", 等级 = 10,
@@ -118,7 +139,9 @@ public class ASTSpellTable : JobSpellTable
 
             c.加(new 治疗技能 { Id = SpellIds.取("阳星相位"), 名 = "阳星相位", 等级 = 40,
                 恢复力 = 档位(SpellIds.取("阳星相位"), 250, 200, 85), MP = 800, 咏唱 = 1.5f, 复唱 = 2.5f,
-                群体 = true, 是盾 = true, HoT恢复力 = 档位(SpellIds.取("阳星相位"), 150, 100, 85), HoT持续 = 15f });
+                // [!] **修正：去掉 `是盾`**（同吉星相位 —— 原文没有防护罩，
+                //     盾只在中间学派期间有，阳星相位 125%）。
+                群体 = true, HoT恢复力 = 档位(SpellIds.取("阳星相位"), 150, 100, 85), HoT持续 = 15f });
 
             c.加(new 治疗技能 { Id = SpellIds.取("阳星合相"), 名 = "阳星合相", 等级 = 96,
                 恢复力 = 250, MP = 800, 咏唱 = 1.5f, 复唱 = 2.5f, 群体 = true,

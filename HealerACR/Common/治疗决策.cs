@@ -44,13 +44,22 @@ public static class 治疗决策
     /// <param name="移动中">自己是不是在移动</param>
     /// <param name="只群体">只考虑群体技</param>
     /// <param name="只瞬发">只考虑瞬发技</param>
+    /// <param name="只要GCD">
+    /// 只考虑**占 GCD** 的技能（排除 oGCD 能力技）。
+    ///
+    /// [!] 为什么要这个参数：`Res_HealAoEGcd` 是**走 GCD 槽**的，
+    ///     而 `只群体` 只判 `群体`，不过滤能力技 ==>
+    ///     会把 oGCD 群体能力技（礼仪之铃 180s / 法令 40s / 大赦 …）
+    ///     当 GCD 技能用完，白占一个 GCD。见 `治疗技能.是能力技`。
+    /// </param>
     public static 治疗技能? 选最优(
         治疗候选集 候选,
         float 缺口,
         bool 命悬一线,
         bool 移动中,
         bool 只群体 = false,
-        bool 只瞬发 = false)
+        bool 只瞬发 = false,
+        bool 只要GCD = false)
     {
         try
         {
@@ -71,6 +80,7 @@ public static class 治疗决策
             foreach (var 技 in 候选.已解锁())
             {
                 if (只群体 && !技.群体) continue;
+                if (只要GCD && 技.是能力技_实际) continue;   // GCD 槽不能塞能力技
                 if (技.仅自己) continue;
 
                 // ④ 可用性：冷却 / 资源 / 移动
@@ -143,63 +153,39 @@ public static class 治疗决策
 
     /// <summary>最近一次本地治疗选择（一行，给调试窗/日志）</summary>
     public static string 最近选择 => _最近选择;
-
     /// <summary>
-
     /// **盾的真实系数**（盾值占这次治疗量的比例）。
-
     ///
-
-    /// [!] 数据来源：`减伤状态表.护盾` —— 那是游戏 Status 表的 `ParamModifier`，
-
-    ///     含义是「盾值 = 治疗量 x N%」。多数是 100%（鼓舞 / 水流幕 /
-
-    ///     天星交错 / 均衡诊断 / 慰藉 …），激励是 125%。
-
+    /// [!] 三级回退，顺序是刻意的：
+    ///      ① **候选自己写的** `盾百分比` —— 最准（技能说明原文里的数字，
+    ///         比如 意气轩昂之策 180%、天星交错 200% 这种，buff 表里查不到）
+    ///      ② 查 `减伤状态表.护盾`（游戏 Status 表的 ParamModifier，
+    ///         鼓舞 / 水流幕 / 均衡诊断 / 慰藉 都是 100%）
+    ///      ③ 兜底 **0.5** —— 不改变原有行为，方向也安全（低估盾）
     ///
-
-    /// [!] 查不到就退回 **0.5** —— 不改变原有行为，方向也安全（低估盾）。
-
-    ///     这条兜底是刻意的：宁可少给盾加权，也不要凭空造出一个必选盾。
-
+    /// [!] 我原来在这里写「具体百分比游戏没给，0.5 是下限估计」—— **那是错的**，
+    ///     仓库里本来就有游戏数据。已改正。
     /// </summary>
-
-    private static float 盾真实系数(uint 技能Id)
-
+    private static float 盾真实系数(治疗技能 技)
     {
-
         const float 兜底 = 0.5f;
 
-    
-
         try
-
         {
+            if (技.盾百分比 > 0) return 技.盾百分比 / 100f;
 
-            var buff = AuraIds.技能转Buff(技能Id);
-
+            var buff = AuraIds.技能转Buff(技.Id);
             if (buff == 0) return 兜底;
 
-    
-
             if (!减伤状态表.护盾.TryGetValue(buff, out var 百分比) || 百分比 <= 0)
-
                 return 兜底;
 
-    
-
             return 百分比 / 100f;
-
         }
-
         catch
-
         {
-
             return 兜底;
-
         }
-
     }
 
     
@@ -315,7 +301,7 @@ public static class 治疗决策
         //   [!] 用同一个过量罚逻辑：盾也会"过量"（缺口小时吸收量用不上）
         if (技.是盾 && 单次 > 0f)
         {
-            var 吸收 = 单次 * 盾真实系数(技.Id);
+            var 吸收 = 单次 * 盾真实系数(技);
 
             // 缺口已被治疗填掉一部分，盾能吸收的"有效部分"按剩余缺口折算
             var 剩余缺口 = MathF.Max(0f, 缺口 - 真实);
