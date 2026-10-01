@@ -153,6 +153,10 @@ public abstract class HealerEntryBase : IRotationEntry
         
         构建QT();
 
+        // 挂上独立设置窗的绘制回调（幂等：5 个入口各调一次也只挂一份）
+        // 详见 `独立设置窗` 的类注释（沙箱写回 g.Style 导致闪烁）
+        try { 独立设置窗.尝试挂载(this); } catch { }
+
         // 4. 组装 Rotation
         var rotation = new Rotation(构建决策队列())
         {
@@ -267,6 +271,22 @@ public abstract class HealerEntryBase : IRotationEntry
         try
         {
             视图窗口.AddTab("优先级", _ => 职业优先级.画());
+        }
+        catch { }
+
+        // ── ★ 「设置」页签 = 独立设置窗的开关 ★ ──
+        // 这个页签**不画设置内容**，只当按钮用（窗口由 Dalamud 回调常驻绘制）
+        try
+        {
+            视图窗口.AddTab("设置", _ =>
+            {
+                if (ImGui.Button("打开 / 关闭 设置窗口"))
+                    独立设置窗.切换();
+                ImGui.SameLine();
+                ImGui.TextDisabled(独立设置窗.显示 ? "（已打开）" : "（已关闭）");
+                if (!独立设置窗.已挂载)
+                    ImGui.TextDisabled("  独立窗口挂载失败，设置仍可在「ACR设置」页签看（但会闪）");
+            });
         }
         catch { }
 
@@ -953,6 +973,46 @@ public abstract class HealerEntryBase : IRotationEntry
         //          （「当前 ACR 不是小鲸鱼 -> 跳过 AI 层挂载｜currRotation=null」）
         //          ⇒ 五个入口全不画 ⇒ **设置页空白**
         //      ==> 所以：能确认身份时严格按身份；确认不了时**只放行一个**。
+        // ══════════════════════════════════════════════════════════════════
+        //  ★★★ **本方法有两条调用路 —— 独立窗口是【受信】的，直接进正文** ★★★
+        //
+        //  路 A：`独立设置窗` —— 走 Dalamud 的 `UiBuilder.Draw` 事件
+        //        （AEAssist 自己也用它挂主绘制：`Plugin.cs` L118），
+        //        **不经过 `AcrUiSandbox`** ==> **正常画全部内容**。
+        //
+        //  路 B：AEAssist 的「ACR设置」页签 —— 被 `AcrUiSandbox` 包裹
+        //        （`CombatRoutine2.cs` L1999 实证）。
+        //        那个沙箱**每次调用**都快照并**整份写回** `g.Style`
+        //        （55 色 + 30 标量），实测本回调每秒被调 **~520 次**
+        //        ==> 样式抖动 ==> **我们画的文字逐帧出现/消失**（用户实测现象）。
+        //        ==> **这条路只画一行说明，不画设置**。
+        //
+        //  [!] 判据：`绘制中` 只有路 A 会置 true。
+        //
+        //  [!] ⚠️ 为什么这段必须在**所有门之前**（身份门 / 频率门都不该管路 A）：
+        //      · 身份门是为"5 个入口抢同一页"设计的；
+        //        路 A 本来就只用**一个**实例画，而 `currRotation` 万一为 null、
+        //        或指向别的 ACR，身份门会**错误地把路 A 也挡掉**（窗口空白）。
+        //      · 频率门也不需要 —— Dalamud 的 Draw 事件本来就是每帧一次。
+        //      ==> 受信的路不该过为不受信的路准备的门。
+        //
+        //  [!] ⚠️ **不要在路 B 里恢复画设置** —— 那会立刻把闪烁带回来。
+        // ══════════════════════════════════════════════════════════════════
+        if (!独立设置窗.绘制中)
+        {
+            // ── 路 B（沙箱路）：不画设置，只说明 ──
+            try
+            {
+                ImGui.TextDisabled("  设置已移到独立窗口。");
+                ImGui.TextDisabled("  打开方式：QT 面板（游戏内小面板）上的「设置」页签。");
+                ImGui.TextDisabled("  搬走的原因：这一页被 AEAssist 的 ImGui 沙箱包裹，");
+                ImGui.TextDisabled("  沙箱每次调用都会写回全局样式（实测每秒 520 次），");
+                ImGui.TextDisabled("  导致这里的文字逐帧出现/消失。独立窗口不走沙箱。");
+            }
+            catch { }
+            return;
+        }
+
         var 已确认身份 = false;
         try
         {
