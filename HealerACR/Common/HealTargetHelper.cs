@@ -124,20 +124,47 @@ public static class HealTargetHelper
             //
             //  [!] 代价是"换区那一两帧治不了人" —— 本来也治不了（人都不在场景里）。
             // ══════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            //  ★ **只取一次 getter** —— 外部审查 P0-2（我核实确认为真）★
+            //
+            //  [!] 原来的写法是**两次取**：
+            //        L130  var 待检 = PartyHelper.CastableAlliesWithin30;   // 预检
+            //        L177  var 原始 = PartyHelper.CastableAlliesWithin30;   // 真正物化
+            //      ==> 同一个 getter 被调两次，而两次之间：
+            //            · 换区 / 队友离开 / 对象重建都可能发生
+            //      ==> **预检验的那批**和**真正用的那批可能不是同一批**
+            //      ==> 预检就失去意义（它证明的不是即将使用的那批）
+            //
+            //  [!] 正确做法：**取一次 -> 立刻 `ToArray()` 物化 -> 之后只用数组**。
+            //      物化把原生集合的引用一次性拷进托管数组，
+            //      预检和正式遍历**用的是同一批引用**，中间没有时间窗口。
+            // ══════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 物化后的数组 —— **在 try 之外声明**，因为下面两段都要用它 ★
+            //    （P0-2 修复：整个方法只取一次 getter，物化一次，之后都用它）
+            // ══════════════════════════════════════════════════════════════
+            IBattleChara[] 快照;
+
             try
             {
                 本地路标.记详(3495, "即将取 PartyHelper.CastableAlliesWithin30");
-                var 待检 = PartyHelper.CastableAlliesWithin30;
-                本地路标.记详(3496, $"队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}");
-                if (待检 == null) return new List<IBattleChara>();
-                var 序号 = 0;
-                foreach (var r in 待检)
+                var 原始 = PartyHelper.CastableAlliesWithin30;
+                本地路标.记详(3496, $"队伍列表已取，{(原始 == null ? "null" : 原始.Count + " 个")}");
+                if (原始 == null) return new List<IBattleChara>();
+
+                // ① 立刻物化 —— 之后**绝不再碰那个 getter**
+                try { 快照 = 原始.ToArray(); }
+                catch { return new List<IBattleChara>(); }
+                本地路标.记详(3504, $"已物化 {快照.Length} 个");
+
+                // ② 预检：在**同一批**上验有效性（任何一个失效就整批放弃）
+                for (var i = 0; i < 快照.Length; i++)
                 {
-                    本地路标.记详(3497, $"正在验第 {序号} 个");
-                    if (r == null || !r.对象有效()) return new List<IBattleChara>();
-                    序号++;
+                    本地路标.记详(3497, $"正在验第 {i} 个");
+                    var rr = 快照[i];
+                    if (rr == null || !rr.对象有效()) return new List<IBattleChara>();
                 }
-                本地路标.记详(3498, $"全部 {序号} 个都有效");
+                本地路标.记详(3498, $"全部 {快照.Length} 个都有效");
             }
             catch { return new List<IBattleChara>(); }
 
@@ -173,13 +200,9 @@ public static class HealTargetHelper
             // ══════════════════════════════════════════════════════════════
             本地路标.记详(3503, "可治疗：即将一次性读取队伍集合");
 
-            // ① 一次读取 + 立即物化（绝不重复访问那个 getter）
-            var 原始 = PartyHelper.CastableAlliesWithin30;
-            if (原始 == null) return new List<IBattleChara>();
-            IBattleChara[] 快照;
-            try { 快照 = 原始.ToArray(); }     // ★ 立刻断开与原生集合的关系
-            catch { return new List<IBattleChara>(); }
-            本地路标.记详(3504, $"可治疗：已物化 {快照.Length} 个");
+            // ★ 集合已经在上面【取一次 + 物化 + 同批预检】过了（P0-2 修复）
+            //   这里直接用那份 `快照`，**不再访问 getter**。
+            //   ⚠️ 注意：这里**不能再声明** `原始` 或 `快照` —— 会与上面的重名。
 
             var 我 = CharacterExt.我的位置();
             var 结果 = new List<IBattleChara>(快照.Length);

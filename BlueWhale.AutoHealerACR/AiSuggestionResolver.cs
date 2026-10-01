@@ -838,7 +838,16 @@ public class AiSuggestionResolver : ISlotResolver
             {
                 施法目标 = Core.Me;
                 本帧采纳 = true;
-                放技能(slot, id, Core.Me, 建议.是盾技能);   // ★ 统一出口（含护盾前置 + 当前形态）
+                // ★ **必须检查返回值**（外部审查 P0-3，我核实确认为真）
+                //   返回 false = **Spell 没进 Slot** ⇒ 这一帧什么都没执行
+                //   ⇒ **不能收尾**（收尾会 Consume / 记统计 / 记 DoT，
+                //      让 AI 以为已经放过 ⇒ 下一帧同一条建议又被"消费"）
+                if (!放技能(slot, id, Core.Me, 建议.是盾技能))
+                {
+                    本帧采纳 = false;
+                    拦截("放技能 返回 false（Spell 未进 Slot）—— 不消费这条建议");
+                    return;
+                }
                 收尾(是Dot, 施法目标);
                 return;
             }
@@ -930,7 +939,13 @@ public class AiSuggestionResolver : ISlotResolver
                 }
 
                 本帧采纳 = true;
-                放技能(slot, id, 施法目标, 建议.是盾技能);   // ★ 统一出口（含护盾前置 + 当前形态）
+                // ★ **必须检查返回值**（外部审查 P0-3）—— 见上面第一处的说明
+                if (!放技能(slot, id, 施法目标, 建议.是盾技能))
+                {
+                    本帧采纳 = false;
+                    拦截("放技能 返回 false（Spell 未进 Slot）—— 不消费这条建议");
+                    return;
+                }
                 收尾(是Dot, 施法目标);
                 return;
             }
@@ -1018,7 +1033,13 @@ public class AiSuggestionResolver : ISlotResolver
                 return;
             }
 
-            放技能(slot, id, 施法目标, 建议.是盾技能);   // ★ 统一出口（含护盾前置 + 当前形态）
+            // ★ **必须检查返回值**（外部审查 P0-3）—— 见上面第一处的说明
+            if (!放技能(slot, id, 施法目标, 建议.是盾技能))
+            {
+                本帧采纳 = false;
+                拦截("放技能 返回 false（Spell 未进 Slot）—— 不消费这条建议");
+                return;
+            }
             收尾(是Dot, 施法目标);
         }
         catch (Exception e)
