@@ -931,7 +931,7 @@ public static class 候选集
                 if (!SpellUtil.已解锁(id)) return;
                 // [!] 放宽为「即将可用」—— 候选是备货（给 2~3 个 GCD 后），
                 //     用「此刻能不能放」筛会把「马上就好」的技能全砍掉。
-                if (!SpellUtil.即将可用(id)) return;
+                if (!SpellUtil.即将可用(id, SpellUtil.建议视野秒())) return;
             }
             catch { return; }
 
@@ -1188,7 +1188,7 @@ public static class 候选集
                 // 池里已经有 -> 跳过（那条的数据更准，别重复）
                 if (池里有的.Contains(盾Id)) continue;
                 if (!SpellUtil.已解锁(盾Id)) continue;
-                if (!SpellUtil.即将可用(盾Id)) continue;
+                if (!SpellUtil.即将可用(盾Id, SpellUtil.建议视野秒())) continue;
                 // 已经在场就别再铺（和本地 `Res_HealShield` 的跳过同源）
                 if (SpellUtil.Get(盾Id) == null) continue;
                 foreach (var c in _当前表)
@@ -1263,7 +1263,15 @@ public static class 候选集
                 if (!SpellUtil.已解锁(技.Id)) continue;
                 // [!] 放宽为「即将可用」—— 候选是备货（给 2~3 个 GCD 后），
                 //     用「此刻能不能放」筛会把「马上就好」的技能全砍掉。
-                if (!SpellUtil.即将可用(技.Id)) continue;
+                //
+                // ★ 视野用 `建议视野秒()`（= 3 个 GCD，约 7.5 秒），**不是默认的 2.5 秒** ★
+                //   [!] 默认 2.5 秒是给**本地 resolver** 的（它只关心"这一帧能不能放"），
+                //       而**候选集是给 AI 备货的** —— AI 建议的是**未来 3 个 GCD**。
+                //   [!] 用 2.5 秒的后果：CD 还剩 5 秒的技能进不了候选,
+                //       但它 5 秒后就好了、而 AI 的第 2~3 个建议正是那个时候
+                //       ==> **AI 无法建议它**。表现是"AI 建议总是那几个廉价技能，
+                //           大招/长 CD 技从不出现" —— **不是模型不行，是它看不到**。
+                if (!SpellUtil.即将可用(技.Id, SpellUtil.建议视野秒())) continue;
             }
             catch { continue; }
                 // ══════════════════════════════════════════════════════════
@@ -1580,7 +1588,7 @@ public static class 候选集
             if (!SpellUtil.已解锁(技能Id)) return;
 
             // [!] 放宽为「即将可用」—— 见 `SpellUtil.即将可用` 的说明
-            if (!SpellUtil.即将可用(技能Id)) return;
+            if (!SpellUtil.即将可用(技能Id, SpellUtil.建议视野秒())) return;
         }
         catch { return; }
 
