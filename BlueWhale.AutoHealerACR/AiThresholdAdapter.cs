@@ -218,9 +218,56 @@ public static class AiThresholdAdapter
                 HealerACR.Common.治疗阈值表.AI偏移 = 值;
                 _上次同步到表 = 值;
             }
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 按**类别**把偏移推给每技能阈值表 ★
+            //
+            //  [!] 为什么需要这一步：
+            ///     `治疗阈值表` 里 44 条每技能阈值**绕过了大类阈值** ——
+            ///     某个技能在表里有值，调用方就不读 `群体治疗阈值` 了。
+            ///
+            //  [!] 桥接方式（选它而不是给 AI 加 44 个参数）：
+            //      这 44 条**本来就分属那几个大类**
+            //      （低语/祥光/不屈/慰藉 = 群疗；活性法/绿帽/回生法 = 单疗；
+            //        炽天附体/炽天召唤 = 大招）。
+            //      ==> "AI 调群体治疗阈值时，群疗类技能一起动"**正是它期望的语义**，
+            //          而提示词**一个字都不用加**。
+            //
+            //  [!] 每个类别用**它自己那个参数的完整偏移**
+            //      （= 倾向偏移 + AI 针对该参数的指定量），
+            //      而不是笼统的倾向偏移 —— 这样 AI 说"群疗再保守一点"
+            //      只会影响群疗类技能，不会连带把单疗也推走。
+            //
+            //  [!] 只在变化时写（和上面同一个理由：每帧多次调用）。
+            // ══════════════════════════════════════════════════════════════
+            推类别(HealerACR.Common.治疗阈值表.类别.单疗,
+                   HealerACR.Common.可调参数.单体治疗阈值);
+            推类别(HealerACR.Common.治疗阈值表.类别.群疗,
+                   HealerACR.Common.可调参数.群体治疗阈值);
+            推类别(HealerACR.Common.治疗阈值表.类别.大招,
+                   HealerACR.Common.可调参数.大招血线);
+            推类别(HealerACR.Common.治疗阈值表.类别.预铺,
+                   HealerACR.Common.可调参数.预铺血线);
         }
         catch { }
         return 值;
+    }
+
+    /// <summary>上一次推给各类别的偏移（省掉重复写）。</summary>
+    private static readonly System.Collections.Generic.Dictionary<
+        HealerACR.Common.治疗阈值表.类别, float> _上次类别 = new();
+
+    /// <summary>把某个参数当前的完整偏移推给对应的技能类别。</summary>
+    private static void 推类别(HealerACR.Common.治疗阈值表.类别 类, string 参数名)
+    {
+        try
+        {
+            var v = 偏移(参数名);
+            if (_上次类别.TryGetValue(类, out var 旧) && 旧 == v) return;
+            HealerACR.Common.治疗阈值表.设类别偏移(类, v);
+            _上次类别[类] = v;
+        }
+        catch { }
     }
 
     /// <summary>上一次同步给 `治疗阈值表` 的值（只为省掉重复写）。</summary>
@@ -327,7 +374,9 @@ public static class AiThresholdAdapter
         //      ==> 缓存也要一起清（置 NaN 保证"一定不相等"）。
         // ══════════════════════════════════════════════════════════════
         try { HealerACR.Common.治疗阈值表.AI偏移 = 0f; } catch { }
+        try { HealerACR.Common.治疗阈值表.清类别偏移(); } catch { }
         _上次同步到表 = float.NaN;
+        _上次类别.Clear();
     }
 
     /// <summary>给面板显示用的一句话</summary>
