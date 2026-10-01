@@ -333,6 +333,20 @@ Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.p
 #  [!] HealerACR.dll 里的职业入口类是 `abstract`（条件编译：本项目不定义
 #      HEALERACR_STANDALONE）==> AEAssist 的扫描器会跳过它们，
 #      职业列表里**只出现小鲸鱼**，不会多出 "HealerACR·白魔"。
+# ★ BlueWhale.deps.json —— **双保险** ★
+#
+#  [!] 加载器解析依赖有两条路：
+#        ① `AssemblyDependencyResolver`（读主 dll 同目录的 deps.json）
+#        ② 直接在**同目录**找 <程序集名>.dll
+#
+#      实测（0.4.2.2）：**没有部署 deps.json 也能正常加载**
+#      ==> 走的是第 ② 条。
+#
+#      但我们现在**确实**有外部依赖了（HealerACR.dll），
+#      所以把 deps.json 也带上，让两条路都通 —— **cost 只有 3 KB**。
+$deps = Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.deps.json"
+if (Test-Path $deps) { Copy-Item $deps $B包 -Force }
+
 $dep = Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.dll"
 if (Test-Path $dep) {
     Copy-Item $dep $B包 -Force
