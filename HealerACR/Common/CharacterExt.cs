@@ -923,6 +923,18 @@ public static class CharacterExt
         catch { return 0.62f; }
     }
 
+    /// <summary>我在不在读条 —— `Core.Me` 为 null 时给 false（原属性是原生 getter）。</summary>
+    public static bool 我在读条()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return false;
+            return 我.IsCasting;
+        }
+        catch { return false; }
+    }
+
     /// <summary>我还活着吗（自己的当前血量 &gt; 0）—— 拿不到给 false。</summary>
     public static bool 我还活着() => 我的当前血量() > 0;
 

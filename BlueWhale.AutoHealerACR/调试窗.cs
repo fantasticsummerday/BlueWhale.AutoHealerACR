@@ -839,9 +839,14 @@ public static class 调试窗
             //      省得 44 条铺满窗口（那个方法本来就是给 AI 提示词用的，同一份数据）。
             try
             {
+                // ★ **不读属性**（开发约定 H）：属性 getter 会调 `阈值钩子.应用(...)`，
+                //   而那是 **AI 层自己挂的** ==> 在 AI 层自己的绘制路径里回调自己。
+                //   ⚠️ 这和连续 22 次崩溃是**同一个病**（采集流程读阈值）。
+                //   ==> 绘制只用 `_原始`（纯字段）；要显示"生效值"就用
+                //       `DiagnoseEffectiveThreshold()`（也已改成不回调）。
                 var 摘要 = HealerACR.Common.治疗阈值表.本职业阈值摘要(
-                    HealerACR.Common.HealSettings.Instance.群体治疗阈值,
-                    HealerACR.Common.HealSettings.Instance.单体治疗阈值);
+                    HealerACR.Common.CharacterExt.群体治疗阈值_原始(),
+                    HealerACR.Common.CharacterExt.单体治疗阈值_原始());
                 if (!string.IsNullOrEmpty(摘要))
                 {
                     ImGui.Text("各技能生效血线（已含 AI 偏移）：");
