@@ -112,8 +112,35 @@ public class 幻术师RotationEntry : HealerEntryBase
             new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
 
             // ── 输出 ──
-            new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),   // 幻术师没 AOE，会自己跳过
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 顺序修正：**DoT 必须在 AOE 之前**（对齐两套参考实现的槽序）★
+            //
+            //  [!] 原来这里是 AOE 在前，注释写的是
+            //        「AOE 优先：3 个以上敌人时不该先给单只怪挂 DoT」。
+            //
+            //  [!] 但参考实现**两套的槽序都是 DoT 在 AOE 之前**（IL 实证）：
+            //        shiyuvi 41 槽：… 11 Dot · 12 ForceRuin2 · 13 AOE · 14 BaseGCD
+            //        youshu  34 槽：… 28 DOT · 29 即刻极炎法 · 30 裂阵法 · 31 毁坏
+            //      ==> 「DoT 在 AOE 之前」这一点**两套没有分歧**。
+            //
+            //  [!] 而且原来那句注释**与代码不符**：`Res_AoEDamage` 的门槛是
+            //        `AOE最少敌人数 = 2`，**不是 3** ==>
+            //        2 只敌人时 AOE 就够格了，DoT 会被推后一个 GCD。
+            //
+            //  [!] 差异范围（枚举验证过，不是猜）：
+            //        · 1 只敌人：两边一样（AOE 门槛 2 不满足，落下来补 DoT）
+            //        · DoT 还满着：两边一样（`Dot补判` 挡住，落下来放 AOE）
+            //        · **只有「≥2 敌 且 DoT 到该补的时候」才有差异**
+            //
+            //  [!] 为什么改顺序而不是把门槛提到 3：
+            //        门槛 2 = youshu 在 82 级以下的档位（它按等级分档 `>=82 ? 3 : 2`）；
+            //        提门槛会**同时改变「2 只敌人要不要打 AOE」**这个更基础的行为。
+            //
+            //  [!] 两个 resolver 的守卫都是完整的（移动中可用 / 值得上Dot / Dot补判 /
+            //      黑名单 / AOE 门槛），提前不会造成"移动中卡住"那类问题。
+            // ══════════════════════════════════════════════════════════════
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),   // 幻术师没 AOE，会自己跳过
             new SlotResolverData(new Res_BaseDamage(_spells), SlotMode.Gcd),
             // 移动填充兜底 —— 必须在 Res_BaseDamage **之后**：
             // 破阵法（近战填充技）也是瞬发，应该由 Res_BaseDamage 优先选它，
