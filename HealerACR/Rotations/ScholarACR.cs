@@ -692,9 +692,27 @@ public class SCHRotationEntry : HealerEntryBase
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
-            new SlotResolverData(new Res_SpreadShield(_spells), SlotMode.Gcd),  // 展开战术   // 展开战术：要有盾可扩散
+            new SlotResolverData(new Res_SpreadShield(_spells), SlotMode.Gcd),  // 展开战术：要有盾可扩散
             // ══════════════════════════════════════════════════════════════
-            //  ★ 顺序修正：**DoT 必须在 AOE 之前**（对齐两套参考实现的槽序）★
+            //  ★★ **从这里往下是【输出】，整段必须在所有治疗 GCD 之后** ★★
+            //
+            //  [!] 依据（两套参考实现的槽序，IL 实证）：
+            //        youshu  34 槽：… 14 鼓舞激励之策 · 15 医术 · 17 以太契约 ·
+            //                        27/28 双DOT/DOT · 30 裂阵法 · 32 毁坏
+            //        shiyuvi 41 槽：… 6 AOEGCDHeal · 7 SingleGCDHeal ·
+            //                        11 Dot · 13 AOE · 14 BaseGCD
+            //      ==> **输出垫底**：先保证治疗把 GCD 拿走，没人需要治才打输出。
+            //
+            //  [!] 我们原来把输出**插在治疗之前**（本文件里 `Res_Dot` 排在第 10 位，
+            //      而 `Res_HealAoEGcd` / `Res_HealSingleGcd` / `Res_HealShield` /
+            //      `Res_SpreadShield` 在第 6~9 位）==>
+            //      "到该补 DoT 的时候、同时有人掉到群疗线以下" 时**我们先补毒、参考先群疗**。
+            //      第 38 轮按参考把整段搬到治疗之后。
+            //
+            //  [!] ⚠️ **不要再把任何输出项往上搬** —— 那会重现上面那个差异。
+            //      （`Res_MoveGcd` 也在这个段里，它是输出的兜底填充，不是治疗。）
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 段内次序：**DoT 必须在 AOE 之前**（对齐两套参考实现的槽序）★
             //
             //  [!] 原来这里是 `Res_AoEDamage` 在前，注释写的是
             //        「AOE 优先：3 个以上敌人时不该先给单只怪挂 DoT」。
