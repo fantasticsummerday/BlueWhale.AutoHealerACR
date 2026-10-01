@@ -321,6 +321,7 @@ public static class 伤害预测
     /// </summary>
     public static float 预计掉血(IBattleChara 目标, float 秒)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("伤害预测.预计掉血");
                 // ★ **非战斗不预测**（用户实测的"幻觉"根因之一）：
                 //   未战斗时预测掉血本身没有意义，而且会被 `要预铺()` 用来乱铺盾。
                 //   脱战样本已由 `每帧更新()` 清掉，这里再加一道门更稳。
@@ -496,6 +497,7 @@ public static class 伤害预测
     /// </summary>
     private static float 平A速率(IBattleChara 目标, out bool 是实测)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("伤害预测.平A速率");
         // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
         //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
         //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
@@ -587,6 +589,7 @@ public static class 伤害预测
     /// </summary>
     private static float 机制伤害(float 秒, IBattleChara? 目标 = null)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("伤害预测.机制伤害");
         try
         {
             // ══════════════════════════════════════════════════════════════

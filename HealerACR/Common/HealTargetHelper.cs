@@ -264,6 +264,7 @@ public static class HealTargetHelper
     /// <summary>血量最低、且低于阈值的队友；没有就是 null</summary>
     public static IBattleChara? 最低血量队友(float 阈值, float 半径 = 30f)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("最低血量队友");
         return 可治疗队友(半径).FirstOrDefault(r => r.有效血量比例() <= 阈值);
     }
 

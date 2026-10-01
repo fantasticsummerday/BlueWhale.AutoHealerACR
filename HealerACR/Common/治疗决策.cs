@@ -105,6 +105,7 @@ public static class 治疗决策
         bool 只瞬发 = false,
         bool 只要GCD = false)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("治疗决策.选最优");
         try
         {
             if (候选 == null || 缺口 <= 0f) return null;
@@ -404,6 +405,7 @@ public static class 治疗决策
         bool 只群体 = false,
         bool 只瞬发 = false)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("治疗决策.给目标选最优");
         try
         {
             // ⚠️ 用**未来缺口**（含预测掉血）而不是当前缺口 ——
@@ -472,6 +474,7 @@ public static class 治疗决策
     /// </summary>
     public static float 未来缺口(IBattleChara 目标, float 预测秒 = 2.5f)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("治疗决策.未来缺口");
         try
         {
             var 当前 = 缺口量(目标);

@@ -36,6 +36,26 @@ public static class 调用深度
     /// <summary>超过这个深度就报一次（正常调用深度远小于它）。</summary>
     private const int 阈值 = 25;
 
+    /// <summary>
+    /// 深度报警写到哪 —— **文档目录下**，方便直接打开看。
+    ///
+    /// [!] 为什么不用 AEAssist 的 LogHelper：见下面写文件那段注释
+    ///     （栈快满时那条链不可靠，实测一次都没打出来）。
+    /// </summary>
+    private static readonly string 诊断文件 = 取诊断文件();
+
+    private static string 取诊断文件()
+    {
+        try
+        {
+            var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (!string.IsNullOrWhiteSpace(文档))
+                return System.IO.Path.Combine(文档, "BlueWhale递归诊断.txt");
+        }
+        catch { }
+        return System.IO.Path.Combine(AppContext.BaseDirectory, "BlueWhale递归诊断.txt");
+    }
+
     [ThreadStatic] private static int _深度;
 
     /// <summary>上一次报栈的时刻（每秒最多一条，避免刷屏）。</summary>
@@ -66,10 +86,22 @@ public static class 调用深度
                     _上次报毫秒 = 现在;
 
                     // ★ 打完整栈 —— 环里的方法名全在这里
+                    //
+                    //  [!] **直接写文件，不走 AEAssist 的日志** ★
+                    //      实测教训：原来用 `LogHelper.Error`，
+                    //      而崩溃前那几次**一条都没打出来** —
+                    //      怀疑是"栈快满时 AEAssist 的日志链自己也分配内存/抛异常"，
+                    //      被外面的 `catch { }` 吞掉了。
+                    //      ==> 改成自己 `File.AppendAllText`：
+                    //          依赖最少、路径最短，栈再紧也能写出去。
                     var 栈 = new StackTrace(1, true);
-                    LogHelper.Error(
-                        $"[HealerACR] 调用深度达到 {阈值}（可能是无限递归，会导致栈溢出）" +
-                        $"当前方法：{名字}\n调用栈：\n{栈}");
+                    var 文本 = $"[{DateTime.Now:HH:mm:ss.fff}] 深度达到 {阈值}" +
+                               $"（疑似无限递归 ⇒ 会栈溢出）当前={名字}\n{栈}\n";
+                    try
+                    {
+                        System.IO.File.AppendAllText(诊断文件, 文本);
+                    }
+                    catch { }
                 }
             }
             catch { }

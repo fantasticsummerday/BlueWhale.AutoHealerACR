@@ -244,6 +244,7 @@ public static class 必须奶满
     /// </summary>
     public static IBattleChara? 找目标()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("必须奶满.找目标");
         try
         {
             IBattleChara? 最优 = null;

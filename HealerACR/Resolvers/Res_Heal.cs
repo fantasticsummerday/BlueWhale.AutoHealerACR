@@ -303,6 +303,7 @@ public class Res_HealEmergency : ISlotResolver
     /// </summary>
     private (IBattleChara? 目标, 治疗技能? 技) 决定常规急救()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("Res_HealEmergency.决定常规急救");
         try
         {
             var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.紧急单奶阈值);
