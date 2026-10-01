@@ -2463,7 +2463,9 @@ public static class AiSituation
                 //      · 崩在 3346 -> 3347 之间  ==> 崩在 `可治疗队友()` 调用/返回
                 //      · 崩在 3347 之后          ==> 崩在枚举第一项
                 崩溃路标.记(3346, "C1：即将调用 可治疗队友(30f)｜T" + Environment.CurrentManagedThreadId.ToString());
+                崩溃路标.记(3350, "E1：即将调用 可治疗队友(30f)【新编号】｜T" + Environment.CurrentManagedThreadId.ToString());
                 var 治疗队 = HealTargetHelper.可治疗队友(30f);
+                崩溃路标.记(3351, "E2：可治疗队友(30f) 已返回【新编号】｜T" + Environment.CurrentManagedThreadId.ToString());
                 崩溃路标.记(3347, $"C2：可治疗队友 已返回 {治疗队.Count} 个，即将遍历");
                 foreach (var r in 治疗队)
                 {
