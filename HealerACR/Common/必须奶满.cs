@@ -221,6 +221,8 @@ public static class 必须奶满
             foreach (var 项 in 表)
             {
                 if (项.Id == 0) continue;
+                // ★ 读 buff 前判有效性：HasAura 走 StatusList，原生违例会穿透 catch
+                if (目标 == null || !目标.对象有效()) continue;
                 if (!目标.HasAura(项.Id)) continue;      // 没有这个 aura，跳过
                 if (是必须奶满状态(项.Id, 目标)) return 项.Id;
             }

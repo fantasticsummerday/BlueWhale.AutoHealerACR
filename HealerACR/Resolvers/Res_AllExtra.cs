@@ -349,6 +349,8 @@ public class Res_SingleHoT : ISlotResolver
             if (buff == 0) return true;   // 查不到 buff id 就别挡（宁可多挂）
 
             // 身上没有 → 该挂
+            // ★ 读 buff 前判有效性：HasAura 走 StatusList，原生违例会穿透 catch
+            if (目标 == null || !目标.对象有效()) return false;
             if (!目标.HasAura(buff)) return true;
 
             // 身上有 → **提前续**：撑不过 3 个 GCD 就该补了

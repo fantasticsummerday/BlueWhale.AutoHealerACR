@@ -1286,7 +1286,15 @@ public static class 候选集
             try { 受限 = SpellUtil.在移动() || 空中检测.在空中; } catch { }
 
             var 有即刻Buff = false;
-            try { 有即刻Buff = Core.Me.HasAura(AuraIds.即刻); } catch { }
+            // ★ 读 buff 之前先判有效性 —— HasAura 走 StatusList，
+                //   换图时 `Core.Me` 可能已释放（哨兵 0x12345679），
+                //   而原生访问违例会穿透下面的 catch。
+                try
+                {
+                    if (Core.Me != null && Core.Me.对象有效())
+                        有即刻Buff = Core.Me.HasAura(AuraIds.即刻);
+                }
+                catch { }
 
             var 即刻能放 = 即刻可用();
 
@@ -1760,7 +1768,9 @@ public static class 候选集
             if (!受限) return;
 
             // 已经有即刻 buff -> 不需要再开（再来一次是浪费）
-            try { if (Core.Me.HasAura(AuraIds.即刻)) return; } catch { }
+            // ★ 同上：读 buff 前先判有效性
+            try { if (Core.Me != null && Core.Me.对象有效() && Core.Me.HasAura(AuraIds.即刻)) return; }
+            catch { }
 
             if (!即刻可用()) return;
 
@@ -1799,18 +1809,59 @@ public static class 候选集
         catch { }
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★★ 下面三个是**读游戏对象的统一入口** —— 必须在读之前判有效性 ★★
+    //
+    //  [!] 它们原来只有 `try/catch`，那是**完全无效**的防线：
+    //      对象在换图/切区时被释放（但不是 null，而是哨兵 `0x12345679`），
+    //      读它的血量/名字会触发**原生访问违例** ——
+    //        · **穿透 C# 的 `catch`**（本项目既定结论）
+    //        · **不产生转储**
+    //        · 全局异常钩子（含 FirstChance）**不触发**
+    //        · 进程直接没
+    //
+    //  [!] 实测定位（`Log-5148620.log`，0.4.0.9 的路标）：
+    //        路标 3310「伤害预测 完成」有、3311「采可选技能 完成」**没有**
+    //        ==> 崩在 `采可选技能()` 里。
+    //        它第一件事就是 `候选集.描述(快照)` -> 快照为空时走 `生成()`
+    //        -> 一路走到这三个函数读队友/敌人的血量和名字。
+    //
+    //  [!] 唯一有效的防线是**读之前先判**：
+    //      `目标 != null && 目标.对象有效()`。
+    //      `对象有效()` 会挡住哨兵地址、空指针区、内核区。
+    //
+    //  [!] 拿不到就给中性值（血比例 1f / 血量 1f / 名字 "?"）——
+    //      方向很重要：**宁可让 AI 少看到一个人，也不能把游戏打崩**。
+    //      中性值不会诱导错误决策（1f = "满血，不用治"），
+    //      而读取失败本来就不该产生治疗建议。
+    // ══════════════════════════════════════════════════════════════════
     private static float 血比例(IBattleChara 目标)
     {
-        try { return 目标.有效血量比例(); } catch { return 1f; }
+        try
+        {
+            if (目标 == null || !目标.对象有效()) return 1f;
+            return 目标.有效血量比例();
+        }
+        catch { return 1f; }
     }
 
     private static float 最大血(IBattleChara 目标)
     {
-        try { return MathF.Max(1f, 目标.MaxHp); } catch { return 1f; }
+        try
+        {
+            if (目标 == null || !目标.对象有效()) return 1f;
+            return MathF.Max(1f, 目标.MaxHp);
+        }
+        catch { return 1f; }
     }
 
     private static string 名(IBattleChara 目标)
     {
-        try { return 目标.Name.ToString(); } catch { return "?"; }
+        try
+        {
+            if (目标 == null || !目标.对象有效()) return "?";
+            return 目标.Name.ToString();
+        }
+        catch { return "?"; }
     }
 }

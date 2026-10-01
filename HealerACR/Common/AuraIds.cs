@@ -471,7 +471,7 @@ public static class AuraIds
     /// </summary>
     public static bool 有持续伤害(IBattleChara? 目标)
     {
-        if (目标 == null) return false;
+        if (目标 == null || !目标.对象有效()) return false;
 
         try
         {
@@ -489,7 +489,7 @@ public static class AuraIds
     /// <summary>目标身上有没有「出血」类状态（比 <see cref="有持续伤害"/> 更窄）</summary>
     public static bool 有出血(IBattleChara? 目标)
     {
-        if (目标 == null) return false;
+        if (目标 == null || !目标.对象有效()) return false;
 
         try
         {

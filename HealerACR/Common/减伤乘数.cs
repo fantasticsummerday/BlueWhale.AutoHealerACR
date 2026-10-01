@@ -53,7 +53,7 @@ public static class 减伤乘数
     {
         try
         {
-            if (目标 == null) return 1f;
+            if (目标 == null || !目标.对象有效()) return 1f;
 
             var 乘数 = 1f;
             var 有效 = 0;
@@ -115,7 +115,7 @@ public static class 减伤乘数
     {
         try
         {
-            if (目标 == null) return "";
+            if (目标 == null || !目标.对象有效()) return "";
 
             var 部分 = new List<string>();
             foreach (var kv in 减伤状态表.减伤)

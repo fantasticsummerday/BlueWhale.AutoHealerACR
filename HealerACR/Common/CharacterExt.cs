@@ -457,7 +457,9 @@ public static class CharacterExt
     /// </summary>
     public static bool 有该技能的盾(this IBattleChara c, uint 技能Id)
     {
-        if (c == null || 技能Id == 0) return false;
+        // ★ 入口判有效性：本函数要读 buff（走 StatusList）——
+        //   原生访问违例会**穿透下面的 catch**，所以必须读之前判。
+        if (c == null || !c.对象有效() || 技能Id == 0) return false;
 
         // 技能 id -> buff id（只列两者不一致的）
         var buffId = 技能Id == 185 ? AuraIds.鼓舞 : 技能Id;
@@ -483,7 +485,9 @@ public static class CharacterExt
     /// </summary>
     public static bool 有该技能的Buff(this IBattleChara c, uint 技能Id)
     {
-        if (c == null || 技能Id == 0) return false;
+        // ★ 入口判有效性：本函数要读 buff（走 StatusList）——
+        //   原生访问违例会**穿透下面的 catch**，所以必须读之前判。
+        if (c == null || !c.对象有效() || 技能Id == 0) return false;
 
         try
         {
@@ -590,7 +594,7 @@ public static class CharacterExt
     /// </summary>
     public static bool 处于假死状态(this IBattleChara c)
     {
-        if (c == null) return false;
+        if (c == null || !c.对象有效()) return false;
 
         try
         {
@@ -606,7 +610,8 @@ public static class CharacterExt
 
     public static bool 有任意盾(this IBattleChara c, params uint[] 候选)
     {
-        if (c == null || 候选 == null) return false;
+        // ★ 入口判有效性（同上：要读 buff）
+        if (c == null || !c.对象有效() || 候选 == null) return false;
 
         foreach (var id in 候选)
         {
@@ -634,7 +639,7 @@ public static class CharacterExt
     /// </summary>
     public static bool 被禁止复活(this IBattleChara c)
     {
-        if (c == null) return false;
+        if (c == null || !c.对象有效()) return false;
 
         try
         {
