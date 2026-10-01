@@ -1155,7 +1155,7 @@ public class Res_HealShield : ISlotResolver
             var 阈值 = 该铺 ? 0.95f : 盾线;   // 同一套语义（见上）
             var 队友 = HealTargetHelper.最低血量队友(阈值);
 
-            if (队友 != null && 队友.GameObjectId != Core.Me.GameObjectId && 队友.可以治())
+            if (队友 != null && 队友.GameObjectId != CharacterExt.我的ObjectId() && 队友.可以治())
                 return 队友;
 
             return null;

@@ -489,9 +489,9 @@ public static class 治疗决策
     {
         try
         {
-            var 最大 = Core.Me.MaxMp;
+            var 最大 = CharacterExt.我的最大蓝量();
             if (最大 <= 0) return 1f;
-            return Core.Me.CurrentMp / (float)最大;
+            return CharacterExt.我的当前蓝量() / (float)最大;
         }
         catch
         {

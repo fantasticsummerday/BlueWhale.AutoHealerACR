@@ -199,9 +199,9 @@ public static class 职业面板
             ImGui.Separator();
             ImGui.TextDisabled("学者资源（其他职业显示 0 是正常的）");
             ImGui.Text("  以太：" + JobApiHelper.以太);
-            ImGui.Text("  以太 buff304 层数：" + Core.Me.GetAuraStack(304));
+            ImGui.Text("  以太 buff304 层数：" + CharacterExt.我的光环层数(304));
             ImGui.Text("  小仙女：" + (JobApiHelper.有小仙女 ? "在场" : "不在场"));
-            ImGui.Text("  转化中：" + (AuraIds.转化中 != 0 && Core.Me.HasAura(AuraIds.转化中)));
+            ImGui.Text("  转化中：" + (AuraIds.转化中 != 0 && CharacterExt.我有光环(AuraIds.转化中)));
 
             ImGui.Separator();
             ImGui.TextDisabled("目标");

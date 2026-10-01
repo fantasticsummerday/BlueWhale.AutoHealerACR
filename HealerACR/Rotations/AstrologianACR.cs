@@ -197,7 +197,7 @@ public class ASTSpellTable : JobSpellTable
 
     private static int 档位(uint 技能Id, int 高, int 低, int 提升等级)
     {
-        try { return Core.Me.Level >= 提升等级 ? 高 : 低; }
+        try { return CharacterExt.我的等级() >= 提升等级 ? 高 : 低; }
         catch { return 低; }
     }
 
@@ -716,7 +716,7 @@ public class AST_Lightspeed : ISlotResolver
 
         // ⚠️ 光速有 **2 层充能**，所以 buff 检查必须在所有分支之前。
         //    之前木桩分支写在它前面，导致木桩上"可用就放"，两次充能一口气全交。
-        if (AuraIds.光速 != 0 && Core.Me.HasAura(AuraIds.光速)) return -3;
+        if (AuraIds.光速 != 0 && CharacterExt.我有光环(AuraIds.光速)) return -3;
 
         // 充能判断（参考同类 ACR 的 GetCharges）：
         //   光速是 2 层充能技，**满层时不用就浪费**，所以满层时缩短限流尽快交掉；

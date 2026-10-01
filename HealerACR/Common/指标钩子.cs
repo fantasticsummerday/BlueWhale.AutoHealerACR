@@ -61,7 +61,7 @@ public static class 指标钩子
                 if (h != null && h.Id == 技能Id) return h.总恢复力;
 
             // ② 再试通用入口（它内部也会先查治疗候选，然后落回别的槽位）
-            return 表.查威力(技能Id, (int)AEAssist.Core.Me.Level);
+            return 表.查威力(技能Id, (int)CharacterExt.我的等级());
         }
         catch { return 0f; }
     }

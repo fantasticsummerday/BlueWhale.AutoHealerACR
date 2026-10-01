@@ -120,7 +120,7 @@ public static class 效果确认
         try
         {
             // 只认自己打出去的
-            if (sourceId != Core.Me.GameObjectId) return;
+            if (sourceId != CharacterExt.我的ObjectId()) return;
 
             // 窗口内 + 有登记 → 判定为"这个技能确实命中/生效了"
             if (_待确认技能 == 0) return;

@@ -1,4 +1,5 @@
 using AEAssist;
+using System.Numerics;
 using AEAssist.Extension;
 using AEAssist.Helper;
 using AEAssist.MemoryApi;
@@ -754,6 +755,194 @@ public static class CharacterExt
     ///      这就是连续 12 轮排查里钩子一次都没触发的原因。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    // ══════════════════════════════════════════════════════════════════
+    //  ★★ **`Core.Me` 的安全访问入口** —— 全工程都该走这里 ★★
+    //
+    //  [!] 为什么必须（连续 17 次崩溃方向里的最后一环）：
+    //      `Core.Me` 在**换图 / 登录 / 过场**时**可以是 null**。
+    //      而它的属性（`Position` / `CurrentHp` / `Level` / `MaxHp` ...）是
+    //      **Dalamud 的原生 getter** —— 在 null 上调用就是**原生访问违例**：
+    //        · 崩在 Dalamud 内部（我们的 try/catch 在它外面）
+    //        · 无转储、无 .NET Runtime 事件
+    //        · 全局异常钩子（含 FirstChance）**一次都不触发**
+    //
+    //  [!] 实测崩点（`Log-2722288.log`，主线程已锁定之后）：
+    //        路标停在 `HealTargetHelper.可治疗队友()` 的
+    //            `var 我 = Core.Me.Position;`
+    //      ==> 队友都判了 `对象有效()`，**偏偏自己的 `Core.Me` 没判**。
+    //
+    //  [!] 方向（很重要）：拿不到就给**中性值** ——
+    //        · 位置 -> `Vector3.Zero`（距离判定会得出"很远"，不会误放技能）
+    //        · 血量 -> 1（满血，不会诱发治疗）
+    //        · 等级 -> 0（查表得 0，不会误判技能可用）
+    //      **绝不能因为读不到就去猜**，也绝不能为了读它把游戏打崩。
+    // ══════════════════════════════════════════════════════════════════
+    /// <summary>自己这个对象存不存在（`Core.Me` 在换图/登录时会是 null）。</summary>
+    public static bool 我有效()
+    {
+        try { return AEAssist.Core.Me != null; } catch { return false; }
+    }
+
+    /// <summary>我的坐标 —— 拿不到给 `Vector3.Zero`（距离会算成很远，安全方向）。</summary>
+    public static Vector3 我的位置()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return Vector3.Zero;
+            return 我.Position;
+        }
+        catch { return Vector3.Zero; }
+    }
+
+    /// <summary>我的当前血量 —— 拿不到给 1（不会诱发治疗）。</summary>
+    public static uint 我的当前血量()
+    {
+        try { var 我 = AEAssist.Core.Me; return 我 == null ? 1u : 我.CurrentHp; }
+        catch { return 1u; }
+    }
+
+    /// <summary>我的最大血量 —— 拿不到给 1（避免除零）。</summary>
+    public static uint 我的最大血量()
+    {
+        try { var 我 = AEAssist.Core.Me; return 我 == null ? 1u : 我.MaxHp; }
+        catch { return 1u; }
+    }
+
+    /// <summary>我的当前蓝量 —— 拿不到给 0（不会误判"蓝够"）。</summary>
+    public static uint 我的当前蓝量()
+    {
+        try { var 我 = AEAssist.Core.Me; return 我 == null ? 0u : 我.CurrentMp; }
+        catch { return 0u; }
+    }
+
+    /// <summary>我的最大蓝量 —— 拿不到给 1（避免除零）。</summary>
+    public static uint 我的最大蓝量()
+    {
+        try { var 我 = AEAssist.Core.Me; return 我 == null ? 1u : 我.MaxMp; }
+        catch { return 1u; }
+    }
+
+    /// <summary>我的等级 —— 拿不到给 0（查表得 0，不会误判技能可用）。</summary>
+    public static int 我的等级()
+    {
+        try { var 我 = AEAssist.Core.Me; return 我 == null ? 0 : (int)我.Level; }
+        catch { return 0; }
+    }
+
+    /// <summary>我在不在战斗 —— 拿不到给 false。</summary>
+    public static bool 我在战斗()
+    {
+        try { var 我 = AEAssist.Core.Me; return 我 != null && 我.InCombat(); }
+        catch { return false; }
+    }
+
+    /// <summary>我身上有没有某个 buff —— `Core.Me` 为 null 时给 false（不误判"有"）。</summary>
+    public static bool 我有光环(uint buffId)
+    {
+        try
+        {
+            if (buffId == 0) return false;
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return false;
+            return 我.HasAura(buffId);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>我身上某个 buff 的层数 —— 拿不到给 0。</summary>
+    public static int 我的光环层数(uint buffId)
+    {
+        try
+        {
+            if (buffId == 0) return 0;
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return 0;
+            return 我.GetAuraStack(buffId);
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>我当前选中的目标 —— `Core.Me` 为 null 时给 null。</summary>
+    public static IBattleChara? 我的目标()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return null;
+            return 我.GetCurrTarget();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>我自己的 ObjectId —— 拿不到给 0（不会和任何真人撞上）。</summary>
+    public static ulong 我的ObjectId()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return 0;
+            return 我.GameObjectId;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>我还活着吗（自己的当前血量 &gt; 0）—— 拿不到给 false。</summary>
+    public static bool 我还活着() => 我的当前血量() > 0;
+
+    /// <summary>我身上的、由某个技能产生的 buff —— `Core.Me` 为 null 时给 false。</summary>
+    public static bool 我有该技能的Buff(uint 技能Id)
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return false;
+            return 我.有该技能的Buff(技能Id);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>我某个 buff 的剩余毫秒 —— 拿不到给 0（视为"没了"）。</summary>
+    public static float 我的Buff剩余毫秒安全(uint buffId)
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return 0f;
+            return 我.我的Buff剩余毫秒(buffId);
+        }
+        catch { return 0f; }
+    }
+
+    /// <summary>我的职业 RowId —— 拿不到给 0。</summary>
+    public static uint 我的职业Id()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return 0;
+            return 我.ClassJob.RowId;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>我的当前职业（Job 枚举）—— 拿不到给 0。</summary>
+    public static uint 我的当前职业()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null) return 0;
+            return (uint)我.CurrentJob();
+        }
+        catch { return 0; }
+    }
+
+
+
+
+
+
     public static bool 对象有效(this IGameObject? o)
     {
         if (o == null) return false;

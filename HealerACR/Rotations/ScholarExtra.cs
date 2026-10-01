@@ -29,7 +29,7 @@ public class SCH_Seraphism : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 已经开着就不重复
-        if (Core.Me.有该技能的Buff(技能)) return -3;
+        if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         var s = HealSettings.Instance;
         // ★ 用这个技能自己的阈值 ★  参考：shiyuvi Seraphism 0.4 ｜ youshu 变身 40

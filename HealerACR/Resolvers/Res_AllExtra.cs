@@ -438,7 +438,7 @@ public class Res_GroupHoT : ISlotResolver
         if (spell == null) return;
 
         // 庇护所是放置型（落脚下），自生是自身中心
-        if (_t.Job == Jobs.WhiteMage) slot.Add(new Spell(spell.Id, AEAssist.Core.Me.Position));
+        if (_t.Job == Jobs.WhiteMage) slot.Add(new Spell(spell.Id, CharacterExt.我的位置()));
         else slot.Add(spell);
     }
 }
@@ -613,7 +613,7 @@ public class Res_HealBooster : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 已经开着就不重复
-        if (Core.Me.有该技能的Buff(技能)) return -3;
+        if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         // 掉血够多 / 伤害要来 → 值得强化
         var s = HealSettings.Instance;
@@ -799,7 +799,7 @@ public class Res_PlacedHeal : ISlotResolver
 
         var spell = SpellUtil.当前形态(技能);
         if (spell == null) return;
-        slot.Add(new Spell(spell.Id, Core.Me.Position));
+        slot.Add(new Spell(spell.Id, CharacterExt.我的位置()));
     }
 }
 
@@ -861,7 +861,7 @@ public class Res_SpreadShield : ISlotResolver
         //    于是"自己身上是暴击盾"时这里判断成"没盾" → `return -3` → 扩散不触发。
         //    （和"技能 ID 当 buff ID 查"是同一类坑的另一面：
         //      这次是"只查了普通那一档、漏了暴击那一档"。）
-        if (!Core.Me.有该技能的Buff(185)) return -3;
+        if (!CharacterExt.我有该技能的Buff(185)) return -3;
 
         if (!TimelineManager.未来有减伤(4.0) && !减伤Helper.即将来大伤害()) return -1;
 
@@ -899,7 +899,7 @@ public class Res_FreeCast : ISlotResolver
 
         // 2 层充能：限流，别一口气全交
         if (TimeHelper.Now() - 上次开 < 4000) return -7;
-        if (Core.Me.有该技能的Buff(技能)) return -3;
+        if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         // 有人需要治疗时才开（不然白开）
         if (HealTargetHelper.低于阈值人数(HealSettings.Instance.单体治疗阈值) == 0) return -1;
@@ -1114,7 +1114,7 @@ public class Res_HealLink : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
-        if (Core.Me.有该技能的Buff(技能)) return -3;
+        if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 血线判据（原来**没有** —— 坦克无条件吃）★
@@ -1184,7 +1184,7 @@ public class Res_KardiaBoost : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
-        if (Core.Me.有该技能的Buff(技能)) return -3;
+        if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         // 有人明显掉血的时候开
         if (HealTargetHelper.低于阈值人数(HealSettings.Instance.单体治疗阈值) == 0) return -1;

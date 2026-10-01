@@ -26,7 +26,7 @@ public class Res_Sprint : ISlotResolver
         if (技能 == 0) return -102;
 
         // 战斗中不跑 —— 疾跑在战斗里是拿来躲机制的，别乱交
-        if (Core.Me.InCombat()) return -1;
+        if (CharacterExt.我在战斗()) return -1;
 
         // 人没动就别按（站着不动还疾跑纯浪费）
         try

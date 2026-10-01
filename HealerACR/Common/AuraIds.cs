@@ -69,7 +69,7 @@ public static class AuraIds
         {
             var id = 强化药;
             if (id == 0) return -1f;
-            return Core.Me.我的Buff剩余毫秒(id);
+            return CharacterExt.我的Buff剩余毫秒安全(id);
         }
         catch
         {

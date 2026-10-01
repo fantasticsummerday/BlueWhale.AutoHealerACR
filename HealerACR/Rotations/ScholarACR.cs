@@ -86,7 +86,7 @@ public class SCHSpellTable : JobSpellTable
 
     {
 
-        try { return Core.Me.Level >= 提升等级 ? 高 : 低; }
+        try { return CharacterExt.我的等级() >= 提升等级 ? 高 : 低; }
 
         catch { return 低; }
 
@@ -984,7 +984,7 @@ public class SCH_Aetherpact : ISlotResolver
         //   [!] 双重判据：目标身上的连线 + **小仙女身上的 union 状态**。
         //       单查目标有可能因为 buff 读取延迟而漏，查两处更稳。
         try { if (tank.HasAura(AuraIds.以太契约)) return -4; } catch { }
-        try { if (Core.Me.HasAura(AuraIds.以太契约)) return -4; } catch { }
+        try { if (CharacterExt.我有光环(AuraIds.以太契约)) return -4; } catch { }
 
         // ── ② 刚按过 -> 静默（防 buff 读取延迟/失败时反复按）──
         try
@@ -1107,7 +1107,7 @@ public class SCH_SummonFairy : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 791 = 转化状态：转化期间小仙女被牺牲，召唤无效
-        if (AuraIds.转化中 != 0 && Core.Me.HasAura(AuraIds.转化中)) return -3;
+        if (AuraIds.转化中 != 0 && CharacterExt.我有光环(AuraIds.转化中)) return -3;
 
         // 已经在场就不用召唤（HasPet 读得到，面板显示也证明它是准的）
         if (JobApiHelper.有小仙女) return -3;

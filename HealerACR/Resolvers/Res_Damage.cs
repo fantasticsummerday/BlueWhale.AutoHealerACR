@@ -291,7 +291,7 @@ public class Res_AoEDamage : ISlotResolver
         /// </summary>
         private int 门槛()
         {
-            try { return _t.AOE门槛((int)Core.Me.Level); }
+            try { return _t.AOE门槛((int)CharacterExt.我的等级()); }
             catch { return _t.AOE最少敌人数; }
         }
 }
@@ -501,7 +501,7 @@ public class Res_BaseDamage : ISlotResolver
         try
         {
             var 等级 = 0;
-            try { 等级 = (int)Core.Me.Level; } catch { }
+            try { 等级 = (int)CharacterExt.我的等级(); } catch { }
 
             // ══════════════════════════════════════════════════════════
             //  ★ 自身 AOE 技：**遍历候选列表**，取第一个"已解锁"的 ★
@@ -773,7 +773,7 @@ public class Res_BaseDamage : ISlotResolver
         if (目标 == null || !目标.对象有效()) return false;
         try
         {
-            var 中心距 = Vector3.Distance(Core.Me.Position, 目标.Position);
+            var 中心距 = Vector3.Distance(CharacterExt.我的位置(), 目标.Position);
             var 有效距 = 中心距 - 目标.HitboxRadius;
             return 有效距 <= 半径;
         }
@@ -881,7 +881,7 @@ public class Res_MultiDot : ISlotResolver
                 if (!Dot黑名单.可以上Dot(c)) continue;
 
                 // 贴脸的怪别上 —— 那种距离该放 AOE，上 DoT 反而浪费一个 GCD
-                try { if (Vector3.Distance(Core.Me.Position, c.Position) < 3f) continue; }
+                try { if (Vector3.Distance(CharacterExt.我的位置(), c.Position) < 3f) continue; }
                 catch { }
 
                 return c;

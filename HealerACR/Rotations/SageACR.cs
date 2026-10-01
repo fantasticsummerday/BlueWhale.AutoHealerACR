@@ -120,7 +120,7 @@ public class SGESpellTable : JobSpellTable
     /// </summary>
     private static int 档位(uint 技能Id, int 高, int 低, int 提升等级)
     {
-        try { return Core.Me.Level >= 提升等级 ? 高 : 低; }
+        try { return CharacterExt.我的等级() >= 提升等级 ? 高 : 低; }
         catch { return 低; }
     }
     

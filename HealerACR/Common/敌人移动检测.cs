@@ -188,8 +188,8 @@ public static class 敌人移动检测
             {
                 if (s.位置 != Vector3.Zero)
                 {
-                    var 上次距我 = Vector3.Distance(s.位置, Core.Me.Position);
-                    var 现在距我 = Vector3.Distance(当前位置, Core.Me.Position);
+                    var 上次距我 = Vector3.Distance(s.位置, CharacterExt.我的位置());
+                    var 现在距我 = Vector3.Distance(当前位置, CharacterExt.我的位置());
                     if (现在距我 < 上次距我 - 0.5f)
                     {
                         累加采样(s, 当前位置, 现在);
@@ -246,7 +246,7 @@ public static class 敌人移动检测
             if (敌人 == null) 敌人 = HealTargetHelper.当前目标()?.GetCurrTarget();
 
             // ★ 守卫放在**回退链之后**（回退链本身可能给出已释放的对象）
-            if (敌人 == null || !敌人.对象有效()) return Core.Me.Position;
+            if (敌人 == null || !敌人.对象有效()) return CharacterExt.我的位置();
 
             if (敌人.CurrentHp > 0 && 移动很少(敌人))
             {
@@ -255,7 +255,7 @@ public static class 敌人移动检测
         }
         catch { }
 
-        return Core.Me.Position;
+        return CharacterExt.我的位置();
     }
 
     /// <summary>

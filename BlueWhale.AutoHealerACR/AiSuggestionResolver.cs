@@ -603,7 +603,7 @@ public class AiSuggestionResolver : ISlotResolver
                     //     而 `AOE最少敌人数` 恒为 2 ==> 守卫会**放行**按负收益放的 AOE。
                     //     本地、候选集、提示词用的都是 `AOE门槛(等级)` —— 这里原来不一致，
                     //     而它自己的注释还写着「判据和候选集逐字相同」。
-                    var 需要 = Math.Max(1, 表.AOE门槛((int)Core.Me.Level));
+                    var 需要 = Math.Max(1, 表.AOE门槛((int)CharacterExt.我的等级()));
                     var 半径 = Math.Max(1f, 表.AOE伤害范围);
 
                     // [!] **必须用 `群攻命中数()`（按技能类型选圆心）** ——
@@ -864,7 +864,7 @@ public class AiSuggestionResolver : ISlotResolver
             // ══════════════════════════════════════════════════════════════
             if (建议.施法目标模式 == 候选集.目标模式.地面 || 是地面技能(id))
             {
-                var 落点 = Core.Me.Position;
+                var 落点 = CharacterExt.我的位置();
                 try
                 {
                     // 优选敌人：优先用候选指定的那个（AI 想罩谁就罩谁那边）

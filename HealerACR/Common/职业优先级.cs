@@ -62,7 +62,7 @@ public static class 职业优先级
         try
         {
             // 自己最优先
-            if (c.GameObjectId == Core.Me.GameObjectId) return 自己;
+            if (c.GameObjectId == CharacterExt.我的ObjectId()) return 自己;
 
             if (职业表.是奶妈(c)) return 奶妈;
             if (职业表.是坦克(c)) return 坦克;

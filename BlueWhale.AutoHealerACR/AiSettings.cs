@@ -281,7 +281,7 @@ public class AiSettings
 
         try
         {
-            if (AEAssist.Core.Me.InCombat()) return;
+            if (CharacterExt.我在战斗()) return;
 
             _待保存 = false;
             真正保存();
@@ -294,7 +294,7 @@ public class AiSettings
         // 战斗中不写盘，先记着（错题集第 5 条）
         try
         {
-            if (AEAssist.Core.Me.InCombat())
+            if (CharacterExt.我在战斗())
             {
                 _待保存 = true;
                 return;

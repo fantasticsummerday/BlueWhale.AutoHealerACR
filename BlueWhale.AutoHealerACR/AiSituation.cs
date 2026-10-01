@@ -874,7 +874,7 @@ public static class AiSituation
             // 这时候**很多技能是灰的**，AI 必须知道，否则会一直建议高等级技能
             try
             {
-                var 真实等级 = Core.Me.Level;
+                var 真实等级 = CharacterExt.我的等级();
                 if (真实等级 > 0 && 等级 > 0 && 真实等级 > 等级)
                 {
                     sb.AppendLine($"  ⚠️ **等级同步中**：真实 {真实等级} 级，本副本内只按 {等级} 级算 ——" +
@@ -947,7 +947,7 @@ public static class AiSituation
             }
             catch { }
 
-            sb.AppendLine($"血量：{(Core.Me.CurrentHp * 100f / Math.Max(1, Core.Me.MaxHp)):F0}%");
+            sb.AppendLine($"血量：{(CharacterExt.我的当前血量() * 100f / Math.Max(1, CharacterExt.我的最大血量())):F0}%");
             // ══════════════════════════════════════════════════════════════
             //  [!] 蓝量必须给**上限与百分比**（审查发现的缺口）★
             //
@@ -961,18 +961,18 @@ public static class AiSituation
             // ══════════════════════════════════════════════════════════════
             try
             {
-                var 蓝上限 = Core.Me.MaxMp;
-                var 蓝比 = 蓝上限 > 0 ? Core.Me.CurrentMp * 100f / 蓝上限 : 100f;
-                sb.AppendLine($"蓝量：{Core.Me.CurrentMp} / {蓝上限}（{蓝比:F0}%）" +
+                var 蓝上限 = CharacterExt.我的最大蓝量();
+                var 蓝比 = 蓝上限 > 0 ? CharacterExt.我的当前蓝量() * 100f / 蓝上限 : 100f;
+                sb.AppendLine($"蓝量：{CharacterExt.我的当前蓝量()} / {蓝上限}（{蓝比:F0}%）" +
                               (蓝比 < 30f
                                   ? "  ⚠️ **低蓝（<30%）**：本地已切省蓝模式，优先用便宜的治疗，别乱花"
                                   : ""));
             }
             catch
             {
-                sb.AppendLine($"蓝量：{Core.Me.CurrentMp}");
+                sb.AppendLine($"蓝量：{CharacterExt.我的当前蓝量()}");
             }
-            sb.AppendLine($"战斗中：{(Core.Me.InCombat() ? "是" : "否")}");
+            sb.AppendLine($"战斗中：{(CharacterExt.我在战斗() ? "是" : "否")}");
             sb.AppendLine($"GCD 剩余：{GCDHelper.GetGCDCooldown()} ms");
             sb.AppendLine($"能否插能力技：{(GCDHelper.GetGCDCooldown() < 600 ? "是" : "否")}");
 
@@ -1132,7 +1132,7 @@ public static class AiSituation
             //    避免 AI 把"读不到"当成"真的是 0"。
             // ══════════════════════════════════════════════════════════
             uint 职业 = 0;
-            try { 职业 = Core.Me.ClassJob.RowId; } catch { }
+            try { 职业 = CharacterExt.我的职业Id(); } catch { }
 
             var 有 = false;
 
@@ -1425,7 +1425,7 @@ public static class AiSituation
 
             // [!] **距离必须给**（GAP-15，审计确认）—— 规则 22e 让 AI 判「站远了别交自身中心 AOE」，
             //     但原来**它看不到自己站多远**；近战填充那条分支（够得到目标圈）也判不了。
-            sb.AppendLine($"当前目标：{目标.Name}（距离 {Vector3.Distance(Core.Me.Position, 目标.Position):F0}m）");
+            sb.AppendLine($"当前目标：{目标.Name}（距离 {Vector3.Distance(CharacterExt.我的位置(), 目标.Position):F0}m）");
             
             // [!] **还要说清我们实际在打谁**（GAP-8，审计确认）——
             //     `当前目标()` 是**玩家手动选中的**那个，而 `输出目标.选()` 才是
@@ -1561,7 +1561,7 @@ public static class AiSituation
                 // [!] 等级要在这里取 —— 这个作用域里没有现成的 `等级` 变量。
                 //     用 `Core.Me.Level`（等级同步后的值），和 `AOE门槛` 的调用点一致。
                 var 等级 = 0;
-                try { 等级 = (int)Core.Me.Level; } catch { }
+                try { 等级 = (int)CharacterExt.我的等级(); } catch { }
 
                 var 需要几个 = Math.Max(1, 表.AOE门槛(等级));
                     var 半径 = Math.Max(1, 表.AOE伤害范围);
@@ -1966,7 +1966,7 @@ public static class AiSituation
             // ⚠️ 取一次等级 —— 威力档位要按**当前等级**查
             //    （等级同步后的值，不是角色原等级）
             var 等级 = 1;
-            try { 等级 = (int)AEAssist.Core.Me.Level; } catch { }
+            try { 等级 = (int)CharacterExt.我的等级(); } catch { }
 
             void 加(string 类别, uint id, string 威力后缀 = "")
             {
@@ -2114,7 +2114,7 @@ public static class AiSituation
             var AOE后缀 = "";
             try
             {
-                var AOE威力 = 表.查威力(表.群体输出, (int)Core.Me.Level);
+                var AOE威力 = 表.查威力(表.群体输出, (int)CharacterExt.我的等级());
                 if (AOE威力 > 0)
                 {
                     var 命中 = 0;

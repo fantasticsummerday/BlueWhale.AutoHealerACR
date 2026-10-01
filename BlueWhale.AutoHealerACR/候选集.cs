@@ -1603,7 +1603,7 @@ public static class 候选集
 
         var 进前 = _当前表.Count;
 
-        var 等级 = (int)Core.Me.Level;
+        var 等级 = (int)CharacterExt.我的等级();
 
         加输出(技能表.基础输出, 技能表.查威力(技能表.基础输出, 等级), 1, 目标, false);
 

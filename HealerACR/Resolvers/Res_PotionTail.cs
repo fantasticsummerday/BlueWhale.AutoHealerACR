@@ -73,7 +73,7 @@ public class Res_PotionTailDamage : ISlotResolver
         //       · 即刻**可以放**(7561 转好了) → 先放即刻再放填充技
         //    学者这类填充技**本来就瞬发**的职业，即使没即刻也能补刀，
         //    所以第三个条件是"填充技自己就瞬发"。
-        var 有即刻buff = Core.Me.有该技能的Buff(AuraIds.即刻);
+        var 有即刻buff = CharacterExt.我有该技能的Buff(AuraIds.即刻);
         var 即刻可放 = 即刻 != 0 && SpellUtil.可用(即刻);
 
         // ⚠️ **必须用 `SpellUtil.是瞬发()`，不能用 `移动中可用()`** ——
@@ -95,7 +95,7 @@ public class Res_PotionTailDamage : ISlotResolver
         var 技 = _t.药尾声填充技;
         if (技 == 0) return;
 
-        var 有即刻buff = Core.Me.有该技能的Buff(AuraIds.即刻);
+        var 有即刻buff = CharacterExt.我有该技能的Buff(AuraIds.即刻);
         var 即刻可放 = 即刻 != 0 && SpellUtil.可用(即刻);
         var 技本身瞬发 = SpellUtil.是瞬发(技);   // ⚠️ 不能用 移动中可用（见 Check 的注释）
 

@@ -80,7 +80,7 @@ public static class 以太管理
     {
         get
         {
-            try { return Core.Me.GetAuraStack(以太Buff); }
+            try { return CharacterExt.我的光环层数(以太Buff); }
             catch { return -1; }
         }
     }
@@ -219,7 +219,7 @@ public static class 以太管理
         try
         {
             if (!HealQt.GetQt("一键爆发", false)) return false;
-            if (!Core.Me.InCombat()) return false;
+            if (!CharacterExt.我在战斗()) return false;
 
             return true;
         }

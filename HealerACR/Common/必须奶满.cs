@@ -313,7 +313,7 @@ public static class 必须奶满
 
         try
         {
-            if (Core.Me.活着()) 结果.Add(Core.Me);
+            if (CharacterExt.我还活着()) 结果.Add(Core.Me);
 
             var 队友 = PartyHelper.CastableAlliesWithin30;
             if (队友 != null)
@@ -322,7 +322,7 @@ public static class 必须奶满
                 {
                     // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
                     if (r == null || !r.对象有效()) continue;
-                    if (r.GameObjectId == Core.Me.GameObjectId) continue;   // 自己已经加过
+                    if (r.GameObjectId == CharacterExt.我的ObjectId()) continue;   // 自己已经加过
                     if (!r.可以治()) continue;
                     结果.Add(r);
                 }

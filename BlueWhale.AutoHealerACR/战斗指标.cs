@@ -86,7 +86,7 @@ public static class 战斗指标
     {
         try
         {
-            if (!Core.Me.InCombat())
+            if (!CharacterExt.我在战斗())
             {
                 // 脱战：清"就绪计时"，避免把脱战那几分钟算成空转
                 if (_空转起.Count > 0) _空转起.Clear();
@@ -99,8 +99,8 @@ public static class 战斗指标
             // ③ 蓝量
             try
             {
-                var 上限 = Math.Max(1u, Core.Me.MaxMp);
-                _蓝量累计 += Core.Me.CurrentMp * 1.0 / 上限;
+                var 上限 = Math.Max(1u, CharacterExt.我的最大蓝量());
+                _蓝量累计 += CharacterExt.我的当前蓝量() * 1.0 / 上限;
                 _蓝量采样数++;
             }
             catch { }

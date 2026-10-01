@@ -29,7 +29,7 @@ public class SCH_BanefulImpaction : ISlotResolver
         if (目标 == null) return -1;
 
         // 没有「埋伏之毒预备」就打不出来（这是关键条件，之前漏了）
-        if (预备 == 0 || !Core.Me.HasAura(预备)) return -3;
+        if (预备 == 0 || !CharacterExt.我有光环(预备)) return -3;
 
         // 残血小怪不交（木桩例外）
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -4;

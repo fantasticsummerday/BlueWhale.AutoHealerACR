@@ -71,7 +71,7 @@ public class Res_LimitBreak : ISlotResolver
     {
         if (!HealQt.GetQt("极限技", true)) return -101;
         if (HealTargetHelper.木桩模式) return -300;
-        if (Core.Me.CurrentHp <= 0) return -1;
+        if (CharacterExt.我的当前血量() <= 0) return -1;
 
         // 死的人不够多就别放（日随绝大多数情况都不该放）
         var 死亡数 = PartyHelper.DeadAllies.Count();

@@ -70,7 +70,7 @@ public static class JobApiHelper
             // 首选：buff 层数（同类 ACR 的做法）
             try
             {
-                var n = Core.Me.GetAuraStack(以太BuffId);
+                var n = CharacterExt.我的光环层数(以太BuffId);
                 if (n >= 0) return n;
             }
             catch

@@ -28,7 +28,7 @@ public class Res_PrepareResources : ISlotResolver
         if (_t.脱战准备技能.Length == 0) return -102;
 
         // 只在脱战时做
-        if (Core.Me.InCombat()) return -1;
+        if (CharacterExt.我在战斗()) return -1;
 
         foreach (var id in _t.脱战准备技能)
         {

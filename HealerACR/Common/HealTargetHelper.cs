@@ -106,7 +106,7 @@ public static class HealTargetHelper
             }
             catch { return new List<IBattleChara>(); }
 
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             var 源 = 半径 >= 30f
                 ? PartyHelper.CastableAlliesWithin30
                 : PartyHelper.CastableAlliesWithin30.Where(r =>
@@ -642,7 +642,7 @@ public static class HealTargetHelper
         var 数 = 0;
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
@@ -689,7 +689,7 @@ public static class HealTargetHelper
         var 数 = 0;
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             sb.Append($"半径{半径:F1} 我({我.X:F1},{我.Z:F1}) ");
             foreach (var 敌人 in Data.AllHostileTargets)
             {
@@ -719,7 +719,7 @@ public static class HealTargetHelper
     /// <summary>当前选中的敌人（挂 DoT / 打输出用）</summary>
     public static IBattleChara? 当前目标()
     {
-        var t = Core.Me.GetCurrTarget();
+        var t = CharacterExt.我的目标();
         if (t == null) return null;
 
         // ══════════════════════════════════════════════════════════════════
@@ -968,7 +968,7 @@ public static class HealTargetHelper
 
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             var 当前 = 当前目标();
 
             bool 有我的Dot(IBattleChara c)
@@ -1195,7 +1195,7 @@ public static class HealTargetHelper
         }
         catch { }
 
-        try { return Core.Me.MaxHp; } catch { return 0f; }
+        try { return CharacterExt.我的最大血量(); } catch { return 0f; }
     }
 
     public static bool 目标快死了(float 血线 = 0.25f, int ttk秒 = 12)    {
@@ -1292,7 +1292,7 @@ public static class HealTargetHelper
 
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             var 当前 = 当前目标();
 
             bool 有我的Dot(IBattleChara c)
@@ -1369,7 +1369,7 @@ public static class HealTargetHelper
     {
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             var n = 0;
 
             foreach (var 敌人 in Data.AllHostileTargets)
@@ -1453,7 +1453,7 @@ public static class HealTargetHelper
     {
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
 
             float 合计当前 = 0f;
             float 合计上限 = 0f;
@@ -1533,7 +1533,7 @@ public static class HealTargetHelper
     {
         try
         {
-            var t = Core.Me.GetCurrTarget();
+            var t = CharacterExt.我的目标();
             return t != null && t.IsDummy();
         }
         catch

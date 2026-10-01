@@ -68,7 +68,7 @@ public class Res_SummonPet : ISlotResolver
         // 转化中召了也无效（小仙女被主动牺牲了）
         try
         {
-            if (Core.Me.HasAura(AuraIds.转化中)) return -4;
+            if (CharacterExt.我有光环(AuraIds.转化中)) return -4;
         }
         catch { }
 

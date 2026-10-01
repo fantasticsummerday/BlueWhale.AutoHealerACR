@@ -191,7 +191,8 @@ public static class 对局记录
 
     private static float 自身血量()
     {
-        try { return Core.Me.CurrentHpPercent(); }
+        // ★ 先判 null（`CurrentHpPercent()` 是原生 getter）
+        try { return Core.Me == null ? 1f : Core.Me.CurrentHpPercent(); }
         catch { return 0f; }
     }
 
@@ -213,7 +214,7 @@ public static class 对局记录
 
     private static bool 在战斗中()
     {
-        try { return Core.Me.InCombat(); }
+        try { return CharacterExt.我在战斗(); }
         catch { return false; }
     }
 

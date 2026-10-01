@@ -157,7 +157,7 @@ public static class 战斗记忆
 
     private static bool 战斗中()
     {
-        try { return Core.Me.InCombat(); }
+        try { return CharacterExt.我在战斗(); }
         catch { return false; }
     }
 

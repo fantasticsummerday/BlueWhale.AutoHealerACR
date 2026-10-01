@@ -18,7 +18,7 @@ public static class 蓝量
     {
         try
         {
-            return Core.Me.CurrentMp <= 停手阈值;
+            return CharacterExt.我的当前蓝量() <= 停手阈值;
         }
         catch
         {
@@ -31,7 +31,7 @@ public static class 蓝量
     {
         get
         {
-            try { return Core.Me.CurrentMp; } catch { return 0; }
+            try { return CharacterExt.我的当前蓝量(); } catch { return 0; }
         }
     }
 }

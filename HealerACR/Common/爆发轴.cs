@@ -96,7 +96,7 @@ public abstract class 爆发轴基类 : ISlotSequence
             if (!HealQt.GetQt("一键爆发", false)) return -1;
 
             // ③ 脱战不开
-            if (!Core.Me.InCombat()) return -1;
+            if (!CharacterExt.我在战斗()) return -1;
 
             // ④ 距上次结束太近 → 不开（避免连续重开导致序列碎片化）
             if (上次结束时间 > 0 && TimeHelper.Now() - 上次结束时间 < 最短间隔毫秒) return -1;
@@ -172,7 +172,7 @@ public abstract class 爆发轴基类 : ISlotSequence
             }
 
             // ④ 脱战了
-            if (!Core.Me.InCombat())
+            if (!CharacterExt.我在战斗())
             {
                 上次结束时间 = TimeHelper.Now();
                 return 4;

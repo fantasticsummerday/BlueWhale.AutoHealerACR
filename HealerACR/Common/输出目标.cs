@@ -178,7 +178,7 @@ public static class 输出目标
     {
         try
         {
-            var t = Core.Me.GetCurrTarget();
+            var t = CharacterExt.我的目标();
             if (t == null) return null;
 
             // 活着
@@ -223,7 +223,7 @@ public static class 输出目标
                 if (e.CurrentHp == 0) return null;
                 if (!HealTargetHelper.稳定仇恨(e)) return null;
 
-                var 距离 = Vector3.Distance(Core.Me.Position, e.Position);
+                var 距离 = Vector3.Distance(CharacterExt.我的位置(), e.Position);
                 if (距离 > 可打距离) return null;
 
                 return e;
@@ -268,7 +268,7 @@ public static class 输出目标
             var 最高分 = float.MinValue;
 
             ulong 选中 = 0;
-            try { 选中 = Core.Me.GetCurrTarget()?.GameObjectId ?? 0; } catch { }
+            try { 选中 = CharacterExt.我的目标()?.GameObjectId ?? 0; } catch { }
 
             foreach (var e in 候选())
             {
@@ -277,7 +277,7 @@ public static class 输出目标
                 // ① 硬门槛：没仇恨直接跳过（绝不 ADD）
                 if (!HealTargetHelper.稳定仇恨(e)) continue;
 
-                var 距离 = Vector3.Distance(Core.Me.Position, e.Position);
+                var 距离 = Vector3.Distance(CharacterExt.我的位置(), e.Position);
                 if (距离 > 可打距离) continue;
 
                 // ② 近的优先

@@ -43,7 +43,7 @@ public class SCH_AutoDissipation : ISlotResolver
         if (JobApiHelper.读得到("以太") && JobApiHelper.以太 > 0) return -3;
 
         // 已经在转化中就别再放
-        if (AuraIds.转化中 != 0 && Core.Me.HasAura(AuraIds.转化中)) return -4;
+        if (AuraIds.转化中 != 0 && CharacterExt.我有光环(AuraIds.转化中)) return -4;
 
         // 小仙女不在场就没得牺牲（也用不出这个技能）
         if (!JobApiHelper.有小仙女) return -5;

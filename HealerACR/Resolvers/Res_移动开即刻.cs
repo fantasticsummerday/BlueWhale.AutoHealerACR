@@ -61,7 +61,7 @@ public class Res_移动开即刻 : ISlotResolver
             if (!受限) { 上次原因 = "没在移动"; return -1; }
 
             // ── ③ 已经有即刻 buff -> 不用再开 ──
-            if (Core.Me.HasAura(AuraIds.即刻)) { 上次原因 = "已有即刻buff"; return -2; }
+            if (CharacterExt.我有光环(AuraIds.即刻)) { 上次原因 = "已有即刻buff"; return -2; }
 
             // ── ④ 即刻可用吗 ──
             var id = SpellIds.取("即刻咏唱");

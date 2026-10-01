@@ -573,7 +573,7 @@ public static class 调试窗
                 //     **跳跃不改变它** —— 所以跳跃时这里"移动=否"是对的，
                 //     但"空中=是"必须能看见，否则没法验证那个修复。
                 var 空中 = 空中检测.在空中;
-                var 文本 = $"战斗：{(Core.Me.InCombat() ? "战斗中" : "未战斗")}" +
+                var 文本 = $"战斗：{(CharacterExt.我在战斗() ? "战斗中" : "未战斗")}" +
                            $"｜移动：{(SpellUtil.在移动() ? "是" : "否")}" +
                            $"｜空中：{(空中 ? "是（读条放不出）" : "否")}";
 
@@ -783,7 +783,8 @@ public static class 调试窗
                             // 正在读条
                             try
                             {
-                                if (Core.Me.IsCasting) 原因.Append("在读条 ");
+                                // ★ 先判 null（`IsCasting` 是原生 getter）
+                if (Core.Me != null && Core.Me.IsCasting) 原因.Append("在读条 ");
                             }
                             catch { }
                             // 资源

@@ -37,7 +37,7 @@ public class SGE_CholeOverflow : ISlotResolver
         // 攒着本身就是亏，卸掉总比浪费强
 
         // 目标兜底到自己（单人环境可能没有队友）
-        if (HealTargetHelper.最危险队友() == null && AEAssist.Core.Me.CurrentHp <= 0) return -1;
+        if (HealTargetHelper.最危险队友() == null && CharacterExt.我的当前血量() <= 0) return -1;
 
         return SpellUtil.可用(技能) ? 12 : -1;
     }

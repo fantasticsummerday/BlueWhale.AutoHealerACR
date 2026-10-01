@@ -142,7 +142,7 @@ public static class 智能选目标
 
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             IBattleChara? 最优 = null;
             var 最优覆盖 = 0;
 
@@ -199,7 +199,7 @@ public static class 智能选目标
 
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
             IBattleChara? 最优 = null;
             var 最优覆盖 = 0;
 
@@ -327,7 +327,7 @@ public static class 智能选目标
 
         try
         {
-            var 我 = Core.Me.Position;
+            var 我 = CharacterExt.我的位置();
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {

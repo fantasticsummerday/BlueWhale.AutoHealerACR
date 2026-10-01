@@ -25,7 +25,7 @@ public class Res_LucidDreaming : ISlotResolver
         // 两次能力技之间别插太挤
         if (!CharacterExt.可以插能力技()) return -6;
 
-        if (Core.Me.CurrentMp <= HealSettings.Instance.醒梦蓝量阈值)
+        if (CharacterExt.我的当前蓝量() <= HealSettings.Instance.醒梦蓝量阈值)
         {
             return SpellUtil.可用(_t.醒梦) ? 3 : -1;
         }

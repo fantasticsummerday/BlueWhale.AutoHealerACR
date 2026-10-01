@@ -193,7 +193,7 @@ public class Res_TeamMitigation : ISlotResolver
             if (放脚下)
             {
                 // 地面技能需要指定坐标
-                slot.Add(new Spell(_t.团队减伤, Core.Me.Position));
+                slot.Add(new Spell(_t.团队减伤, CharacterExt.我的位置()));
                 return;
             }
 
@@ -234,7 +234,7 @@ public class Res_TeamMitigation : ISlotResolver
             //     "被机制点名、必须照顾的那个人"。
             //     拿不到就跳到 ②。
             // ══════════════════════════════════════════════════════════
-            var 落点 = Core.Me.Position;   // ③ 兜底：自己脚下（和参考实现一致）
+            var 落点 = CharacterExt.我的位置();   // ③ 兜底：自己脚下（和参考实现一致）
 
             try
             {
@@ -281,7 +281,10 @@ public class Res_SelfMitigation : ISlotResolver
 
         var 时间轴要求 = HealQt.GetQt("时间轴", true) && TimelineManager.该铺减伤();
         // ★ 用**有效血量**：自己身上有厚盾时不算"血少"，不该再交个人减伤
-        var 自己血少 = AEAssist.Core.Me.有效血量比例() <= 0.6f;
+        // ★ `Core.Me` 在换图/登录时可以是 null —— 先判再读
+        //   （`有效血量比例()` 内部会读原生字段，null 上调用 = 原生访问违例）
+        var 自己血少 = !CharacterExt.我有效()
+            || (AEAssist.Core.Me?.有效血量比例() ?? 1f) <= 0.6f;
 
         if (!时间轴要求 && !自己血少 && !减伤Helper.即将来大伤害()) return -1;
 

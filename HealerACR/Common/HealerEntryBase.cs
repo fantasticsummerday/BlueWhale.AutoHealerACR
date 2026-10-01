@@ -1798,7 +1798,7 @@ public class HealRotationEventHandler : IRotationEventHandler
     {
         try
         {
-            var 职业 = Core.Me.ClassJob.RowId;
+            var 职业 = CharacterExt.我的职业Id();
 
             // ① 正常路径：按职业 ID 直接查
             if (职业 != 0 && _各职业技能表.TryGetValue(职业, out var 表) && 表 != null)

@@ -27,14 +27,14 @@ public class Res_Raise : ISlotResolver
         if (!SpellUtil.已解锁(_t.复活)) return -2;
 
         // 没蓝拉不动
-        if (Core.Me.CurrentMp < 2400) return -8;
+        if (CharacterExt.我的当前蓝量() < 2400) return -8;
 
         var target = HealTargetHelper.待复活队友();
         if (target == null) return -1;
 
         if (!SpellUtil.可用(_t.复活)) return -1;
 
-        var 有即刻 = Core.Me.HasAura(AuraIds.即刻);
+        var 有即刻 = CharacterExt.我有光环(AuraIds.即刻);
 
         // ── 躺够久了才拉（参考同类 ACR 的 IsTargetDeadLongEnough）──
         //   战斗中刚躺下的人可能马上被战复，或者下一秒就被 AOE 打死。
@@ -55,7 +55,7 @@ public class Res_Raise : ISlotResolver
         //    · 脱战  → 无条件硬读。复活读 8 秒，脱战又不会挨打，不拉白不拉。
         //    · 战斗中 → 才看「允许硬读复活」这个设置（读条期间可能吃机制）
         // ══════════════════════════════════════════════════════════
-        if (!Core.Me.InCombat()) return 15;   // 脱战硬读，优先级仅次于即刻
+        if (!CharacterExt.我在战斗()) return 15;   // 脱战硬读，优先级仅次于即刻
 
         // ══════════════════════════════════════════════════════════
         //  ★ 移动守卫（审计发现这里漏了）★

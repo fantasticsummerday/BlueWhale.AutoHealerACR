@@ -330,7 +330,7 @@ public static class 记录模式
     {
         try
         {
-            var 职业 = (uint)Core.Me.CurrentJob();
+            var 职业 = (uint)(Jobs)CharacterExt.我的当前职业();
             if (_本职业技能 == null || _白名单职业 != 职业)
             {
                 _本职业技能 = 收集本职业技能();

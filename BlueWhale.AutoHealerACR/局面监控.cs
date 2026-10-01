@@ -77,7 +77,7 @@ public static class 局面监控
     {
         try
         {
-            var 战斗现在 = Core.Me.InCombat();
+            var 战斗现在 = CharacterExt.我在战斗();
 
             // ══════════════════════════════════════════════════════════
             //  ★ **AI 初始化没成功之前，不做任何"剧变重取"** ★
@@ -272,7 +272,7 @@ public static class 局面监控
             if (坦克Id == 0) return false;      // 没坦克就别自作聪明
     
             // 自己也要健康（奶妈挨打是大事）
-            if (Core.Me.CurrentHp * 1f / Math.Max(1u, Core.Me.MaxHp) < 健康线) return false;
+            if (CharacterExt.我的当前血量() * 1f / Math.Max(1u, CharacterExt.我的最大血量()) < 健康线) return false;
     
             var 队友 = PartyHelper.CastableAlliesWithin30;
             if (队友 == null) return false;
@@ -282,7 +282,7 @@ public static class 局面监控
                 // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
                 if (r == null || !r.对象有效()) continue;
                 if (r.GameObjectId == 坦克Id) continue;      // 坦克跳过
-                if (r.GameObjectId == Core.Me.GameObjectId) continue;
+                if (r.GameObjectId == CharacterExt.我的ObjectId()) continue;
                 var 比例 = r.CurrentHp * 1f / Math.Max(1u, r.MaxHp);
                 if (比例 < 健康线) return false;   // 还有别人缺 -> 不是只有坦克
             }
@@ -303,7 +303,7 @@ public static class 局面监控
             var 有 = false;
 
             // 自己也算一个 —— 奶妈自己吃伤害同样影响决策
-            var 我 = Core.Me.CurrentHp * 1f / Math.Max(1u, Core.Me.MaxHp);
+            var 我 = CharacterExt.我的当前血量() * 1f / Math.Max(1u, CharacterExt.我的最大血量());
             最低 = 我;
             有 = true;
 

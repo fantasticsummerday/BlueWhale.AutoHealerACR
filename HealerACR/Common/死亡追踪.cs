@@ -143,7 +143,7 @@ public static class 死亡追踪
         try
         {
             // 脱战：立刻拉
-            if (!Core.Me.InCombat()) return true;
+            if (!CharacterExt.我在战斗()) return true;
 
             // 战斗中：等一会儿
             var 躺了 = 躺了多久(c);

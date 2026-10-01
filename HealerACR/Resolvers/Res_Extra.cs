@@ -123,7 +123,7 @@ public class AST_Horoscope : ISlotResolver
 
         // ⚠️ 脱战不放：没接怪就没有"即将到来的伤害"可言，
         //    而且满血铺预备等于空铺。
-        if (!Core.Me.InCombat()) return -4;
+        if (!CharacterExt.我在战斗()) return -4;
 
         // 时间轴预报 / boss 读条 → 提前铺
         var 要来了 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
@@ -136,7 +136,7 @@ public class AST_Horoscope : ISlotResolver
         if (HealTargetHelper.低于阈值人数(阈值, 20f) < 要求人数) return -5;
 
         // 已经铺过就不重复（buff id 通常和技能一致）
-        if (Core.Me.有该技能的Buff(技能)) return -3;
+        if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         return SpellUtil.可用(技能) ? 13 : -1;
     }

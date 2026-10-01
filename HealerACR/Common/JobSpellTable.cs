@@ -523,7 +523,7 @@ public abstract class JobSpellTable
             {
                 // ⚠️ `Core.Me.ClassJob` 是 `RowRef<ClassJob>`，要取 `.RowId`
                 //    （直接和 uint 比会编译不过 —— 见 `取当前职业技能表` 同款写法）
-                var 我 = AEAssist.Core.Me.ClassJob.RowId;
+                var 我 = CharacterExt.我的职业Id();
                 if (我 == (uint)Job) return true;
 
                 // 基础职业 → 特职的映射（低等级时读到的是基础职业）

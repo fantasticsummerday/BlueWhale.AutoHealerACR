@@ -96,7 +96,7 @@ public static class 职业表
     /// <summary>我自己是不是奶妈（用于自检）</summary>
     public static bool 我是奶妈()
     {
-        try { return Array.IndexOf(奶妈, Core.Me.ClassJob.RowId) >= 0; }
+        try { return Array.IndexOf(奶妈, CharacterExt.我的职业Id()) >= 0; }
         catch { return false; }
     }
 }

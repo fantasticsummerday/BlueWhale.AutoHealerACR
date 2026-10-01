@@ -271,7 +271,7 @@ public class WHMSpellTable : JobSpellTable
     {
         try
         {
-            return Core.Me.Level >= 提升等级 ? 高 : 低;
+            return CharacterExt.我的等级() >= 提升等级 ? 高 : 低;
         }
         catch
         {
@@ -393,8 +393,8 @@ public class WHMSpellTable : JobSpellTable
 
     /// <summary>神速咏唱期间基础输出会被替换成闪飒，这时候不能再硬放闪灼</summary>
     public override bool 有特殊输出形态 =>
-        (AuraIds.闪飒预备 != 0 && Core.Me.HasAura(AuraIds.闪飒预备))
-        || (AuraIds.闪飒预备2 != 0 && Core.Me.HasAura(AuraIds.闪飒预备2));
+        (AuraIds.闪飒预备 != 0 && CharacterExt.我有光环(AuraIds.闪飒预备))
+        || (AuraIds.闪飒预备2 != 0 && CharacterExt.我有光环(AuraIds.闪飒预备2));
 
     public override uint 复活 => SpellIds.取("复活");
     public override uint 驱散 => SpellsDefine.Esuna;
@@ -709,7 +709,7 @@ public class WHM_PresenceOfMind : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         // 神速咏唱是**自身 buff**，不需要选中目标（跟法令/王冠领主同一个教训）
         if (!CharacterExt.可以插能力技()) return -6;
-        if (AuraIds.神速魔 != 0 && Core.Me.HasAura(AuraIds.神速魔)) return -7;
+        if (AuraIds.神速魔 != 0 && CharacterExt.我有光环(AuraIds.神速魔)) return -7;
 
         // 需求 2：残血小怪不给爆发（木桩模式不判断）
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -4;
@@ -759,8 +759,8 @@ public class WHM_GlareIV : ISlotResolver
     /// <summary>神速给的「闪飒预备」proc 在不在身上</summary>
     private static bool 有闪飒预备()
     {
-        return (AuraIds.闪飒预备 != 0 && Core.Me.HasAura(AuraIds.闪飒预备))
-               || (AuraIds.闪飒预备2 != 0 && Core.Me.HasAura(AuraIds.闪飒预备2));
+        return (AuraIds.闪飒预备 != 0 && CharacterExt.我有光环(AuraIds.闪飒预备))
+               || (AuraIds.闪飒预备2 != 0 && CharacterExt.我有光环(AuraIds.闪飒预备2));
     }
 
     public int Check()
