@@ -133,6 +133,25 @@ public abstract class HealerEntryBase : IRotationEntry
         TimelineManager.初始化();
 
         // 3. 构建 QT 面板
+        // 2.5 ★ **锁定"主线程 id"给 AI 层用** ★
+        //
+        //  [!] 为什么必须在这里做（而不是让 AI 层自己判）：
+        //      `AiSituation.采集()` 会调 **84 处以上游戏 API**
+        //      （PartyHelper / TargetHelper / MemApi / Data.AllHostileTargets），
+        //      而它的**唯一**调用点在 AI 层的 `单次尝试()` 里 —— 那是
+        //      `async Task`，**跑在后台线程**。主线程同一时刻也在调同样的 API
+        //      ==> 两个线程同调非线程安全的进程内 API ==> 在它们内部崩
+        //      ==> 无转储 / 无托管异常 / 全局异常钩子不触发。
+        //
+        //  [!] 为什么不能"让 AI 层第一次调时自己记下来"：
+        //      那样变成"谁先调谁就是主线程" —— 而第一次恰恰是**后台线程**调的
+        //      ==> 守卫完全失效（0.4.1.6 就是这么失败的，用户实测仍崩）。
+        //      ==> **必须在确定是主线程的地方写**，而 `Build()` 就是那个地方。
+        //
+        //  [!] 反射必须包 try —— BlueWhale 没加载时不能让本地层崩
+        //      （开发约定 G：AI 是增强层，本地逻辑不该依赖它存活）。
+        标记AI层主线程();
+        
         构建QT();
 
         // 4. 组装 Rotation
@@ -1574,6 +1593,46 @@ public abstract class HealerEntryBase : IRotationEntry
         }
     }
 
+    /// <summary>
+    /// **反射调用 AI 层的 `AiSituation.标记主线程()`** —— 把"当前线程是主线程"告诉 AI 层。
+    ///
+    /// ⚠️ 为什么走反射：HealerACR **编译期看不到** `BlueWhale.AutoHealerACR`
+    ///    （两个程序集，本地层不能依赖 AI 层 —— 开发约定 G）。
+    /// ⚠️ 为什么包 try：AI 层没加载时不能让本地层崩。
+    /// ⚠️ 只**首次**调用有效（AI 层内部只写一次）—— 所以放 `Build()` 最稳。
+    ///
+    /// [!] 找不到就静默返回 —— 那是**正常情况**（用户没装 AI 层）。
+    ///
+    /// [!] 背景（连续 16 次崩溃的真正根因）：
+    ///    AI 层的 `采集()` 会调 84 处以上游戏 API，而它在 `async Task` 里
+    ///    （**后台线程**），与主线程每帧的同类调用**竞争非线程安全的进程内 API**。
+    ///    修法是"采集只在主线程跑，后台线程读缓存"——
+    ///    而**主线程 id 必须在确定是主线程的地方写**（就是这里）。
+    /// </summary>
+    private static void 标记AI层主线程()
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.AiSituation", false); }
+                catch { }
+                if (类型 == null) continue;
+    
+                var 方法 = 类型.GetMethod(
+                    "标记主线程",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                    null, Type.EmptyTypes, null);
+                if (方法 == null) continue;
+    
+                方法.Invoke(null, null);
+                return;   // 找到并调用了，收工
+            }
+        }
+        catch { }
+    }
+    
     internal static void 尝试挂载AI层反射()
     {
         // [!] **故意不缓存"找过"** ——

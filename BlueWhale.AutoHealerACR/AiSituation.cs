@@ -78,17 +78,56 @@ public static class AiSituation
     /// <summary>缓存有效期（毫秒）—— 后台线程拿到的最旧局面不超过它。</summary>
     private const int 缓存毫秒 = 250;
 
-    /// <summary>当前线程是不是"负责采集的那个线程"（首次采集的线程，即主线程）。</summary>
+    /// <summary>
+    /// **标记"当前线程是主线程"** —— 只写一次，必须在**确定是主线程**的地方调。
+    ///
+    /// ⚠️⚠️ **这里踩过一个坑，别再犯**：
+    ///     原来的判据是 `_主线程Id == 0 || 当前线程 == _主线程Id`，
+    ///     也就是**"谁先调谁就是主线程"**。
+    ///     而**第一次**采集恰好是**后台线程**调的（挂载时 `单次尝试()`）——
+    ///     ==> `_主线程Id` 被设成后台线程的 id ==> **守卫形同虚设**，
+    ///         0.4.1.6 的线程修复因此完全没生效（用户实测仍然崩）。
+    ///
+    /// ✅ 正确做法：主线程 id 只能从**确定在主线程**的入口写入：
+    ///     · `HealerEntryBase.Build()`  —— AEAssist 在主线程调（一定会跑到）
+    ///     · `主线程刷新缓存()`          —— 由每帧回调驱动，必为主线程
+    ///     这两个入口都调本方法；**只写一次**，先到的那个锁定主线程。
+    /// </summary>
+    public static void 标记主线程()
+    {
+        try
+        {
+            if (_主线程Id == 0)
+            {
+                _主线程Id = Environment.CurrentManagedThreadId;
+                LogHelper.Info($"[BlueWhale.AI] 局面采集锁定主线程 id={_主线程Id} —— " +
+                               "后台线程此后只读缓存，不再直接读游戏 API（防线程竞争崩溃）");
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>当前线程是不是主线程（未标记时**保守返回 false** —— 不让后台线程误判成主线程）。</summary>
     private static bool 在主线程()
-        => _主线程Id == 0 || Environment.CurrentManagedThreadId == _主线程Id;
+    {
+        // ⚠️ `_主线程Id == 0`（还没标记）时返回 **false** —— 保守。
+        //    宁可让采集走"缓存未就绪"的降级分支，也不让后台线程去读游戏 API。
+        //    （标记由 `标记主线程()` 完成，`Build()` 一定会先跑到。）
+        if (_主线程Id == 0) return false;
+        return Environment.CurrentManagedThreadId == _主线程Id;
+    }
 
     private static void 存主线程缓存(string 结果)
     {
         try
         {
-            if (_主线程Id == 0) _主线程Id = Environment.CurrentManagedThreadId;
-            _缓存全文 = 结果;
-            _缓存时刻 = AEAssist.Helper.TimeHelper.Now();
+            // ⚠️ 这里**不再**顺手写 `_主线程Id` —— 那只该由 `标记主线程()` 做。
+            //    （原实现在这里写，害得后台线程把自己注册成主线程。）
+            if (_主线程Id == 0 || Environment.CurrentManagedThreadId == _主线程Id)
+            {
+                _缓存全文 = 结果;
+                _缓存时刻 = AEAssist.Helper.TimeHelper.Now();
+            }
         }
         catch { }
     }
@@ -121,8 +160,8 @@ public static class AiSituation
     {
         try
         {
-            if (_主线程Id != 0 && Environment.CurrentManagedThreadId != _主线程Id) return;
-            if (_主线程Id == 0) _主线程Id = Environment.CurrentManagedThreadId;
+            标记主线程();
+            if (!在主线程()) return;   // 不是主线程 -> 不读游戏 API
 
             // TTL 内不重复采集（省算力；AI 也不需要每帧的新局面）
             if (_缓存全文 != null &&
@@ -2209,18 +2248,24 @@ public static class AiSituation
             //     的时候 AI 看不到任何治疗手段。
             // ══════════════════════════════════════════════════════
             崩溃路标.记(3333, "即将 治疗判断段");
+            崩溃路标.记(3340, "A：即将读 单体治疗阈值");
             var 需要治疗 = false;
             try
             {
+                崩溃路标.记(3341, "B：阈值已读，即将 可治疗队友(30f)");
                 var 阈值 = HealSettings.Instance.单体治疗阈值;
+                崩溃路标.记(3342, "C：队伍列表已取，即将遍历");
                 foreach (var r in HealTargetHelper.可治疗队友(30f))
                 {
+                    崩溃路标.记(3345, "C2：即将读 有效血量比例");
                     if (r != null && r.有效血量比例() <= 阈值) { 需要治疗 = true; break; }
                 }
+                崩溃路标.记(3343, "D：即将 要预铺(6f,0.15f)");
                 if (!需要治疗) 需要治疗 = HealerACR.Common.伤害预测.要预铺(6f, 0.15f);
             }
             catch { 需要治疗 = true; }   // 读不到 → 保守，照常列
 
+            崩溃路标.记(3344, "E：治疗判断段 完成");
             var 治疗全部 = 需要治疗 ? 表.治疗候选.全部 : new List<HealerACR.Common.治疗技能>();
             崩溃路标.记(3334, "即将 加治疗");
             if (治疗全部.Count > 0)
