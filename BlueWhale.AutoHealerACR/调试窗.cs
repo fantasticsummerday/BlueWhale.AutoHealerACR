@@ -858,6 +858,10 @@ public static class 调试窗
             //   [!] 这是把"AI 又编了"变成**可量化数字**的唯一手段 ——
             //      提示词约束无法在执行层验证（AI 的输出是自由文本）。
             ImGui.TextDisabled($"      幻觉校验：{幻觉校验.状态描述()}");
+            // ★ 靠技能表兜底放行的次数（第三方审计 P1-9 的验证数据）★
+            //   [!] 持续增长 => `已解锁` 的误报是真的，兜底在救回建议；
+            //       恒为 0    => 误报在当前环境下不发生，可以考虑把兜底收掉。
+            ImGui.TextDisabled($"      靠技能表放行：{AiSuggestionResolver.靠技能表放行次数} 次" + "（`已解锁` 误报的实证）");
 
             ImGui.TextDisabled($"      局面剧变清空={AiDecisionLayer.清空次数} 次" +
                                $"（丢 {AiDecisionLayer.清空丢弃条数} 条）" +
