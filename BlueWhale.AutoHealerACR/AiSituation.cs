@@ -93,6 +93,60 @@ public static class AiSituation
     ///     · `主线程刷新缓存()`          —— 由每帧回调驱动，必为主线程
     ///     这两个入口都调本方法；**只写一次**，先到的那个锁定主线程。
     /// </summary>
+    /// <summary>
+    /// **身份探针** —— 一次打全排查所需的环境信息。
+    ///
+    /// [!] 为什么要它（外部审查的建议）：把"猜测型排查"变成"定位型排查"。
+    ///     需要确认的：
+    ///       · AI 层调用游戏 API 时到底在**哪个线程**
+    ///       · 运行时**加载了几份** `HealerACR.Common.*`
+    ///         （`<Compile Include="..\HealerACR\**\*.cs" />` 意味着
+    ///           `HealTargetHelper` 在 **两个程序集里各有一份**；
+    ///           而 dev plugin / AssemblyLoadContext 可能让它更多）
+    ///       · 每个副本的 **AssemblyLocation** 和 **ALC 名字**
+    ///         （ALC 不同 ==> 静态状态不同 ==> Hook/缓存/生命周期各一套）
+    ///
+    /// [!] 只在自己那一份里打一次（静态标志），不会刷屏。
+    /// </summary>
+    private static bool _身份已探;
+
+    public static void 探测身份()
+    {
+        if (_身份已探) return;
+        _身份已探 = true;
+        try
+        {
+            LogHelper.Info("════════ [BlueWhale.身份探针] 开始 ════════");
+            LogHelper.Info($"  当前线程 id = {Environment.CurrentManagedThreadId}" +
+                           $"（托管线程池线程={System.Threading.Thread.CurrentThread.IsThreadPoolThread}）");
+            LogHelper.Info($"  AiSituation 所在程序集 = {typeof(AiSituation).Assembly.GetName().Name}");
+
+            var 份数 = 0;
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    // 找所有含 HealerACR.Common.HealTargetHelper 的程序集
+                    var ty = asm.GetType("HealerACR.Common.HealTargetHelper", false);
+                    if (ty == null) continue;
+                    份数++;
+                    var alc = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(asm);
+                    LogHelper.Info($"  [副本 {份数}] 程序集={asm.GetName().Name}" +
+                                   $"｜版本={asm.GetName().Version}" +
+                                   $"｜ALC={alc?.Name ?? "(默认)"}" +
+                                   $"｜位置={(string.IsNullOrEmpty(asm.Location) ? "(内存加载，Location 为空)" : asm.Location)}");
+                }
+                catch { }
+            }
+            LogHelper.Info($"  ==> 运行时共有【{份数}】份 HealerACR.Common.HealTargetHelper");
+            LogHelper.Info("════════ [BlueWhale.身份探针] 结束 ════════");
+        }
+        catch (Exception e)
+        {
+            try { LogHelper.Info("[BlueWhale.身份探针] 异常：" + e.GetType().Name + " " + e.Message); } catch { }
+        }
+    }
+
     public static void 标记主线程()
     {
         try

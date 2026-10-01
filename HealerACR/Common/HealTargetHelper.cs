@@ -66,18 +66,46 @@ public static class HealTargetHelper
             //  [!] 注意：这个判据**只挡"明显不可信"**，不挡单点失效 ——
             //      单点的由下面两道 + `可以治()` 里"读之前再判一次"负责。
             // ══════════════════════════════════════════════════════════════
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **原子路标：这一行才是真正的函数入口** ★★
+            //
+            //  [!] 外部审查的关键纠正：原来那个 `3500` 路标**不是第一行** ——
+            //      它前面还有 `IsBetweenAreas()` / `实时副本Id()` / 队伍列表 getter。
+            //      ==> **"日志里没有 3500" 不能证明"没进入本函数"** ——
+            //          可能死在前面那三个 native 调用的任意一个里。
+            //      ==> 所以必须把探针放到**方法体的第一条语句**。
+            //
+            //  [!] 同时记录审查者要的"身份信息"：
+            //      · 线程 id        —— 确认 AI 层到底在哪个线程调
+            //      · 程序集名/位置  —— 确认是 HealerACR.dll 还是 BlueWhale.dll 那份拷贝
+            //      · ALC 名字       —— 确认是否在独立 AssemblyLoadContext（dev plugin reload 相关）
+            //      这三项能把"猜测型排查"变成"定位型排查"。
+            // ══════════════════════════════════════════════════════════════
+            LogHelper.Info($"[HealerACR.路标] 3490（可治疗 方法体第一行）" +
+                           $"｜线程={Environment.CurrentManagedThreadId}" +
+                           $"｜程序集={typeof(HealTargetHelper).Assembly.GetName().Name}" +
+                           $"｜ALC={System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(typeof(HealTargetHelper).Assembly)?.Name ?? "(默认)"}" +
+                           $"｜半径={半径}");
+
             try
             {
-                if (Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas())
+                LogHelper.Info("[HealerACR.路标] 3491（即将 IsBetweenAreas）");
+                var 在切图 = Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas();
+                LogHelper.Info($"[HealerACR.路标] 3492（IsBetweenAreas 返回 {在切图}）");
+                if (在切图)
                     return new List<IBattleChara>();
             }
-            catch { }
+            catch (Exception e) { LogHelper.Info("[HealerACR.路标] 3491 抛异常：" + e.GetType().Name); }
+
             try
             {
-                if (HealerACR.Timeline.TimelineManager.实时副本Id() == 0)
+                LogHelper.Info("[HealerACR.路标] 3493（即将 实时副本Id）");
+                var 副本 = HealerACR.Timeline.TimelineManager.实时副本Id();
+                LogHelper.Info($"[HealerACR.路标] 3494（实时副本Id 返回 {副本}）");
+                if (副本 == 0)
                     return new List<IBattleChara>();
             }
-            catch { }
+            catch (Exception e) { LogHelper.Info("[HealerACR.路标] 3493 抛异常：" + e.GetType().Name); }
 
             // ══════════════════════════════════════════════════════════════
             //  ★ 第一道：**先整体确认这个队伍可不可信，不可信就直接空手退出 ★**
@@ -99,20 +127,18 @@ public static class HealTargetHelper
             // ══════════════════════════════════════════════════════════════
             try
             {
-                LogHelper.Info($"[HealerACR.路标] 3500（可治疗 进入）｜线程={Environment.CurrentManagedThreadId}" +
-                                 $"｜程序集={typeof(HealTargetHelper).Assembly.GetName().Name}" +
-                                 $"｜半径={半径}");
+                LogHelper.Info("[HealerACR.路标] 3495（即将取 PartyHelper.CastableAlliesWithin30）");
                 var 待检 = PartyHelper.CastableAlliesWithin30;
-                LogHelper.Info($"[HealerACR.路标] 3501（可治疗：队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}）");
+                LogHelper.Info($"[HealerACR.路标] 3496（队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}）");
                 if (待检 == null) return new List<IBattleChara>();
                 var 序号 = 0;
                 foreach (var r in 待检)
                 {
-                    LogHelper.Info($"[HealerACR.路标] 3502-{序号}（可治疗：正在验第 {序号} 个）");
+                    LogHelper.Info($"[HealerACR.路标] 3497-{序号}（正在验第 {序号} 个）");
                     if (r == null || !r.对象有效()) return new List<IBattleChara>();
                     序号++;
                 }
-                LogHelper.Info($"[HealerACR.路标] 3502（可治疗：全部 {序号} 个都有效）");
+                LogHelper.Info($"[HealerACR.路标] 3498（全部 {序号} 个都有效）");
             }
             catch { return new List<IBattleChara>(); }
 
