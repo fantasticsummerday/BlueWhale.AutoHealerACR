@@ -819,7 +819,37 @@ public class SCHSpellTable : JobSpellTable
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Aetherpact(), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Seraph(), SlotMode.OffGcd),
-            new SlotResolverData(new SCH_SummonFairy(), SlotMode.OffGcd),
+            // ══════════════════════════════════════════════════════════════════
+            //  ★★★ **这里原来还有 `SCH_SummonFairy` —— 已删除（崩溃修复）** ★★★
+            //
+            //  [!] 为什么删（外部审查报告 + 我逐条核实 + 日志实证）：
+            //
+            //      同一份源码里存在**两个**都会放出「朝日召唤 17215」的 resolver：
+            //          L682  new Res_SummonPet(_spells)   SlotMode.Gcd
+            //          这里  new SCH_SummonFairy()        SlotMode.OffGcd
+            //      而 `ScholarACR.召唤宠物` 取的就是「朝日召唤」（L258 实证）
+            //      ⇒ **同一个技能被两套逻辑同时抢着放**。
+            //
+            //  [!] 两者的保护力度**完全不同**（这是要命的地方）：
+            //        `Res_SummonPet`  有 有小仙女 / 已解锁 / 可用 / 光环 / **1 秒起手保护**
+            //        `SCH_SummonFairy` 有 小仙女 / 已解锁 / 光环 / 炽天使 / 移动
+            //                          —— **没有任何节流**
+            //
+            //  [!] ★ 崩溃机制（日志实证 `17215 读条成功 用时 1182ms`）★
+            //      「朝日召唤」是**读条技能（1.18 秒）**，
+            //      而**读条期间小仙女还不存在**
+            //      ⇒ `SCH_SummonFairy.Check()` 每次都判定"没有小仙女" ⇒ 返回 1 通过
+            //      ⇒ 反复 `slot.Add(17215)` ⇒ 反复触发 Unit 创建
+            //      ⇒ **同步递归** ⇒ `0xc00000fd`（栈溢出）⇒ 进程直接没
+            //      现象与实测完全吻合：日志固定停在
+            //          `[NpcSpawn] → [BattleLog] Unit创建 Name: 朝日小仙女` 之后。
+            //
+            //  [!] 修法：**唯一技能 → 唯一 resolver → 唯一执行语义**。
+            //      只保留 `Res_SummonPet`（它已经覆盖了这份逻辑该有的全部判据，
+            //      而且多一个 1 秒保护）。
+            //
+            //  [!] ⚠️ **不要再把它加回来**；要改召唤逻辑就改 `Res_SummonPet`。
+            // ══════════════════════════════════════════════════════════════════
             new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
@@ -1120,41 +1150,45 @@ public class SCH_Consolation : ISlotResolver
     }
 }
 
-/// <summary>小仙女不在场就召唤。</summary>
-public class SCH_SummonFairy : ISlotResolver
-{
-    private static uint 技能 => SpellIds.取("朝日召唤");
-
-    public int Check()
-    {
-        // 木桩模式**不拦** —— 小仙女是常驻宠物，掉了就该补
-        if (!HealQt.GetQt("小仙女", true)) return -103;
-        if (!SpellUtil.已解锁(技能)) return -2;
-
-        // 791 = 转化状态：转化期间小仙女被牺牲，召唤无效
-        if (AuraIds.转化中 != 0 && CharacterExt.我有光环(AuraIds.转化中)) return -3;
-
-        // 已经在场就不用召唤（HasPet 读得到，面板显示也证明它是准的）
-        if (JobApiHelper.有小仙女) return -3;
-        if (JobApiHelper.炽天使剩余 > 0) return -3;
-
-        // 移动中不召唤（读不到就放行）
-        try { if (MoveHelper.IsMoving()) return -3; } catch { }
-
-        // ⚠️ 这里刻意**不检查 SpellUtil.可用()**。
-        //    逆向同类 ACR 的 Scholar_GetPet 发现：它的 Check 里根本没有可用性检查，
-        //    判断完条件就直接把技能塞进 slot 交给游戏。
-        //    而我加的 IsReadyWithCanCast() 对召唤类技能返回 false，
-        //    导致永远不召唤（日志：已解锁=True 能召唤=False）。
-        return 1;
-    }
-
-    public void Build(Slot slot)
-    {
-        var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(spell);
-    }
-}
+/// <summary>
+/// **已删除：`SCH_SummonFairy`**（召唤小仙女）。
+///
+/// ══════════════════════════════════════════════════════════════════════════
+///  [!] 为什么删（外部审查报告 P0 + 我逐条核实 + 日志实证）
+///
+///      同一份源码里有**两个**都会放出「朝日召唤 17215」的 resolver：
+///          · `Res_SummonPet`（`SlotMode.Gcd`）—— `ScholarACR.召唤宠物`
+///            取的就是「朝日召唤」（L258 实证）
+///          · 本类（`SlotMode.OffGcd`）
+///      ==> **同一个技能被两套逻辑同时抢着放**。
+///
+///  [!] 两者的保护力度**完全不同**（这是要命的地方）：
+///        `Res_SummonPet`  有小仙女 / 已解锁 / 可用 / 光环 / **1 秒起手保护**
+///        本类             有小仙女 / 已解锁 / 光环 / 炽天使 / 移动
+///                         —— **没有任何节流**
+///
+///  [!] ★ 崩溃机制（日志实证 `17215 读条成功 用时 1182ms`）★
+///      「朝日召唤」是**读条技能（约 1.18 秒）**，
+///      而**读条期间小仙女还不存在**
+///      ==> 本类的 `Check()` 每次都判定"没有小仙女" ==> 返回 1 通过
+///      ==> 反复 `slot.Add(17215)` ==> 反复触发 Unit 创建
+///      ==> **同步递归** ==> `0xc00000fd`（栈溢出）==> 进程直接没
+///
+///      现象与实测**完全吻合**：两次崩溃的日志都固定停在
+///          `[NpcSpawn] → [BattleLog] Unit创建 Name: 朝日小仙女` 之后。
+///
+///  [!] 为什么删除是安全的（核对了那三条"逆向来的判据"）：
+///      · 本类注释说"`Res_SummonPet` 的 `SpellUtil.可用()` 对召唤技返回 false"
+///        —— **那是旧版的结论**。现在 `可用()` 用的是 `IsReadyWithCanCast()`，
+///        里面那个害人的 `IsUnlock()` 已经去掉（`SpellUtil.cs` L118-143 有完整记录），
+///        实测 0.5.5 的日志里有 `CastSpell success: 17215 朝日召唤`。
+///      · 移动判定：`Res_SummonPet` 由引擎的 GCD 判据覆盖（读条技移动中放不出）。
+///      · 炽天使判定：`Res_SummonPet` 判 `有小仙女`；炽天使在场时也属于"有宠物"。
+///
+///  [!] ⚠️ **不要再把这个类加回来**；要改召唤逻辑就改 `Res_SummonPet`。
+///      原则：**唯一技能 → 唯一 resolver → 唯一执行语义。**
+/// ══════════════════════════════════════════════════════════════════════════
+/// </summary>
 
 /// <summary>连环计：团辅。木桩模式卡 CD 放，不攒。</summary>
 public class SCH_ChainStratagem : ISlotResolver
