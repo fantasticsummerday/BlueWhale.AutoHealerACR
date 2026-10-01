@@ -691,23 +691,23 @@ public static class AiSituation
     {
         var sb = new StringBuilder();
 
-        崩溃路标.记(3301, "采集 开始 —— 即将 采副本｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3301, "采集 开始 —— 即将 采副本｜T" + Environment.CurrentManagedThreadId.ToString());
         采副本(sb);
-        崩溃路标.记(3302, "采副本 完成 —— 即将 采自己｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3302, "采副本 完成 —— 即将 采自己｜T" + Environment.CurrentManagedThreadId.ToString());
         采自己(sb);
-        崩溃路标.记(3303, "采自己 完成 —— 即将 采资源｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3303, "采自己 完成 —— 即将 采资源｜T" + Environment.CurrentManagedThreadId.ToString());
         采资源(sb);
-        崩溃路标.记(3304, "采资源 完成 —— 即将 采技能冷却｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3304, "采资源 完成 —— 即将 采技能冷却｜T" + Environment.CurrentManagedThreadId.ToString());
         采技能冷却(sb);   // ★ 大技能还剩多久 —— 资源规划的前提（见该函数说明）
-        崩溃路标.记(3305, "采技能冷却 完成 —— 即将 采队友｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3305, "采技能冷却 完成 —— 即将 采队友｜T" + Environment.CurrentManagedThreadId.ToString());
         采队友(sb);
-        崩溃路标.记(3306, "采队友 完成 —— 即将 采必须奶满｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3306, "采队友 完成 —— 即将 采必须奶满｜T" + Environment.CurrentManagedThreadId.ToString());
         采必须奶满(sb);      // ★ 致死机制：必须放在队友之后、敌人之前 —— 它是最高优先信息
-        崩溃路标.记(3307, "采必须奶满 完成 —— 即将 采敌人｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3307, "采必须奶满 完成 —— 即将 采敌人｜T" + Environment.CurrentManagedThreadId.ToString());
         采敌人(sb);
-        崩溃路标.记(3308, "采敌人 完成 —— 即将 采坦克压力｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3308, "采敌人 完成 —— 即将 采坦克压力｜T" + Environment.CurrentManagedThreadId.ToString());
         采坦克压力(sb);
-        崩溃路标.记(3309, "采坦克压力 完成 —— 即将 伤害预测｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3309, "采坦克压力 完成 —— 即将 伤害预测｜T" + Environment.CurrentManagedThreadId.ToString());
 
         // ⚠️ **技能清单必须排在「时间轴」之前**（这里调整过，别改回去）。
         //
@@ -727,7 +727,7 @@ public static class AiSituation
         }
         catch { }
 
-        崩溃路标.记(3310, "伤害预测 完成 —— 即将 采可选技能｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3310, "伤害预测 完成 —— 即将 采可选技能｜T" + Environment.CurrentManagedThreadId.ToString());
         采可选技能(sb, 快照);
 
         // ★ 实测读条 —— 放时间轴**之前**：事实优先于预测
@@ -735,9 +735,9 @@ public static class AiSituation
         崩溃路标.记(3311, "采可选技能 完成 —— 即将 采读条｜T" + Environment.CurrentManagedThreadId.ToString());
         采读条(sb);
 
-        崩溃路标.记(3312, "采读条 完成 —— 即将 采时间轴｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3312, "采读条 完成 —— 即将 采时间轴｜T" + Environment.CurrentManagedThreadId.ToString());
         采时间轴(sb);
-        崩溃路标.记(3313, "采时间轴 完成 —— 即将 采记忆库｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3313, "采时间轴 完成 —— 即将 采记忆库｜T" + Environment.CurrentManagedThreadId.ToString());
         采记忆库(sb);        // ★ 放最后：它是"参考"，前面才是"当前事实"
         崩溃路标.记(3314, "采记忆库 完成 —— 采集 全部结束｜T" + Environment.CurrentManagedThreadId.ToString());
 
@@ -2114,7 +2114,7 @@ public static class AiSituation
             //      （`技能ID|理由`）回答，不会因为候选层坏了就整个失效。
             //      => 向后兼容，不是冗余。
             // ══════════════════════════════════════════════════════════════
-            崩溃路标.记(3321, "采可选技能：候选集.描述() 即将调用｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3321, "采可选技能：候选集.描述() 即将调用｜T" + Environment.CurrentManagedThreadId.ToString());
             var 候选段 = 候选集.描述(快照);
             if (!string.IsNullOrEmpty(候选段))
             {
@@ -2136,15 +2136,15 @@ public static class AiSituation
             //  [!] 候选为空时**不省** —— 那时散文清单是唯一信息源，
             //      省了 AI 就什么都不知道了。
             // ══════════════════════════════════════════════════════════════
-            崩溃路标.记(3322, "采可选技能：候选集.描述() 已返回｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3322, "采可选技能：候选集.描述() 已返回｜T" + Environment.CurrentManagedThreadId.ToString());
             var 省细节 = 候选段.Length > 0;
-            崩溃路标.记(3323, "采可选技能：候选集.描述() 已返回 完成｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3323, "采可选技能：候选集.描述() 已返回 完成｜T" + Environment.CurrentManagedThreadId.ToString());
 
             // ⚠️ 必须取"当前实际职业"的表，不能用静态的 当前技能表 ——
         //    那个会被最后加载的职业覆盖（现象：玩学者却收到幻术师的技能清单）
-        崩溃路标.记(3324, "采可选技能：技能表已取｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3324, "采可选技能：技能表已取｜T" + Environment.CurrentManagedThreadId.ToString());
         var 表 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
-        崩溃路标.记(3325, "采可选技能：技能表已取 完成｜T" + Environment.CurrentManagedThreadId.ToString());
+        崩溃路标.记详(3325, "采可选技能：技能表已取 完成｜T" + Environment.CurrentManagedThreadId.ToString());
             if (表 == null)
             {
                 sb.AppendLine("（拿不到技能表 —— 阶段 B 请输出 0|数据不足）");
@@ -2178,7 +2178,7 @@ public static class AiSituation
             //  ⚠️ 过滤只影响**告诉 AI 什么**，不影响 AI 可以建议什么 ——
             //     终审仍然独立校验一次。
             // ══════════════════════════════════════════════════════════
-            崩溃路标.记(3326, "采可选技能：即将定义 加()｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3326, "采可选技能：即将定义 加()｜T" + Environment.CurrentManagedThreadId.ToString());
             var 被等级挡掉 = new List<string>();
 
             // ⚠️ 取一次等级 —— 威力档位要按**当前等级**查
@@ -2308,7 +2308,7 @@ public static class AiSituation
                 foreach (var id in ids) 加(类别, id);
             }
 
-            崩溃路标.记(3327, "采可选技能：即将处理 AOE 段｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3327, "采可选技能：即将处理 AOE 段｜T" + Environment.CurrentManagedThreadId.ToString());
             加("基础输出", 表.基础输出);
             // ══════════════════════════════════════════════════════════════
             //  ★ AOE 的总量 = **打得到的**目标数 × 单体威力 ★
@@ -2376,10 +2376,10 @@ public static class AiSituation
                 }
             }
             catch { }
-            崩溃路标.记(3328, "采可选技能：AOE 段 完成｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3328, "采可选技能：AOE 段 完成｜T" + Environment.CurrentManagedThreadId.ToString());
             加("群体输出", 表.群体输出, AOE后缀);
-            崩溃路标.记(3329, "采可选技能：AOE 段 完成 完成｜T" + Environment.CurrentManagedThreadId.ToString());
-            崩溃路标.记(3330, "即将 加DoT/填充｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3329, "采可选技能：AOE 段 完成 完成｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3330, "即将 加DoT/填充｜T" + Environment.CurrentManagedThreadId.ToString());
             加("DoT", 表.Dot技能);
             加("移动填充", 表.移动填充技);
             // ★ 站定填充 —— 站定时威力更高的那个 ★
@@ -2402,7 +2402,7 @@ public static class AiSituation
             //  [!] 只列**已解锁**的那个形态（`自身AOE候选` 是升级链，
             //      低级形态由 `SpellUtil.当前形态` 自动取到）。
             // ══════════════════════════════════════════════════════════════
-            崩溃路标.记(3331, "即将 自身AOE段｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3331, "即将 自身AOE段｜T" + Environment.CurrentManagedThreadId.ToString());
             try
             {
                 foreach (var id in 表.自身AOE候选)
@@ -2426,7 +2426,7 @@ public static class AiSituation
             //
             //  [!] 只在**宠物不在场**时列 —— 在场时列它等于建议重复召唤。
             // ══════════════════════════════════════════════════════════════
-            崩溃路标.记(3332, "即将 召唤小仙女段｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3332, "即将 召唤小仙女段｜T" + Environment.CurrentManagedThreadId.ToString());
             try
             {
                 if (表.召唤宠物 != 0)
@@ -2465,35 +2465,35 @@ public static class AiSituation
             //     只满足一条就照常列 —— 免得"看着满血、其实机制在路上"
             //     的时候 AI 看不到任何治疗手段。
             // ══════════════════════════════════════════════════════
-            崩溃路标.记(3333, "即将 治疗判断段｜T" + Environment.CurrentManagedThreadId.ToString());
-            崩溃路标.记(3340, "A：即将读 单体治疗阈值｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3333, "即将 治疗判断段｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3340, "A：即将读 单体治疗阈值｜T" + Environment.CurrentManagedThreadId.ToString());
             var 需要治疗 = false;
             try
             {
                 崩溃路标.记(3341, "B：阈值已读，即将 可治疗队友(30f)｜T" + Environment.CurrentManagedThreadId.ToString());
                 var 阈值 = global::HealerACR.Common.CharacterExt.单体治疗阈值_原始();
-                崩溃路标.记(3342, "C：队伍列表已取，即将遍历｜T" + Environment.CurrentManagedThreadId.ToString());
+                崩溃路标.记详(3342, "C：队伍列表已取，即将遍历｜T" + Environment.CurrentManagedThreadId.ToString());
                 // ⚠️ 把「取列表」和「遍历」拆开 —— 这样能区分：
                 //      · 崩在 3346 -> 3347 之间  ==> 崩在 `可治疗队友()` 调用/返回
                 //      · 崩在 3347 之后          ==> 崩在枚举第一项
-                崩溃路标.记(3346, "C1：即将调用 可治疗队友(30f)｜T" + Environment.CurrentManagedThreadId.ToString());
-                崩溃路标.记(3350, "E1：即将调用 可治疗队友(30f)【新编号】｜T" + Environment.CurrentManagedThreadId.ToString());
+                崩溃路标.记详(3346, "C1：即将调用 可治疗队友(30f)｜T" + Environment.CurrentManagedThreadId.ToString());
+                崩溃路标.记详(3350, "E1：即将调用 可治疗队友(30f)【新编号】｜T" + Environment.CurrentManagedThreadId.ToString());
                 var 治疗队 = HealTargetHelper.可治疗队友(30f);
-                崩溃路标.记(3351, "E2：可治疗队友(30f) 已返回【新编号】｜T" + Environment.CurrentManagedThreadId.ToString());
-                崩溃路标.记(3347, $"C2：可治疗队友 已返回 {治疗队.Count} 个，即将遍历");
+                崩溃路标.记详(3351, "E2：可治疗队友(30f) 已返回【新编号】｜T" + Environment.CurrentManagedThreadId.ToString());
+                崩溃路标.记详(3347, $"C2：可治疗队友 已返回 {治疗队.Count} 个，即将遍历");
                 foreach (var r in 治疗队)
                 {
-                    崩溃路标.记(3345, "C2b：即将读 有效血量比例｜T" + Environment.CurrentManagedThreadId.ToString());
+                    崩溃路标.记详(3345, "C2b：即将读 有效血量比例｜T" + Environment.CurrentManagedThreadId.ToString());
                     if (r != null && r.有效血量比例() <= 阈值) { 需要治疗 = true; break; }
                 }
-                崩溃路标.记(3343, "D：即将 要预铺(6f,0.15f)｜T" + Environment.CurrentManagedThreadId.ToString());
+                崩溃路标.记详(3343, "D：即将 要预铺(6f,0.15f)｜T" + Environment.CurrentManagedThreadId.ToString());
                 if (!需要治疗) 需要治疗 = HealerACR.Common.伤害预测.要预铺(6f, 0.15f);
             }
             catch { 需要治疗 = true; }   // 读不到 → 保守，照常列
 
-            崩溃路标.记(3344, "E：治疗判断段 完成｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3344, "E：治疗判断段 完成｜T" + Environment.CurrentManagedThreadId.ToString());
             var 治疗全部 = 需要治疗 ? 表.治疗候选.全部 : new List<HealerACR.Common.治疗技能>();
-            崩溃路标.记(3334, "即将 加治疗｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3334, "即将 加治疗｜T" + Environment.CurrentManagedThreadId.ToString());
             if (治疗全部.Count > 0)
             {
                 // 四类；顺序 = 建议优先级（单体能力技 → 群体能力技 → 单体GCD → 群体GCD）
@@ -2555,7 +2555,7 @@ public static class AiSituation
                 加("单体盾", 表.单体盾);
                 加("群体盾", 表.群体盾);
             }
-            崩溃路标.记(3335, "即将 减伤/功能段｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3335, "即将 减伤/功能段｜T" + Environment.CurrentManagedThreadId.ToString());
             加("团队减伤", 表.团队减伤);
 
             // ★ 个人减伤（神祝祷 7432 / 擢升 25873）★
@@ -2579,11 +2579,11 @@ public static class AiSituation
             加("驱散", 表.驱散);
             加("醒梦", 表.醒梦);
 
-            崩溃路标.记(3336, "即将 输出能力技/脱战准备｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3336, "即将 输出能力技/脱战准备｜T" + Environment.CurrentManagedThreadId.ToString());
             加数组("输出能力技", 表.输出能力技);
             加数组("脱战准备", 表.脱战准备技能);
 
-            崩溃路标.记(3337, "即将 收尾输出｜T" + Environment.CurrentManagedThreadId.ToString());
+            崩溃路标.记详(3337, "即将 收尾输出｜T" + Environment.CurrentManagedThreadId.ToString());
             sb.AppendLine($"（共 {计数} 个）");
 
             // ★ 明确告诉 AI "哪些技能因为等级没到被滤掉了" ★
