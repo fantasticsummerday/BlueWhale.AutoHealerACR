@@ -456,6 +456,39 @@ public class SCHSpellTable : JobSpellTable
         if (技能Id == SpellIds.取("气炎法"))
             return new[] { (0, 220) };
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ DoT 三档 + 能量吸收 —— **补上缺口**（用户要求：缺口会影响 AI 决策）★
+        //
+        //  [!] 为什么原来缺：**游戏数据宏不写它们的威力** ——
+        //      `pow_potency.tsv` 里这三条只有
+        //        「对目标附加无属性持续伤害状态」，**没有「威力：」那一句**。
+        //      所以按数据宏建表时它们全是空的。
+        //
+        //  [!] 数值来源：`beta.xivapi.com/api/1/sheet/Action/<id>`
+        //      （游戏 Action 表 + ActionTransient 的镜像）—— **不是攻略站**。
+        //      逐字原文：
+        //        17864 毒菌    Deals unaspected damage over time. Potency: 20  Duration: 30s
+        //        17865 猛毒菌  Deals unaspected damage over time. Potency: 40  Duration: 30s
+        //        16540 蛊毒法  Deals unaspected damage over time. Potency: 85  Duration: 30s
+        //        167   能量吸收 Deals unaspected damage with a potency of 100.
+        //
+        //  [!] 口径 = **每跳**（和 `HoT恢复力` 同语义）——
+        //      这三个 DoT 的描述里**只有一个 Potency**（它们没有直伤），
+        //      和白魔「天辉 85」「烈风 50」同一口径（见 `WhiteMageACR.cs` L98-101）。
+        //
+        //  [!] 为什么值得补：
+        //      DoT 走 `值得上Dot()`（判血量/血量倍数）**不比较威力** ——
+        //      所以缺口**不会导致选错技能**。
+        //      但提示词里 `力N` 空着时，AI 判该不该补 DoT只能凭训练记忆，
+        //      这正是用户说的会影响 AI 决策。
+        // ══════════════════════════════════════════════════════════════
+        if (技能Id == SpellIds.取("毒菌")) return new[] { (0, 20) };
+        if (技能Id == SpellIds.取("猛毒菌")) return new[] { (0, 40) };
+        if (技能Id == SpellIds.取("蛊毒法")) return new[] { (0, 85) };
+        
+        // 能量吸收：直伤（不是 DoT），同样是输出能力技里唯一缺威力的那条
+        if (技能Id == SpellIds.取("能量吸收")) return new[] { (0, 100) };
+        
         return null;
     }
 
