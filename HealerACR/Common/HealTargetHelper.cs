@@ -114,28 +114,95 @@ public static class HealTargetHelper
             }
             catch { return new List<IBattleChara>(); }
 
-            var 我 = CharacterExt.我的位置();
-            LogHelper.Info("[HealerACR.路标] 3503（可治疗：即将构造 源）");
-            var 源 = 半径 >= 30f
-                ? PartyHelper.CastableAlliesWithin30
-                : PartyHelper.CastableAlliesWithin30.Where(r =>
-                    {
-                        try { return r.对象有效() && Vector3.Distance(我, r.Position) <= 半径; }
-                        catch { return false; }
-                    });
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **一次性物化 + 立即标量化 + 纯托管排序** ★★
+            //
+            //  [!] 为什么必须推倒重写（外部审查指出的、我之前没意识到的关键点）：
+            //
+            //      原来的写法是**惰性链**：
+            //          var 源 = PartyHelper.CastableAlliesWithin30.Where(...);   // 不执行
+            //          return 源.Where(r => r.对象有效() && r.可以治())           // 不执行
+            //                    .OrderBy(r => r.有效血量比例())                    // 不执行
+            //                    .ToList();                                        // ★ 真正执行在这里
+            //
+            //      ==> **"预检"和"真正读取"之间隔着整条延迟链**，中间可能过了很久。
+            //      ==> `对象有效()` 只能证明**检查那一瞬间**有效，
+            //          **不能保证本次操作期间一直有效**。
+            //      ==> 这就是"修了 43 处元素级守卫仍然崩"的原因 —— **守卫在时间上太早了**。
+            //
+            //  [!] 另外两个问题：
+            //      · `PartyHelper.CastableAlliesWithin30` 被读了 **3 次**（预检 / 两分支）
+            //        —— 它可能是**每次访问都重建的原生集合**，而 `源` 直接持有它。
+            //      · `OrderBy` 会**物化并重新枚举**，`r.Position` / `有效血量比例()` 会被读多次。
+            //
+            //  [!] 修法（三步，彻底消除延迟求值）：
+            //      ① **一次读取**集合，**立即 `ToArray()`** 物化成托管数组
+            //      ② **一次遍历**，每读到一个对象就**立刻**做完所有 native 判定，
+            //         并通过 `一次读完()` **在同一瞬间**把标量取出来
+            //      ③ **纯托管排序** —— 用取好的 `float` 排序，排序时**不再碰游戏对象**
+            //
+            //  [!] 这样"判"和"读"之间没有时间窗口，`PartyHelper` 只读一次，
+            //      排序阶段完全在托管内存里。**native 对象只存在于循环体那几行。**
+            // ══════════════════════════════════════════════════════════════
+            LogHelper.Info("[HealerACR.路标] 3503（可治疗：即将一次性读取队伍集合）");
 
-            // [!] `可以治()` 现在自带 try（见 `CharacterExt.可以治`），
-            //     这里的 `对象有效()` 是**第二道**：先便宜地筛一遍，
-            //     避免对明显失效的对象再进 `可以治()`。
-            LogHelper.Info("[HealerACR.路标] 3504（可治疗：即将 Where/OrderBy/ToList）");
-            return 源
-                .Where(r => r.对象有效() && r.可以治())
-                .OrderBy(r =>
+            // ① 一次读取 + 立即物化（绝不重复访问那个 getter）
+            var 原始 = PartyHelper.CastableAlliesWithin30;
+            if (原始 == null) return new List<IBattleChara>();
+            IBattleChara[] 快照;
+            try { 快照 = 原始.ToArray(); }     // ★ 立刻断开与原生集合的关系
+            catch { return new List<IBattleChara>(); }
+            LogHelper.Info($"[HealerACR.路标] 3504（可治疗：已物化 {快照.Length} 个）");
+
+            var 我 = CharacterExt.我的位置();
+            var 结果 = new List<IBattleChara>(快照.Length);
+            var 分数 = new List<float>(快照.Length);
+
+            // ② 一次遍历：判 + 读 全在同一瞬间完成
+            for (var i = 0; i < 快照.Length; i++)
+            {
+                LogHelper.Info($"[HealerACR.路标] 3505-{i}（可治疗：处理第 {i} 个）");
+                var r = 快照[i];
+                if (r == null) continue;
+
+                // ★ 一次读完所有需要的 native 值（判 + 读在同一瞬间，无延迟链）
+                var 有效 = false;
+                var 可治 = false;
+                var 血比 = 999f;
+                var 距离够 = true;
+                try
                 {
-                    try { return r.有效血量比例(); }
-                    catch { return 999f; }   // 读不到排最后（不参与优先治疗）
-                })
-                .ToList();
+                    有效 = r.对象有效();
+                    if (!有效) continue;
+                    可治 = r.可以治();
+                    if (!可治) continue;
+                    if (半径 < 30f)
+                        距离够 = Vector3.Distance(我, r.Position) <= 半径;
+                    if (!距离够) continue;
+                    血比 = r.有效血量比例();
+                }
+                catch { continue; }
+
+                结果.Add(r);
+                分数.Add(血比);
+            }
+            LogHelper.Info($"[HealerACR.路标] 3506（可治疗：过滤后 {结果.Count} 个，即将纯托管排序）");
+
+            // ③ 纯托管排序 —— 只比较取好的 float，**不再触碰任何游戏对象**
+            try
+            {
+                var 序 = new int[结果.Count];
+                for (var i = 0; i < 序.Length; i++) 序[i] = i;
+                Array.Sort(序, (a, b) => 分数[a].CompareTo(分数[b]));
+                var 排好 = new List<IBattleChara>(结果.Count);
+                foreach (var i in 序) 排好.Add(结果[i]);
+                LogHelper.Info("[HealerACR.路标] 3507（可治疗：排序完成）");
+                return 排好;
+            }
+            catch
+            {
+                return 结果;   // 排序失败就返回未排序的（不影响正确性，只是优先级差一点）
+            }
         }
         catch
         {
