@@ -1458,6 +1458,8 @@ public abstract class HealerEntryBase : IRotationEntry
 
     /// <summary>调试窗连续失败几次就自动关掉（防止每帧抛异常）</summary>
     private static int _调试窗失败次数;
+    /// <summary>反射找过 `调试窗` 了吗 —— **找过就不再找**（见 `画AI层调试窗()`）。</summary>
+    private static bool _找过调试窗;
     private static int 调用次数;
     private const int 调试窗失败上限 = 5;
 
@@ -1587,8 +1589,17 @@ public abstract class HealerEntryBase : IRotationEntry
 
         try
         {
-            if (_画调试窗 == null)
+            // ⚠️ **找过就不再找** —— 和 `画AI层设置页()` / `画AI层记忆库()` 一致。
+            //
+            //  [!] 原来只判 `_画调试窗 == null`：
+            //        如果 AI 层没加载（或类型名不对），**永远找不到** ⇒
+            //        **每帧都遍历一遍所有程序集**找类型。
+            //      而设置面板实测每秒被画几百次 ⇒ **每秒几百次 `GetAssemblies()`**。
+            //      ==> 纯浪费 CPU（`GetAssemblies()` 会分配数组 + 遍历）。
+            //      和"面板被画 8800 次/秒"叠加，就是一个实打实的卡顿源。
+            if (_画调试窗 == null && !_找过调试窗)
             {
+                _找过调试窗 = true;   // ★ 无论找到与否，只找一次
                 foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
                 {
                     Type? 类型 = null;

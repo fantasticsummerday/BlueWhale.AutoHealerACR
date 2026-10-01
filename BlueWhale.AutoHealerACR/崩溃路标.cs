@@ -48,6 +48,8 @@ namespace BlueWhale.AutoHealerACR;
 public static class 崩溃路标
 {
     private static int _上次号 = -1;
+    /// <summary>每个号上次打的时间 —— **按号节流**，见 `记()` 的说明。</summary>
+    private static readonly System.Collections.Generic.Dictionary<int, long> _各号上次 = new();
     private static long _上次毫秒;
     private static long _累计;
 
@@ -82,7 +84,7 @@ public static class 崩溃路标
         记(号, 说明);
     }
 
-    /// <summary>打一个路标。号变了立刻打；号没变最多 1 秒 1 条。</summary>
+    /// <summary>打一个路标。**每个号** 1 秒最多 1 条；号变了立刻打。</summary>
     public static void 记(int 号, string 说明)
     {
         try
@@ -90,17 +92,35 @@ public static class 崩溃路标
             _累计++;
             var 现在 = TimeHelper.Now();
 
-            // 号变了 → 立刻打（关键的"走到哪了"信息）
+            // ══════════════════════════════════════════════════════════════
+            //  [!] **必须【按号】节流** —— "号变了就打"对**循环**路标无效：
+            //      路标是循环走的（3301→3302→…→3314→回到 3301），
+            //      每走一步方向都"号变了" ==> 规则命中"立刻打" ==> **每条都打**。
+            //      实测：16 秒写了 **10 MB**（日志被截成 _010/_011/_012），
+            //      其中 97% 是这些路标 —— 而**高频写盘本身就是卡顿源**。
+            //
+            //  [!] 按号节流后：循环里每个号每轮只贡献第 1 条，
+            //      **频率降约 3000 倍**，而"最后走到哪个号"完全保留。
+            // ══════════════════════════════════════════════════════════════
             if (号 != _上次号)
             {
                 _上次号 = 号;
                 _上次毫秒 = 现在;
+                _各号上次[号] = 现在;
                 LogHelper.Info($"[BlueWhale.路标] {号}（{说明}）｜累计 {_累计} 次");
                 return;
             }
 
-            // 号没变 → 1 秒 1 条（防刷屏）
-            if (现在 - _上次毫秒 < 1000) return;
+            if (!详细模式)
+            {
+                if (_各号上次.TryGetValue(号, out var 该号上次) && 现在 - 该号上次 < 1000) return;
+                _各号上次[号] = 现在;
+            }
+            else if (现在 - _上次毫秒 < 1000)
+            {
+                return;
+            }
+
             _上次毫秒 = 现在;
             LogHelper.Info($"[BlueWhale.路标] {号}（{说明}）· 重复 ｜累计 {_累计} 次");
         }
