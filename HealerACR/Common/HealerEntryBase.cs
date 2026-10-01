@@ -495,6 +495,34 @@ public abstract class HealerEntryBase : IRotationEntry
                 //    · 时间轴装不上 → 开怪时报「本场战斗没有加载时间轴」
                 //    · AI 上下文不重建 → AI 以为还在上一个地图
                 //  （实测日志：`进入新地图` 之后没有任何「进本识别」行。）
+                // ══════════════════════════════════════════════════════
+                //  ★★★ **AI 局面缓存的刷新点 —— 必须在这里，不能挂在 AI 心跳里** ★★★
+                //
+                //  [!] 这是压垮 21 轮排查的最后一个坑，而且它和下面「坦克压力」
+                //      是**完全同一类问题**（开发约定 G：AI 是增强层，
+                //      本地逻辑不该依赖 AI 存活）。
+                //
+                //  [!] 原来的结构：
+                //        `主线程刷新缓存()` 只挂在 `AiHeartbeat.Check()` 里，
+                //        而 `AiHeartbeat` 是靠 `构建决策队列()` 注册的。
+                //      ==> **队列里没有它时，缓存永远不刷新**
+                //          ==> `取主线程缓存()` 一直返回"读取受限"降级文本
+                //          ==> AI 看到的局面是**空的**。
+                //      （实测日志：`33-取缓存` 3 次、`33-采集开始` **0 次**。）
+                //
+                //  [!] 为什么必须挂**这里**：
+                //        这条回调由 `视图窗口.SetUpdateAction` 驱动，
+                //        框架**每帧无条件调**（见上面 `OnBattleUpdate` 的说明）——
+                //        它是本地层**唯一确定的每帧路径**。
+                //        `OnBattleUpdate` 不行（只有战斗中才跑），而 AI 需要在
+                //        **非战斗**（进本、落地）时也能拿到局面。
+                //
+                //  [!] 这段调用**不依赖 AI 层存在**：
+                //        走反射；AI 层没加载时直接静默返回（开发约定 G）。
+                //      ⚠️ 反射只在**没找到时**才每次都试 —— 找到后会缓存下来。
+                // ══════════════════════════════════════════════════════
+                try { 刷新AI局面缓存反射(); } catch { }
+
                 try { 伤害预测.每帧更新(); } catch { }   // 血量采样（给预测用）
                 try { 进本识别.每帧检查(); } catch { }
 
@@ -1609,6 +1637,58 @@ public abstract class HealerEntryBase : IRotationEntry
     ///    修法是"采集只在主线程跑，后台线程读缓存"——
     ///    而**主线程 id 必须在确定是主线程的地方写**（就是这里）。
     /// </summary>
+    /// <summary>
+    /// **反射调用 AI 层的 `AiSituation.主线程刷新缓存()`** —— 由每帧回调驱动。
+    ///
+    /// [!] 为什么必须由本地层驱动（实测踩的坑）：
+    ///      原来它只挂在 `AiHeartbeat.Check()` 里，而 `AiHeartbeat` 是靠
+    ///      `构建决策队列()` 注册的。**队列里没有它时缓存永远不刷新** ——
+    ///      日志实测：`33-取缓存` 3 次、`33-采集开始` **0 次**，
+    ///      也就是 AI 拿到的局面一直是「读取受限」的降级文本。
+    ///      这和 `坦克压力` / `HealQt` / `以太管理` 是**同一类问题**
+    ///      （开发约定 G：AI 是增强层，本地逻辑不该依赖 AI 存活）。
+    ///
+    /// [!] 反射结果会缓存 —— 找到一次之后就不再查找，避免每帧做反射。
+    /// [!] AI 层没加载时静默返回 —— 那是**正常情况**。
+    /// </summary>
+    private static System.Reflection.MethodInfo? _刷新AI缓存方法;
+    private static bool _找过刷新AI缓存;
+    
+    private static void 刷新AI局面缓存反射()
+    {
+        try
+        {
+            if (_刷新AI缓存方法 != null)
+            {
+                _刷新AI缓存方法.Invoke(null, null);
+                return;
+            }
+            if (_找过刷新AI缓存) return;   // 找过但没找到 -> 别再找（AI 层没装）
+    
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.AiSituation", false); }
+                catch { }
+                if (类型 == null) continue;
+    
+                var 方法 = 类型.GetMethod(
+                    "主线程刷新缓存",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                    null, Type.EmptyTypes, null);
+                if (方法 == null) { _找过刷新AI缓存 = true; return; }
+    
+                _刷新AI缓存方法 = 方法;
+                _找过刷新AI缓存 = true;
+                方法.Invoke(null, null);
+                LogHelper.Info("[HealerACR] AI 局面缓存刷新点已挂上（每帧驱动，不依赖 AI 队列）");
+                return;
+            }
+            _找过刷新AI缓存 = true;   // 一个都没找到（AI 层没装）
+        }
+        catch { }
+    }
+    
     private static void 标记AI层主线程()
     {
         try
