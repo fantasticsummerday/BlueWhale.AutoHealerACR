@@ -375,6 +375,7 @@ public static class 调试窗
     /// <summary>真正的绘制（开关已由调用方决定）。</summary>
     private static void 绘制()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("调试窗.绘制");
         // ══════════════════════════════════════════════════════════════
         //  ★ **换区 / 加载 / 队伍已散时：整个窗口都不读游戏状态** ★
         //
@@ -1309,6 +1310,7 @@ public static class 调试窗
 
     private static void 画AI()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("调试窗.画AI");
         try
         {
             _段AI++;

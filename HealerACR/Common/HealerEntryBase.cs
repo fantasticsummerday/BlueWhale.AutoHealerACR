@@ -228,6 +228,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>把开关暴露到 QT 面板。子类可以 override 之后往里面加职业专属开关。</summary>
     protected virtual void 构建QT()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("构建QT");
         // 把技能表注入给事件处理类 —— 它是独立类，拿不到入口类的 Spells 属性。
         // AfterSpell 里做单插控制要用到（判断"复活"用掉了即刻）。
         // ⚠️ **这里原来还有一行 `HealRotationEventHandler.当前技能表 = Spells;`** ——
@@ -904,6 +905,7 @@ public abstract class HealerEntryBase : IRotationEntry
 
     public virtual void OnDrawSetting()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("OnDrawSetting");
         // ══════════════════════════════════════════════════════════════════
         //  ★★★ **全进程共享的绘制门 —— 这一句是闪烁的修复** ★★★
         //
@@ -1723,6 +1725,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// <summary>打一条设置面板路标（1 秒限流）。见上方长注释。</summary>
     private static void 面板路标(int 号, string 说明)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("面板路标");
         try
         {
             _路标次数++;
@@ -2203,6 +2206,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// </summary>
     private static void 写诊断(string 内容)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("写诊断");
         try
         {
             _写诊断次数++;
@@ -2246,6 +2250,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// </summary>
     public void 画调试窗()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("画调试窗");
         // ══════════════════════════════════════════════════════════════════
         //  ★ **开关判断只在这一处**（用户实测三个现象的共同根因）★
         //
@@ -2282,6 +2287,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// </param>
     private static void 画AI层调试窗(bool 启用)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("画AI层调试窗");
         // ══════════════════════════════════════════════════════════════
         //  ★★★ **失败自禁用（已改成有冷却的重试）** ★★★
         //

@@ -546,6 +546,7 @@ public static class AiSituation
     /// </summary>
     public static string 识别摘要()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("AiSituation.识别摘要");
         // ══════════════════════════════════════════════════════════════════
         //  ★★★ **主线程守卫 —— 外部审查 P0-1（我核实确认为真）** ★★★
         //

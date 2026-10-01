@@ -20,6 +20,7 @@ public static class HealTargetHelper
     /// </summary>
     public static List<IBattleChara> 可治疗队友(float 半径 = 30f)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("可治疗队友");
         // ══════════════════════════════════════════════════════════════
         //  ★ 这是**所有治疗目标的唯一入口**，所以韧性放在这里 ★
         //

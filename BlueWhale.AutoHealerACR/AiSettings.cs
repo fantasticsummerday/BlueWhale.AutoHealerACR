@@ -126,6 +126,7 @@ public class AiSettings
     /// </summary>
     public static string 记忆根目录()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("AiSettings.记忆根目录");
         try
         {
             var 设置值 = Instance?.记忆目录;
@@ -161,6 +162,7 @@ public class AiSettings
     /// </summary>
     private static void 尝试迁移旧数据(string 新目录)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("AiSettings.尝试迁移旧数据");
         if (_已尝试迁移) return;
         _已尝试迁移 = true;   // 一个进程只试一次，别每帧都查磁盘
 
@@ -292,6 +294,7 @@ public class AiSettings
     /// </summary>
     private static AiSettings 读一次()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("AiSettings.读一次");
         try
         {
             var 路径 = 设置路径();
@@ -398,6 +401,7 @@ public class AiSettings
     /// </summary>
     public static void 初始化(string settingFolder)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("AiSettings.初始化");
         // ⚠️ 只认第一次。
         //    四个职业入口各会调一次 Build → 各调一次这里，
         //    如果每次都覆盖，最后那个（贤者）的目录会赢，
@@ -433,6 +437,7 @@ public class AiSettings
 
     private static string 设置路径()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("AiSettings.设置路径");
         var 目录 = _设置目录;
 
         if (string.IsNullOrEmpty(目录))
