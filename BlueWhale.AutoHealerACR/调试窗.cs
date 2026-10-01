@@ -425,24 +425,36 @@ public static class 调试窗
             var 显示 = true;
 
             // ══════════════════════════════════════════════════════════════
-            //  [!] `Begin` 返回 **false** 时**绝对不能调 `End`** —— 这是闪退根因
+            //  ★★★ `Begin()` 返回 false 时 **必须** 调 `End()` —— ImGui 的明例 ★★★
             //
-            //      ImGui 的契约：`Begin` 返回 false 表示"这个窗口这一帧没被画"
-            //      （被折叠 / 被裁剪 / 完全在屏幕外），**栈上没有它**，
-            //      所以**不需要也不允许**配对的 `End`。
+            //  [!] Dear ImGui 官方契约（`imgui.h` 原文，已核对）：
+            //        "Always call a matching End() for each Begin() call,
+            //         **regardless of its return value!**"
+            //        "[Important: due to legacy reason, Begin/End and
+            //          BeginChild/EndChild are **inconsistent** with all other
+            //          functions such as BeginMenu/EndMenu, BeginPopup/EndPopup,
+            //          etc. where the EndXXX call should only be called if the
+            //          corresponding BeginXXX function returned true.
+            //          **Begin and BeginChild are the only odd ones out.**]"
             //
-            //      我原来写成了：
-            //          if (!ImGui.Begin(...)) { ImGui.End(); return; }
-            //          try { ... } finally { ImGui.End(); }
-            //      => 那条路径上 `End` 被调了**两次** =>
-            //         窗口栈不平衡 => **ImGui 断言失败 => 进程崩溃**。
+            //  [!] 也就是分成两类，**别记混**：
+            //        · `Begin` / `BeginChild`  -> **不管返回什么都要 End**（特例）
+            //        · `BeginPopup` / `BeginMenu` / `BeginTable` / `BeginTabBar`
+            //          / `BeginCombo` / `BeginTooltip` -> **只有返回 true 才 End**
             //
-            //  [!] 为什么之前没炸：只有 `Begin` 返回 false 才走到 ——
-            //      窗口被折叠 / 屏幕太小 / 窗口完全在可视区外才会发生。
-            //      用户这次的分辨率下窗口超出边界，正好触发。
+            //  [!] ⚠️ **本文件里曾经有一段注释把这两类写反了**：
+            //        它说「`Begin` 返回 false 时**绝对不能**调 `End`，
+            //        因为栈上没有它」—— **这是错的**，那是 `BeginPopup` 的规矩。
+            //        那段注释还声称"原来的写法导致 End 被调两次所以崩溃"，
+            //        那个归因也是错的。
+            //        ==> 教训：**ImGui 的 Begin/End 契约必须去查官方文档，
+            //            不能凭"感觉对"来写**。写反了会同时造成
+            //            "窗口栈失衡"和"错误地归因到别处"两个后果。
             //
-            //  [!] 现在贴右缘的定位（见上）已经降低了"超出边界"的概率，
-            //      但**判据本身必须是对的** —— 不能靠"窗口位置算得好"来回避。
+            //  [!] 真实现象（本次修复的靶子）：
+            //        用户折叠调试窗后，每帧都少一个 `End`
+            //        ==> ImGui 窗口栈失衡并累积 ==> 窗口反复重绘 ==> **狂闪**。
+            //        只有"折叠"这一种状态下才会走到，所以开发时没踩到。
             // ══════════════════════════════════════════════════════════════
             var begin结果 = ImGui.Begin("小鲸鱼 · 实时数据（只读）", ref 显示,
                                         ImGuiWindowFlags.NoCollapse);
@@ -451,37 +463,11 @@ public static class 调试窗
                    // 实际位置/尺寸在 Begin 之后才拿得到（见下面的 GetWindowPos）
 
             // ══════════════════════════════════════════════════════════════
-            //  ★★★ **`Begin()` 返回 false 也必须 `End()`** —— 这是狂闪的根因 ★★★
-            //
-            //  [!] 原来的代码（错）：
-            //          if (!begin结果)
-            //          {
-            //              return;      // [!] 不调 End —— Begin=false 时没有配对的 End
-            //          }
-            //      那句注释**写反了**。ImGui 的硬性规矩是：
-            //          `Begin()` **一旦被调用**，不论返回 true 还是 false，
-            //          **都必须**配一个 `End()`。
-            //      返回 false 表示"窗口折叠了 / 内容不该画"，
-            //      **不等于"没有开窗口"**。
-            //
-            //  [!] 后果（与用户实测完全吻合）：
-            //        窗口折叠时**每次都少一个 End** ⇒ ImGui 窗口栈**失衡并累积**
-            //        ==> 「进本后一开始绘制页面有闪烁」->「现在直接在狂闪了」
-            //        ==> 严重时绘制异常逃逸 -> **闪退**
-            //
-            //  [!] 日志证据：
-            //        面板**每秒被画 156 次**（显示刷新才 60Hz）= 每帧 2~3 次，
-            //        正是栈失衡导致的重复绘制。
-            //
-            //  [!] 为什么一直没被发现：
-            //        只有**把调试窗折叠起来**才会走这条分支；
-            //        开发/测试时窗口是展开的，所以从没踩到。
-            //        ==> 教训：**这类"只有一个 UI 状态下才走到"的分支，
-            //            静态审查时必须专门去看 Begin/End 配对。**
-            // ══════════════════════════════════════════════════════════════
             if (!begin结果)
             {
-                ImGui.End();   // ★ **必须配对** —— 折叠时也要 End，否则窗口栈失衡
+                // ★ **必须配对** —— 见上面 `Begin` 处引的 ImGui 官方原文：
+                //    `Begin` / `BeginChild` 是"不管返回什么都要 End"的**特例**。
+                ImGui.End();
                 return;
             }
 
