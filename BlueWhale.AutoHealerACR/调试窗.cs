@@ -551,7 +551,13 @@ public static class 调试窗
             try
             {
                 var 我 = Core.Me;
-                if (我 != null)
+                // ⚠️ **必须判 `对象有效()`，只判 `!= null` 不够** ——
+                //    `Core.Me` 指向的对象在换图/切区时会被**释放**，
+                //    但它**不是 null**（Dalamud 会写成哨兵地址 `0x12345679`）。
+                //    只判 null 就会去读一个已释放对象的结构体 ==>
+                //    **原生访问违例**（穿 catch、无转储、全局钩子不触发）。
+                //    这个写法在本项目已经崩过 6 次（`AiSituation.采集` 那处）。
+                if (我 != null && 我.对象有效())
                 {
                     ImGui.Text($"职业：{我.ClassJob.Value.Name}（{Data.PlayerCurrentLevel} 级）");
                     ImGui.TextDisabled($"  血量 {我.CurrentHp * 100.0 / Math.Max(1, 我.MaxHp):F0}%" +

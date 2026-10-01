@@ -300,7 +300,8 @@ public static class 对局记录
     /// <summary>当前职业名</summary>
     public static string 当前职业名()
     {
-        try { return Core.Me.ClassJob.Value.Name.ToString(); }
+        // ★ 走带守卫的唯一入口（原来是裸读 Core.Me.ClassJob.Value.Name）
+        try { return AiSituation.职业名(); }
         catch { return "未知"; }
     }
 

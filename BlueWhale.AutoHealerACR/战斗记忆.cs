@@ -248,7 +248,8 @@ public static class 战斗记忆
                 //    所以不能用 `?.`（编译器报 CS0023）。
                 //    读 `.Value.Name` 才拿得到名字 —— 和 `对局记录` / `AiSituation`
                 //    用的是同一种读法，保持一致。
-                记录.职业 = 我.ClassJob.Value.Name.ToString();
+                // ★ 读之前先判有效性 —— 失效时给占位符，不要为了一个名字把游戏打崩
+                    记录.职业 = (我.对象有效()) ? 我.ClassJob.Value.Name.ToString() : "未知";
             }
             catch { }
 
