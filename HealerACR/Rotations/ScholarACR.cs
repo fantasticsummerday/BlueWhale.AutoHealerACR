@@ -836,7 +836,9 @@ public class SCH_FeyBlessing : ISlotResolver
         var s = HealSettings.Instance;
         // 小仙女技能是免费的，门槛比 GCD 群奶低一个人
         var 要求人数 = Math.Max(1, s.群奶最少人数 - 1);
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
+        // ★ 用这个技能自己的阈值 ★  参考：shiyuvi FeyBlessing 0.6 ｜ youshu 祥光 70
+        var 本技血线 = 治疗阈值表.取(技能, s.群体治疗阈值);
+        if (HealTargetHelper.低于阈值人数(本技血线, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 18 : -1;
     }
@@ -985,7 +987,9 @@ public class SCH_Seraph : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.炽天使剩余 > 0) return -3;
 
-        var 团队掉血 = HealTargetHelper.低于阈值人数(HealSettings.Instance.大招血线)
+        // ★ 用这个技能自己的阈值 ★  参考：shiyuvi SummonSeraph 0.55
+        var 本技血线 = 治疗阈值表.取(技能, HealSettings.Instance.大招血线);
+        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线)
                        >= HealSettings.Instance.群奶最少人数;
         var 要来伤害 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
@@ -1026,7 +1030,9 @@ public class SCH_Consolation : ISlotResolver
         if (TimeHelper.Now() - 上次慰藉 < 限流) return -7;
 
         var s = HealSettings.Instance;
-        var 团队掉血 = HealTargetHelper.低于阈值人数(s.大招血线, 20f) >= s.群奶最少人数;   // 慰藉 20 米
+        // ★ 用这个技能自己的阈值 ★  参考：youshu 慰藉 55
+        var 本技血线 = 治疗阈值表.取(技能, s.大招血线);
+        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线, 20f) >= s.群奶最少人数;   // 慰藉 20 米
         var 要来伤害 = TimelineManager.未来有减伤(2.0) || 减伤Helper.即将来大伤害();
 
         if (!团队掉血 && !要来伤害) return -1;

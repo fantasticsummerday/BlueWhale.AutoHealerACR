@@ -32,7 +32,9 @@ public class SCH_Seraphism : ISlotResolver
         if (Core.Me.有该技能的Buff(技能)) return -3;
 
         var s = HealSettings.Instance;
-        var 掉血多 = HealTargetHelper.低于阈值人数(s.大招血线) >= s.群奶最少人数;
+        // ★ 用这个技能自己的阈值 ★  参考：shiyuvi Seraphism 0.4 ｜ youshu 变身 40
+        var 本技血线 = 治疗阈值表.取(技能, s.大招血线);
+        var 掉血多 = HealTargetHelper.低于阈值人数(本技血线) >= s.群奶最少人数;
         var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
         if (!掉血多 && !要来了) return -1;

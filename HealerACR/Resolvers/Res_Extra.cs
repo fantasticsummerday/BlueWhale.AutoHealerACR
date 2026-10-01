@@ -30,7 +30,10 @@ public class SCH_WhisperingDawn : ISlotResolver
 
         var s = HealSettings.Instance;
         var 要求人数 = Math.Max(1, s.群奶最少人数 - 1);
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
+        // ★ 用**这个技能自己的**阈值（`治疗阈值表`），查不到才回落统一群疗阈值 ★
+        //   参考：shiyuvi WhisperingDawn 0.7 ｜ youshu 低语 70
+        var 本技血线 = 治疗阈值表.取(技能, s.群体治疗阈值);
+        if (HealTargetHelper.低于阈值人数(本技血线, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 17 : -1;
     }
@@ -59,7 +62,12 @@ public class SCH_FeyIllumination : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var 要来伤害 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
-        var 团队掉血 = HealTargetHelper.低于阈值人数(HealSettings.Instance.群体治疗阈值)
+        // ★ 用这个技能自己的阈值 ★
+        //   ⚠️ 参考实现里 `异想的幻光` 是「减伤 + 治疗量提升」，触发点该比普通群疗更早。
+        //      表里目前没登记它 -> 回落统一群疗阈值（行为不变），
+        //      要改的话在 `治疗阈值表` 里加一条即可。
+        var 本技血线 = 治疗阈值表.取(技能, HealSettings.Instance.群体治疗阈值);
+        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线)
                        >= Math.Max(1, HealSettings.Instance.群奶最少人数 - 1);
 
         if (!要来伤害 && !团队掉血) return -1;
