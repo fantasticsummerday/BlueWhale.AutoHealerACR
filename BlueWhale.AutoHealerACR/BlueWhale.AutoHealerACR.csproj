@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>BlueWhale</AssemblyName>
     <RootNamespace>BlueWhale.AutoHealerACR</RootNamespace>
-    <Version>0.3.19.81</Version>
+    <Version>0.3.19.82</Version>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
