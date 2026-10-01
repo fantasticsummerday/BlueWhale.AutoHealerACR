@@ -715,7 +715,15 @@ public class Res_BigAoEHeal : ISlotResolver
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
 
             var s = HealSettings.Instance;
-            var 人够多 = HealTargetHelper.低于阈值人数(s.大招血线, 20f) >= s.群奶最少人数;   // 20 米：大宇宙 25874
+            // ⚠️ 血线走 `治疗阈值表`（每技能值 + AI 三种偏移）——
+            //    原来硬编码 `s.大招血线`，而表里给
+            //    `大宇宙 0.55` / `全大赦 0.35` / `魂灵风息 0.60` 登记的值**读不到**。
+            //    [!] 数值不会突变：那些登记值的来源注释写着
+            //        `// shiyuvi GCD群奶治疗阈值 0.5 / youshu GCD群奶 55` 这类，
+            //        说明它们**本来就是从统一值抄过来的** —— 接上以后只是变成可被 AI 逐个调。
+            //    [!] 判据与 `Res_GroupHoT` / `Res_HealAoEAbility` 同源（开发约定 F③）。
+            var 本技血线 = 治疗阈值表.取(id, s.大招血线);
+            var 人够多 = HealTargetHelper.低于阈值人数(本技血线, 20f) >= s.群奶最少人数;   // 20 米：大宇宙 25874
             var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
             if (!人够多 && !要来了) return -1;
