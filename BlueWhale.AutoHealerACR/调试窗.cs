@@ -123,6 +123,44 @@ public static class 调试窗
     private static long _记诊断上次毫秒;
     private static int _画次数;
 
+    /// <summary>上次输出"为什么不能读游戏状态"的时间 —— 1 秒最多一条</summary>
+    private static long _上次状态诊断;
+
+    /// <summary>
+    /// 安全读 **GameObjectId + DataId**（种类 id）—— 用于诊断"是哪个对象失效了"。
+    ///
+    /// [!] 为什么单独包一层：失效对象上读属性会触发**原生访问违例**
+    ///      （`0xc0000005`，**直接穿透 C# 的 catch**），
+    ///      而这里正是在"**怀疑对象已失效**"时去读它。
+    ///
+    /// [!] 为什么用 `DataId` 而不是 `NameId`：
+    ///      `NameId` 在 `IBattleChara` 上（`AEAssist.Extension.IBattleChara`），
+    ///      而本文件拿到的是 `IGameObject` —— 强转会引入额外依赖与失败点。
+    ///      `DataId` 是 `IGameObject` 自带的，**够用**（它就是"哪一种怪/人"的 id）。
+    ///
+    /// [!] ⚠️ **两个属性各自独立 try** —— 一个读失败不能影响另一个。
+    /// </summary>
+    private static string Safe身份(object? o)
+    {
+        var 对象 = "";
+        try
+        {
+            if (o is Dalamud.Game.ClientState.Objects.Types.IGameObject g)
+                对象 = g.GameObjectId.ToString();
+        }
+        catch { 对象 = "读取失败"; }
+
+        var 种类 = "";
+        try
+        {
+            if (o is Dalamud.Game.ClientState.Objects.Types.IGameObject g2)
+                种类 = g2.DataId.ToString();
+        }
+        catch { 种类 = "读取失败"; }
+
+        return $"GameObjectId={对象} DataId={种类}";
+    }
+
     private static void 记诊断(string 内容)
     {
         try
@@ -285,17 +323,31 @@ public static class 调试窗
         //    三条**任意一条成立**就跳过（宁可少显示，不要崩）。
         // ══════════════════════════════════════════════════════════════
         var 可以读游戏状态 = true;
+        // ★ **哪条判据挡住的** —— 用户实测「窗口只剩『换区 / 加载中』」时必须能看出来
+        //   [!] 为什么必须记原因：这三条判据里**只要有一条**成立就整窗不读数据，
+        //      而它们的失败条件**完全不同**：
+        //        ① 真的在切图     -> 等一下就恢复，正常
+        //        ② 地图 id 是 0   -> 不在任何场景，正常
+        //        ③ 某个队友对象失效 -> ★ 这是**可疑**的：可能一直失效 => 窗口永久空白
+        //      只看到"不能读"而不知道是哪条，就**分不清"等一下就好"和"永远好不了"**。
+        var 挡住原因 = "";
         try
         {
             // ① 游戏自己说在切图
             if (Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas())
+            {
                 可以读游戏状态 = false;
-        
+                挡住原因 = "① IsBetweenAreas()=true（游戏自己说在切图）";
+            }
+
             // ② 不在任何场景
             // [!] 用仓库自己的包装（\进本识别.cs\ 同款），不要自造 API ——
             //     我上一版写的 \Data.CurrentTerritoryTypeId\ 在 AEAssist 里**不存在**。
             if (可以读游戏状态 && HealerACR.Timeline.TimelineManager.实时副本Id() == 0)
+            {
                 可以读游戏状态 = false;
+                挡住原因 = "② 实时副本Id()=0（不在任何场景）";
+            }
 
             // ③ ★ 本版新增：**队伍整体可信吗** ★
             //
@@ -312,24 +364,66 @@ public static class 调试窗
             //
             //  [!] 判据：逐个确认队伍成员对象**当下**有效。
             //      只要有一个读不到，就当整个队伍不可信（宁可少显示）。
+            //
+            //  [!] ⚠️ **但要能说出是哪个对象** —— 否则"某个对象永久失效"
+            //      会让窗口**永久空白**，而现象只是"加载不出来"，无从下手。
             if (可以读游戏状态)
             {
                 try
                 {
                     var 队 = PartyHelper.CastableAlliesWithin30;
-                    if (队 == null) 可以读游戏状态 = false;
+                    if (队 == null)
+                    {
+                        可以读游戏状态 = false;
+                        挡住原因 = "③ CastableAlliesWithin30 == null";
+                    }
                     else
+                    {
+                        var 序号 = 0;
                         foreach (var r in 队)
-                            if (r == null || !r.对象有效()) { 可以读游戏状态 = false; break; }
+                        {
+                            序号++;
+                            if (r == null)
+                            {
+                                可以读游戏状态 = false;
+                                挡住原因 = $"③ 队伍第{序号}个对象 == null";
+                                break;
+                            }
+                            if (!r.对象有效())
+                            {
+                                可以读游戏状态 = false;
+                                挡住原因 = $"③ 队伍第{序号}个对象【对象有效()=false】（{Safe身份(r)}）";
+                                break;
+                            }
+                        }
+                    }
                 }
-                catch { 可以读游戏状态 = false; }
+                catch (Exception e)
+                {
+                    可以读游戏状态 = false;
+                    挡住原因 = $"③ 读队伍时抛异常：{e.GetType().Name} {e.Message}";
+                }
             }
         }
-        catch
+        catch (Exception e)
         {
             // 读不到条件就**保守当作不能读** —— 崩一次比少显示几行严重得多
             可以读游戏状态 = false;
+            挡住原因 = $"外层条件读不到：{e.GetType().Name} {e.Message}";
         }
+
+        // ⚠️ 每秒最多报一次（这一页每帧都画，不能每帧写日志）
+        try
+        {
+            var 现在诊断 = Environment.TickCount64;
+            if (现在诊断 - _上次状态诊断 >= 1000)
+            {
+                _上次状态诊断 = 现在诊断;
+                if (!可以读游戏状态)
+                    LogHelper.Info($"[BlueWhale.调试窗] 不读游戏状态 —— {挡住原因}");
+            }
+        }
+        catch { }
         
         
         try
