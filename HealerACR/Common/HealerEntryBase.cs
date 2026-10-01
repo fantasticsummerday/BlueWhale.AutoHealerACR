@@ -1013,6 +1013,27 @@ public abstract class HealerEntryBase : IRotationEntry
             return;
         }
 
+        //  ★★★ **独立窗口路：跳过下面所有的门** ★★★
+        //
+        //  [!] 为什么（用户截图实证：窗口外壳正常、标题和关闭按钮都在，
+        //      但**里面是空的**）：
+        //      说明 Dalamud 回调挂载成功、窗口绘制成功，
+        //      而 `OnDrawSetting()` 在某个门那里 return 了。
+        //
+        //      最可能是**身份门**：
+        //        · `独立设置窗.绘制者` 是【第一个 Build 的入口】
+        //        · `currRotation` 是【框架当前选中的入口】
+        //        两者都是 5 个入口之一，**不保证是同一个**
+        //        ⇒ `!ReferenceEquals(...)` 成立 ⇒ return ⇒ 窗口空白。
+        //
+        //  [!] 独立窗口走的是**我们自己的、受信的路**：
+        //      用哪个实例画**由我们自己定**（就是 `绘制者`）。
+        //      身份门是为"5 个入口抢同一页"（沙箱路）设计的，对它毫无意义。
+        //      频率门也不需要 —— Dalamud 的 `Draw` 事件本来就每帧一次。
+        //
+        //  [!] 所以下面三道门全部加 `!独立窗口路 &&` 条件。
+        var 独立窗口路 = 独立设置窗.绘制中;
+
         var 已确认身份 = false;
         try
         {
@@ -1020,7 +1041,7 @@ public abstract class HealerEntryBase : IRotationEntry
             if (当前 != null && _本入口旋转 != null)
             {
                 已确认身份 = true;
-                if (!ReferenceEquals(当前, _本入口旋转)) return;   // 明确不是 -> 不画
+                if (!独立窗口路 && !ReferenceEquals(当前, _本入口旋转)) return;   // 明确不是 -> 不画
             }
         }
         catch { }
@@ -1036,13 +1057,17 @@ public abstract class HealerEntryBase : IRotationEntry
         //
         //  [!] 兜不住时（读不到职业）`是本职业的入口()` 返回 true —— 照旧画。
         //      真正防重复的是上面那层严格身份门；这一层只负责"别变空白"。
-        if (!已确认身份 && !是本职业的入口()) return;
+        //  ★ 独立窗口路同样跳过这道兜底门（理由同上：它只用我们自己定的实例画）★
+        if (!独立窗口路 && !已确认身份 && !是本职业的入口()) return;
 
         // ★ **频率门必须在"一行诊断"之前**（审计 E 项的要求）★
         //   理由：诊断模式虽然是临时功能，但它也在**每次被调**时执行；
         //   放在门后面才能保证"这一页每帧最多被处理一次"这个不变式
         //   在整个方法入口处就成立。见类注释里 `绘制节流` 的四版教训。
-        if (!绘制节流.该画面板()) return;
+        //
+        // [!] 独立窗口路跳过它 —— Dalamud 的 `Draw` 事件本来就每帧一次，
+        //     再加一道 16ms 门只会让窗口在某些帧"不被提交"（那正是闪的成因）。
+        if (!独立窗口路 && !绘制节流.该画面板()) return;
 
         // ══════════════════════════════════════════════════════════════════
         //  ★★ **一行诊断模式** —— 定位"闪烁在宿主还是在我们的 UI" ★★
@@ -1163,6 +1188,29 @@ public abstract class HealerEntryBase : IRotationEntry
         catch { }
 
         面板路标(0, "进入 OnDrawSetting");
+
+        // 独立窗口路的诊断（每秒最多一条）——
+        // 万一窗口还是空白，这一行能直接指出是哪个实例、身份对不对
+        if (独立窗口路)
+        {
+            try
+            {
+                var 现在 = Environment.TickCount64;
+                if (现在 - _设置窗诊断窗口 >= 1000)
+                {
+                    _设置窗诊断窗口 = 现在;
+                    var 我 = AEAssist.CombatRoutine.Data.currRotation;
+                    LogHelper.Info(string.Format(
+                        "[HealerACR] 独立设置窗绘制：本实例={0} ｜ 入口旋转={1} ｜ 当前旋转={2}" +
+                        " ｜ 本职业={3}",
+                        GetHashCode(),
+                        (_本入口旋转 == null ? "null" : _本入口旋转.GetHashCode().ToString()),
+                        (我 == null ? "null" : 我.GetHashCode().ToString()),
+                        TargetJob));
+                }
+            }
+            catch { }
+        }
 
         // ══════════════════════════════════════════════════════════════
         //  ★★ AI 设置放最前面 ★★
@@ -1701,6 +1749,9 @@ public abstract class HealerEntryBase : IRotationEntry
     /// "我还是当前 ACR 吗"（排除 5 个兄弟入口互相抢帧）。
     /// </summary>
     private Rotation? _本入口旋转;
+
+    /// <summary>独立设置窗的诊断节流（每秒最多一条日志）。</summary>
+    private static long _设置窗诊断窗口;
 
     /// <summary>
     /// **一行诊断模式的开关文件路径**（存在 = 只画一行，用于定位闪烁在宿主还是在我们 UI）。
