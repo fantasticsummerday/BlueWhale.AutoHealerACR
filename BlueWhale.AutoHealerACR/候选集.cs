@@ -510,6 +510,10 @@ public static class 候选集
     /// <summary>生成（或 300ms 内复用）当前候选快照。返回的是**不可变快照**。</summary>
     public static 快照 生成()
     {
+        // ★ 深度探针：候选生成是主线程每帧都会走的路，
+        //   而崩溃点曾经落在它之后 ⇒ 加到它的入口上（见 `调用深度` 的说明）。
+        //   ⚠️ 放在 `lock` **外面** —— 加锁期间不要做别的（避免死锁）。
+        using var _深度 = HealerACR.Common.调用深度.进("候选集.生成");
         lock (_锁)
         {
             var 现在 = TimeHelper.Now();

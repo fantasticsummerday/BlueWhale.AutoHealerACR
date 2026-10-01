@@ -2468,6 +2468,7 @@ public abstract class HealerEntryBase : IRotationEntry
     
     private static void 刷新AI局面缓存反射()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("刷新AI局面缓存反射");
         try
         {
             if (_刷新AI缓存方法 != null)

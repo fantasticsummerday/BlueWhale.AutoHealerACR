@@ -245,6 +245,7 @@ public static class AiSituation
 
     private static void 存主线程缓存(string 结果)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("存主线程缓存");
         try
         {
             // ⚠️ 这里**不再**顺手写 `_主线程Id` —— 那只该由 `标记主线程()` 做。
@@ -285,6 +286,7 @@ public static class AiSituation
     /// </summary>
     public static void 主线程刷新缓存()
     {
+        using var _深度 = HealerACR.Common.调用深度.进("主线程刷新缓存");
         try
         {
             标记主线程();
@@ -643,6 +645,7 @@ public static class AiSituation
     /// </summary>
     public static string 采集(候选集.快照? 快照 = null)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("采集");
         // ══════════════════════════════════════════════════════════════════
         //  ★★ **只允许在主线程采集** —— 这是连续 16 次崩溃的真正根因 ★★
         //
@@ -717,6 +720,7 @@ public static class AiSituation
     /// <summary>主线程采集的实现（原 `采集()` 的函数体原样搬进来）。</summary>
     private static string 采集_主线程(候选集.快照? 快照 = null)
     {
+        using var _深度 = HealerACR.Common.调用深度.进("采集_主线程");
         var sb = new StringBuilder();
 
         崩溃路标.记详(3301, "采集 开始 —— 即将 采副本｜T" + Environment.CurrentManagedThreadId.ToString());
