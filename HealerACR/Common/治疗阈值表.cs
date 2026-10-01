@@ -156,7 +156,7 @@ public static class 治疗阈值表
     {
         var v = 查(技能Id);
         var 基 = v >= 0f ? v : 统一阈值;
-        return 夹(基 + AI偏移 + 类别偏移(技能Id));
+        return 夹(基 + AI偏移 + 类别偏移(技能Id) + 取单技能偏移(技能Id));
     }
 
     /// <summary>
@@ -257,6 +257,78 @@ public static class 治疗阈值表
     {
         try { return _名字.TryGetValue(技能Id, out var n) ? n : 技能Id.ToString(); }
         catch { return 技能Id.ToString(); }
+    }
+
+    /// <summary>
+    /// **按显示名反查 id**（0 = 没这个名字）。
+    ///
+    /// ⚠️ 名字**可能重名**（不同职业有同名技能，比如"再生"）。
+    ///    重名时**返回 0**（拒绝）而不是随便挑一个 ——
+    ///    宁可让 AI 的调整被丢弃，也不能调错技能。
+    /// </summary>
+    public static uint 按名字找(string 名)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(名)) return 0;
+            uint 命中 = 0;
+            foreach (var kv in _名字)
+            {
+                if (!string.Equals(kv.Value, 名, System.StringComparison.Ordinal)) continue;
+                if (命中 != 0 && 命中 != kv.Key) return 0;   // 重名 -> 拒绝
+                命中 = kv.Key;
+            }
+            return 命中;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>所有已登记的名字（给"可调参数说明"用，去重且按 id 顺序）。</summary>
+    public static List<string> 全部名字()
+    {
+        try
+        {
+            return _名字.OrderBy(kv => kv.Key).Select(kv => kv.Value).ToList();
+        }
+        catch { return new List<string>(); }
+    }
+
+    // ==================== 单技能偏移（AI 逐个调） ====================
+
+    /// <summary>
+    /// **单个技能的额外偏移** —— 由 `BlueWhale` 侧在 AI 调某个技能时写入。
+    ///
+    /// ⚠️ 它与「类别偏移」和「通用偏移」**是相加**的：
+    ///      最终值 = 表里的值 + AI偏移(通用) + 类别偏移 + 本表偏移
+    ///    ==> AI 可以"整体保守 + 单独把低语调更早"，两者不冲突。
+    ///
+    /// ⚠️ 单装 `HealerACR` 时字典恒空 ⇒ 行为 = 本地基线（开发约定 G）。
+    /// </summary>
+    private static readonly Dictionary<uint, float> _单技能偏移 = new();
+
+    /// <summary>给某个技能加一点偏移（AI 调参用）。</summary>
+    public static void 设单技能偏移(uint 技能Id, float 偏移)
+    {
+        try
+        {
+            if (技能Id == 0) return;
+            if (偏移 == 0f) _单技能偏移.Remove(技能Id);
+            else _单技能偏移[技能Id] = Math.Clamp(偏移, -0.20f, 0.20f);   // 保险丝
+        }
+        catch { }
+    }
+
+    /// <summary>读某个技能的单技能偏移（没设 = 0）。</summary>
+    public static float 取单技能偏移(uint 技能Id)
+    {
+        try { return _单技能偏移.TryGetValue(技能Id, out var v) ? v : 0f; }
+        catch { return 0f; }
+    }
+
+    /// <summary>清掉所有单技能偏移（AI 关掉 / 换本时调）。</summary>
+    public static void 清单技能偏移()
+    {
+        try { _单技能偏移.Clear(); } catch { }
     }
 
     /// <summary>

@@ -375,6 +375,10 @@ public static class AiThresholdAdapter
         // ══════════════════════════════════════════════════════════════
         try { HealerACR.Common.治疗阈值表.AI偏移 = 0f; } catch { }
         try { HealerACR.Common.治疗阈值表.清类别偏移(); } catch { }
+        // ⚠️ 单技能偏移（`技能:低语` 那种）**也必须一起清** ——
+        //    否则换本之后会留着上一个副本对某个技能的调整，
+        //    而"关掉 AI = 回到本地基线"就不成立了。
+        try { HealerACR.Common.治疗阈值表.清单技能偏移(); } catch { }
         _上次同步到表 = float.NaN;
         _上次类别.Clear();
     }
