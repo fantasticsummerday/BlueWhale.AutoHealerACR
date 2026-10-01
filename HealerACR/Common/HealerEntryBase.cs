@@ -764,7 +764,7 @@ public abstract class HealerEntryBase : IRotationEntry
         ImGui.SameLine();
         if (ImGui.Button("重扫时间轴"))
         {
-            TimelineManager.初始化();
+            TimelineManager.初始化(强制: true);
         }
 
         ImGui.SameLine();
@@ -772,7 +772,7 @@ public abstract class HealerEntryBase : IRotationEntry
         {
             HealSettings.写时间轴目录("");
             时间轴目录来源 = "\u0000";   // 强制下一帧刷新缓冲
-            TimelineManager.初始化();
+            TimelineManager.初始化(强制: true);
         }
 
         ImGui.TextDisabled("  当前使用：" + TimelineManager.实际使用的目录);
