@@ -58,6 +58,81 @@ public static class AiSituation
         catch { return "?"; }
     }
 
+
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 主线程守卫 + 缓存（见 `采集()` 开头的长注释）★
+    //
+    //  [!] 为什么用 `Environment.CurrentManagedThreadId` 而不用别的方式：
+    //      它是**托管线程 id**，主线程在进程生命周期内固定不变 ——
+    //      第一次调用（必然在主线程，插件加载时）把 id 记下来即可。
+    //      ⚠️ 不能只记一次就完事：`Build()` 可能被不同线程调，
+    //        所以要判"是不是**第一次**"，第一次谁调谁是基准 —— 而这不可靠。
+    //      ==> 更稳的判据：**AEAssist 的框架线程 id**（下面用 Dalamud 的
+    //          `Scheduler` 拿不到，所以退一步：用"进入职业循环时记下的 id"）。
+    //      这里采用最简单可靠的方案：**记录调用方线程 id，只有那个线程能采集**。
+    //      而那个线程由 `每帧更新()`（框架回调，必为主线程）首次触发。
+    // ══════════════════════════════════════════════════════════════════
+    private static int _主线程Id;
+    private static string? _缓存全文;
+    private static long _缓存时刻;
+    /// <summary>缓存有效期（毫秒）—— 后台线程拿到的最旧局面不超过它。</summary>
+    private const int 缓存毫秒 = 250;
+
+    /// <summary>当前线程是不是"负责采集的那个线程"（首次采集的线程，即主线程）。</summary>
+    private static bool 在主线程()
+        => _主线程Id == 0 || Environment.CurrentManagedThreadId == _主线程Id;
+
+    private static void 存主线程缓存(string 结果)
+    {
+        try
+        {
+            if (_主线程Id == 0) _主线程Id = Environment.CurrentManagedThreadId;
+            _缓存全文 = 结果;
+            _缓存时刻 = AEAssist.Helper.TimeHelper.Now();
+        }
+        catch { }
+    }
+
+    /// <summary>后台线程取缓存 —— 拿不到就返回一句说明，绝不自己去读游戏 API。</summary>
+    private static string 取主线程缓存()
+    {
+        try
+        {
+            if (_缓存全文 != null &&
+                AEAssist.Helper.TimeHelper.Now() - _缓存时刻 <= 缓存毫秒)
+                return _缓存全文;
+
+            // 缓存过期（主线程很久没刷）→ 返回最小安全内容。
+            // ⚠️ **不返回空字符串**：那会让 AI 以为"什么都没发生"，
+            //    而实际情况是我们读不到 —— 必须让它知道这一点。
+            return "【局面】读取受限（后台线程不能读游戏状态，主线程快照已过期）\n" +
+                   "请只依据【可选技能】清单和已知副本信息作答，不要臆测队伍/敌人状态。\n";
+        }
+        catch { return "【局面】读取失败\n"; }
+    }
+
+    /// <summary>
+    /// **主线程每帧调用** —— 刷新缓存，让后台线程的 AI 请求拿到最新且安全的局面。
+    ///
+    /// ⚠️ 必须在**主线程**调（由框架的每帧回调驱动）。
+    ///    不在主线程时直接返回 —— 否则又变成后台线程读游戏 API。
+    /// </summary>
+    public static void 主线程刷新缓存()
+    {
+        try
+        {
+            if (_主线程Id != 0 && Environment.CurrentManagedThreadId != _主线程Id) return;
+            if (_主线程Id == 0) _主线程Id = Environment.CurrentManagedThreadId;
+
+            // TTL 内不重复采集（省算力；AI 也不需要每帧的新局面）
+            if (_缓存全文 != null &&
+                AEAssist.Helper.TimeHelper.Now() - _缓存时刻 < 缓存毫秒) return;
+
+            存主线程缓存(采集_主线程());
+        }
+        catch { }
+    }
+
     /// <summary>
     /// 局面描述的最大长度（字符）。
     ///
@@ -314,6 +389,48 @@ public static class AiSituation
     ///       => 显式传同一份，把这个巧合变成保证。
     /// </summary>
     public static string 采集(候选集.快照? 快照 = null)
+    {
+        // ══════════════════════════════════════════════════════════════════
+        //  ★★ **只允许在主线程采集** —— 这是连续 16 次崩溃的真正根因 ★★
+        //
+        //  [!] 证据链：
+        //        `采集()` 全工程**唯一**调用点是 `上下文核对()`，
+        //        而 `上下文核对()` 在 `单次尝试()` 里被调用 ——
+        //        `单次尝试()` 是 `async Task`，**跑在后台线程**。
+        //
+        //        而 `采集()` 会调 **84 处以上游戏 API**：
+        //          PartyHelper.* / TargetHelper.* / MemApi*.* /
+        //          Data.AllHostileTargets / ObjectTable / Core.Me.*
+        //        同时主线程**每帧**也在调同样的 API
+        //        （resolver 链、`伤害预测.每帧更新`、`机制读条`）。
+        //
+        //  [!] 为什么这会崩：
+        //        AEAssist / Dalamud 的进程内 API **没有线程安全保证**。
+        //        两个线程同时调 ==> 在**它们内部**崩 ==>
+        //          · 无转储、无 .NET Runtime 事件
+        //          · 全局异常钩子（含 FirstChance）**一次都不触发**
+        //          · 进程直接没
+        //        ==> 完全吻合 16 轮排查里观察到的**全部**症状。
+        //        （之前一直往"读了已释放对象"方向查 —— 那是错的方向。）
+        //
+        //  [!] 修法：**不在主线程就返回主线程最近一次的快照（缓存）**，
+        //        绝不自己去读游戏 API。
+        //        TTL 内直接复用，既安全又省算力。
+        //
+        //  ⚠️ 语义影响：AI 拿到的是**最多 TTL 毫秒前**的局面。
+        //     局面报告本来就是"一段时间内的态势"，TTL=200ms 完全可接受 ——
+        //     **远好于崩游戏**。
+        // ══════════════════════════════════════════════════════════════════
+        if (!在主线程())
+            return 取主线程缓存();
+
+        var 结果 = 采集_主线程(快照);
+        存主线程缓存(结果);
+        return 结果;
+    }
+
+    /// <summary>主线程采集的实现（原 `采集()` 的函数体原样搬进来）。</summary>
+    private static string 采集_主线程(候选集.快照? 快照 = null)
     {
         var sb = new StringBuilder();
 
