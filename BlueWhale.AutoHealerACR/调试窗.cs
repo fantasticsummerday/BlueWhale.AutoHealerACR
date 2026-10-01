@@ -36,7 +36,12 @@ public static class 调试窗
     {
         get
         {
-            try { return HealSettings.Instance?.启用调试窗 ?? false; }
+            // ★ 读【全局】开关 —— 不再读每职业的 HealSettings 字段。
+            //   [!] 为什么（真实的设计错误）：HealSettings 是**每职业一份**的，
+            //      用户在学者上玩时那份里**没有这个字段**（默认 false）
+            //      ⇒ 窗口永不绘制 ⇒ 「换职业后窗口不见了 / 在闪」。
+            //      见 HealerACR.Common.调试窗全局开关 的说明。
+            try { return HealerACR.Common.调试窗全局开关.启用; }
             catch { return false; }
         }
     }
