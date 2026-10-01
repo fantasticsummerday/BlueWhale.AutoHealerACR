@@ -1249,6 +1249,9 @@ public abstract class HealerEntryBase : IRotationEntry
     //      时间轴索引 10 次）。定位完之后这段留着，开销可忽略。
     // ══════════════════════════════════════════════════════════════════
     private static long _路标上次毫秒;
+
+    /// <summary>每个号上次打的时间 —— 见 `面板路标()` 里的说明。</summary>
+    private static readonly System.Collections.Generic.Dictionary<int, long> _路标各号上次 = new();
     private static long _路标次数;
 
     /// <summary>打一条设置面板路标（1 秒限流）。见上方长注释。</summary>
@@ -1258,8 +1261,16 @@ public abstract class HealerEntryBase : IRotationEntry
         {
             _路标次数++;
             var 现在 = AEAssist.Helper.TimeHelper.Now();
-            if (现在 - _路标上次毫秒 < 1000) return;
-            _路标上次毫秒 = 现在;
+
+            // ⚠️ **按号分别节流** —— 原来是**全局 1 秒 1 条**，
+            //    而号是**来回变**的（0→1→2→…→15→回到 0），
+            //    于是每个号都可能被别的号挤掉 ——
+            //    实测后果：整份崩溃日志里**只有 `路标=0` 和 `路标=6`**，
+            //    中间的号一个都没留下，**看不出崩在哪一段**。
+            //    ==> 改成"每个号 1 秒最多 1 条"，所有走到的号都会留下记录。
+            if (_路标各号上次.TryGetValue(号, out var 上次) && 现在 - 上次 < 1000) return;
+            _路标各号上次[号] = 现在;
+
             LogHelper.Info($"[面板] 路标={号}（{说明}）｜累计 {_路标次数} 次");
         }
         catch { }

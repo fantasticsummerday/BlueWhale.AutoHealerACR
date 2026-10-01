@@ -1126,8 +1126,42 @@ public static class AiSettingPage
             _保存提示 = $"保存失败：{e.Message}";
         }
     }
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ **AI 设置页路标** —— 定位"打开 ACR 设置就崩" ★
+    //
+    //  [!] 证据（用户实测崩溃日志）：
+    //        【面板】路标=0（进入 OnDrawSetting）  出现 15 次
+    //        【面板】路标=1（画AI层设置页 完成）   **0 次**  ← ★ 从没出现
+    //        【面板】路标=6                       出现 1 次
+    //      调用链：`OnDrawSetting` 路标0 -> `画AI层设置页()`（反射）
+    //              -> **本函数** -> `画AI层设置页 完成` 路标1
+    //      ==> **崩点在这个函数内部。**
+    //
+    //  [!] 而这个函数**原来一个路标都没有** —— 15,991 次绘制里
+    //      只知道"进了 OnDrawSetting"，不知道死在界面哪一段。
+    //
+    //  [!] 按号节流（每个号 1 秒 1 条）：号是**顺序**走的，
+    //      所以每个走到的号都会留下记录，**能看出死在哪一段之间**。
+    // ══════════════════════════════════════════════════════════════════
+    private static readonly System.Collections.Generic.Dictionary<int, long> _AI页各号上次 = new();
+    private static long _AI页次数;
+
+    private static void AI设置页路标(int 号, string 说明)
+    {
+        try
+        {
+            _AI页次数++;
+            var 现在 = AEAssist.Helper.TimeHelper.Now();
+            if (_AI页各号上次.TryGetValue(号, out var 上次) && 现在 - 上次 < 1000) return;
+            _AI页各号上次[号] = 现在;
+            LogHelper.Info($"[AI设置页] 路标={号}（{说明}）｜累计 {_AI页次数} 次");
+        }
+        catch { }
+    }
+
     public static void 画()
     {
+                AI设置页路标(0, "进入 AiSettingPage.画");
         var s = AiSettings.Instance;
 
         ImGui.Separator();
@@ -1143,6 +1177,7 @@ public static class AiSettingPage
 
         // ---- 只有填了 Key 才显示后面的 ----
         // （按你的要求：提供了 api key 再选择模型）
+                AI设置页路标(1, "基础设置段 完成");
         if (!s.已配置)
         {
             ImGui.TextDisabled("  ^ 填入 Key 后，下面会出现模型选择和开关。");
