@@ -104,3 +104,8 @@ verify.txt
 tools/TimelineProbe/bin/
 tools/TimelineProbe/obj/
 !tools/PromptBudget.py
+
+# 子代理/我临时切分大文件用的工作区（IL 切片、提取结果）—— 不该进版本库
+#   [!] 2026-10-01 有一次提交把 11 个 .txt（约 90 万行）带进去了，
+#       因为它们不在 ignore 里，而提交前用的是 git add -A。
+.scratch/
