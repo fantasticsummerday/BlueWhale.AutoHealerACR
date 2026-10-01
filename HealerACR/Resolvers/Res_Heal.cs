@@ -341,6 +341,27 @@ public class Res_HealEmergency : ISlotResolver
 
     public int Check()
     {
+        // ══════════════════════════════════════════════════════════════════
+        //  ★★★ **深度守卫 —— 这里就是崩溃的递归环** ★★★
+        //
+        //  [!] 转储实证（`CrashDumps\ffxiv_dx11.exe.30144.dmp`，14708 行托管栈）：
+        //      栈的**最外层**解析出名字的帧是：
+        //          HealerACR.Resolvers.Res_HealEmergency.Check()
+        //          AEAssist…PVE_RunSlotHelper.CheckNext()
+        //          AEAssist…AILoop_Normal.Update()
+        //          AEAssist.CombatRoutine2.Update()
+        //          Dalamud…RunFrameworkTick()
+        //      而 `Check()` 那一帧的地址在方法体**内部**（`…7A24`），
+        //      它下面 `…7FBC → 7EC0 → 7CDE` 三个地址在**无限循环**
+        //      ==> **递归发生在 `Check()` 的内部调用链里**（约 4900 层）。
+        //
+        //  [!] 为什么这个守卫一定能抓到：
+        //      `Check()` **本身就在环里** —— 每绕一圈都会经过这里，
+        //      所以深度到 25 时打出的栈里必然包含环里的全部方法名。
+        //      （之前加的守卫都在别的方法上，而环不经过它们 ⇒ 一条都没打出来。）
+        // ══════════════════════════════════════════════════════════════════
+        using var _深度 = HealerACR.Common.调用深度.进("Res_HealEmergency.Check");
+
         if (HealTargetHelper.木桩模式) return -300;          // 木桩不奶
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("单奶")) return -101;
