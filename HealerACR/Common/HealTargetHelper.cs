@@ -876,6 +876,67 @@ public static class HealTargetHelper
     ///     拿不到数据不该拦着（保守方向是别乱拦）。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    /// <summary>
+    /// **这个目标身上是不是已经有「预铺类」效果** —— 盾 / 绿帽 / 护盾幕 都算。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么必须有它（用户实测「T 身上有绿帽还读单盾，完全是浪费」）：
+    ///
+    ///      原来 `Res_HealSingleGcd` / `Res_HealShield` 的去重判据只查
+    ///      **`_t.单体盾` 一个技能** ==> 绿帽（深谋远虑之策，buff 1220）
+    ///      根本不在检查范围里 ==> T 有绿帽时照样铺单盾。
+    ///
+    ///  [!] 参考实现怎么做的（IL 实证，不是推测）：
+    ///      · youshu `ScholarTools::HasScholarShield`（IL 26405-26419）
+    ///        查 aura **297 / 1918 / 2607 / 2608 / 2609**（纯存在性，不看剩余时间）
+    ///        而 Excog 那条路**额外**查自己的 aura **1220**
+    ///      · shiyuvi 走另一条路：判据是 `(CurrentHpPercent + ShieldPercentage) <= 阈值`
+    ///        —— **把盾算进有效血量**
+    ///      两者的共同点：**已经有预铺就不该再铺**。
+    ///
+    ///  [!] 为什么列这么多 buff 而不是只查盾：
+    ///      四个奶妈各有一套「预铺」—— 绿帽 / 水流幕 / 天星交错 / 均衡系 / 活化 / 混合。
+    ///      它们的**收益是同一种**（提前把血/盾垫上），所以**重叠时都是浪费**。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 已有预铺(IBattleChara? 目标)
+    {
+        if (目标 == null) return false;
+        try
+        {
+            if (!目标.对象有效()) return false;
+    
+            // ── 学者 ──
+            //   鼓舞(297) / 激励(1918) 是盾；深谋远虑之策(1220) 是绿帽
+            if (目标.有该技能的Buff(SpellIds.取("鼓舞激励之策"))) return true;
+            if (目标.有该技能的Buff(SpellIds.取("深谋远虑之策"))) return true;
+    
+            // ── 白魔 ── 神祝祷(7432) 同时是个人减伤与单体盾
+            if (目标.有该技能的Buff(SpellIds.取("神祝祷"))) return true;
+            if (目标.有该技能的Buff(SpellIds.取("水流幕"))) return true;
+    
+            // ── 占星 ── 天星交错(16556)
+            if (目标.有该技能的Buff(SpellIds.取("天星交错"))) return true;
+    
+            // ── 贤者 ── 均衡系（诊断/预后 在均衡状态下的盾）
+            if (目标.有该技能的Buff(SpellIds.取("诊断"))) return true;
+            if (目标.有该技能的Buff(SpellIds.取("预后"))) return true;
+            if (目标.有该技能的Buff(SpellIds.取("活化"))) return true;
+            if (目标.有该技能的Buff(SpellIds.取("混合"))) return true;
+    
+            // ── 通用：任何护盾类状态（`减伤状态表.护盾` 直查）──
+            //   [!] 兜底用表查，防止将来加了新盾技能却漏在这个清单里。
+            try
+            {
+                foreach (var kv in 减伤状态表.护盾)
+                    if (目标.HasAura(kv.Key)) return true;
+            }
+            catch { }
+        }
+        catch { }
+        return false;
+    }
+    
     public static bool 值得上Dot(IBattleChara? 目标)
     {
         if (目标 == null) return false;

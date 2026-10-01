@@ -370,6 +370,29 @@ public static class AuraIds
     /// </summary>
     public static uint 深谋远虑之策 => 取("深谋远虑之策", 1220);
 
+    /// <summary>以太契约（学者连线）**技能 7437 / buff 1223（Fey Union）**。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ⚠️ 和绿帽**完全同一类坑**：技能 ID ≠ buff ID。
+    ///     拿 7437 去 `HasAura` 会永远返回 false ——
+    ///     而 `SCH_Aetherpact.Check()` 里那句"已经在挂就跳过"就是拿 7437 查的
+    ///     ==> **那个守卫从来没生效过** ==> 每帧都可能再按一次。
+    ///
+    ///  [!] 为什么"再按一次"是灾难（官方 `Action:7437` 说明逐字）：
+    ///        "Orders faerie to execute Fey Union with target party member.
+    ///         **Effect ends upon reuse.**"
+    ///      ==> **按第二次就是解除**。所以"守卫失效"直接表现成
+    ///          「连线一直在中断反复挂」（用户实测原话）。
+    ///
+    ///  [!] 同一段说明还给了另外两个会断链的原因（都要在 `Check()` 里避开）：
+    ///        "Fey Union effect fades upon execution of other faerie actions
+    ///         or when party member moves from within 30 yalms of the faerie."
+    ///      ==> ① 用别的仙女技能（低语/幻光/祥光/炽天召唤）会断链
+    ///          ② 目标跑出小仙女 30 米会断链
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static uint 以太契约 => 取("以太契约", 1223);
+
     /// <summary>再生（白魔 HoT）技能 137 / buff 158</summary>
     public static uint 再生 => 取("再生", 158);
 
@@ -540,6 +563,19 @@ public static class AuraIds
             1888 => 天星交错,
             4040 => 天星交错,
             7434 => 深谋远虑之策,
+            // ★ 以太契约（7437）→ **Fey Union**（连线状态）★
+            //   [!] 官方说明（`Action:7437`）逐字：
+            //        "Orders faerie to execute Fey Union with target party member."
+            //        "**Effect ends upon reuse.**"            <- 再按一次就解除
+            //        "Fey Union effect fades upon execution of other faerie actions
+            //         or when party member moves from within 30 yalms of the faerie."
+            //
+            //   [!] **这条映射原来缺失** ==> `有该技能的Buff(7437)` 恒 false
+            //       ==> `SCH_Aetherpact.Check()` 里那句已经在挂就跳过**从来没生效**
+            //       ==> 每帧都可能再按一次 ==> `Effect ends upon reuse` ==> **反复解除又重挂**。
+            //       （用户实测：「连线一直在中断反复挂」）
+            7437 => 以太契约,
+            1223 => 以太契约,
             1220 => 深谋远虑之策,
             16542 => 秘策,
             1896 => 秘策,

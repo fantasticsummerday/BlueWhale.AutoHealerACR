@@ -819,10 +819,49 @@ public class SCH_FeyBlessing : ISlotResolver
     }
 }
 
-/// <summary>以太契约：给小仙女指定目标持续回血，需要 20 点妖精能量。</summary>
+/// <summary>
+/// 以太契约（连线）：给小仙女指定目标持续回血。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 官方 `Action:7437` 机制（逐字，这决定本类的全部判据）★
+///
+///    "Orders faerie to execute Fey Union with target party member.
+///     **Effect ends upon reuse.**"                       <- ① 再按一次 = 解除
+///    "Faerie Gauge Cost: 10"
+///    "Cure Potency: 300"
+///    "**Faerie Gauge is depleted by 10 periodically while HP is restored.**"
+///    "**Fey Union effect fades upon execution of other faerie actions**  <- ②
+///     or when party member moves from within 30 yalms of the faerie."   <- ③
+///
+///  [!] 用户实测的 bug：「连线一直在中断反复挂 这个不正常 应该是一直挂着 不需要解除」
+///
+///  [!] 根因：`tank.有该技能的Buff(技能)` 用的是技能 ID 7437，
+///      而 **`AuraIds` 里原来没有 7437 的 buff 映射**（连线的 buff 是 1223）
+///      ==> `有该技能的Buff(7437)` **恒为 false** ==> 那句"已经在挂就跳过"
+///      ==> **从来没生效过** ==> 每帧都可能再按一次
+///      ==> 配合 ①`Effect ends upon reuse` ==> **按第二下就解除** ==> 反复挂/反复断。
+///      （`AuraIds` 现在补了 `以太契约 => 1223`，那个守卫才真正开始工作。）
+///
+///  [!] 所以本类**绝不主动解除**（用户明确要求"不需要解除"）：
+///      能量耗尽、目标超 30 米、用了别的仙女技能 —— 这三种由**游戏自己**断，
+///      我们只管"断了就重挂"，**不主动去断**。
+///      （参考实现里唯一解除它的是 `Scholar_DissolveUnion`，判据是 HP>99%，
+///        而 shiyuvi 那条路的解除常量是 0.95 —— 我们不需要，因为我们要的是"一直挂着"。）
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
 public class SCH_Aetherpact : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("以太契约");
+
+    /// <summary>刚按过之后的静默时长：这期间**绝不重复按**（防"按第二下 = 解除"）。</summary>
+    private const int 重按冷却毫秒 = 1500;
+    private static long _上次按下;
+
+    /// <summary>最近一次"用别的仙女技能"的时刻 —— 那些动作会断链，别紧接着重挂。</summary>
+    private static long _上次仙女动作;
+
+    /// <summary>由仙女系 resolver 在施放后调用（低语/幻光/祥光/慰藉/炽天召唤都会断链）。</summary>
+    public static void 记仙女动作() { try { _上次仙女动作 = TimeHelper.Now(); } catch { } }
 
     public int Check()
     {
@@ -834,23 +873,43 @@ public class SCH_Aetherpact : ISlotResolver
 
         var tank = HealTargetHelper.主坦();
         if (tank == null) return -1;
-        if (技能 != 0 && tank.有该技能的Buff(技能)) return -4;
+
+        // ── ① 已经在挂 -> 绝对不碰（避免 `Effect ends upon reuse` 把它解除）──
+        //   [!] 双重判据：目标身上的连线 + **小仙女身上的 union 状态**。
+        //       单查目标有可能因为 buff 读取延迟而漏，查两处更稳。
+        try { if (tank.HasAura(AuraIds.以太契约)) return -4; } catch { }
+        try { if (Core.Me.HasAura(AuraIds.以太契约)) return -4; } catch { }
+
+        // ── ② 刚按过 -> 静默（防 buff 读取延迟/失败时反复按）──
+        try
+        {
+            if (_上次按下 != 0 && TimeHelper.Now() - _上次按下 < 重按冷却毫秒) return -5;
+        }
+        catch { }
+
+        // ── ③ 刚用过别的仙女技能 -> 缓一下再挂 ──
+        //   官方："Fey Union effect fades upon execution of other faerie actions"
+        //   ==> 那种时候挂上去会立刻被断，等于白烧 10 点能量。
+        try
+        {
+            if (_上次仙女动作 != 0 && TimeHelper.Now() - _上次仙女动作 < 800) return -6;
+        }
+        catch { }
 
         return SpellUtil.可用(技能) ? 5 : -1;
     }
 
     public void Build(Slot slot)
     {
-        // ⚠️ 必须和 Check 用**同一个血线**（审计发现）——
-        //    原来 Check 用设置值、Build 写死 0.8f。
-        //    用户把「妖精契约血线」调到 >0.8 时：
-        //      Check 找到坦克（如 0.9 血）返回 5
-        //      → Build 再查 0.8f 得到 null → **slot 是空的**
-        //    → 框架继续扫下一个 resolver → 这个技能**静默不放**。
-        //    （F③ 那类"判 A 放不出"：Check 和 Build 必须同源）
+        // ⚠️ 必须和 Check 用**同一个判据**（审计发现过 Check 用设置值、Build 写死 0.8f
+        //    导致"Check 通过但 slot 是空的"⇒ 技能静默不放）。
         var tank = HealTargetHelper.主坦();
         if (tank == null) return;
+        // 再确认一次没在挂 —— Check 和 Build 之间隔了一小段，且这个技能"重复按 = 解除"
+        try { if (tank.HasAura(AuraIds.以太契约)) return; } catch { }
+
         slot.Add(new Spell(技能, tank));
+        try { _上次按下 = TimeHelper.Now(); } catch { }
     }
 }
 
