@@ -936,6 +936,10 @@ public class Res_HealSingleGcd : ISlotResolver
     /// <summary>目标还差多少血（按**有效血量比例**算，把盾也算进去）</summary>
     private static float 缺口量(IBattleChara 目标)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (目标 == null || !目标.对象有效()) return 0f;
         try
         {
             var 上限 = 目标.MaxHp;

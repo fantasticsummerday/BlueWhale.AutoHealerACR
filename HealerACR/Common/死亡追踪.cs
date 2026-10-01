@@ -113,6 +113,10 @@ public static class 死亡追踪
     /// <summary>这个人躺了多久（秒）；不知道就返回 0</summary>
     public static float 躺了多久(IBattleChara? c)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (c == null || !c.对象有效()) return 0f;
         if (c == null) return 0;
 
         try

@@ -11,7 +11,18 @@ namespace HealerACR.Common;
 public static class CharacterExt
 {
     public static float 血量比例(this IBattleChara c)
-        => c.MaxHp == 0 ? 0f : c.CurrentHp / (float)c.MaxHp;
+    {
+        // ★ 读之前判有效性 —— 这是本工程**最热**的读取点之一，
+        //   而它原来**完全裸读**（连 null 都没判）。
+        //   游戏对象在换图/切区时会被**释放但非 null**（哨兵 0x12345679），
+        //   读它的血量 = **原生访问违例**（穿 catch / 无转储 / 进程直接没）。
+        //   在这里判一次，覆盖全部调用者（本项目 12 次崩溃都是这一类）。
+        // ⚠️ 返回 1f（满血）而不是 0f：读不到的对象**不该被当成需要治疗的人**；
+        //    返回 0 会诱发过量治疗和乱交技能 —— 方向反了更危险。
+        if (c == null || !c.对象有效()) return 1f;
+        try { return c.MaxHp == 0 ? 0f : c.CurrentHp / (float)c.MaxHp; }
+        catch { return 1f; }
+    }
 
     /// <summary>
     /// **有效血量比例** = 血量比例 + 护盾百分比。
@@ -43,6 +54,12 @@ public static class CharacterExt
     /// </summary>
     public static float 有效血量比例(this IBattleChara c)
     {
+        // ★ 这里**必须自己判** —— 本函数除了转发 `血量比例()`，
+        //   还要读 `c.ShieldPercentage`（**另一个裸读点**）。
+        //   ⚠️ 只靠 `血量比例()` 里的守卫不够：那个已经 return 之后，
+        //      下面这行 `c.ShieldPercentage` 照样会读已释放的对象。
+        //      （我一开始把守卫只放在 `血量比例()` 里，就是这个漏。）
+        if (c == null || !c.对象有效()) return 1f;
         var 血 = c.血量比例();
 
         try
@@ -56,9 +73,29 @@ public static class CharacterExt
     }
 
     public static float 蓝量比例(this IBattleChara c)
-        => c.MaxMp == 0 ? 0f : c.CurrentMp / (float)c.MaxMp;
+    {
+        // ★ 读之前判有效性 —— 这是本工程**最热**的读取点之一，
+        //   而它原来**完全裸读**（连 null 都没判）。
+        //   游戏对象在换图/切区时会被**释放但非 null**（哨兵 0x12345679），
+        //   读它的血量 = **原生访问违例**（穿 catch / 无转储 / 进程直接没）。
+        //   在这里判一次，覆盖全部调用者（本项目 12 次崩溃都是这一类）。
+        if (c == null || !c.对象有效()) return 1f;
+        try { return c.MaxMp == 0 ? 0f : c.CurrentMp / (float)c.MaxMp; }
+        catch { return 1f; }
+    }
 
-    public static bool 活着(this IBattleChara c) => c.CurrentHp > 0;
+    public static bool 活着(this IBattleChara c)
+    {
+        // ★ 读之前判有效性 —— 这是本工程**最热**的读取点之一，
+        //   而它原来**完全裸读**（连 null 都没判）。
+        //   游戏对象在换图/切区时会被**释放但非 null**（哨兵 0x12345679），
+        //   读它的血量 = **原生访问违例**（穿 catch / 无转储 / 进程直接没）。
+        //   在这里判一次，覆盖全部调用者（本项目 12 次崩溃都是这一类）。
+        // ⚠️ 读不到 = 当它**不在场**（false），不参与决策。
+        if (c == null || !c.对象有效()) return false;
+        try { return c.CurrentHp > 0; }
+        catch { return false; }
+    }
 
     /// <summary>
     /// 身上有没有某个护盾。
@@ -683,6 +720,9 @@ public static class CharacterExt
     /// </summary>
     public static bool 对象有效(this IBattleChara? c)
     {
+        // ⚠️ **这个函数自己就是那道防线，绝不能在它里面再调 `对象有效()`** ——
+        //    那会**无限递归**（栈溢出 = 进程直接没，和它要防的症状一模一样）。
+        //    （本项目踩过：一个批量加固脚本差点把它插进来。）
         if (c == null) return false;
 
         try
@@ -800,5 +840,16 @@ public static class CharacterExt
     }
 
     /// <summary>Dalamud 的 IsDead 属性（这里是包一层，方便将来换实现）</summary>
-    public static bool 死了(this IBattleChara c) => c.IsDead;
+    public static bool 死了(this IBattleChara c)
+    {
+        // ★ 读之前判有效性 —— 这是本工程**最热**的读取点之一，
+        //   而它原来**完全裸读**（连 null 都没判）。
+        //   游戏对象在换图/切区时会被**释放但非 null**（哨兵 0x12345679），
+        //   读它的血量 = **原生访问违例**（穿 catch / 无转储 / 进程直接没）。
+        //   在这里判一次，覆盖全部调用者（本项目 12 次崩溃都是这一类）。
+        // ⚠️ 读不到 = 当它**不在场**（死了 = true，即「别去治它」）。
+        if (c == null || !c.对象有效()) return true;
+        try { return c.IsDead; }
+        catch { return true; }
+    }
 }

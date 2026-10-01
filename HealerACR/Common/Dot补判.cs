@@ -119,6 +119,10 @@ public static class Dot补判
     /// </summary>
     private static bool 在抑制窗口内(IBattleChara 目标, uint[]? 所有DotBuff)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (目标 == null || !目标.对象有效()) return false;
         try
         {
             var id = 目标.GameObjectId;
@@ -180,6 +184,11 @@ public static class Dot补判
     /// </summary>
     public static void 记一次施放(IBattleChara? 目标)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        // ⚠️ 这是 void 函数 —— 用 `return;`，不是 `return null;`
+        if (目标 == null || !目标.对象有效()) return;
         try
         {
             _上次挂Dot = TimeHelper.Now();

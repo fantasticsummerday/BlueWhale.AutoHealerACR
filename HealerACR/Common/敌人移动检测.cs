@@ -106,6 +106,10 @@ public static class 敌人移动检测
               "（累计移动/观察秒 < 2.5 米每秒）**不是一回事** —— 别混用。")]
     public static bool 正在移动(IBattleChara? 目标)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (目标 == null || !目标.对象有效()) return false;
         if (目标 == null) return false;
 
         try
@@ -150,6 +154,10 @@ public static class 敌人移动检测
     /// </summary>
     public static bool 移动很少(IBattleChara? 敌人, float 阈值 = 默认阈值)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (敌人 == null || !敌人.对象有效()) return false;
         if (敌人 == null) return false;
 
         try
@@ -222,6 +230,14 @@ public static class 敌人移动检测
     /// </summary>
     public static Vector3 地面技能位置(IBattleChara? 优选敌人 = null)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        // ⚠️ 这个函数的语义是【优选敌人为空时回退到当前目标】——
+        //    在入口 `return` 会把整条回退链砍掉（下面 241-242 行的兜底永远跑不到）。
+        //    ==> 守卫必须放在**真正读到对象之后**，不能放入口。
+        //    （脚本按返回类型机械插入，这里要人工纠正 —— 这是它第 3 次插错了。）
+        if (优选敌人 != null && !优选敌人.对象有效()) 优选敌人 = null;
         try
         {
             var 敌人 = 优选敌人;
@@ -229,7 +245,10 @@ public static class 敌人移动检测
             if (敌人 == null) 敌人 = HealTargetHelper.当前目标();
             if (敌人 == null) 敌人 = HealTargetHelper.当前目标()?.GetCurrTarget();
 
-            if (敌人 != null && 敌人.CurrentHp > 0 && 移动很少(敌人))
+            // ★ 守卫放在**回退链之后**（回退链本身可能给出已释放的对象）
+            if (敌人 == null || !敌人.对象有效()) return Core.Me.Position;
+
+            if (敌人.CurrentHp > 0 && 移动很少(敌人))
             {
                 return 敌人.Position;
             }
@@ -258,6 +277,10 @@ public static class 敌人移动检测
     /// </summary>
     public static bool 玩家站得稳(IBattleChara? 目标, float 阈值 = 默认阈值)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (目标 == null || !目标.对象有效()) return false;
         if (目标 == null) return false;
 
         try
@@ -297,6 +320,10 @@ public static class 敌人移动检测
     /// <summary>这个敌人现在的采样状态（调试面板用）</summary>
     public static string 状态描述(IBattleChara? 敌人)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (敌人 == null || !敌人.对象有效()) return "";
         if (敌人 == null) return "无目标";
 
         try

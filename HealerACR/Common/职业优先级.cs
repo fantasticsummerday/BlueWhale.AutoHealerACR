@@ -52,6 +52,10 @@ public static class 职业优先级
     /// <summary>取某个队友的优先级权重</summary>
     public static int 取权重(IBattleChara? c)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (c == null || !c.对象有效()) return 0;
         if (c == null) return 其他;
         if (!启用) return 0;   // 不启用 → 全部同权，等于只比血量
 

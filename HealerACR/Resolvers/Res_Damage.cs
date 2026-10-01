@@ -494,6 +494,10 @@ public class Res_BaseDamage : ISlotResolver
     /// </summary>
     internal Spell? 选填充技(IBattleChara? 目标)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (目标 == null || !目标.对象有效()) return null;
         try
         {
             var 等级 = 0;
@@ -763,6 +767,10 @@ public class Res_BaseDamage : ISlotResolver
     /// </summary>
     private static bool 够得到目标圈(IBattleChara 目标, float 半径)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (目标 == null || !目标.对象有效()) return false;
         try
         {
             var 中心距 = Vector3.Distance(Core.Me.Position, 目标.Position);

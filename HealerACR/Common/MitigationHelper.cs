@@ -80,6 +80,10 @@ public static class 减伤Helper
     /// <summary>这个敌人身上有没有"即将落下来的大伤害"</summary>
     public static bool 是危险读条(IBattleChara 敌人, int 提前毫秒 = 默认提前毫秒)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (敌人 == null || !敌人.对象有效()) return false;
         if (敌人.CurrentHp <= 0) return false;
 
         // Boss 的 AOE 读条

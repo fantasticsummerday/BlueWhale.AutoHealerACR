@@ -57,6 +57,10 @@ public static class Dot黑名单
     /// <summary>这个敌人现在该不该上 DoT</summary>
     public static bool 可以上Dot(IBattleChara? 敌人)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        if (敌人 == null || !敌人.对象有效()) return false;
         if (敌人 == null || 敌人.CurrentHp <= 0) return false;
 
         try
@@ -189,6 +193,11 @@ public static class Dot黑名单
     /// </summary>
     public static void 记按下(IBattleChara? 敌人, uint[]? dotBuffs = null)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        // ⚠️ 这是 void 函数 —— 用 `return;`
+        if (敌人 == null || !敌人.对象有效()) return;
         if (敌人 == null) return;
 
         try

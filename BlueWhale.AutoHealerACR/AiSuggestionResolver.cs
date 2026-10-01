@@ -1046,6 +1046,11 @@ public class AiSuggestionResolver : ISlotResolver
     /// </summary>
     private static void 收尾(bool 是Dot, IBattleChara 施法目标)
     {
+        // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
+        //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
+        //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
+        // ⚠️ 这是 void 函数 —— 用 `return;`
+        if (施法目标 == null || !施法目标.对象有效()) return;
         try
         {
             var 建议 = AiDecisionLayer.当前建议;
