@@ -926,7 +926,15 @@ public class Res_InstantHealAbility : ISlotResolver
         var 瞬发 = _t.瞬发单奶能力技;
         if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
         {
-            var 目标 = HealTargetHelper.最低血量队友(_t.瞬发单奶血线);
+            // ★ 血线改成**按技能查**（`治疗阈值表`），查不到才回落到职业表的 `瞬发单奶血线` ★
+            //   [!] 参考实现的阈值是**每技能一个**（IL 实证）：
+            //         shiyuvi Lustrate 0.45 / Adloquium 0.4 / FeyBlessing 0.6 …
+            //         youshu  活性法 45 / 单盾 45 / 绿帽 60 / 不屈 70 / 祥光 70 …
+            //       ==> 统一一个 `瞬发单奶血线` 表达不了这种分层。
+            //   [!] 但**这只是第一步**：真正的结构差异是「参考按技能选区，我们先选区再选技能」，
+            //       那个改动更大，留到单独一轮（见 `复刻边界-参考实现与AI层.md`）。
+            var 单奶血线 = 治疗阈值表.取(瞬发, _t.瞬发单奶血线);
+            var 目标 = HealTargetHelper.最低血量队友(单奶血线);
             if (目标 != null && !目标.处于假死状态() && 必须奶满.找目标() == null)
                 return 24;
         }
@@ -958,7 +966,15 @@ public class Res_InstantHealAbility : ISlotResolver
             if (必须奶满.找目标() == null)
             {
                 // ⚠️ 和 Check 用**同一个血线**（`瞬发单奶血线`），否则 Check 过了 Build 找不到目标
-                var 目标 = HealTargetHelper.最低血量队友(_t.瞬发单奶血线);
+                // ★ 血线改成**按技能查**（`治疗阈值表`），查不到才回落到职业表的 `瞬发单奶血线` ★
+                //   [!] 参考实现的阈值是**每技能一个**（IL 实证）：
+                //         shiyuvi Lustrate 0.45 / Adloquium 0.4 / FeyBlessing 0.6 …
+                //         youshu  活性法 45 / 单盾 45 / 绿帽 60 / 不屈 70 / 祥光 70 …
+                //       ==> 统一一个 `瞬发单奶血线` 表达不了这种分层。
+                //   [!] 但**这只是第一步**：真正的结构差异是「参考按技能选区，我们先选区再选技能」，
+                //       那个改动更大，留到单独一轮（见 `复刻边界-参考实现与AI层.md`）。
+                var 单奶血线 = 治疗阈值表.取(瞬发, _t.瞬发单奶血线);
+                var 目标 = HealTargetHelper.最低血量队友(单奶血线);
                 if (目标 != null && !目标.处于假死状态())
                 {
                     var s = SpellUtil.当前形态(瞬发);
