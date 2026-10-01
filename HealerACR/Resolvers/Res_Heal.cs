@@ -342,6 +342,22 @@ public class Res_HealEmergency : ISlotResolver
 
     public int Check()
     {
+        // ★★★ **重入断路器 —— 递归环在这里被切断** ★★★
+        //
+        //  [!] 转储实证（`CrashDumps\ffxiv_dx11.exe.30144.dmp`，14706 行栈）：
+        //      最外层能对上名字的帧就是本方法，下面三个地址**无限循环**
+        //      （约 4900 层）==> 环从本方法的内部调用链绕回了本方法。
+        //      而静态排查已查完（`AiThresholdAdapter` 全链 / `HealSettings.Instance` /
+        //      `治疗决策` / `伤害预测`）—— **都没有闭合的环**。
+        //      ==> 改用运行时断路：让环在很浅的地方就被切断。
+        //
+        //  [!] 「重入」一定不正常：`Check()` 由框架**当帧调度**，正常只单层进入。
+        //      超限返回 -900（负值 = 本帧不选这个技能）——
+        //      行为是"这一帧不急救"，远好于整个游戏崩掉。
+        //      层数与调用栈写到 `文档\BlueWhale递归断路器.txt`。
+        if (HealerACR.Common.Resolver断路器.该断("Res_HealEmergency.Check")) return -900;
+        try
+        {
         // ══════════════════════════════════════════════════════════════════
         //  ★★★ **深度守卫 —— 这里就是崩溃的递归环** ★★★
         //
@@ -434,6 +450,12 @@ public class Res_HealEmergency : ISlotResolver
         if (_t.紧急单奶 == 0) return -102;
         if (!SpellUtil.已解锁(_t.紧急单奶)) return -2;
         return SpellUtil.可用(_t.紧急单奶) ? 30 : -1;
+        }
+        finally
+        {
+            // ★ 必须出栈 —— 异常路径也要（否则层数只增不减，断路器会误判）
+            HealerACR.Common.Resolver断路器.出();
+        }
     }
 
     public void Build(Slot slot)
