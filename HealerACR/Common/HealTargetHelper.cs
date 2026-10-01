@@ -99,7 +99,9 @@ public static class HealTargetHelper
             // ══════════════════════════════════════════════════════════════
             try
             {
-                LogHelper.Info("[HealerACR.路标] 3500（可治疗：即将取队伍列表）");
+                LogHelper.Info($"[HealerACR.路标] 3500（可治疗 进入）｜线程={Environment.CurrentManagedThreadId}" +
+                                 $"｜程序集={typeof(HealTargetHelper).Assembly.GetName().Name}" +
+                                 $"｜半径={半径}");
                 var 待检 = PartyHelper.CastableAlliesWithin30;
                 LogHelper.Info($"[HealerACR.路标] 3501（可治疗：队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}）");
                 if (待检 == null) return new List<IBattleChara>();
