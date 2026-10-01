@@ -800,6 +800,30 @@ public abstract class HealerEntryBase : IRotationEntry
 
     public virtual void OnDrawSetting()
     {
+        // ══════════════════════════════════════════════════════════════════
+        //  ★★ **设置面板路标** —— 用来定位"打开设置面板就挂死" ★★
+        //
+        //  [!] 为什么需要（用户实测）：崩溃**只在打开设置面板时**发生，而且
+        //      崩溃前**没有任何日志、没有转储**（Dalamud 崩溃处理器报
+        //      `Failed to read exception information; error 0x6d` 后直接杀进程）。
+        //      ==> 那是**挂死**型：主线程卡在某个不抛异常、也不打日志的地方。
+        //      ==> 静态读代码找不到（我已经排除了 Begin/End 不配对、
+        //          控件写盘、反射重载歧义、时间轴重扫）。
+        //
+        //  [!] 做法：每 **1 秒**打一条 `[面板] 路标=L{n} 第{k}帧` ——
+        //      `n` 是**最后一个走完的标记点**。
+        //      崩了之后看日志里最后那个 `n`，就知道卡在哪两个标记点之间。
+        //
+        //  [!] 为什么限流到 1 秒：这一页**每帧**都画（而且 10 个入口各画一次），
+        //      不限流会把日志刷爆 —— 那正是本项目已经栽过两次的坑
+        //      （时间轴跳转 18 万次 / 时间轴索引 10 次）。
+        //      **1 秒 1 条**既够定位，又不会淹掉别的日志。
+        //
+        //  [!] 定位完之后**这段可以留着** —— 以后再出这类"挂死且无日志"的问题，
+        //      它是唯一的线索来源。开销可忽略（1 秒 1 次字符串拼接）。
+        // ══════════════════════════════════════════════════════════════════
+        面板路标(0, "进入 OnDrawSetting");
+
         // ══════════════════════════════════════════════════════════════
         //  ★★ AI 设置放最前面 ★★
         //
@@ -813,6 +837,7 @@ public abstract class HealerEntryBase : IRotationEntry
         //      实现走反射（HealerACR 编译期看不到 BlueWhale 命名空间）。
         // ══════════════════════════════════════════════════════════════
         try { 画AI层设置页(); } catch { }
+        面板路标(1, "画AI层设置页 完成");
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 实时调试窗 ★
@@ -850,6 +875,7 @@ public abstract class HealerEntryBase : IRotationEntry
             }
         }
         catch (Exception e) { 写诊断("勾选框异常：" + e.GetType().Name + " " + e.Message); }
+        面板路标(2, "调试窗开关块 完成");
         
         try
         {
@@ -857,6 +883,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("  只读，可一直开着");
         }
         catch (Exception e) { 写诊断("说明文字异常：" + e.GetType().Name + " " + e.Message); }
+        面板路标(3, "说明文字块 完成");
         
         try
         {
@@ -864,6 +891,7 @@ public abstract class HealerEntryBase : IRotationEntry
             if (ImGui.SmallButton("把窗口拉回屏幕内")) 复位调试窗位置();
         }
         catch (Exception e) { 写诊断("复位按钮异常：" + e.GetType().Name + " " + e.Message); }
+        面板路标(4, "复位按钮块 完成");
         
         // [!] 这一句**必须独立成块** —— 它是整个窗口的入口，
         //     绝不能被上面任何一段的异常连带挡掉。
@@ -883,9 +911,11 @@ public abstract class HealerEntryBase : IRotationEntry
             }
         }
         catch (Exception e) { 写诊断("消费关闭请求异常：" + e.GetType().Name + " " + e.Message); }
+        面板路标(5, "消费关闭请求块 完成");
 
         try { 画AI层调试窗(); }
         catch (Exception e) { 写诊断("画AI层调试窗 异常：" + e.GetType().Name + " " + e.Message); }
+        面板路标(6, "画AI层调试窗 完成");
         
 
         // AEAssist 主界面「ACR 设置」标签的内容。
@@ -909,6 +939,7 @@ public abstract class HealerEntryBase : IRotationEntry
         // [!] 记忆库页面也收进 base（原子类末尾）——
         //     只有幻术师那个入口原来没画它，统一之后行为一致。
 
+        面板路标(10, "治疗段 开始");
         if (ImGui.CollapsingHeader("治疗", ImGuiTreeNodeFlags.DefaultOpen))
         {
             ImGui.Checkbox("奶人", ref s.奶人);
@@ -932,6 +963,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Checkbox("驱散", ref s.驱散);
         }
 
+        面板路标(11, "输出段 开始");
         if (ImGui.CollapsingHeader("输出"))
         {
             ImGui.Checkbox("输出", ref s.输出);
@@ -972,6 +1004,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("  木桩环境下走该职业最优输出策略");
         }
 
+        面板路标(12, "减伤/时间轴段 开始");
         if (ImGui.CollapsingHeader("减伤 / 时间轴"))
         {
             ImGui.Checkbox("自动减伤", ref s.自动减伤);
@@ -1000,6 +1033,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("  挂不上会自动降级，不影响其他功能");
         }
 
+        面板路标(13, "职业资源段 开始");
         if (ImGui.CollapsingHeader("职业资源"))
         {
             ImGui.Checkbox("醒梦", ref s.醒梦);
@@ -1020,6 +1054,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.SliderFloat("地星提前秒", ref s.地星提前秒, 0f, 10f, "%.1f 秒");
         }
 
+        面板路标(14, "其他段 开始");
         if (ImGui.CollapsingHeader("其他"))
         {
             // ══════════════════════════════════════════════════════════
@@ -1137,11 +1172,52 @@ public abstract class HealerEntryBase : IRotationEntry
 
         // ★ 记忆库页面也收进 base（原子类末尾）★
         //   [!] 原来 5 个入口里只有幻术师那个没画它 —— 统一之后行为一致。
+        面板路标(15, "画AI层记忆库 完成");
         try { 画AI层记忆库(); } catch { }
     }
 
     /// <summary>「哼一段」按钮的提示显示到什么时候（时间戳，毫秒）</summary>
     private long _哼一段提示到;
+
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 设置面板路标（定位"打开设置面板就挂死"用）★
+    //
+    //  [!] 用户实测：崩溃**只在打开设置面板时**发生，且**没有异常、没有转储**
+    //      （Dalamud 崩溃处理器报 `error 0x6d` 后直接杀进程）——那是**挂死**型。
+    //      ==> 崩在一个"不抛异常、也不打日志"的地方，静态读代码找不到。
+    //
+    //  [!] 用法：崩了之后在日志里搜 `[面板]`，看**最后那个 `路标=N`**，
+    //      对照 `OnDrawSetting` 里的编号就知道卡在哪一段之间。
+    //        0  进入 OnDrawSetting
+    //        1  画AI层设置页 完成
+    //        2  调试窗开关块 完成      3  说明文字块 完成
+    //        4  复位按钮块 完成        5  消费关闭请求块 完成
+    //        6  画AI层调试窗 完成
+    //       10  治疗段 开始            11  输出段 开始
+    //       12  减伤/时间轴段 开始      13  职业资源段 开始
+    //       14  其他段 开始            15  画AI层记忆库 完成
+    //
+    //  [!] **1 秒最多 1 条** —— 这一页每帧都画（10 个入口各画一次），
+    //      不限流会把日志刷爆（本项目已经栽过两次：时间轴跳转 18 万次、
+    //      时间轴索引 10 次）。定位完之后这段留着，开销可忽略。
+    // ══════════════════════════════════════════════════════════════════
+    private static long _路标上次毫秒;
+    private static long _路标次数;
+
+    /// <summary>打一条设置面板路标（1 秒限流）。见上方长注释。</summary>
+    private static void 面板路标(int 号, string 说明)
+    {
+        try
+        {
+            _路标次数++;
+            var 现在 = AEAssist.Helper.TimeHelper.Now();
+            if (现在 - _路标上次毫秒 < 1000) return;
+            _路标上次毫秒 = 现在;
+            LogHelper.Info($"[面板] 路标={号}（{说明}）｜累计 {_路标次数} 次");
+        }
+        catch { }
+    }
+
 
     // ══════════════════════════════════════════════════════════════
     //  ★ 每帧回调的存活判定（见 `Build` 里的说明）★
