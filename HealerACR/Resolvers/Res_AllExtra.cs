@@ -415,7 +415,15 @@ public class Res_GroupHoT : ISlotResolver
 
         // 兜底：多人掉血
         var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
+        // ⚠️ 血线走 `治疗阈值表`（带每技能值 + AI 的三种偏移）——
+        //    原来硬编码 `s.群体治疗阈值`，**而表里给这两个技能登记的值根本读不到**
+        //    （`庇护所` / `自生` 登记了、也归了类，但没有任何 resolver 读 ===> 死登记）。
+        //    [!] 后果：AI 按"群疗类"调阔/收紧时，**这个技能纹丝不动** ——
+        //        它只吃大类阈值，不吃 AI 偏移（和 Round 7 修掉的那批是同一个问题）。
+        //    [!] 判据与 `Res_SingleHoT` / `Res_HealAmp` / 学者那几个能力技**同源**
+        //        （开发约定 F③：同一个决策不论从哪条路进来，判断必须一致）。
+        var 本技血线 = 治疗阈值表.取(技能, s.群体治疗阈值);
+        if (HealTargetHelper.低于阈值人数(本技血线, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 8 : -1;
     }
