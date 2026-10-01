@@ -1003,6 +1003,42 @@ public abstract class HealerEntryBase : IRotationEntry
         // ══════════════════════════════════════════════════════════════════
         if (仅画一行诊断())
         {
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **计数版一行诊断** —— 用户截图证明"多个入口都在画"之后，
+            //     现在需要的不是"画什么"，而是**数字：一帧到底画了几次** ★★
+            //
+            //  [!] 用户实测（截图）：诊断模式只画两行，**仍然闪**，
+            //      而且截图里能看到**两套文字叠着** ⇒
+            //      **一帧里不止一个入口在画这一页**。
+            //      ==> 于是 13 个设置段**全部无罪**，问题在**归属**。
+            //
+            //  [!] 现在要一个**能一口定死的数字**：
+            //        · 约 1 次/秒×60 ⇒ 一帧 1 次 ⇒ 只有一个入口画（那就该不闪）
+            //        · 约 5 次/秒×60 ⇒ 一帧 5 次 ⇒ **五个入口都画**
+            //        · 更多          ⇒ 还有别的副本（多个程序集加载上下文）
+            //
+            //  [!] 实现：静态计数 + 每秒落一行日志。**故意不放在 `绘制节流` 后面
+            //      的那条路上** —— 这一行本身就是测量点。
+            // ══════════════════════════════════════════════════════════════
+            _诊断画次++;
+            try
+            {
+                var 现在 = Environment.TickCount64;
+                if (_诊断窗口 == 0) _诊断窗口 = 现在;
+                var 距 = 现在 - _诊断窗口;
+                if (距 >= 1000)
+                {
+                    var 我 = AEAssist.CombatRoutine.Data.currRotation;
+                    LogHelper.Info(string.Format(
+                        "[HealerACR] 诊断计数：{0} 次 / {1} ms ｜ 本入口={2} ｜ 当前旋转={3}",
+                        _诊断画次, 距, GetHashCode(),
+                        (我 == null ? "null" : 我.GetHashCode().ToString())));
+                    _诊断画次 = 0;
+                    _诊断窗口 = 现在;
+                }
+            }
+            catch { }
+
             try
             {
                 var 我 = AEAssist.CombatRoutine.Data.currRotation;
@@ -1573,6 +1609,11 @@ public abstract class HealerEntryBase : IRotationEntry
     /// [!] 路径：`%APPDATA%\BlueWhale\仅画一行.flag`
     /// </summary>
     private static int _仅画一行缓存 = -1;   // -1 = 未判断，0 = 关，1 = 开
+
+    /// <summary>诊断模式的绘制计数（每秒落一行日志，见 `OnDrawSetting` 里那段）。</summary>
+    private static int _诊断画次;
+    /// <summary>诊断计数的窗口起点（毫秒）。0 = 还没开始。</summary>
+    private static long _诊断窗口;
 
     private static bool 仅画一行诊断()
     {
