@@ -239,6 +239,7 @@ public static class Ai初始化
 
     private static async Task 跑一次(int 我的世代)
     {
+        崩溃路标.记(30, "跑一次() 进入");
         _重试中 = true;
         try
         {
@@ -288,6 +289,7 @@ public static class Ai初始化
 
             while (true)
             {
+                崩溃路标.记(31, "跑一次() 进入重试循环");
                 第几次++;
 
                 if (我的世代 != _世代)
@@ -477,11 +479,15 @@ public static class Ai初始化
     /// </summary>
     private static async Task<string?> 单次尝试()
     {
+        // ★ 崩溃路标（见 `崩溃路标.记` 的说明）：HTTP 之前 vs 之后 ★
+        崩溃路标.记(32, "单次尝试() 进入");
+
         // 直接走策略层的刷新逻辑 —— 它采集的情境最完整
         // （副本 / 时间轴 / 自己 / 资源 / 队友 / 敌人 / 可选技能）
         var 局面 = AiSituation.采集();
+        崩溃路标.记(33, "局面采集 完成 —— 即将发 HTTP");
 
-        return await DeepSeekClient.提问(
+        var 回复 = await DeepSeekClient.提问(
             "这是一次初始化。请根据下面的局面给出你对该场战斗的策略倾向。",
             局面,
             超时,
@@ -518,6 +524,10 @@ public static class Ai初始化
             //     **初始化失败 = 整场战斗的 AI 层失效**，代价很大，
             //     不该为了省一个"上限值"去赌。
             最大Token: 12000).ConfigureAwait(false);
+
+        // ★ 崩溃路标：HTTP 已经返回（能走到这一行 = 网络/解析这一步没崩）★
+        崩溃路标.记(34, "单次尝试() HTTP 已返回");
+        return 回复;
     }
 
     /// <summary>每帧检查超时</summary>
