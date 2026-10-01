@@ -1189,8 +1189,44 @@ public static class 候选集
                 if (池里有的.Contains(盾Id)) continue;
                 if (!SpellUtil.已解锁(盾Id)) continue;
                 if (!SpellUtil.即将可用(盾Id, SpellUtil.建议视野秒())) continue;
-                // 已经在场就别再铺（和本地 `Res_HealShield` 的跳过同源）
-                if (SpellUtil.Get(盾Id) == null) continue;
+                // ══════════════════════════════════════════════════════════
+                //  ★ **盾还在场就别再铺** —— 判据必须和本地 `Res_HealShield` 同源 ★
+                //
+                //  [!] 这一行原来是 `if (SpellUtil.Get(盾Id) == null) continue;`
+                //      —— **注释说"已经在场就别再铺"，代码做的却是"拿不到技能数据"**。
+                //      `SpellUtil.Get(id)` 是 `id.GetSpell()`（技能**数据对象**），
+                //      对已解锁的技能**恒不为 null** ==>
+                //      **这条守卫从来没生效过**，"盾已在场"一次都没被过滤掉。
+                //      （开发约定 ⑧：注释和代码说的不是一件事，比没有注释更危险。）
+                //
+                //  [!] 本地真正的判据（`Res_Heal.cs` L935，已经核实）：
+                //          `坦克.有该技能的Buff(_t.单体盾)`
+                //        && `坦克.我的Buff还剩超过N秒(AuraIds.技能转Buff(盾), 5f)`
+                //      = **有那个 buff** 且 **剩余 > 5 秒** 才算"还在场"。
+                //      （只判"有 buff"会在**剩 0.2 秒**时也跳过，反而漏掉该补的时机。）
+                //
+                //  [!] 目标怎么取：
+                //        群体盾 / 自身盾 -> 判自己（盾以自己为中心）
+                //        单体盾          -> 判坦克（本地就是铺给坦克的，`选目标()` 的坦克分支）
+                //      取不到目标时**不跳过**（宁可多给一个候选，也不要漏掉该铺的盾）。
+                //
+                //  [!] 为什么这条重要：盾还在的时候把"铺盾"列给 AI，
+                //      而本地 `Res_HealShield` 会拒绝 --> 这是用户报过的
+                //      「AI 建议的东西本地不做」的一类成因（两边判据不同源，F③）。
+                // ══════════════════════════════════════════════════════════
+                try
+                {
+                    var 盾Buff = AuraIds.技能转Buff(盾Id);
+                    if (盾Buff != 0)
+                    {
+                        var 判谁 = 是群 ? Core.Me : (HealTargetHelper.主坦() ?? (IBattleChara?)Core.Me);
+                        if (判谁 != null
+                            && 判谁.有该技能的Buff(盾Id)
+                            && 判谁.我的Buff还剩超过N秒(盾Buff, 5f))
+                            continue;
+                    }
+                }
+                catch { }
                 foreach (var c in _当前表)
                     if (c.技能Id == 盾Id) goto 下一条盾;
     
