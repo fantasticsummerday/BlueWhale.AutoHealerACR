@@ -196,7 +196,25 @@ public static class AiThresholdAdapter
     /// </summary>
     private static float 倾向偏移量()
     {
-        return 同步到表(算倾向偏移量());
+        // ★★★ **纯计算 —— 绝对不许在这里同步** ★★★
+        //
+        //  [!] 为什么（**源码直接证明的无限递归**，外部审查报告定位 + 我核实）：
+        //      原来这里写的是 `return 同步到表(算倾向偏移量());`
+        //      而 `同步到表()` 里会调 `推类别()`，`推类别()` 又调 `偏移()`，
+        //      `偏移()` 又回到本函数 ==> **死循环**：
+        //
+        //          偏移() → 倾向偏移量() → 同步到表() → 推类别() → 偏移() → …
+        //
+        //      ⇒ 栈耗尽 ⇒ `0xc00000fd`（栈溢出）⇒ 进程直接没。
+        //      转储里那 2520×3 个重复帧就是它。
+        //
+        //  [!] 触发入口：`Res_HealEmergency.Check()` 读
+        //      `HealSettings.Instance.紧急单奶阈值` → `阈值钩子.应用` →
+        //      `AiThresholdAdapter.紧急单奶阈值(原值)` → `偏移(参数)` ⇒ 进环。
+        //
+        //  [!] 所以：**计算函数不许有同步副作用**。
+        //      同步改由 `同步阈值表()` 承担，由 AI 策略层每帧调一次（见那边的注释）。
+        return 算倾向偏移量();
     }
 
     /// <summary>
@@ -240,14 +258,15 @@ public static class AiThresholdAdapter
             //
             //  [!] 只在变化时写（和上面同一个理由：每帧多次调用）。
             // ══════════════════════════════════════════════════════════════
+            // ★ 把**算好的值**传进去 —— 不再让 `推类别` 自己调 `偏移()`（那是环的来源）
             推类别(HealerACR.Common.治疗阈值表.类别.单疗,
-                   HealerACR.Common.可调参数.单体治疗阈值);
+                   值 + 安全取参数(HealerACR.Common.可调参数.单体治疗阈值));
             推类别(HealerACR.Common.治疗阈值表.类别.群疗,
-                   HealerACR.Common.可调参数.群体治疗阈值);
+                   值 + 安全取参数(HealerACR.Common.可调参数.群体治疗阈值));
             推类别(HealerACR.Common.治疗阈值表.类别.大招,
-                   HealerACR.Common.可调参数.大招血线);
+                   值 + 安全取参数(HealerACR.Common.可调参数.大招血线));
             推类别(HealerACR.Common.治疗阈值表.类别.预铺,
-                   HealerACR.Common.可调参数.预铺血线);
+                   值 + 安全取参数(HealerACR.Common.可调参数.预铺血线));
         }
         catch { }
         return 值;
@@ -258,11 +277,12 @@ public static class AiThresholdAdapter
         HealerACR.Common.治疗阈值表.类别, float> _上次类别 = new();
 
     /// <summary>把某个参数当前的完整偏移推给对应的技能类别。</summary>
-    private static void 推类别(HealerACR.Common.治疗阈值表.类别 类, string 参数名)
+    private static void 推类别(HealerACR.Common.治疗阈值表.类别 类, float 值)
     {
         try
         {
-            var v = 偏移(参数名);
+            // ★ 直接用调用方算好的值 —— **绝不能在这里调 `偏移()`**（那是环的来源）
+            var v = 值;
             if (_上次类别.TryGetValue(类, out var 旧) && 旧 == v) return;
             HealerACR.Common.治疗阈值表.设类别偏移(类, v);
             _上次类别[类] = v;
@@ -272,6 +292,13 @@ public static class AiThresholdAdapter
 
     /// <summary>上一次同步给 `治疗阈值表` 的值（只为省掉重复写）。</summary>
     private static float _上次同步到表 = float.NaN;
+
+    /// <summary>安全读一个 AI 参数的偏移（读不到返回 0，**纯读、无副作用**）。</summary>
+    private static float 安全取参数(string 参数)
+    {
+        try { return Ai策略参数.取(参数); }
+        catch { return 0f; }
+    }
 
     private static float 算倾向偏移量()
     {
@@ -354,6 +381,35 @@ public static class AiThresholdAdapter
     }
 
     /// <summary>倾向切换时重置平滑（换本 / 战斗重置用）</summary>
+    /// <summary>
+    /// **同步阈值表** —— 由 AI 策略层**每帧调一次**（不再由"读阈值"触发）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么要有这个独立入口（**栈溢出崩溃的修复要点**）：
+    ///
+    ///      原来的结构是"**读一个阈值 ⇒ 顺手同步整张表**"：
+    ///          读 紧急单奶阈值 → 偏移() → 倾向偏移量() → 同步到表() → 推类别() → 偏移()
+    ///      ==> **读阈值的动作本身会触发同步，而同步又会去读阈值** ⇒ 死循环。
+    ///
+    ///      [!] 正确方向（报告原话："计算与同步必须彻底分离"）：
+    ///          AI 状态 → 算 → 得到值 → **单向**同步到表
+    ///      而 Resolver 读阈值时**只读、不触发任何同步**。
+    ///
+    ///  ==> 所以同步搬到这里，由策略层每帧调一次。
+    ///      即使没人调它，最坏结果也只是"每技能阈值表不跟随 AI"——
+    ///      那是个**显示/精度**问题，远好于崩游戏。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static void 同步阈值表()
+    {
+        try
+        {
+            // 只在 AI 真的活着时同步；否则把表归零（回到本地基线）
+            同步到表(算倾向偏移量());
+        }
+        catch { }
+    }
+
     public static void 重置平滑()
     {
         _上次平滑 = 0;
