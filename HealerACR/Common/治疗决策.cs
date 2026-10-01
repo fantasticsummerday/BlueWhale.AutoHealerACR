@@ -85,7 +85,9 @@ public static class 治疗决策
             var 命悬 = false;
             try { 命悬 = 目标.有效血量比例() <= 0.30f; } catch { }
 
-            return 打分(技, 缺口, 命悬, 效率权重, SpellUtil.在移动());
+            return 打分(技, 缺口, 命悬, 效率权重, SpellUtil.不能读条());
+        // ⚠️ 用 `不能读条()`（含跳跃）而不是 `在移动()` ——
+        //    这里判的是能不能放读条技，跳跃同样放不出。
         }
         catch { return float.NegativeInfinity; }
     }
@@ -406,7 +408,7 @@ public static class 治疗决策
                 try { 命悬 = 目标.有效血量比例() <= 0.30f; } catch { }
             }
 
-            return 选最优(候选, 缺口, 命悬, SpellUtil.在移动(), 只群体, 只瞬发);
+            return 选最优(候选, 缺口, 命悬, SpellUtil.不能读条(), 只群体, 只瞬发);
         }
         catch
         {

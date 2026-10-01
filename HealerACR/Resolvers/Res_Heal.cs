@@ -90,9 +90,19 @@ public class Res_MustFullHeal : ISlotResolver
         //     站定时读条的那个治疗量更大（比如救疗 > 神名），所以站定优先读条；
         //     移动时读条必然失败，所以必须换成瞬发。
         // ══════════════════════════════════════════════════════════════
-        var 移动中 = SpellUtil.在移动();
+        // ⚠️ 用 `不能读条()`（= 移动中 **或** 空中）而不是 `在移动()` ——
+        //    [!] 下面那一整段判的是"**能不能读条**"：
+        //          · 能读条 -> 走读条技（治疗量更大）
+        //          · 不能   -> 改走瞬发，或者干脆放弃（别硬读，白费 GCD）
+        //    [!] 而 `在移动()` **不含跳跃**（框架的 `IsPlayerMoving` 不因跳跃改变，
+        //        见 `空中检测.cs` 的类注释）==>
+        //        跳起来时 `移动中 == false` -> 跳过整段 -> 走读条技 -> **放不出来**。
+        //        而同一段里 `SpellUtil.移动中可用(技)` **本来就含跳跃** ——
+        //        两行判据不同源，说明这里的原意就是"能不能读条"。
+        //    [!] 这是**救命路径**（中致死机制时唯一解），判错的代价比别处大。
+        var 不能读 = SpellUtil.不能读条();
 
-        if (移动中)
+        if (不能读)
         {
             // 移动中：只要有一个瞬发可用就交给它 —— 本 resolver 让路，
             // 因为 `Res_InstantHealAbility` / `Res_HealEmergency` 排在后面，
@@ -160,7 +170,7 @@ public class Res_MustFullHeal : ISlotResolver
             //          `if (移动中 && !技.瞬发) return false;`
             //      ⇒ `移动中: true` 时选出来的必然是瞬发技。
             // ══════════════════════════════════════════════════════════════
-            var 技 = SpellUtil.在移动()
+            var 技 = SpellUtil.不能读条()
                 ? 治疗决策.选最优(
                     _t.治疗候选,
                     缺口: MathF.Max(1f, 目标.MaxHp - 目标.CurrentHp),
@@ -610,7 +620,7 @@ public class Res_HealAoEGcd : ISlotResolver
             var 技 = 治疗决策.选最优(
                 _t.治疗候选, 缺口,
                 命悬一线: false,          // 群体治疗不承担"救急"职责（那是单奶/能力技的活）
-                移动中: SpellUtil.在移动(),
+                移动中: SpellUtil.不能读条(),
                 只群体: true, 只要GCD: true,   // GCD 槽不能塞 oGCD 能力技
                 只瞬发: false);
 
@@ -819,7 +829,7 @@ public class Res_HealSingleGcd : ISlotResolver
             // ══════════════════════════════════════════════════════════════
             var 技 = 治疗决策.选最优(
                 _t.治疗候选, 缺口, 命悬,
-                移动中: SpellUtil.在移动(),
+                移动中: SpellUtil.不能读条(),
                 只群体: false,
                 只瞬发: false,
                 只要GCD: true);
