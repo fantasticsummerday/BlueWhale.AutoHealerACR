@@ -98,6 +98,12 @@ public static class 减伤Helper
     /// <summary>目标值不值得交减伤（boss 或精英怪）</summary>
     public static bool 是Boss(IBattleChara 敌人)
     {
+        // ★ **交给 AEAssist 之前先验有效性** —— `TargetHelper.IsBoss` 会读
+        //   这个对象的内存，而它**不知道我们的哨兵约定**（已释放对象 = 0x12345679，
+        //   不是 null）。把这种对象交出去 ==> 原生访问违例发生**在它内部**，
+        //   我们的 try/catch 和全局异常钩子**都在它外面** ==> 进程直接没。
+        //   （实测：连续 12 轮排查里钩子一次都没触发，就是因为崩在外部库里。）
+        if (敌人 == null || !敌人.对象有效()) return false;
         return TargetHelper.IsBoss(敌人);
     }
 }

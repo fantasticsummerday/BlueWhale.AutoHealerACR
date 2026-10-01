@@ -195,6 +195,15 @@ public static class 技能数据
         {
             unsafe
             {
+                // ★ **`ToStruct()` 会读对象内存拿原生指针** ——
+                //   已释放对象（哨兵 0x12345679）在这里就会崩，
+                //   而且下面 `IsBlocked(我, 它)` 是**外部库**，崩了我们也兜不住。
+                if (目标 == null || !目标.对象有效()) return false;
+                // ⚠️ `Core.Me` 的静态类型是 `IGameObject`，**不能**用 `对象有效()`
+                //    （那个扩展方法只对 `IBattleChara` 定义）—— 这里只能判 null。
+                //    自己（玩家）在换图时不会被释放，所以这个判据够用。
+                if (AEAssist.Core.Me == null) return false;
+
                 var 我 = AEAssist.Core.Me.ToStruct();
                 var 它 = 目标.ToStruct();
 
