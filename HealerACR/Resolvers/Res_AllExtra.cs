@@ -475,7 +475,8 @@ public class Res_SingleMitigation : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
+        // ⚠️ 这里原来有一行 `var 要来 = ...`，**赋值后从未被读** —— 纯遗留死代码，已删。
+        //    （`Check` 里那一份已经在 Round 3 修好并真的用上了；`Build` 只负责放技能。）
         var 坦克 = HealTargetHelper.主坦();
         if (坦克 == null) return;
 
@@ -604,18 +605,44 @@ public class Res_HealAmp : ISlotResolver
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // 给快死的坦克 + 伤害要来的时候
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 血线判据（原来 `要来` 算了**完全没用**）★
+        //
+        //  [!] 修的是和前几轮同一个模式：
+        //        ① 算出一个判据（`要来`）
+        //        ② **那条路没用它**
+        //        ③ 结果 = 只要坦克身上没这个 buff，就无条件给
+        //      ==> 坦克满血也会被挂「混合」（贤者的增疗 buff，有自己的 CD）。
+        //
+        //  [!] 有 `要来` 时仍然无条件给（强判据：伤害马上落地，增疗/减伤要提前）。
+        //  [!] 没 `要来` 时要求坦克**确实掉血了**才给 ——
+        //      用 `治疗阈值表` 查「混合」，查不到回落 `单体治疗阈值`。
+        // ══════════════════════════════════════════════════════════════
         var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
         var 目标 = HealTargetHelper.主坦();
         if (目标 == null) return -1;
         if (目标.有该技能的Buff(技能)) return -3;
+
+        if (!要来)
+        {
+            var 血线该交 = false;
+            try
+            {
+                var 阈值 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
+                if (阈值 > 0f && 目标.有效血量比例() <= 阈值) 血线该交 = true;
+            }
+            catch { }
+            if (!血线该交) return -5;
+        }
 
         return SpellUtil.可用(技能) ? 16 : -1;
     }
 
     public void Build(Slot slot)
     {
-        var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
+        // ⚠️ 这里原来有一行 `var 要来 = ...`，**赋值后从未被读** —— 纯遗留死代码，已删。
+        //    `Build` 的职责是"把 Check 选中的东西放进 slot"，不做判断
+        //    （开发和约定 F③：判断只在 Check，Build 只负责放）。
         var 目标 = HealTargetHelper.主坦();
         if (目标 == null) return;
 
