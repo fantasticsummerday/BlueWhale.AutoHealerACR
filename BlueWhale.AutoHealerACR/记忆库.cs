@@ -700,7 +700,7 @@ public static class 记忆库
         try
         {
             // 表缓存 10 分钟（文件可能被工具更新）
-            if (_副本名表 == null || TimeHelper.Now() - _副本名表时间 > 600_000)
+            if (_副本名表 == null || Environment.TickCount64 - _副本名表时间 > 600_000)
             {
                 var 路径 = _副本名表路径 ?? 找副本名文件();
 

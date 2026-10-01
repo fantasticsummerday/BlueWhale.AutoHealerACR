@@ -1023,7 +1023,7 @@ public class SCH_Aetherpact : ISlotResolver
         //   ==> 那种时候挂上去会立刻被断，等于白烧 10 点能量。
         try
         {
-            if (_上次仙女动作 != 0 && TimeHelper.Now() - _上次仙女动作 < 800) return -6;
+            if (_上次仙女动作 != 0 && Environment.TickCount64 - _上次仙女动作 < 800) return -6;
         }
         catch { }
 

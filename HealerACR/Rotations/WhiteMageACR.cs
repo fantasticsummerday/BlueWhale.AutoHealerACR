@@ -807,7 +807,7 @@ public class WHM_GlareIV : ISlotResolver
         // 但也不让它把已经确定该放的技能挡掉 —— 挡掉时留下证据。
         if (!SpellUtil.可用(技能))
         {
-            if (TimeHelper.Now() - 上次诊断 > 5000)
+            if (Environment.TickCount64 - 上次诊断 > 5000)
             {
                 上次诊断 = TimeHelper.Now();
                 LogHelper.Info("[HealerACR] 闪飒预备在身，但 可用(闪飒) = false -> 仍然放");

@@ -462,7 +462,7 @@ public class AST_Draw : ISlotResolver
         if (当前 == null || !当前.IsReadyWithCanCast()) return -1;
 
         // 限流：万一可用性判断失灵，也不至于每帧刷
-        if (TimeHelper.Now() - AST卡牌状态.上次抽卡 < 3000) return -6;
+        if (Environment.TickCount64 - AST卡牌状态.上次抽卡 < 3000) return -6;
 
         return 3;
     }

@@ -898,7 +898,7 @@ public class Res_FreeCast : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 2 层充能：限流，别一口气全交
-        if (TimeHelper.Now() - 上次开 < 4000) return -7;
+        if (Environment.TickCount64 - 上次开 < 4000) return -7;
         if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         // 有人需要治疗时才开（不然白开）

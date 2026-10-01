@@ -890,13 +890,15 @@ public abstract class HealerEntryBase : IRotationEntry
         //      我们**无法可靠地知道"这是第几帧"**（框架没给帧号），
         //      而时间戳是可靠的。8ms 是"不会错过任何一次刷新"的安全值。
         // ══════════════════════════════════════════════════════════════════
-        try
-        {
-            var 面板现在 = AEAssist.Helper.TimeHelper.Now();
-            if (面板现在 - _面板上次绘制毫秒 < 8) return;
-            _面板上次绘制毫秒 = 面板现在;
-        }
-        catch { }
+        // ★ 用**全进程共享**的频率门 + 可信计时器（Environment.TickCount64）。
+        //   [!] 为什么换掉原来的写法：
+        //     ① 原来用 TimeHelper.Now()，而它的语义**无法确认** ——
+        //        实测门设 8ms 却仍被画 680~8800 次/秒 ==> 它不是可靠的实时毫秒。
+        //     ② 原来 _面板上次绘制毫秒 是**本类**的静态字段，而框架对**每个已加载
+        //        ACR** 都调一次绘制 —— 本项目有 10 个职业入口
+        //        ==> 125 次/秒 × 10 = 1250 次/秒。
+        //   ==> 改成 绘制节流.该画面板()：全进程一份、计时器可信。
+        if (!绘制节流.该画面板()) return;
 
         面板路标(0, "进入 OnDrawSetting");
 
@@ -1292,7 +1294,9 @@ public abstract class HealerEntryBase : IRotationEntry
         try
         {
             _路标次数++;
-            var 现在 = AEAssist.Helper.TimeHelper.Now();
+            // ⚠️ 用 Environment.TickCount64（确定是毫秒、单调、无分配）——
+            //    TimeHelper.Now() 的语义无法确认，实测用它做节流会失效。
+            var 现在 = Environment.TickCount64;
 
             // ⚠️ **按号分别节流** —— 原来是**全局 1 秒 1 条**，
             //    而号是**来回变**的（0→1→2→…→15→回到 0），
