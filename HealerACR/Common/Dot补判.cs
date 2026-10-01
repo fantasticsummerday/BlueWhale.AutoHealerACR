@@ -182,19 +182,37 @@ public static class Dot补判
     ///     只留成功 → 从"按下"到"成功"这段没人管，每 GCD 重判一次。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
-    public static void 记一次施放(IBattleChara? 目标)
+    /// <summary>
+    /// **按目标 id 记一次施放**（不碰 live 对象）。
+    ///
+    /// [!] 为什么需要这个重载（外部审查 P0-4，我核实确认为真）：
+    ///      `收尾()` 是在 `slot.Add()` **之后**调的 —— 那一刻读 live 目标属性
+    ///      既可能因对象刚好失效而崩，更不该影响"要不要消费 AI 建议"。
+    ///      ==> 改成调用方**提前**把 id 取出来（纯托管 `ulong`）传进来。
+    /// </summary>
+    public static void 记一次施放(ulong 已知Id) => 记一次施放(null, 已知Id);
+
+    public static void 记一次施放(IBattleChara? 目标, ulong 已知Id = 0)
     {
         // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
         //   触发原生访问违例（穿 catch / 无转储 / 进程直接没）。
         //   本项目 12 次崩溃全部是这一类 —— 不假设调用方判过。
         // ⚠️ 这是 void 函数 —— 用 `return;`，不是 `return null;`
-        if (目标 == null || !目标.对象有效()) return;
+        //
+        // [!] **不再因目标失效而整体放弃**（P0-4）：
+        //     `_上次挂Dot`（保险丝主体）与"按目标那份记录"是**两件事**，
+        //     前者不该被"这次读不到对象"连累 —— 否则 AI 放出的 DoT
+        //     不会记保险丝，下一步 Dot补判 又会判"该补"。
         try
         {
             _上次挂Dot = TimeHelper.Now();
 
-            if (目标 == null) return;
-            var id = 目标.GameObjectId;
+            var id = 已知Id;
+            if (id == 0)
+            {
+                if (目标 == null || !目标.对象有效()) return;
+                id = 目标.GameObjectId;
+            }
             if (id == 0) return;
 
             // 超上限就丢掉最旧的（简单清理，够用）
