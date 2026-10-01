@@ -42,6 +42,33 @@ public static class HealTargetHelper
         // ══════════════════════════════════════════════════════════════
         try
         {
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 第一道：**先整体确认这个队伍可不可信，不可信就直接空手退出 ★**
+            //
+            //  [!] 这是第 3 次闪退之后加的。前两次失败的原因现在清楚了：
+            //      转储里 `异常信息 #0 地址: **12345679**` ——
+            //      那是 Dalamud 的"已释放对象"哨兵地址，
+            //      而当时的 `对象有效()` 只检查 `Address != 0`
+            //      ==> **哨兵地址通过了检查** ==> 随后读 `StatusList` 踩空 ==> 进程被杀。
+            //      （`对象有效()` 本身已修好，这里是**第二道**。）
+            //
+            //  [!] 为什么还要这道：`对象有效()` 修好之后，
+            //      "检查通过"到"真正读 buff"之间仍有极短的窗口。
+            //      而 `PartyHelper.CastableAlliesWithin30` 在换区时会**整批**
+            //      变成失效对象 —— 只要发现**任何一个**失效，
+            //      就说明这一帧整个队伍不可信，**这一次调用直接放弃**。
+            //
+            //  [!] 代价是"换区那一两帧治不了人" —— 本来也治不了（人都不在场景里）。
+            // ══════════════════════════════════════════════════════════════
+            try
+            {
+                var 待检 = PartyHelper.CastableAlliesWithin30;
+                if (待检 == null) return new List<IBattleChara>();
+                foreach (var r in 待检)
+                    if (r == null || !r.对象有效()) return new List<IBattleChara>();
+            }
+            catch { return new List<IBattleChara>(); }
+
             var 我 = Core.Me.Position;
             var 源 = 半径 >= 30f
                 ? PartyHelper.CastableAlliesWithin30
