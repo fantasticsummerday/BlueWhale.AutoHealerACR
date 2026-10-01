@@ -208,7 +208,12 @@ public abstract class HealerEntryBase : IRotationEntry
     {
         // 把技能表注入给事件处理类 —— 它是独立类，拿不到入口类的 Spells 属性。
         // AfterSpell 里做单插控制要用到（判断"复活"用掉了即刻）。
-        HealRotationEventHandler.当前技能表 = Spells;
+        // ⚠️ **这里原来还有一行 `HealRotationEventHandler.当前技能表 = Spells;`** ——
+        //    已**删除**：那是个单一静态字段，而 AEAssist 加载时会依次 Build 每个 ACR
+        //    ==> **最后一个 Build 的职业赢**，于是玩学者时 AI 拿到白魔的技能清单。
+        //    用户实测：候选里出现 `7432 神祝祷` / `天赐祝福` / `庇护所` / `法令`（全是白魔）。
+        //    ==> 只保留下面那行**按职业**的登记（字典），读取方一律走 `取当前职业技能表()`。
+        //    留着那个字段就一定会有人再读到 —— 这个 bug 已经犯过两次。
         // ★ 同时按职业登记 ★ —— 否则 5 个入口会互相覆盖，
         //   最后加载的那个（幻术师）赢，导致 AI 看到错误的技能清单。
         HealRotationEventHandler.登记技能表((uint)TargetJob, Spells);
@@ -1524,7 +1529,10 @@ public class HealRotationEventHandler : IRotationEventHandler
     /// 当前职业的技能表，由入口类在 Build 时注入。
     /// 这个事件处理类是独立类，拿不到入口类的属性，所以用静态字段传。
     /// </summary>
-    public static JobSpellTable? 当前技能表;
+    // ⚠️ **`public static JobSpellTable? 当前技能表;` 已删除** ——
+    //    它是单一静态字段，而 AEAssist 会依次 Build 每个 ACR，
+    //    ==> 最后 Build 的职业覆写它 ==> 别的职业读到错表。
+    //    正确做法：用 `登记技能表(职业Id, 表)` + `取当前职业技能表()`（按职业查）。
 
     /// <summary>
     /// **按职业存的技能表** —— 解决"最后加载的职业覆盖前面的"问题。
@@ -1716,7 +1724,9 @@ public class HealRotationEventHandler : IRotationEventHandler
         // 场景：复活用掉即刻之后，这个 GCD 不该再塞能力技（窗口留给随后的治疗）。
         try
         {
-            var 表 = 当前技能表;
+            // [!] 必须用**按职业**的表（不能用那个被覆写的静态字段）——
+            //     AfterSpell 是全局回调，读错职业的表会让 `表.复活` 比对失效。
+            var 表 = 取当前职业技能表();
             var 数据 = AI.Instance?.BattleData;
             if (表 == null || 数据 == null) return;
 

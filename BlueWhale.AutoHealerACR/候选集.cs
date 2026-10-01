@@ -1591,8 +1591,22 @@ public static class 候选集
 
     private static JobSpellTable? 职业表()
     {
-        try { return HealRotationEventHandler.当前技能表; }
-        catch { return null; }
+        // ★★ 修的是用户实测的真 bug：**候选串职业** ★★
+        //
+        //  [!] 现象：玩学者时候选里全是白魔技能 ——
+        //      `C1 [减伤] 7432 神祝祷` / `天赐祝福` / `庇护所` / `法令`。
+        //
+        //  [!] 根因：这里原来读 `HealRotationEventHandler.当前技能表` ——
+        //      那是个**单一静态字段**，而 AEAssist 加载时会**依次 Build 每个 ACR**，
+        //      每个入口都写它 ==> **最后一个 Build 的职业赢**（注释里记过幻术师赢了）。
+        //      ==> 玩学者，候选是用**别的职业的表**生成的。
+        //
+        //  [!] `AiSituation.cs` 早就改对了（它的注释写着必须取当前实际职业的表），
+        //      **只有这里没改** —— 所以散文清单是对的、候选项是错的。
+        //
+        //  [!] 现在走 `取当前职业技能表()`：按 `Core.Me.ClassJob.RowId` 查**按职业登记的字典**，
+        //      查不到返回 **null**（宁可让上层报数据不足，也**不串职业**）。
+        return HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
     }
 
     private static string 取技能名(uint 技能Id)
