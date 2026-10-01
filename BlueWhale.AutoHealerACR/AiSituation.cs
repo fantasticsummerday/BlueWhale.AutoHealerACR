@@ -174,6 +174,20 @@ public static class AiSituation
         try
         {
             LogHelper.Info("════════ [BlueWhale.身份探针] 开始 ════════");
+
+            // ★ **构建身份自检** —— 日志里这条时间戳要和 `BlueWhale.dll`
+            //    的文件时间对得上，才能确定**跑的就是这一份**。
+            //    （DLL 覆盖 ≠ 进程重载，本项目踩过这个坑。）
+            try
+            {
+                var 戳 = typeof(AiSituation).Assembly
+                    .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+                    .OfType<System.Reflection.AssemblyMetadataAttribute>()
+                    .FirstOrDefault(a => a.Key == "BuildStamp")?.Value ?? "(无)";
+                LogHelper.Info($"  ★ 本 DLL 的构建时间戳 = {戳}");
+                LogHelper.Info($"  ★ 与 BlueWhale.dll 的文件时间一致才说明加载的是这一份");
+            }
+            catch { }
             LogHelper.Info($"  当前线程 id = {Environment.CurrentManagedThreadId}" +
                            $"（托管线程池线程={System.Threading.Thread.CurrentThread.IsThreadPoolThread}）");
             LogHelper.Info($"  AiSituation 所在程序集 = {typeof(AiSituation).Assembly.GetName().Name}");
@@ -1138,8 +1152,8 @@ public static class AiSituation
                     try
                     {
                         var 分组 = HealerACR.Common.治疗阈值表.本职业阈值摘要(
-                            HealerACR.Common.HealSettings.Instance.群体治疗阈值,
-                            HealerACR.Common.HealSettings.Instance.单体治疗阈值);
+                            global::HealerACR.Common.CharacterExt.群体治疗阈值_原始(),
+                            global::HealerACR.Common.CharacterExt.单体治疗阈值_原始());
                         if (!string.IsNullOrEmpty(分组))
                             sb.AppendLine("技能血线（**不看大类阈值**）：" + 分组);
                     }
@@ -2457,7 +2471,7 @@ public static class AiSituation
             try
             {
                 崩溃路标.记(3341, "B：阈值已读，即将 可治疗队友(30f)｜T" + Environment.CurrentManagedThreadId.ToString());
-                var 阈值 = HealSettings.Instance.单体治疗阈值;
+                var 阈值 = global::HealerACR.Common.CharacterExt.单体治疗阈值_原始();
                 崩溃路标.记(3342, "C：队伍列表已取，即将遍历｜T" + Environment.CurrentManagedThreadId.ToString());
                 // ⚠️ 把「取列表」和「遍历」拆开 —— 这样能区分：
                 //      · 崩在 3346 -> 3347 之间  ==> 崩在 `可治疗队友()` 调用/返回

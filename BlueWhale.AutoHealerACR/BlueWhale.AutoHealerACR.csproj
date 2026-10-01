@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>BlueWhale</AssemblyName>
     <RootNamespace>BlueWhale.AutoHealerACR</RootNamespace>
-    <Version>0.4.3.6</Version>
+    <Version>0.4.3.7</Version>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -18,6 +18,29 @@
   <ItemGroup>
     <PackageReference Include="AEAssist.NET" Version="1.2.16" />
   </ItemGroup>
+
+  <!--
+    ★ **构建身份自检** ★（MSBuild 属性名**必须 ASCII** —— 中文会报 MSB5016）
+
+    [!] 为什么需要：DLL 覆盖 **≠** 进程重载。
+        本项目已经踩过"日志里的版本比部署的新版本旧"这个坑，
+        而排查时我又多次假设"跑的就是刚构建的" —— **从没验证过**。
+
+    ==> 把构建时间戳编进 dll，启动时打出来。
+        日志里的时间戳和 `BlueWhale.dll` 的文件时间对得上，
+        才能确定运行的是这一份。
+  -->
+  <Target Name="编入构建时间戳" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <BuildStampValue>$([System.DateTime]::Now.ToString("yyyy-MM-dd HH:mm:ss"))</BuildStampValue>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>BuildStamp</_Parameter1>
+        <_Parameter2>$(BuildStampValue)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
 
   <!--
     ★ 直接编译 HealerACR 的源码（**一个自包含的 dll**）★
