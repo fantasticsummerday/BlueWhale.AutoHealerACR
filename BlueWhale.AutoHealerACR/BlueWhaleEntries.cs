@@ -53,9 +53,105 @@ namespace BlueWhale.AutoHealerACR;
 /// </summary>
 public static class Ai层挂载
 {
+    // ══════════════════════════════════════════════════════════════════
+    //  ★★ **全局异常钩子** —— 用来抓"杀进程且不留痕迹"的崩溃 ★★
+    //
+    //  [!] 为什么需要（用户实测，连续 5 次崩溃）：
+    //      每次都是加载 ACR 后约 2.4 秒，进程被 Dalamud 崩溃处理器杀掉，
+    //      而**没有转储、没有 .NET Runtime 事件、没有异常记录**：
+    //        `Failed to read exception information; error: 0x6d`
+    //      静态排查已排除：同步 HTTP / `Thread.Sleep` / ImGui Begin-End 不配对 /
+    //      逐击键写盘 / 反射重载歧义 / 时间轴重扫 / `async void` / 无界循环。
+    //
+    //  [!] 剩下的最大可能：**后台线程（或 `Task`）抛了未处理异常** ——
+    //      那种异常**不会**写进 Dalamud 的托管异常记录，直接终止进程。
+    //      ==> 钩子把它变成一条**看得见的日志**。
+    //
+    //  [!] 三个钩子各管一段：
+    //        `UnhandledException`        —— 主线程 / 非同线程池的未处理异常
+    //        `TaskScheduler.Unobserved...` —— `Task` 里被吞掉的异常（含 `_ = Task.Run`）
+    //        `FirstChanceException`      —— 只看**访问违例**（`0xc0000005`），
+    //                                        那是本项目前几次转储的崩型
+    //
+    //  [!] 为什么 `FirstChanceException` 要过滤：它**每次抛异常都触发**，
+    //      不过滤会刷爆日志（本项目已栽过两次刷屏）。只记访问违例。
+    //
+    //  [!] 为什么在这里装：`挂载()` 是 5 个职业入口共用的**唯一挂载点**，
+    //      且发生在 `Build()` 里 —— 也就是**崩溃发生之前**。
+    //
+    //  [!] 幂等：重复 `Build()` 会重复调用（5 职业 × 2 程序集 = 10 次），
+    //      用静态标志保证只装一次，否则同一个异常会被记 10 遍。
+    // ══════════════════════════════════════════════════════════════════
+    private static bool _异常钩子已装;
+
+    private static void 装异常钩子()
+    {
+        if (_异常钩子已装) return;
+        _异常钩子已装 = true;
+
+        try
+        {
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
+                try
+                {
+                    var ex = e.ExceptionObject as Exception;
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] ★ 未处理异常（主线程/后台线程）" +
+                                    $"｜IsTerminating={e.IsTerminating}");
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] 类型：{ex?.GetType().FullName ?? e.ExceptionObject?.GetType().FullName}");
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] 消息：{ex?.Message}");
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] 栈：{ex?.StackTrace}");
+                    if (ex?.InnerException != null)
+                        LogHelper.Error($"[BlueWhale.崩溃钩子] 内层：{ex.InnerException.GetType().FullName} {ex.InnerException.Message}");
+                }
+                catch { }
+            };
+        }
+        catch { }
+
+        try
+        {
+            TaskScheduler.UnobservedTaskException += (_, e) =>
+            {
+                try
+                {
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] ★ Task 未观察异常：{e.Exception?.GetType().FullName} {e.Exception?.Message}");
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] 栈：{e.Exception?.StackTrace}");
+                    // [!] 标记已观察 —— 不标记的话在老运行时上会升级成进程终止
+                    e.SetObserved();
+                }
+                catch { }
+            };
+        }
+        catch { }
+
+        try
+        {
+            AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
+            {
+                try
+                {
+                    // ⚠️ **只记访问违例** —— 别的异常每帧都有，记了就刷屏
+                    //    （`0xC0000005` = 访问违例，本项目前几次转储就是这个）
+                    var 码 = e.Exception?.HResult ?? 0;
+                    if (码 != unchecked((int)0xC0000005)) return;
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] ★★ 访问违例（0xC0000005）！" +
+                                    "这是「踩坏内存」型崩溃，通常紧随其后进程就没了。");
+                    LogHelper.Error($"[BlueWhale.崩溃钩子] 栈：{e.Exception?.StackTrace}");
+                }
+                catch { }
+            };
+        }
+        catch { }
+    }
+
     /// <summary>入口 Build 时调（5 个职业入口共用）</summary>
     public static void 挂载()
     {
+        // ★ 第一步：装异常钩子 —— 必须在任何别的初始化**之前** ★
+        //   （崩溃发生在挂载后约 2.4 秒，钩子要赶在那之前装好）
+        装异常钩子();
+
         // ── 记忆采集（原版不挂 → 什么也不发生）──
         记忆钩子.记决策 = (id, 名) => 战斗记忆.记决策(id, 名, 战斗记忆.判来源(id));
 
