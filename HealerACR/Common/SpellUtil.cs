@@ -35,12 +35,76 @@ public static class SpellUtil
         if (id == 0) return false;
         try
         {
-            return id.GetSpell().IsUnlock();
+            var sp = id.GetSpell();
+            if (sp == null) return false;
+            if (!sp.IsUnlock()) return false;
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **等级同步门** —— 用户日志实证的崩溃/卡顿根因 ★★
+            //
+            //  [!] 症状（日志原文）：
+            //        决策构建Slot Spell 17215 朝日召唤     ← ⚠️ 这是 **Lv4** 技能（我一度误写成 100 级）
+            //        技能开始使用. 17215 朝日召唤
+            //        技能触发Event 17215 CancelCast
+            //        SelfCastCancel Id: 17215              ← 服务器回弹
+            //        [WRN] 17215 读条技能 取消了读条/服务器回弹 使用失败
+            //      场景：`究极神兵破坏作战` 是 **50 级副本**（等级同步）。
+            //
+            //  [!] 为什么 `IsUnlock()` 挡不住：
+            //        它只判"技能有没有被**学会**" ——
+            //        满级角色进了 50 级同步本，**所有 100 级技能都"已学会"**
+            //        ==> 决策层会选它们 ==> 放不出去 ==> 回弹/取消 ==> 卡顿。
+            //
+            //  [!] 正确的判据：
+            //        `Spell.LevelRequirement`（技能需要多少级）
+            //        对比 `Data.PlayerCurrentLevel`（**副本内生效的等级**）
+            //        —— 后者在等级同步时返回**同步后的等级**。
+            //
+            //  [!] 读不到 `LevelRequirement` 时**保守放行**：
+            //        宁可漏挡一个技能，也不要因为读不到属性就把全部技能禁掉
+            //        （那会让整个 ACR 罢工，比漏挡严重得多）。
+            // ══════════════════════════════════════════════════════════════
+            var 现在等级 = 0;
+            try { 现在等级 = Data.PlayerCurrentLevel; } catch { }
+            if (现在等级 > 0)
+            {
+                // 技能需要的等级 —— 走游戏数据表。
+                // ⚠️ **不要用 `Spell.LevelRequirement`** —— 那个属性在 AEAssist 的
+                //    `Spell` 上**不存在**（我一度以为有，编译不过）。
+                var 需要 = 技能数据.取需要等级(id);
+                if (需要 > 0 && 现在等级 < 需要) return false;
+            }
+
+            return true;
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// **等级同步诊断** —— 给调试窗用：当前生效等级、以及某技能差多少级。
+    ///
+    /// [!] 为什么单独开一个：`已解锁()` 只会静默返回 false，
+    ///     而"为什么这个技能用不了"必须能一眼看出来（`技能诊断.cs` 已经在做，
+    ///     但它只报"未解锁（等级/职业任务不够）"，**不区分是同步还是没学**）。
+    /// </summary>
+    public static string 等级同步说明(uint id)
+    {
+        try
+        {
+            if (id == 0) return "";
+            var sp = Get(id);
+            if (sp == null) return "读不到技能";
+            var 需要 = 技能数据.取需要等级(id);
+            var 现在 = 0;
+            try { 现在 = Data.PlayerCurrentLevel; } catch { }
+            if (需要 <= 0 || 现在 <= 0) return "";
+            if (现在 >= 需要) return "";
+            return $"★ 等级同步：现在只按 {现在} 级算，这个技能要 {需要} 级";
+        }
+        catch { return ""; }
     }
 
     /// <summary>现在能用吗（含施法条件检查）</summary>

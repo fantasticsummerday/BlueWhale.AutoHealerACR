@@ -36,6 +36,37 @@ public static class 技能数据
     /// 走的是 AEAssist 的 `LuminaHelper.GetExcelRow` ——
     /// 它封装了 Dalamud 的 DataManager，ACR 里能直接用。
     /// </summary>
+    /// <summary>
+    /// 技能**需要的等级**（拿不到返回 0）—— 用于**等级同步**判断。
+    ///
+    /// [!] 为什么需要它：
+    ///      `SpellUtil.已解锁()` 原来只调 `Spell.IsUnlock()`，
+    ///      而它**只判「技能有没有被学会」，不判「当前副本等级够不够」**。
+    ///      满级角色进了低等级同步本时，高等级技能仍被当成「已解锁」，
+    ///      决策层会选它们 ==> 放不出去 ==> 服务器回弹 / 取消。
+    ///
+    /// [!] 不要用 `Spell.LevelRequirement` —— AEAssist 的 `Spell` 上
+    ///      **没有这个属性**（我一度以为有，编译不过）。
+    ///      等级在游戏数据表 `Lumina.Excel.Sheets.Action.ClassJobLevel` 里。
+    ///
+    /// [!] 拿不到返回 **0** -> 调用方视为「无等级要求」**保守放行**。
+    ///      宁可漏挡一个技能，也不要因为读不到就把全部技能禁掉（那会让 ACR 罢工）。
+    /// </summary>
+    public static int 取需要等级(uint 技能Id)
+    {
+        if (技能Id == 0) return 0;
+        try
+        {
+            var 行 = LuminaHelper.GetExcelRow<Lumina.Excel.Sheets.Action>(技能Id);
+            if (行 == null) return 0;
+            return 行.Value.ClassJobLevel;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
     public static int 取CastType(uint 技能Id)
     {
         if (技能Id == 0) return 0;
