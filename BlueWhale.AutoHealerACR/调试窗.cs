@@ -165,6 +165,11 @@ public static class 调试窗
     /// <summary>上次输出"为什么不能读游戏状态"的时间 —— 1 秒最多一条</summary>
     private static long _上次状态诊断;
 
+    // ★ 段探针（用户实测「窗口有了但没数据」）——
+    //   五个画函数各自靠 `ImGui.CollapsingHeader` 开头，折叠头若返回 false
+    //   它们就只剩标题、内容全空。这四个计数器每秒报一次，直接指出挡在哪一层。
+    private static int _段基础, _段读条, _段预测, _段技能, _段AI;
+
     /// <summary>上次输出位置/尺寸诊断的时间 —— 1 秒最多一条</summary>
     private static long _上次位置诊断;
     /// <summary>位置诊断已经打了几次（用来看它有没有持续输出）</summary>
@@ -429,8 +434,20 @@ public static class 调试窗
             if (现在诊断 - _上次状态诊断 >= 1000)
             {
                 _上次状态诊断 = 现在诊断;
-                if (!可以读游戏状态)
-                    LogHelper.Info($"[BlueWhale.调试窗] 不读游戏状态 —— {挡住原因}");
+
+                // ★ 总览日志：把三个关键状态打出来（用户实测「窗口有了但没数据」）
+                //
+                //  [!] 为什么需要它：`绘制()` 里有三道判据 + 五个画函数各有自己的门，
+                //      只看"窗口是空的"分不清是哪一道挡的。
+                //      这一行把"能不能读状态 / 挡住的第③条原因 / 有没有画过"一起报出来。
+                LogHelper.Info(string.Format(
+                    "[BlueWhale.调试窗] 状态：可读={0} ｜ 挡住={1} ｜ 窗口开={2}" +
+                    " ｜ 段计 基础={3} 读条={4} 预测={5} 技能={6} AI={7}",
+                    可以读游戏状态,
+                    (string.IsNullOrEmpty(挡住原因) ? "无" : 挡住原因),
+                    _窗口开,
+                    _段基础, _段读条, _段预测, _段技能, _段AI));
+                _段基础 = _段读条 = _段预测 = _段技能 = _段AI = 0;
             }
         }
         catch { }
@@ -865,6 +882,7 @@ public static class 调试窗
     {
         try
         {
+            _段基础++;
             if (!ImGui.CollapsingHeader("基础局面", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
             var 地图 = TimelineManager.实时副本Id();
@@ -971,6 +989,7 @@ public static class 调试窗
     {
         try
         {
+            _段读条++;
             var 全 = 机制读条.当前();
 
             if (!ImGui.CollapsingHeader($"正在读条（{全.Count}）", ImGuiTreeNodeFlags.DefaultOpen))
@@ -1016,6 +1035,7 @@ public static class 调试窗
     {
         try
         {
+            _段预测++;
             if (!ImGui.CollapsingHeader("伤害预测 / 坦克压力")) return;
 
             ImGui.TextWrapped($"预测：{伤害预测.状态描述()}");
@@ -1069,6 +1089,7 @@ public static class 调试窗
     {
         try
         {
+            _段技能++;
             if (!ImGui.CollapsingHeader("技能读取 / 职业表")) return;
 
             var 表 = HealRotationEventHandler.取当前职业技能表();
@@ -1285,6 +1306,7 @@ public static class 调试窗
     {
         try
         {
+            _段AI++;
             if (!ImGui.CollapsingHeader("AI 各层状态")) return;
 
             var s = AiSettings.Instance;
