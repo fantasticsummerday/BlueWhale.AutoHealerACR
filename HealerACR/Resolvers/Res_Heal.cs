@@ -841,7 +841,18 @@ public class Res_HealSingleGcd : ISlotResolver
                 if (c == null || c.Id == 0) continue;
                 // 只考虑 GCD 单体（本 resolver 走 Gcd 槽，能力技有各自的 resolver）
                 if (c.群体) continue;
-                if (c.冷却 > 0f) continue;          // oGCD 能力技不归这里（见下面的长注释）
+                // ⚠️ **必须用 `是能力技_实际`，不能用 `冷却 > 0f`** ——
+                //    `治疗技能.cs` L115-123 记着这个真 bug（H13）：
+                //      曾经用 `MP <= 0 && 冷却 <= 0f` 判能力技，把
+                //      **MP 0 + 冷却 0 的 GCD 技**（白魔 安慰之心 / 狂喜之心）判成能力技
+                //      ==> 它们被排除出 GCD 路径，而候选集告诉 AI 它们是 GCD
+                //      ==> **模型对、本地错**。
+                //    `是能力技_实际` 就是那次修好的判据，`治疗决策.选最优` 的
+                //    `只要GCD` 过滤也用它（同源，开发约定 F③）。
+                //    [!] 我第一版这里写的是 `c.冷却 > 0f` —— **同一个坏谓词**。
+                //        当时没出错只是因为安慰之心的冷却确实是 0；
+                //        下次有人给某个 GCD 治疗填了冷却值，它就会被静默滤掉。
+                if (c.是能力技_实际) continue;
                 try { if (!SpellUtil.已解锁(c.Id)) continue; } catch { continue; }
 
                 // ★ 这个技能自己的血线（表里有就用表里的，并叠加 AI 的三种偏移）★
