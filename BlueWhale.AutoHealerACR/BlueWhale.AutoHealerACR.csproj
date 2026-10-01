@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>BlueWhale</AssemblyName>
     <RootNamespace>BlueWhale.AutoHealerACR</RootNamespace>
-    <Version>0.4.3.0</Version>
+    <Version>0.4.3.1</Version>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -20,49 +20,38 @@
   </ItemGroup>
 
   <!--
-    ★ 改成【引用】HealerACR，不再把它的源码再编译一遍 ★
+    ★ 直接编译 HealerACR 的源码（**一个自包含的 dll**）★
 
-    ── 为什么改（这是一个真实的结构性缺陷）──
-      原来用 <Compile Include="..\HealerACR\**\*.cs" /> 把源码编了两遍，后果是：
-        · `HealTargetHelper` / `TimelineManager` / `HealSettings` / `候选集`
-          **在两个程序集里各有一份独立静态状态**
-        · 同一份"逻辑"在两个 AppDomain 里跑两套缓存、两套记录、两套 Hook 判断
-      ==> 这是架构层面的隐患，也一直被怀疑与崩溃相关。
+    ── 为什么是这个方案（而不是 ProjectReference）──
+      试过 `ProjectReference` + 同目录 `HealerACR.dll`：能编过、体积也小
+      （BlueWhale.dll 从 1716 KB 降到 233 KB），但**撤回了**，理由：
 
-    ── 改完之后 ──
-        HealerACR.dll  = 全部基础设施（**唯一一份**）
-        BlueWhale.dll  = 只含 AI 层 + 5 个职业入口，**引用** HealerACR
+        ① 用户要的是**一个 dll** —— 少一个文件就少一处"装漏了"的可能。
+        ② 体积差别对加载速度没有实际影响。
+        ③ ★ **它引入了一个 0.4.2.2 从来没有过的失败模式** ★
+           0.4.2.2（实测能跑的版本）是**零外部依赖**的；
+           改成依赖后如果解析失败，**连职业列表都不会出现** ——
+           比崩溃更难诊断。
+           ==> 崩溃还没查清时，**不该同时引入新的失败点**。
 
-    ── 「只保留小鲸鱼」怎么实现 ──
-      AEAssist 会反射扫 ACR 程序集里的职业入口类
-      （`GetExportedTypes` + `IsAbstract` + `IsClass` + `CreateInstance`）。
-      所以 HealerACR.dll 的入口类会用条件编译声明成 `abstract`
-      （本项目**不**定义 `HEALERACR_STANDALONE`），扫描器会跳过它们 ——
-      职业列表里只出现小鲸鱼。详见各入口类顶部的说明。
+    ── 那"两份静态状态"呢？──
+      `HealerACR.Common.*` 在两个 dll 里各有一份，
+      但**只有两个 dll 同时被加载**时才会有"两套状态"。
+      实际部署目录 `D:\FF14\ACR\BlueWhale\` 里**只有 BlueWhale.dll**，
+      `HealerACR.dll` 从来没部署过 ==> **运行时只有一套**。
 
-    ── 依赖怎么被解析 ──
-      AEAssist 的加载器带 `AddAssemblyDependencyResolver` / `ResolveAssemblyToPath`
-      （从 AEAssist.dll 元数据确认），会按主 dll 同目录解析依赖 ——
-      所以 `HealerACR.dll` 要和 `BlueWhale.dll` 放在同一个文件夹。
+      ==> 它是**架构整洁度**问题，不是当前崩溃的成因。
+          （日志证据支持：那 16 次成功的 `可治疗队友` 用的是同一个实现。）
 
-    ⚠️ 千万别加 <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> ——
-      那会把 AEAssist.dll / Dalamud.dll 等一起复制过来，和主程序提供的版本冲突。
+    ── 保留的独立改进 ──
+      5 个职业入口类加了条件编译（见各文件顶部）：
+          HealerACR 独立编译 -> `public class`（那个 ACR 依然可用）
+          BlueWhale 编译时    -> `public abstract class`（扫描器跳过）
+      ==> 将来万一 `HealerACR.dll` 真被加载，它的入口类也**不会**污染职业列表。
   -->
   <ItemGroup>
-    <!--
-      ⚠️ **不要**加 <Private>false</Private> ★
-
-      它会把 HealerACR 从 `BlueWhale.deps.json` 的依赖清单里剔除 ——
-      而 AEAssist 的加载器用的是 `AssemblyDependencyResolver`，
-      **它就是靠 deps.json 把"程序集名"映射到"文件路径"的**。
-      没有那一条 ==> `HealerACR.dll` 加载不出来 ==> BlueWhale 直接起不来。
-
-      （实测：加 <Private>false</Private> 后 deps.json 里搜不到 HealerACR。）
-
-      ==> 让它正常复制。部署时 `HealerACR.dll` 必须和 `BlueWhale.dll`
-          放在**同一个文件夹**里。
-    -->
-    <ProjectReference Include="..\HealerACR\HealerACR.csproj" />
+    <Compile Include="..\HealerACR\**\*.cs"
+             Exclude="..\HealerACR\bin\**;..\HealerACR\obj\**" />
   </ItemGroup>
 
   <!--

@@ -314,47 +314,26 @@ Copy-Item (Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.pdb") $H包 -Forc
 Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.dll") $B包 -Force
 Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.pdb") $B包 -Force
 
-# ★ HealerACR.dll —— **BlueWhale 的依赖，必须和 BlueWhale.dll 同目录** ★
+# ★ BlueWhale 是**自包含**的，不需要额外的依赖 dll ★
 #
-#  [!] 为什么（2026-10 的结构改造）：
-#      原来 `BlueWhale.AutoHealerACR.csproj` 用
-#          <Compile Include="..\HealerACR\**\*.cs" />
-#      把 HealerACR 的**全部源码又编译了一遍** ——
-#      ==> `HealTargetHelper` / `TimelineManager` / `HealSettings` / `候选集`
-#          在两个程序集里**各有一份独立静态状态**（架构隐患）。
+#  [!] 试过拆成「BlueWhale.dll + HealerACR.dll（依赖）」，又撤回了，原因：
+#        ① 用户要的是**一个 dll** —— 少一个文件就少一处"装漏了"的可能
+#        ② 体积差别（233 KB vs 1715 KB）对加载速度没有实际影响
+#        ③ ★ 它引入了 0.4.2.2 从来没有过的失败模式 ★
+#           0.4.2.2（实测能跑的版本）零外部依赖；
+#           改成依赖后万一解析失败，**连职业列表都不会出现**，比崩溃更难诊断。
 #
-#      现在改成 `ProjectReference`：BlueWhale 只含 AI 层（约 233 KB），
-#      基础设施只有 HealerACR.dll 这一份（约 1500 KB）。
+#  [!] 那"两份静态状态"呢：只有两个 dll **同时被加载**时才存在两套状态。
+#      实际部署目录里只有 BlueWhale.dll，所以**运行时只有一套** ——
+#      那是架构整洁度问题，不是当前崩溃的成因。
 #
-#  [!] 加载器靠 `BlueWhale.deps.json` 里的 "HealerACR" 条目解析它，
-#      所以这个 dll **必须**和 BlueWhale.dll 放在同一个文件夹。
-#      **漏了它 ==> BlueWhale 起不来**（职业列表里连小鲸鱼都不会出现）。
-#
-#  [!] HealerACR.dll 里的职业入口类是 `abstract`（条件编译：本项目不定义
-#      HEALERACR_STANDALONE）==> AEAssist 的扫描器会跳过它们，
-#      职业列表里**只出现小鲸鱼**，不会多出 "HealerACR·白魔"。
-# ★ BlueWhale.deps.json —— **双保险** ★
-#
-#  [!] 加载器解析依赖有两条路：
-#        ① `AssemblyDependencyResolver`（读主 dll 同目录的 deps.json）
-#        ② 直接在**同目录**找 <程序集名>.dll
-#
-#      实测（0.4.2.2）：**没有部署 deps.json 也能正常加载**
-#      ==> 走的是第 ② 条。
-#
-#      但我们现在**确实**有外部依赖了（HealerACR.dll），
-#      所以把 deps.json 也带上，让两条路都通 —— **cost 只有 3 KB**。
-$deps = Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.deps.json"
-if (Test-Path $deps) { Copy-Item $deps $B包 -Force }
-
-$dep = Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.dll"
-if (Test-Path $dep) {
-    Copy-Item $dep $B包 -Force
-} else {
-    失败 "缺少 $dep —— BlueWhale 的依赖，没法打包"
-}
+#  [!] 保留的独立改进：5 个职业入口类加了条件编译，BlueWhale 里它们是 abstract
+#      ==> 即使将来 HealerACR.dll 被加载，也不会多出"HealerACR·白魔"这类选项。
 
 # 副本名表（记忆库用）
+#
+# ⚠️ 和下面那两张地名表一样：**必须打进去**，缺了不会报错、只会静默退化
+#    （记忆库里会全是 `副本#123` 这种 ID，没法看）。
 $duty = Join-Path $仓库根 "DutyNames.json"
 if (Test-Path $duty) { Copy-Item $duty $B包 -Force }
 
