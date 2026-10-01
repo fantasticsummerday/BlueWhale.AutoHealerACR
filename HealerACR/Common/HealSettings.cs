@@ -279,9 +279,26 @@ public class HealSettings
     /// <summary>白魔：苦难之心（血百合满了）是否自动打出去</summary>
     public bool 用苦难之心 = true;
 
-    /// <summary>学者：妖精契约的触发血线（坦克低于这个才挂）</summary>
+    /// <summary>
+    /// 学者：妖精契约（连线）的触发血线（坦克低于这个才挂）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 默认值从 0.80 改为 0.60 —— **对齐两套参考实现** ★
+    ///
+    ///  [!] IL 实证：
+    ///        shiyuvi `ScholarSettings::Aetherpact = 0.6f`
+    ///        youshu  `ScholarSettingsData::链子阈值 = 55`（整数 = 55%）
+    ///      ==> 都是 0.55~0.60，而原来的 0.80 明显偏高
+    ///          （0.80 意味着"坦克掉 20% 就挂"，等于几乎常驻）。
+    ///
+    ///  [!] 而且这个设置**原来根本没人读**（我逐处搜过全仓库）——
+    ///      现在 `SCH_Aetherpact.Check()` 读它了，所以默认值才有意义。
+    ///
+    ///  ⚠️ 想改回去：设置页滑条（0.30~1.00）或 AI 的「妖精契约血线」参数。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("妖精契约血线")]
-    public float 妖精契约血线_基础 = 0.80f;
+    public float 妖精契约血线_基础 = 0.60f;
 
     /// <summary>实际生效的妖精契约血线（经过钩子，AI 可调）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
