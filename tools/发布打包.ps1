@@ -314,6 +314,32 @@ Copy-Item (Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.pdb") $H包 -Forc
 Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.dll") $B包 -Force
 Copy-Item (Join-Path $仓库根 "BlueWhale.AutoHealerACR\bin\Release\BlueWhale.pdb") $B包 -Force
 
+# ★ HealerACR.dll —— **BlueWhale 的依赖，必须和 BlueWhale.dll 同目录** ★
+#
+#  [!] 为什么（2026-10 的结构改造）：
+#      原来 `BlueWhale.AutoHealerACR.csproj` 用
+#          <Compile Include="..\HealerACR\**\*.cs" />
+#      把 HealerACR 的**全部源码又编译了一遍** ——
+#      ==> `HealTargetHelper` / `TimelineManager` / `HealSettings` / `候选集`
+#          在两个程序集里**各有一份独立静态状态**（架构隐患）。
+#
+#      现在改成 `ProjectReference`：BlueWhale 只含 AI 层（约 233 KB），
+#      基础设施只有 HealerACR.dll 这一份（约 1500 KB）。
+#
+#  [!] 加载器靠 `BlueWhale.deps.json` 里的 "HealerACR" 条目解析它，
+#      所以这个 dll **必须**和 BlueWhale.dll 放在同一个文件夹。
+#      **漏了它 ==> BlueWhale 起不来**（职业列表里连小鲸鱼都不会出现）。
+#
+#  [!] HealerACR.dll 里的职业入口类是 `abstract`（条件编译：本项目不定义
+#      HEALERACR_STANDALONE）==> AEAssist 的扫描器会跳过它们，
+#      职业列表里**只出现小鲸鱼**，不会多出 "HealerACR·白魔"。
+$dep = Join-Path $仓库根 "build\ACR\HealerACR\HealerACR.dll"
+if (Test-Path $dep) {
+    Copy-Item $dep $B包 -Force
+} else {
+    失败 "缺少 $dep —— BlueWhale 的依赖，没法打包"
+}
+
 # 副本名表（记忆库用）
 $duty = Join-Path $仓库根 "DutyNames.json"
 if (Test-Path $duty) { Copy-Item $duty $B包 -Force }

@@ -68,7 +68,32 @@ public class 幻术师SpellTable : WHMSpellTable
 /// （DoT 窗口、盾判断、减伤触发、复活优先级、移动检测……），
 /// 不需要单独维护。
 /// </summary>
-public class 幻术师RotationEntry : HealerEntryBase
+// ══════════════════════════════════════════════════════════════════════
+//  ★ 条件编译：这份源码会被编译进【两个】程序集 ★
+//
+//  [!] 背景：`BlueWhale.AutoHealerACR.csproj` 用
+//        &lt;Compile Include="..\HealerACR\**\*.cs" /&gt;
+//      把 HealerACR 的源码又编译了一遍 ==> 基础设施**各有一份静态状态**。
+//      正在改成「BlueWhale 引用 HealerACR」（见该 csproj 的注释）。
+//
+//  [!] 但直接引用会带来一个问题：
+//      AEAssist 会用反射扫 ACR 程序集里的职业入口类
+//      （`GetExportedTypes` + `IsAbstract` + `IsClass` + `CreateInstance`）。
+//      ==> HealerACR.dll 的入口类也会被扫到
+//      ==> 职业列表里多出 "HealerACR·白魔"，**而用户只要小鲸鱼**。
+//
+//  [!] 解法：**在 BlueWhale 里把入口类声明成 `abstract`** ——
+//      扫描器跳过抽象类；而 `BlueWhaleWhiteMageEntry` 继承它，
+//      **是唯一的具体实现**。
+//      ==> HealerACR 独立编译时仍是具体类（那个 ACR 依然可用）。
+// ══════════════════════════════════════════════════════════════════════
+#if HEALERACR_STANDALONE
+    public class 幻术师RotationEntry : HealerEntryBase
+#else
+    // 在 BlueWhale 里声明为 abstract —— 让 AEAssist 的扫描器跳过它
+    // （`BlueWhaleEntry` 才是具体实现）。详见上面的条件编译说明。
+    public abstract class 幻术师RotationEntry : HealerEntryBase
+#endif
 {
     private readonly 幻术师SpellTable _spells = new();
 

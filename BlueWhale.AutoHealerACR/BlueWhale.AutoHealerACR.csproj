@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>BlueWhale</AssemblyName>
     <RootNamespace>BlueWhale.AutoHealerACR</RootNamespace>
-    <Version>0.4.2.2</Version>
+    <Version>0.4.3.0</Version>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -20,18 +20,49 @@
   </ItemGroup>
 
   <!--
-    ★ 直接编译 HealerACR 的源码 ★
+    ★ 改成【引用】HealerACR，不再把它的源码再编译一遍 ★
 
-    这样 BlueWhale 继承 HealerACR 的职业入口时，
-    技能逻辑 / timeline / 设置界面 / 全部 resolver 都是同一份代码 ——
-    改一处两边都生效，不会出现"两套逻辑慢慢分叉"。
+    ── 为什么改（这是一个真实的结构性缺陷）──
+      原来用 <Compile Include="..\HealerACR\**\*.cs" /> 把源码编了两遍，后果是：
+        · `HealTargetHelper` / `TimelineManager` / `HealSettings` / `候选集`
+          **在两个程序集里各有一份独立静态状态**
+        · 同一份"逻辑"在两个 AppDomain 里跑两套缓存、两套记录、两套 Hook 判断
+      ==> 这是架构层面的隐患，也一直被怀疑与崩溃相关。
 
-    代价：BlueWhale.dll 会大一些（把 HealerACR 的实现也编进去了）。
-          但换来的是**完全独立**：不需要 HealerACR.dll 在旁边。
+    ── 改完之后 ──
+        HealerACR.dll  = 全部基础设施（**唯一一份**）
+        BlueWhale.dll  = 只含 AI 层 + 5 个职业入口，**引用** HealerACR
+
+    ── 「只保留小鲸鱼」怎么实现 ──
+      AEAssist 会反射扫 ACR 程序集里的职业入口类
+      （`GetExportedTypes` + `IsAbstract` + `IsClass` + `CreateInstance`）。
+      所以 HealerACR.dll 的入口类会用条件编译声明成 `abstract`
+      （本项目**不**定义 `HEALERACR_STANDALONE`），扫描器会跳过它们 ——
+      职业列表里只出现小鲸鱼。详见各入口类顶部的说明。
+
+    ── 依赖怎么被解析 ──
+      AEAssist 的加载器带 `AddAssemblyDependencyResolver` / `ResolveAssemblyToPath`
+      （从 AEAssist.dll 元数据确认），会按主 dll 同目录解析依赖 ——
+      所以 `HealerACR.dll` 要和 `BlueWhale.dll` 放在同一个文件夹。
+
+    ⚠️ 千万别加 <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies> ——
+      那会把 AEAssist.dll / Dalamud.dll 等一起复制过来，和主程序提供的版本冲突。
   -->
   <ItemGroup>
-    <Compile Include="..\HealerACR\**\*.cs"
-             Exclude="..\HealerACR\bin\**;..\HealerACR\obj\**" />
+    <!--
+      ⚠️ **不要**加 <Private>false</Private> ★
+
+      它会把 HealerACR 从 `BlueWhale.deps.json` 的依赖清单里剔除 ——
+      而 AEAssist 的加载器用的是 `AssemblyDependencyResolver`，
+      **它就是靠 deps.json 把"程序集名"映射到"文件路径"的**。
+      没有那一条 ==> `HealerACR.dll` 加载不出来 ==> BlueWhale 直接起不来。
+
+      （实测：加 <Private>false</Private> 后 deps.json 里搜不到 HealerACR。）
+
+      ==> 让它正常复制。部署时 `HealerACR.dll` 必须和 `BlueWhale.dll`
+          放在**同一个文件夹**里。
+    -->
+    <ProjectReference Include="..\HealerACR\HealerACR.csproj" />
   </ItemGroup>
 
   <!--
