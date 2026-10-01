@@ -1065,19 +1065,56 @@ public class Res_HealLink : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (Core.Me.有该技能的Buff(技能)) return -3;
 
-        var 坦克 = HealTargetHelper.主坦();
-        if (坦克 == null) return -1;
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 血线判据（原来**没有** —— 坦克无条件吃）★
+        //
+        //  [!] 修的是和 `Res_SingleMitigation` / `Res_HealAmp` **同一个模式**：
+        //        选了一个纯选择器（`主坦()` —— 它只回答"谁是坦克"，
+        //        **不带任何血线**），然后 `if (坦克 != null) return ...;`
+        //      ==> **门槛没人做** ==> 坦克满血也会被挂星位合图。
+        //
+        //  [!] 参考实现怎么做的（youshu IL 实证）：
+        //        `星位合图` 的 `SelectTarget`：
+        //          坦克阈值 = `Clamp((星位合图阈值 - 5) / 100)` = **25%**
+        //          非坦克   = `星位合图阈值 / 100`             = **30%**
+        //          条件还含 `CanReceiveHeal && !有845 && CanSingleHealTarget`
+        //        ==> 两套都是**按血线选人**，没有"坦克无条件给"这回事。
+        //        （`星位合图阈值` 默认 30 -> 我们的 `治疗阈值表` 里登记的也是 0.30）
+        //
+        //  [!] 所以：坦克**过了血线**才给它；没过就往下看有没有别人需要。
+        //      （学者那边修 `Res_SingleMitigation` 时用的就是这个形状，
+        //        F③ 要求同一个决策在各条路上一致。）
+        //
+        //  [!] 用 `有效血量比例()`（含盾）而不是 `血量比例()` ——
+        //      与参考的 `hp + shield/100` 同口径，也与本项目其它地方一致。
+        // ══════════════════════════════════════════════════════════════
+        var 血线 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
 
-        return SpellUtil.可用(技能) ? 7 : -1;
+        var 坦克 = HealTargetHelper.主坦();
+        if (坦克 != null && 坦克.有效血量比例() <= 血线) return SpellUtil.可用(技能) ? 7 : -1;
+
+        // 坦克没过线 -> 看有没有别人到线了（没有坦克的场景也走这里）
+        var 队友 = HealTargetHelper.最低血量队友(血线);
+        if (队友 != null && 队友.可以治()) return SpellUtil.可用(技能) ? 7 : -1;
+
+        return -1;
     }
 
     public void Build(Slot slot)
     {
+        // ⚠️ 必须和 Check 同源（F③）：判谁就放谁。
+        //    这里重跑同一个选择逻辑（纯查询、无副作用），而不是缓存 —— 
+        //    和 `Res_SingleHoT.Build` 同一套做法。
+        var 血线 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
+
         var 坦克 = HealTargetHelper.主坦();
-        if (坦克 == null) return;
+        var 目标 = 坦克 != null && 坦克.有效血量比例() <= 血线
+            ? 坦克
+            : HealTargetHelper.最低血量队友(血线);
+        if (目标 == null) return;
 
         var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(new Spell(spell.Id, 坦克));
+        if (spell != null) slot.Add(new Spell(spell.Id, 目标));
     }
 }
 
