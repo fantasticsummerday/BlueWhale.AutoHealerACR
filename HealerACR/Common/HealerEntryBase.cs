@@ -1029,15 +1029,40 @@ public abstract class HealerEntryBase : IRotationEntry
                 if (距 >= 1000)
                 {
                     var 我 = AEAssist.CombatRoutine.Data.currRotation;
+
+                    // ══════════════════════════════════════════════════════
+                    //  ★ **帧号探针** —— 判"是不是在正常的绘制帧里被调" ★
+                    //
+                    //  [!] 为什么要读它（用户实测已经把范围压到这一步）：
+                    //      诊断模式只画两行纯文本、每秒 40 次、**只有一个入口**，
+                    //      **却仍然闪** ⇒ 内容与归属都无罪
+                    //      ⇒ 剩下的可能就是"**这一页被画的时机不对**"。
+                    //
+                    //  [!] 判据：
+                    //      `ImGui.GetFrameCount()` 是**本帧**的全局计数。
+                    //        · 正常：一帧里它**不变**；跨帧才递增
+                    //        · 若**同一毫秒内帧号还在变**，或一帧内被调多次
+                    //          ⇒ 说明调用时机异常
+                    //
+                    //  [!] 同时打出**毫秒级时间戳** —— 40 次/1000ms 说明
+                    //      频率是 40Hz（用户显示器帧率），这是正常的。
+                    // ══════════════════════════════════════════════════════
+                    int 帧号 = -1;
+                    try { 帧号 = ImGui.GetFrameCount(); } catch { }
+
                     LogHelper.Info(string.Format(
-                        "[HealerACR] 诊断计数：{0} 次 / {1} ms ｜ 本入口={2} ｜ 当前旋转={3}",
+                        "[HealerACR] 诊断计数：{0} 次 / {1} ms ｜ 本入口={2} ｜ 当前旋转={3}" +
+                        " ｜ 帧号={4} ｜ 本帧序号={5} ｜ 时刻={6}",
                         _诊断画次, 距, GetHashCode(),
-                        (我 == null ? "null" : 我.GetHashCode().ToString())));
+                        (我 == null ? "null" : 我.GetHashCode().ToString()),
+                        帧号, _诊断总次, DateTime.Now.ToString("HH:mm:ss.fff")));
+
                     _诊断画次 = 0;
                     _诊断窗口 = 现在;
                 }
             }
             catch { }
+            _诊断总次++;
 
             try
             {
@@ -1614,6 +1639,9 @@ public abstract class HealerEntryBase : IRotationEntry
     private static int _诊断画次;
     /// <summary>诊断计数的窗口起点（毫秒）。0 = 还没开始。</summary>
     private static long _诊断窗口;
+
+    /// <summary>诊断模式被画的累计次数（用于看"本帧序号"是否连续）。</summary>
+    private static long _诊断总次;
 
     private static bool 仅画一行诊断()
     {
