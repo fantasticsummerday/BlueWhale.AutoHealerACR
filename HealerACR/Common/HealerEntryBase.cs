@@ -690,6 +690,25 @@ public abstract class HealerEntryBase : IRotationEntry
         ImGui.Text("治疗阈值（0~1，调低更省蓝，调高更稳）");
         ImGui.Separator();
 
+        // ══════════════════════════════════════════════════════════════════
+        //  ⚠️ **这几个值是「兜底」，不是「全部」** —— 措辞必须说清楚
+        //
+        //  [!] 现在的结构（第 30/31 轮改的）：
+        //        每个技能有自己的血线，登记在 `治疗阈值表`（44 条，来源是两套参考实现的 IL）。
+        //        调用方一律写 `治疗阈值表.取(技能id, 这里的大类阈值)` ——
+        //          · 表里有这个技能 -> 用**表里的**
+        //          · 表里没有       -> 才回落到**这里滑条的值**
+        //      ==> 所以"调单体治疗阈值"**不会**把所有单奶一起调，
+        //          它只影响**还没登记进表**的那几个。
+        //
+        //  [!] 曾经这里的说明写着"所有单奶共用"—— 那是**旧的**（表之前）的结构，已经不对。
+        //      界面文字说了过时的话，比不说更糟：用户会以为调了滑条就改了全部。
+        //
+        //  [!] 每个技能的**实际生效值**可以在「归因/阈值」页里看（那里列全 44 条）。
+        // ══════════════════════════════════════════════════════════════════
+        ImGui.TextDisabled("  说明：多数技能有自己的血线（见调试窗「各技能生效血线」），");
+        ImGui.TextDisabled("        这三个是大类值 —— 只对**还没单独登记**的技能生效。");
+
         ImGui.SetNextItemWidth(240);
         ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值_基础, 0.05f, 0.90f, "%.2f");
         ImGui.SetNextItemWidth(240);
@@ -698,15 +717,19 @@ public abstract class HealerEntryBase : IRotationEntry
         ImGui.SliderFloat("群体治疗阈值", ref s.群体治疗阈值_基础, 0.10f, 1.00f, "%.2f");
         ImGui.SetNextItemWidth(240);
         ImGui.SliderInt("群奶最少人数", ref s.群奶最少人数, 1, 4);
+        ImGui.TextDisabled("  群奶能力技至少要有几个人掉到血线以下才交。");
 
         ImGui.Separator();
-        ImGui.SetNextItemWidth(240);
-        ImGui.SliderInt("醒梦蓝量阈值", ref s.醒梦蓝量阈值, 1000, 10000);
+        // ⚠️ `醒梦蓝量阈值` 原来在这里也画了一个（范围 1000~10000），
+        //    而「职业资源」段里还有一个（0~10000）—— **同一个字段、两个范围**。
+        //    已删掉这一个，**唯一入口在「职业资源」段**（那里还有 `醒梦` 总开关）。
         ImGui.SetNextItemWidth(240);
         ImGui.SliderFloat("不挂 DoT 血线", ref s.不挂Dot血线, 0f, 0.20f, "%.2f");
+        ImGui.TextDisabled("  怪的血**低于**这个比例就不补 DoT（快死了，补了也白费）。");
 
         ImGui.Separator();
-        ImGui.Checkbox("自动减伤（boss 读条时自动铺）", ref s.自动减伤);
+        ImGui.Checkbox("自动减伤（时间轴 / 敌人读条 / 敌人够多）", ref s.自动减伤);
+        ImGui.TextDisabled("  三条判据**任一**成立就铺：时间轴说要有大伤害 / 敌人在读条 / 敌人够多且有人会挨打。");
         ImGui.Checkbox("允许硬读复活（不推荐）", ref s.允许硬读复活);
         ImGui.Checkbox("拉人喊话", ref s.复活喊话开关);
 
@@ -889,10 +912,18 @@ public abstract class HealerEntryBase : IRotationEntry
         if (ImGui.CollapsingHeader("治疗", ImGuiTreeNodeFlags.DefaultOpen))
         {
             ImGui.Checkbox("奶人", ref s.奶人);
-            ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值_基础, 0.1f, 1f, "%.2f");
-            ImGui.SliderFloat("单体治疗阈值", ref s.单体治疗阈值_基础, 0.1f, 1f, "%.2f");
-            ImGui.SliderFloat("群体治疗阈值", ref s.群体治疗阈值_基础, 0.1f, 1f, "%.2f");
-            ImGui.SliderInt("群奶最少人数", ref s.群奶最少人数, 1, 8);
+
+            // ⚠️ 这几个阈值和「职业视图窗」的 `画阈值设置()` 是**同一批字段** ——
+            //    两处的**范围必须一致**，否则同一个值在两个面板里显示不同、
+            //    而且宽的那一侧能设出被 resolver 夹掉的值（用户会以为设置没生效）。
+            //    范围以 `画阈值设置()` 那一侧为准（它是按职业面板，定义更贴近实现）。
+            ImGui.SliderFloat("紧急单奶阈值", ref s.紧急单奶阈值_基础, 0.05f, 0.90f, "%.2f");
+            ImGui.SliderFloat("单体治疗阈值", ref s.单体治疗阈值_基础, 0.10f, 1.00f, "%.2f");
+            ImGui.SliderFloat("群体治疗阈值", ref s.群体治疗阈值_基础, 0.10f, 1.00f, "%.2f");
+            ImGui.SliderInt("群奶最少人数", ref s.群奶最少人数, 1, 4);
+            ImGui.TextDisabled("  这三个阈值只对「还没单独登记血线」的技能生效 ——");
+            ImGui.TextDisabled("  多数技能有自己的值（见调试窗「各技能生效血线」）。");
+
             ImGui.Checkbox("单体治疗", ref s.单体治疗);
             ImGui.Checkbox("群体治疗", ref s.群体治疗);
             ImGui.Checkbox("复活", ref s.复活);
@@ -906,12 +937,13 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Checkbox("输出", ref s.输出);
             ImGui.Checkbox("AOE", ref s.AOE);
             ImGui.Checkbox("挂 Dot", ref s.挂Dot);
-            ImGui.SliderFloat("不挂 Dot 血线", ref s.不挂Dot血线, 0f, 1f, "%.2f");
+            // ⚠️ 范围与 `画阈值设置()` 一致（原来是 0~1，能设出被夹掉的值）
+            ImGui.SliderFloat("不挂 Dot 血线", ref s.不挂Dot血线, 0f, 0.20f, "%.2f");
+            ImGui.TextDisabled("  目标血量低于这个值就不浪费 GCD 挂 Dot");
             ImGui.SliderFloat("DoT 血量倍数", ref s.Dot血量倍数, 0f, 30f, "%.0f");
             ImGui.TextDisabled("  怪的 MaxHp 不到「队伍最大血量 x 这个倍数」就不上 DoT。");
             ImGui.TextDisabled("  小怪血量上限低，上了 30 秒 DoT 它几秒就死 = 白费 GCD。");
             ImGui.TextDisabled("  0 = 关掉这条判据（回到旧行为）。默认 12。");
-            ImGui.TextDisabled("  目标血量低于这个值就不浪费 GCD 挂 Dot");
             ImGui.SliderFloat("Dot 持续时间", ref s.Dot持续时间, 3f, 30f, "%.0f 秒");
 
             // ── DoT 黑名单（自定义）──
@@ -943,8 +975,23 @@ public abstract class HealerEntryBase : IRotationEntry
         if (ImGui.CollapsingHeader("减伤 / 时间轴"))
         {
             ImGui.Checkbox("自动减伤", ref s.自动减伤);
-            ImGui.Checkbox("启用时间轴", ref s.启用时间轴);
-            ImGui.SliderFloat("时间轴提前秒", ref s.时间轴提前秒, 0f, 15f, "%.1f 秒");
+            ImGui.TextDisabled("  三条判据**任一**成立就铺：");
+            ImGui.TextDisabled("    · 时间轴说接下来要有大伤害");
+            ImGui.TextDisabled("    · 敌人在读条（技能名能在官表里查到）");
+            ImGui.TextDisabled("    · 敌人够多且有人会挨打");
+
+            // ══════════════════════════════════════════════════════════════════
+            //  ⚠️ **这一段原来还画了 `启用时间轴` 和 `时间轴提前秒`** —— 已删。
+            //
+            //  [!] 原因：它们和**上面「时间轴」段**里的是**同一个字段**，
+            //      而范围不一样（这里 0~15，那里 0~5）==>
+            //       · 同一个值在界面上出现两次，改一处另一处也变（用户会困惑）
+            //       · 宽的那一侧能设出超过窄侧上限的值，切过去看会显示成被夹住的值
+            //         ==> **看起来像"设置没生效"**
+            //  [!] 时间轴相关的**唯一入口**在「时间轴」段，这里只留一句指路。
+            // ══════════════════════════════════════════════════════════════════
+            ImGui.TextDisabled("  时间轴的开关 / 提前秒数在上面「时间轴」段里（只有那一处入口）。");
+
             ImGui.Checkbox("时间轴攒资源", ref s.时间轴攒资源);
             ImGui.TextDisabled("  未来几秒有减伤需求时，先攒资源不拿去输出");
             ImGui.Separator();

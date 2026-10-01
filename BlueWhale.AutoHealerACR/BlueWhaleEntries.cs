@@ -1064,7 +1064,13 @@ public static class AiSettingPage
         ImGui.TextDisabled("决策层开关");
 
         if (ImGui.Checkbox("阶段 A：策略层（调阈值，低频）", ref s.启用策略层)) 保存并提示("阶段A开关");
-        ImGui.TextDisabled("  AI 判断『这波该保守还是该激进』，然后微调治疗阈值");
+        // ⚠️ 这句原来只写"微调治疗阈值" —— 那是**大类**（单体/群体/大招/预铺）的说法。
+        //    第 21 轮起 AI 还能**逐个技能**调（`技能:低语|+0.05`），所以两种粒度都要说清，
+        //    否则用户会以为它只能整类整类地动。
+        ImGui.TextDisabled("  AI 判断『这波该保守还是该激进』，然后调阈值：");
+        ImGui.TextDisabled("    · 按大类（单体 / 群体 / 大招 / 预铺）");
+        ImGui.TextDisabled("    · 也可以**逐个技能**（例：只把「低语」调早，别的不动）");
+        ImGui.TextDisabled("  幅度有上限，且随局面**平滑**生效，不会突变。");
 
         if (ImGui.Checkbox("阶段 B：决策层（出技能建议，高频）", ref s.启用决策层)) 保存并提示("阶段B开关");
         // [!] 原来这里写"对延迟敏感（GCD 只有 2.5 秒），建议先只开阶段 A"。
