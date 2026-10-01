@@ -682,7 +682,7 @@ public class AST_EarthlyStar : ISlotResolver
 
         // 没时间轴兜底：多人掉血就直接放
         var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= Math.Max(1, s.群奶最少人数 - 1))
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= Math.Clamp(s.群奶最少人数, 1, 8))
         {
             return SpellUtil.可用(技能) ? 6 : -1;
         }
