@@ -383,7 +383,7 @@ public class Res_GroupHoT : ISlotResolver
         }
 
         // 兜底：多人掉血
-        var 要求人数 = Math.Clamp(s.群奶最少人数, 1, 8);
+        var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
         if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 8 : -1;

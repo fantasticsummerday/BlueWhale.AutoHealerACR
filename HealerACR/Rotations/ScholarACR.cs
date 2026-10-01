@@ -835,7 +835,7 @@ public class SCH_FeyBlessing : ISlotResolver
 
         var s = HealSettings.Instance;
         // 小仙女技能是免费的，门槛比 GCD 群奶低一个人
-        var 要求人数 = Math.Clamp(s.群奶最少人数, 1, 8);
+        var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
         // ★ 用这个技能自己的阈值 ★  参考：shiyuvi FeyBlessing 0.6 ｜ youshu 祥光 70
         var 本技血线 = 治疗阈值表.取(技能, s.群体治疗阈值);
         if (HealTargetHelper.低于阈值人数(本技血线, 20f) < 要求人数) return -1;

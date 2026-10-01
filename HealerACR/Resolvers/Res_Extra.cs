@@ -29,7 +29,7 @@ public class SCH_WhisperingDawn : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var s = HealSettings.Instance;
-        var 要求人数 = Math.Clamp(s.群奶最少人数, 1, 8);
+        var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
         // ★ 用**这个技能自己的**阈值（`治疗阈值表`），查不到才回落统一群疗阈值 ★
         //   参考：shiyuvi WhisperingDawn 0.7 ｜ youshu 低语 70
         var 本技血线 = 治疗阈值表.取(技能, s.群体治疗阈值);
@@ -68,7 +68,7 @@ public class SCH_FeyIllumination : ISlotResolver
         //      要改的话在 `治疗阈值表` 里加一条即可。
         var 本技血线 = 治疗阈值表.取(技能, HealSettings.Instance.群体治疗阈值);
         var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线)
-                       >= Math.Clamp(HealSettings.Instance.群奶最少人数, 1, 8);
+                       >= HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数);
 
         if (!要来伤害 && !团队掉血) return -1;
 
@@ -132,7 +132,7 @@ public class AST_Horoscope : ISlotResolver
         // ⚠️ 全队满血时别铺 —— 它是"受治疗才触发的预备"，
         //    没人需要治疗就等于空铺（还白搭一个 60 秒 CD）。
         var 阈值 = HealSettings.Instance.群体治疗阈值;
-        var 要求人数 = Math.Clamp(HealSettings.Instance.群奶最少人数, 1, 8);
+        var 要求人数 = HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数);
         if (HealTargetHelper.低于阈值人数(阈值, 20f) < 要求人数) return -5;
 
         // 已经铺过就不重复（buff id 通常和技能一致）
