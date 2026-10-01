@@ -81,16 +81,16 @@ public static class HealTargetHelper
             //      · ALC 名字       —— 确认是否在独立 AssemblyLoadContext（dev plugin reload 相关）
             //      这三项能把"猜测型排查"变成"定位型排查"。
             // ══════════════════════════════════════════════════════════════
-            本地路标.记(3490, $"可治疗 方法体第一行｜线程={Environment.CurrentManagedThreadId}" +
+            本地路标.记详(3490, $"可治疗 方法体第一行｜线程={Environment.CurrentManagedThreadId}" +
                                  $"｜程序集={typeof(HealTargetHelper).Assembly.GetName().Name}" +
                                  $"｜ALC={System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(typeof(HealTargetHelper).Assembly)?.Name ?? "(默认)"}" +
                                  $"｜半径={半径}");
 
             try
             {
-                本地路标.记(3491, "即将 IsBetweenAreas");
+                本地路标.记详(3491, "即将 IsBetweenAreas");
                 var 在切图 = Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas();
-                本地路标.记(3492, $"IsBetweenAreas 返回 {在切图}");
+                本地路标.记详(3492, $"IsBetweenAreas 返回 {在切图}");
                 if (在切图)
                     return new List<IBattleChara>();
             }
@@ -98,9 +98,9 @@ public static class HealTargetHelper
 
             try
             {
-                本地路标.记(3493, "即将 实时副本Id");
+                本地路标.记详(3493, "即将 实时副本Id");
                 var 副本 = HealerACR.Timeline.TimelineManager.实时副本Id();
-                本地路标.记(3494, $"实时副本Id 返回 {副本}");
+                本地路标.记详(3494, $"实时副本Id 返回 {副本}");
                 if (副本 == 0)
                     return new List<IBattleChara>();
             }
@@ -126,9 +126,9 @@ public static class HealTargetHelper
             // ══════════════════════════════════════════════════════════════
             try
             {
-                本地路标.记(3495, "即将取 PartyHelper.CastableAlliesWithin30");
+                本地路标.记详(3495, "即将取 PartyHelper.CastableAlliesWithin30");
                 var 待检 = PartyHelper.CastableAlliesWithin30;
-                本地路标.记(3496, $"队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}");
+                本地路标.记详(3496, $"队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}");
                 if (待检 == null) return new List<IBattleChara>();
                 var 序号 = 0;
                 foreach (var r in 待检)
@@ -171,7 +171,7 @@ public static class HealTargetHelper
             //  [!] 这样"判"和"读"之间没有时间窗口，`PartyHelper` 只读一次，
             //      排序阶段完全在托管内存里。**native 对象只存在于循环体那几行。**
             // ══════════════════════════════════════════════════════════════
-            本地路标.记(3503, "可治疗：即将一次性读取队伍集合");
+            本地路标.记详(3503, "可治疗：即将一次性读取队伍集合");
 
             // ① 一次读取 + 立即物化（绝不重复访问那个 getter）
             var 原始 = PartyHelper.CastableAlliesWithin30;
@@ -179,7 +179,7 @@ public static class HealTargetHelper
             IBattleChara[] 快照;
             try { 快照 = 原始.ToArray(); }     // ★ 立刻断开与原生集合的关系
             catch { return new List<IBattleChara>(); }
-            本地路标.记(3504, $"可治疗：已物化 {快照.Length} 个");
+            本地路标.记详(3504, $"可治疗：已物化 {快照.Length} 个");
 
             var 我 = CharacterExt.我的位置();
             var 结果 = new List<IBattleChara>(快照.Length);
@@ -213,7 +213,7 @@ public static class HealTargetHelper
                 结果.Add(r);
                 分数.Add(血比);
             }
-            本地路标.记(3506, $"可治疗：过滤后 {结果.Count} 个，即将纯托管排序");
+            本地路标.记详(3506, $"可治疗：过滤后 {结果.Count} 个，即将纯托管排序");
 
             // ③ 纯托管排序 —— 只比较取好的 float，**不再触碰任何游戏对象**
             try
@@ -223,7 +223,7 @@ public static class HealTargetHelper
                 Array.Sort(序, (a, b) => 分数[a].CompareTo(分数[b]));
                 var 排好 = new List<IBattleChara>(结果.Count);
                 foreach (var i in 序) 排好.Add(结果[i]);
-                本地路标.记(3507, "可治疗：排序完成");
+                本地路标.记详(3507, "可治疗：排序完成");
                 return 排好;
             }
             catch
