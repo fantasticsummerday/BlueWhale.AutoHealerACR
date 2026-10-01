@@ -99,14 +99,23 @@ public static class HealTargetHelper
             // ══════════════════════════════════════════════════════════════
             try
             {
+                LogHelper.Info("[HealerACR.路标] 3500（可治疗：即将取队伍列表）");
                 var 待检 = PartyHelper.CastableAlliesWithin30;
+                LogHelper.Info($"[HealerACR.路标] 3501（可治疗：队伍列表已取，{(待检 == null ? "null" : 待检.Count + " 个")}）");
                 if (待检 == null) return new List<IBattleChara>();
+                var 序号 = 0;
                 foreach (var r in 待检)
+                {
+                    LogHelper.Info($"[HealerACR.路标] 3502-{序号}（可治疗：正在验第 {序号} 个）");
                     if (r == null || !r.对象有效()) return new List<IBattleChara>();
+                    序号++;
+                }
+                LogHelper.Info($"[HealerACR.路标] 3502（可治疗：全部 {序号} 个都有效）");
             }
             catch { return new List<IBattleChara>(); }
 
             var 我 = CharacterExt.我的位置();
+            LogHelper.Info("[HealerACR.路标] 3503（可治疗：即将构造 源）");
             var 源 = 半径 >= 30f
                 ? PartyHelper.CastableAlliesWithin30
                 : PartyHelper.CastableAlliesWithin30.Where(r =>
@@ -118,6 +127,7 @@ public static class HealTargetHelper
             // [!] `可以治()` 现在自带 try（见 `CharacterExt.可以治`），
             //     这里的 `对象有效()` 是**第二道**：先便宜地筛一遍，
             //     避免对明显失效的对象再进 `可以治()`。
+            LogHelper.Info("[HealerACR.路标] 3504（可治疗：即将 Where/OrderBy/ToList）");
             return 源
                 .Where(r => r.对象有效() && r.可以治())
                 .OrderBy(r =>
