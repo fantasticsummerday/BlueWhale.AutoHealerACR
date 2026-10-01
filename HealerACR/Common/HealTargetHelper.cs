@@ -623,7 +623,8 @@ public static class HealTargetHelper
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
                 if (敌人.CurrentHp <= 0) continue;
 
                 try
@@ -669,7 +670,8 @@ public static class HealTargetHelper
             sb.Append($"半径{半径:F1} 我({我.X:F1},{我.Z:F1}) ");
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
                 var 名 = "?";
                 try { 名 = 敌人.Name.ToString(); } catch { }
                 if (敌人.CurrentHp <= 0) { sb.Append($"[{名}:死] "); continue; }
@@ -927,7 +929,8 @@ public static class HealTargetHelper
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
 
                 try
                 {
@@ -1124,7 +1127,8 @@ public static class HealTargetHelper
             float 最大 = 0f;
             foreach (var r in PartyHelper.CastableParty)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 if (r.MaxHp > 最大) 最大 = r.MaxHp;
             }
             if (最大 > 0f) return 最大;
@@ -1249,7 +1253,8 @@ public static class HealTargetHelper
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
 
                 try
                 {
@@ -1309,7 +1314,8 @@ public static class HealTargetHelper
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
                 try
                 {
                     if (敌人.CurrentHp <= 0) continue;
@@ -1395,7 +1401,8 @@ public static class HealTargetHelper
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
 
                 try
                 {
@@ -1434,7 +1441,8 @@ public static class HealTargetHelper
                 foreach (var kv in mgr.EnemysIn25)
                 {
                     var 怪 = kv.Value;
-                    if (怪 == null) continue;
+                    // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                    if (怪 == null || !怪.对象有效()) continue;
                     if (怪.CurrentHp <= 0) continue;
                     if (怪.IsBoss()) continue;                     // 和上面同一个口径
 

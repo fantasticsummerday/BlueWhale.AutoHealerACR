@@ -205,7 +205,8 @@ public static class 战斗记忆
                 {
                     foreach (var 人 in PartyHelper.CastableAlliesWithin30)
                     {
-                        if (人 == null) continue;
+                        // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                        if (人 == null || !人.对象有效()) continue;
                         血量.Add(人.CurrentHpPercent());
                     }
                 }
@@ -385,7 +386,8 @@ public static class 战斗记忆
             {
                 foreach (var 人 in PartyHelper.CastableAlliesWithin30)
                 {
-                    if (人 == null) continue;
+                    // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                    if (人 == null || !人.对象有效()) continue;
                     血量.Add(人.CurrentHpPercent());
                 }
             }

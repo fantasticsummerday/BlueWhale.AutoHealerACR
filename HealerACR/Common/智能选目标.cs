@@ -331,7 +331,8 @@ public static class 智能选目标
 
             foreach (var 敌人 in Data.AllHostileTargets)
             {
-                if (敌人 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
                 if (敌人.CurrentHp <= 0) continue;
                 if (Vector3.Distance(我, 敌人.Position) > 搜索半径) continue;
 

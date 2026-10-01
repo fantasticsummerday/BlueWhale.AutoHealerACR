@@ -150,7 +150,8 @@ public static class 伤害预测
 
             foreach (var r in 队伍)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
 
                 var id = r.GameObjectId;
                 见过的.Add(id);
@@ -339,7 +340,8 @@ public static class 伤害预测
 
             foreach (var r in HealTargetHelper.可治疗队友(50f))
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 var p = 预计血量比例(r, 秒);
                 if (p < 最低) { 最低 = p; 最 = r; }
             }
@@ -364,7 +366,8 @@ public static class 伤害预测
             var 数 = 0;
             foreach (var r in HealTargetHelper.可治疗队友(50f))
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
 
                 var 上限 = r.MaxHp;
                 if (上限 <= 0) continue;
@@ -700,7 +703,8 @@ public static class 伤害预测
             var 最 = 0f;
             foreach (var r in HealTargetHelper.可治疗队友(50f))
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 var 上限 = r.MaxHp;
                 if (上限 <= 0) continue;
                 var 比例 = 预计掉血(r, 秒) / 上限;

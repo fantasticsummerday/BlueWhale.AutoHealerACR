@@ -860,7 +860,8 @@ public class Res_HealSingleGcd : ISlotResolver
 
                 // 这个技能自己的目标 —— 有人低于**它的**血线才算它够格
                 var 候选目标 = HealTargetHelper.最低血量队友(本技血线, 30f);
-                if (候选目标 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (候选目标 == null || !候选目标.对象有效()) continue;
 
                 够格的.加(c);
 

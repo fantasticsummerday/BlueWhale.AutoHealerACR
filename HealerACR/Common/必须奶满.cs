@@ -250,7 +250,8 @@ public static class 必须奶满
             // 自己也可能中这个机制
             foreach (var 队员 in 候选())
             {
-                if (队员 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (队员 == null || !队员.对象有效()) continue;
 
                 var 状态 = 命中状态(队员);
                 if (状态 == 0) continue;
@@ -317,7 +318,8 @@ public static class 必须奶满
             {
                 foreach (var r in 队友)
                 {
-                    if (r == null) continue;
+                    // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                    if (r == null || !r.对象有效()) continue;
                     if (r.GameObjectId == Core.Me.GameObjectId) continue;   // 自己已经加过
                     if (!r.可以治()) continue;
                     结果.Add(r);

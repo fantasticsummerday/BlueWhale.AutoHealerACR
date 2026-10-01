@@ -279,7 +279,8 @@ public static class 局面监控
     
             foreach (var r in 队友)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 if (r.GameObjectId == 坦克Id) continue;      // 坦克跳过
                 if (r.GameObjectId == Core.Me.GameObjectId) continue;
                 var 比例 = r.CurrentHp * 1f / Math.Max(1u, r.MaxHp);
@@ -311,7 +312,8 @@ public static class 局面监控
             {
                 foreach (var r in 队友)
                 {
-                    if (r == null) continue;
+                    // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                    if (r == null || !r.对象有效()) continue;
                     var 比例 = r.CurrentHp * 1f / Math.Max(1u, r.MaxHp);
                     if (比例 < 最低) 最低 = 比例;
                     有 = true;

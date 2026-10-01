@@ -71,7 +71,8 @@ public static class 死亡追踪
 
             foreach (var 队友 in PartyHelper.DeadAllies)
             {
-                if (队友 == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (队友 == null || !队友.对象有效()) continue;
 
                 var id = 队友.GameObjectId;
                 躺着的.Add(id);

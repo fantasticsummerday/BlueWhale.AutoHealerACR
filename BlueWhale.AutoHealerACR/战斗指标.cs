@@ -172,7 +172,8 @@ public static class 战斗指标
         {
             foreach (var r in PartyHelper.CastableParty)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 var id = r.GameObjectId;
                 var 比 = r.CurrentHp * 1f / Math.Max(1u, r.MaxHp);
 

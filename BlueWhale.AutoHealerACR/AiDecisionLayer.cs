@@ -437,7 +437,8 @@ public static class AiDecisionLayer
             var 项 = new List<(ulong Id, int 档)>(队.Count);
             foreach (var r in 队)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 项.Add((r.GameObjectId, (int)(r.有效血量比例() * 20)));
             }
             项.Sort((a, b) => a.Id.CompareTo(b.Id));

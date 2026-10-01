@@ -272,7 +272,8 @@ public class Res_SingleHoT : ISlotResolver
 
             foreach (var r in PartyHelper.CastableAlliesWithin30)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 // ★ 用**有效血量**：血低但盾厚的人不该抢 HoT 的位置 ★
                 if (r.有效血量比例() > 阈值) continue;
                 if (!适合挂(r)) continue;
@@ -307,7 +308,8 @@ public class Res_SingleHoT : ISlotResolver
 
             foreach (var r in PartyHelper.CastableAlliesWithin30)
             {
-                if (r == null) continue;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (r == null || !r.对象有效()) continue;
                 if (!适合挂(r)) continue;
 
                 var 比例 = r.有效血量比例();   // ★ 有效血量（含盾）
