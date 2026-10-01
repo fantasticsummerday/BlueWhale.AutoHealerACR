@@ -271,6 +271,34 @@ public static class 调试窗
             //     我上一版写的 \Data.CurrentTerritoryTypeId\ 在 AEAssist 里**不存在**。
             if (可以读游戏状态 && HealerACR.Timeline.TimelineManager.实时副本Id() == 0)
                 可以读游戏状态 = false;
+
+            // ③ ★ 本版新增：**队伍整体可信吗** ★
+            //
+            //  [!] 为什么还需要第③条（用户实测「进本就闪退」）：
+            //      ①②都放行、但**队友对象已经失效**的那一小段窗口确实存在：
+            //      进本/出本瞬间 `IsBetweenAreas()` 可能已经返回 false、
+            //      地图 id 也已经非 0，而**队伍里的角色对象还在重建**。
+            //      那一刻读 buff -> `StatusList` 抛/踩空 -> **进程被杀**。
+            //
+            //  [!] ⚠️ **关键认识：这类崩溃 `try/catch` 兜不住** ——
+            //      它是访问违例（`0xc0000005`）级别，**直接穿透 C# 的 catch**。
+            //      所以"在外层包一个 try"是**无效的**（外面本来就有，照样崩）。
+            //      ==> 唯一有效的办法是**读之前就判定"不能读"**。
+            //
+            //  [!] 判据：逐个确认队伍成员对象**当下**有效。
+            //      只要有一个读不到，就当整个队伍不可信（宁可少显示）。
+            if (可以读游戏状态)
+            {
+                try
+                {
+                    var 队 = PartyHelper.CastableAlliesWithin30;
+                    if (队 == null) 可以读游戏状态 = false;
+                    else
+                        foreach (var r in 队)
+                            if (r == null || !r.对象有效()) { 可以读游戏状态 = false; break; }
+                }
+                catch { 可以读游戏状态 = false; }
+            }
         }
         catch
         {

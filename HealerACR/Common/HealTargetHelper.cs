@@ -20,6 +20,26 @@ public static class HealTargetHelper
     /// </summary>
     public static List<IBattleChara> 可治疗队友(float 半径 = 30f)
     {
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 这是**所有治疗目标的唯一入口**，所以韧性放在这里 ★
+        //
+        //  [!] 崩溃签名（Windows 事件 1026，进程 ffxiv_dx11.exe 被杀）：
+        //        Dalamud...BattleChara.get_StatusList()
+        //        AEAssist...MemApiBuff.HasAnyAura(...)
+        //        HealerACR...HealTargetHelper.<可治疗队友>b__0_1   <- 就是下面那个 lambda
+        //
+        //  [!] **为什么原来那个 `catch` 不够** ——
+        //      这类崩溃是**访问违例**（`0xc0000005`）级别，会**穿透 C# 的 catch**。
+        //      ==> 不能指望"外面包了 try 就安全"。
+        //      ==> 真正有效的是**两步都做**：
+        //           ① 进 lambda 之前先筛掉无效对象（下面 `对象有效()`）
+        //           ② 触到游戏对象的每一步各自包 try（Linq 的延迟求值会把异常
+        //              拖到 `ToList()` 那一刻，报错位置和真实位置不一致）
+        //
+        //  [!] 拿不到就返回**空列表**，方向很重要：
+        //      空列表 => 治疗以为"没人需要治" => **什么都不做**，
+        //      而不是去读一个可能失效的对象。宁可少治一次，不要崩游戏。
+        // ══════════════════════════════════════════════════════════════
         try
         {
             var 我 = Core.Me.Position;
@@ -27,13 +47,20 @@ public static class HealTargetHelper
                 ? PartyHelper.CastableAlliesWithin30
                 : PartyHelper.CastableAlliesWithin30.Where(r =>
                     {
-                        try { return Vector3.Distance(我, r.Position) <= 半径; }
+                        try { return r.对象有效() && Vector3.Distance(我, r.Position) <= 半径; }
                         catch { return false; }
                     });
 
+            // [!] `可以治()` 现在自带 try（见 `CharacterExt.可以治`），
+            //     这里的 `对象有效()` 是**第二道**：先便宜地筛一遍，
+            //     避免对明显失效的对象再进 `可以治()`。
             return 源
-                .Where(r => r.可以治())
-                .OrderBy(r => r.有效血量比例())
+                .Where(r => r.对象有效() && r.可以治())
+                .OrderBy(r =>
+                {
+                    try { return r.有效血量比例(); }
+                    catch { return 999f; }   // 读不到排最后（不参与优先治疗）
+                })
                 .ToList();
         }
         catch
