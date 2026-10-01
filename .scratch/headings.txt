@@ -1,0 +1,894 @@
+﻿.il\youshu.il.txt	2	### 鍚岀被 ACR.WhiteMage.面向以太变移
+.il\youshu.il.txt	86	### 鍚岀被 ACR.WhiteMage.鼠标位置以太变移
+.il\youshu.il.txt	271	### 鍚岀被 ACR.WhiteMage.WhiteMageTools
+.il\youshu.il.txt	1229	### 鍚岀被 ACR.WhiteMage.WhiteMageQT
+.il\youshu.il.txt	2457	### 鍚岀被 ACR.WhiteMage.WhiteMageSettingControls
+.il\youshu.il.txt	2529	### 鍚岀被 ACR.WhiteMage.WhiteMageCommand
+.il\youshu.il.txt	2598	### 鍚岀被 ACR.WhiteMage.WhiteMageHotkeyPanel
+.il\youshu.il.txt	2783	### 鍚岀被 ACR.WhiteMage.WhiteMageHotkeySystem
+.il\youshu.il.txt	3806	### 鍚岀被 ACR.WhiteMage.WhiteMageOverlay
+.il\youshu.il.txt	4052	### 鍚岀被 ACR.WhiteMage.WhiteMageQtPanel
+.il\youshu.il.txt	4120	### 鍚岀被 ACR.WhiteMage.WhiteMageSettingsTab
+.il\youshu.il.txt	5375	### 鍚岀被 ACR.WhiteMage.WhiteMageSettingsUI
+.il\youshu.il.txt	5513	### 鍚岀被 ACR.WhiteMage.WhiteMageEventHandler
+.il\youshu.il.txt	5598	### 鍚岀被 ACR.WhiteMage.WhiteMageSettings
+.il\youshu.il.txt	5634	### 鍚岀被 ACR.WhiteMage.WhiteMageSettingsData
+.il\youshu.il.txt	5985	### 鍚岀被 ACR.WhiteMage.WhiteMageCustomComboHotkey
+.il\youshu.il.txt	6006	### 鍚岀被 ACR.WhiteMage.WhiteMageCustomQtMode
+.il\youshu.il.txt	6029	### 鍚岀被 ACR.WhiteMage.WHMACR
+.il\youshu.il.txt	6272	### 鍚岀被 ACR.WhiteMage.WHMACREntry
+.il\youshu.il.txt	6319	### 鍚岀被 ACR.WhiteMage.Timeline.Conditions.QtCheck
+.il\youshu.il.txt	6334	### 鍚岀被 ACR.WhiteMage.Timeline.Conditions.无中生有层数
+.il\youshu.il.txt	6383	### 鍚岀被 ACR.WhiteMage.Timeline.Conditions.神名层数
+.il\youshu.il.txt	6432	### 鍚岀被 ACR.WhiteMage.Timeline.Conditions.神祝祷层数
+.il\youshu.il.txt	6481	### 鍚岀被 ACR.WhiteMage.Timeline.Conditions.红花层数
+.il\youshu.il.txt	6528	### 鍚岀被 ACR.WhiteMage.Timeline.Conditions.蓝花层数
+.il\youshu.il.txt	6575	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.DOT走位
+.il\youshu.il.txt	6596	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.GCD单奶
+.il\youshu.il.txt	6619	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.GCD群奶
+.il\youshu.il.txt	6642	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.QtSetting
+.il\youshu.il.txt	6662	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.不上Dot阈值
+.il\youshu.il.txt	6685	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.保留蓝花数量
+.il\youshu.il.txt	6707	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.全大赦阈值
+.il\youshu.il.txt	6730	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.医养阈值
+.il\youshu.il.txt	6753	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.医治阈值
+.il\youshu.il.txt	6776	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.天赐阈值
+.il\youshu.il.txt	6799	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.安慰之心阈值
+.il\youshu.il.txt	6822	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.庇护所阈值
+.il\youshu.il.txt	6845	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.康复顺序
+.il\youshu.il.txt	6880	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.愈疗阈值
+.il\youshu.il.txt	6903	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.水流幕阈值
+.il\youshu.il.txt	6926	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.法令阈值
+.il\youshu.il.txt	6949	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.热键
+.il\youshu.il.txt	6970	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.狂喜之心阈值
+.il\youshu.il.txt	6993	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.神名阈值
+.il\youshu.il.txt	7016	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.神祝祷阈值
+.il\youshu.il.txt	7039	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.群减人数
+.il\youshu.il.txt	7061	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.群奶人数
+.il\youshu.il.txt	7083	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.蓝花走位
+.il\youshu.il.txt	7104	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.起手设置
+.il\youshu.il.txt	7201	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.醒梦阈值
+.il\youshu.il.txt	7224	### 鍚岀被 ACR.WhiteMage.Timeline.Actions.预读时间
+.il\youshu.il.txt	7247	### 鍚岀被 ACR.WhiteMage.Resolvers.WhiteMageResolverBase
+.il\youshu.il.txt	7257	### 鍚岀被 ACR.WhiteMage.Resolvers.Strategy.复活
+.il\youshu.il.txt	7384	### 鍚岀被 ACR.WhiteMage.Resolvers.Strategy.白魔奶满策略
+.il\youshu.il.txt	7624	### 鍚岀被 ACR.WhiteMage.Resolvers.Strategy.白魔技能策略
+.il\youshu.il.txt	7883	### 鍚岀被 ACR.WhiteMage.Resolvers.Strategy.过路圣人复活
+.il\youshu.il.txt	7962	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.DOT
+.il\youshu.il.txt	8114	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.再生
+.il\youshu.il.txt	8208	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.医养
+.il\youshu.il.txt	8323	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.医治
+.il\youshu.il.txt	8430	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.即刻闪灼
+.il\youshu.il.txt	8519	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.双DOT
+.il\youshu.il.txt	8555	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.安慰之心
+.il\youshu.il.txt	8670	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.康复
+.il\youshu.il.txt	8728	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.愈疗
+.il\youshu.il.txt	8809	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.救疗
+.il\youshu.il.txt	8935	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.狂喜之心
+.il\youshu.il.txt	9046	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.移动走位即刻闪灼
+.il\youshu.il.txt	9150	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.绝亚康复
+.il\youshu.il.txt	9234	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.苦难之心
+.il\youshu.il.txt	9418	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.蓝花走位
+.il\youshu.il.txt	9547	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.豪圣
+.il\youshu.il.txt	9687	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.闪灼
+.il\youshu.il.txt	9779	### 鍚岀被 ACR.WhiteMage.Resolvers.GCD.闪飒
+.il\youshu.il.txt	9918	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.全大赦
+.il\youshu.il.txt	10011	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.天赐
+.il\youshu.il.txt	10115	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.庇护所
+.il\youshu.il.txt	10216	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.无中生有
+.il\youshu.il.txt	10293	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.水流幕
+.il\youshu.il.txt	10362	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.法令
+.il\youshu.il.txt	10482	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.神名
+.il\youshu.il.txt	10612	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.神爱抚
+.il\youshu.il.txt	10678	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.神祝祷
+.il\youshu.il.txt	10781	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.神速咏唱
+.il\youshu.il.txt	10870	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.节制
+.il\youshu.il.txt	11018	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.醒梦
+.il\youshu.il.txt	11075	### 鍚岀被 ACR.WhiteMage.Resolvers.Ability.铃铛
+.il\youshu.il.txt	11203	### 鍚岀被 ACR.WhiteMage.Openers.白魔2GCD神速起手
+.il\youshu.il.txt	11350	### 鍚岀被 ACR.WhiteMage.Openers.白魔3GCD神速起手
+.il\youshu.il.txt	11598	### 鍚岀被 ACR.WhiteMage.Openers.白魔起手辅助
+.il\youshu.il.txt	11800	### 鍚岀被 ACR.WhiteMage.Openers.空起手
+.il\youshu.il.txt	11832	### 鍚岀被 ACR.Tool.UI.HealerCommandWindow
+.il\youshu.il.txt	12366	### 鍚岀被 ACR.Tool.UI.HealerCustomHotkeySettingWindow`1
+.il\youshu.il.txt	12872	### 鍚岀被 ACR.Tool.UI.HealerDevTestPanel
+.il\youshu.il.txt	13330	### 鍚岀被 ACR.Tool.UI.HealerGroundHotkeyResolver
+.il\youshu.il.txt	13391	### 鍚岀被 ACR.Tool.UI.HealerHotkeyConfigPanel
+.il\youshu.il.txt	13673	### 鍚岀被 ACR.Tool.UI.HealerHotkeyExecutor
+.il\youshu.il.txt	15170	### 鍚岀被 ACR.Tool.UI.HealerHotkeyPanel
+.il\youshu.il.txt	15586	### 鍚岀被 ACR.Tool.UI.HealerOverlayWindow
+.il\youshu.il.txt	23423	### 鍚岀被 ACR.Tool.UI.HealerQtPanel
+.il\youshu.il.txt	24032	### 鍚岀被 ACR.Tool.UI.HealerSettingControls
+.il\youshu.il.txt	24116	### 鍚岀被 ACR.Tool.UI.HealerSettingsDefaults
+.il\youshu.il.txt	24757	### 鍚岀被 ACR.Tool.UI.HealerPotionHotkeyResolver
+.il\youshu.il.txt	24787	### 鍚岀被 ACR.Tool.UI.HealerSprintHotkeyResolver
+.il\youshu.il.txt	24827	### 鍚岀被 ACR.Tool.UI.HealerLimitBreakHotkeyResolver
+.il\youshu.il.txt	24871	### 鍚岀被 ACR.Tool.UI.HealerTimelinePanel
+.il\youshu.il.txt	25412	### 鍚岀被 ACR.Tool.UI.IHealerHotkeyResolver
+.il\youshu.il.txt	25416	### 鍚岀被 ACR.Tool.UI.SharedSettings
+.il\youshu.il.txt	25642	### 鍚岀被 ACR.Tool.UI.Theme.ComicPainter
+.il\youshu.il.txt	31573	### 鍚岀被 ACR.Tool.UI.Theme.ComicStyleScope
+.il\youshu.il.txt	32180	### 鍚岀被 ACR.Tool.UI.Theme.ForestComicTheme
+.il\youshu.il.txt	32597	### 鍚岀被 ACR.Tool.UI.Theme.HealerStyleConfig
+.il\youshu.il.txt	33580	### 鍚岀被 ACR.Tool.UI.Theme.HealerUiFontManager
+.il\youshu.il.txt	33889	### 鍚岀被 ACR.Tool.UI.Theme.HealerUiLoc
+.il\youshu.il.txt	34009	### 鍚岀被 ACR.Tool.UI.Theme.HealerWindowLayout
+.il\youshu.il.txt	34437	### 鍚岀被 ACR.Tool.UI.Theme.ThemeTokens
+.il\youshu.il.txt	35245	### 鍚岀被 ACR.Tool.Timeline.HealerEsunaOrderTimelineAction
+.il\youshu.il.txt	35302	### 鍚岀被 ACR.Tool.Timeline.HealerHotkeyTimelineAction
+.il\youshu.il.txt	35335	### 鍚岀被 ACR.Tool.Timeline.HealerQtTimelineAction
+.il\youshu.il.txt	35413	### 鍚岀被 ACR.Tool.Timeline.M10S狂浪腾空
+.il\youshu.il.txt	35628	### 鍚岀被 ACR.Tool.Timeline.TimelineOpenerHelper
+.il\youshu.il.txt	35789	### 鍚岀被 ACR.Tool.Timeline.BoolTimelineAction
+.il\youshu.il.txt	35809	### 鍚岀被 ACR.Tool.Timeline.BoolSettingTimelineAction
+.il\youshu.il.txt	35836	### 鍚岀被 ACR.Tool.Timeline.FloatPercentTimelineAction
+.il\youshu.il.txt	35881	### 鍚岀被 ACR.Tool.Timeline.PercentSettingTimelineAction
+.il\youshu.il.txt	35925	### 鍚岀被 ACR.Tool.Timeline.HealerQtTimelineCondition
+.il\youshu.il.txt	36067	### 鍚岀被 ACR.Tool.Timeline.HealerQtTimelineEditor
+.il\youshu.il.txt	36679	### 鍚岀被 ACR.Tool.Timeline.IntTimelineAction
+.il\youshu.il.txt	36716	### 鍚岀被 ACR.Tool.Timeline.IntSettingTimelineAction
+.il\youshu.il.txt	36749	### 鍚岀被 ACR.Tool.Timeline.TimelineActionBase
+.il\youshu.il.txt	36897	### 鍚岀被 ACR.Tool.Timeline.TimelineConditionBase
+.il\youshu.il.txt	37055	### 鍚岀被 ACR.Tool.Timeline.副本自动吃药
+.il\youshu.il.txt	37166	### 鍚岀被 ACR.Tool.Timeline.场地中轴半程放置
+.il\youshu.il.txt	37245	### 鍚岀被 ACR.Tool.Timeline.坦克无敌检测
+.il\youshu.il.txt	37376	### 鍚岀被 ACR.Tool.Timeline.绝欧目标选择
+.il\youshu.il.txt	37441	### 鍚岀被 ACR.Tool.Timeline.绝欧麻将状态
+.il\youshu.il.txt	37513	### 鍚岀被 ACR.Tool.Runtime.ActionTypeHelper
+.il\youshu.il.txt	37544	### 鍚岀被 ACR.Tool.Runtime.BurstHoldControl
+.il\youshu.il.txt	37776	### 鍚岀被 ACR.Tool.Runtime.HealerActionHelper
+.il\youshu.il.txt	37988	### 鍚岀被 ACR.Tool.Runtime.HealerCommandSpec
+.il\youshu.il.txt	38258	### 鍚岀被 ACR.Tool.Runtime.HealerCommandHandler
+.il\youshu.il.txt	38721	### 鍚岀被 ACR.Tool.Runtime.HealerDotCastTracker
+.il\youshu.il.txt	38949	### 鍚岀被 ACR.Tool.Runtime.HealerEnemyTargetHelper
+.il\youshu.il.txt	39440	### 鍚岀被 ACR.Tool.Runtime.HealerGcdHealTracker
+.il\youshu.il.txt	39556	### 鍚岀被 ACR.Tool.Runtime.HealerGroundTargetHelper
+.il\youshu.il.txt	39677	### 鍚岀被 ACR.Tool.Runtime.HealerHealingHelper
+.il\youshu.il.txt	40169	### 鍚岀被 ACR.Tool.Runtime.HealerNoTargetRunner
+.il\youshu.il.txt	40319	### 鍚岀被 ACR.Tool.Runtime.HealerRuntimeTools
+.il\youshu.il.txt	40999	### 鍚岀被 ACR.Tool.Runtime.MacroRedirectionConfiguredAction
+.il\youshu.il.txt	41153	### 鍚岀被 ACR.Tool.Runtime.HotkeyBinding
+.il\youshu.il.txt	41162	### 鍚岀被 ACR.Tool.Runtime.HotkeyTargetData
+.il\youshu.il.txt	41265	### 鍚岀被 ACR.Tool.Runtime.HotkeyTargetExtensions
+.il\youshu.il.txt	41307	### 鍚岀被 ACR.Tool.Runtime.JsonFile
+.il\youshu.il.txt	41363	### 鍚岀被 ACR.Tool.Runtime.RuntimeCommand
+.il\youshu.il.txt	41421	### 鍚岀被 ACR.Tool.Runtime.RuntimeState
+.il\youshu.il.txt	41504	### 鍚岀被 ACR.Tool.Runtime.HealerMovementRuntimeState
+.il\youshu.il.txt	41539	### 鍚岀被 ACR.Tool.Runtime.HealerBuiltInCooldownState
+.il\youshu.il.txt	41567	### 鍚岀被 ACR.Tool.Resolvers.HealerDoubleDotResolverBase
+.il\youshu.il.txt	41998	### 鍚岀被 ACR.Tool.Resolvers.HealerEsunaTargetSelector
+.il\youshu.il.txt	42134	### 鍚岀被 ACR.Tool.Resolvers.HealerFullHealTargetSelector
+.il\youshu.il.txt	42310	### 鍚岀被 ACR.Tool.Resolvers.HealerPotionResolver
+.il\youshu.il.txt	42362	### 鍚岀被 ACR.Tool.Resolvers.HealerResolverBase
+.il\youshu.il.txt	42378	### 鍚岀被 ACR.Tool.Raise.HealerPasserbyRaiseResolver
+.il\youshu.il.txt	43415	### 鍚岀被 ACR.Tool.Raise.HealerRaiseResolver
+.il\youshu.il.txt	43752	### 鍚岀被 ACR.Tool.Raise.HealerRaiseRuntime
+.il\youshu.il.txt	44208	### 鍚岀被 ACR.Tool.Raise.RaiseMacroRuntime
+.il\youshu.il.txt	44416	### 鍚岀被 ACR.Tool.Data.CommonMapIds
+.il\youshu.il.txt	44552	### 鍚岀被 ACR.Tool.Data.HealerReleaseNotes
+.il\youshu.il.txt	44681	### 鍚岀被 ACR.Tool.Data.Helper
+.il\youshu.il.txt	44771	### 鍚岀被 ACR.Tool.Data.JobId
+.il\youshu.il.txt	44869	### 鍚岀被 ACR.Tool.Data.Status
+.il\youshu.il.txt	45781	### 鍚岀被 ACR.Scholar.学者低语提示热键
+.il\youshu.il.txt	45949	### 鍚岀被 ACR.Scholar.扩散盾热键
+.il\youshu.il.txt	45987	### 鍚岀被 ACR.Scholar.ScholarDeploymentTacticsHotkey
+.il\youshu.il.txt	46108	### 鍚岀被 ACR.Scholar.智能扩散盾热键
+.il\youshu.il.txt	46141	### 鍚岀被 ACR.Scholar.SCHACR
+.il\youshu.il.txt	46388	### 鍚岀被 ACR.Scholar.SCHACREntry
+.il\youshu.il.txt	46435	### 鍚岀被 ACR.Scholar.ScholarEventHandler
+.il\youshu.il.txt	46528	### 鍚岀被 ACR.Scholar.ScholarSettings
+.il\youshu.il.txt	46564	### 鍚岀被 ACR.Scholar.ScholarSettingsData
+.il\youshu.il.txt	46921	### 鍚岀被 ACR.Scholar.ScholarCustomComboHotkey
+.il\youshu.il.txt	46942	### 鍚岀被 ACR.Scholar.ScholarCustomQtMode
+.il\youshu.il.txt	46965	### 鍚岀被 ACR.Scholar.ScholarTools
+.il\youshu.il.txt	48449	### 鍚岀被 ACR.Scholar.ScholarQT
+.il\youshu.il.txt	49862	### 鍚岀被 ACR.Scholar.ScholarCommand
+.il\youshu.il.txt	49931	### 鍚岀被 ACR.Scholar.ScholarHotkeyPanel
+.il\youshu.il.txt	50116	### 鍚岀被 ACR.Scholar.ScholarHotkeySystem
+.il\youshu.il.txt	51253	### 鍚岀被 ACR.Scholar.ScholarOverlay
+.il\youshu.il.txt	51499	### 鍚岀被 ACR.Scholar.ScholarQtPanel
+.il\youshu.il.txt	51567	### 鍚岀被 ACR.Scholar.ScholarSettingsTab
+.il\youshu.il.txt	52896	### 鍚岀被 ACR.Scholar.ScholarSettingsUI
+.il\youshu.il.txt	53034	### 鍚岀被 ACR.Scholar.ScholarSettingControls
+.il\youshu.il.txt	53106	### 鍚岀被 ACR.Scholar.Timeline.Conditions.QtCheck
+.il\youshu.il.txt	53116	### 鍚岀被 ACR.Scholar.Timeline.Conditions.以太超流层数
+.il\youshu.il.txt	53163	### 鍚岀被 ACR.Scholar.Timeline.Conditions.小仙女能量状态
+.il\youshu.il.txt	53238	### 鍚岀被 ACR.Scholar.Timeline.Conditions.慰藉层数
+.il\youshu.il.txt	53281	### 鍚岀被 ACR.Scholar.Timeline.Conditions.豆子层数
+.il\youshu.il.txt	53328	### 鍚岀被 ACR.Scholar.Timeline.Actions.DOT走位
+.il\youshu.il.txt	53349	### 鍚岀被 ACR.Scholar.Timeline.Actions.GCD单奶
+.il\youshu.il.txt	53371	### 鍚岀被 ACR.Scholar.Timeline.Actions.GCD群奶
+.il\youshu.il.txt	53393	### 鍚岀被 ACR.Scholar.Timeline.Actions.QtSetting
+.il\youshu.il.txt	53413	### 鍚岀被 ACR.Scholar.Timeline.Actions.不上Dot阈值
+.il\youshu.il.txt	53435	### 鍚岀被 ACR.Scholar.Timeline.Actions.不屈阈值
+.il\youshu.il.txt	53457	### 鍚岀被 ACR.Scholar.Timeline.Actions.低语阈值
+.il\youshu.il.txt	53479	### 鍚岀被 ACR.Scholar.Timeline.Actions.保留豆子数量
+.il\youshu.il.txt	53501	### 鍚岀被 ACR.Scholar.Timeline.Actions.单盾阈值
+.il\youshu.il.txt	53523	### 鍚岀被 ACR.Scholar.Timeline.Actions.变身阈值
+.il\youshu.il.txt	53545	### 鍚岀被 ACR.Scholar.Timeline.Actions.回生法阈值
+.il\youshu.il.txt	53567	### 鍚岀被 ACR.Scholar.Timeline.Actions.小仙女移动到场中
+.il\youshu.il.txt	53604	### 鍚岀被 ACR.Scholar.Timeline.Actions.应急战术阈值
+.il\youshu.il.txt	53626	### 鍚岀被 ACR.Scholar.Timeline.Actions.康复顺序
+.il\youshu.il.txt	53643	### 鍚岀被 ACR.Scholar.Timeline.Actions.慰藉阈值
+.il\youshu.il.txt	53665	### 鍚岀被 ACR.Scholar.Timeline.Actions.活性法阈值
+.il\youshu.il.txt	53687	### 鍚岀被 ACR.Scholar.Timeline.Actions.热键
+.il\youshu.il.txt	53708	### 鍚岀被 ACR.Scholar.Timeline.Actions.煤球走位
+.il\youshu.il.txt	53729	### 鍚岀被 ACR.Scholar.Timeline.Actions.祥光阈值
+.il\youshu.il.txt	53751	### 鍚岀被 ACR.Scholar.Timeline.Actions.绿帽阈值
+.il\youshu.il.txt	53773	### 鍚岀被 ACR.Scholar.Timeline.Actions.罩子阈值
+.il\youshu.il.txt	53795	### 鍚岀被 ACR.Scholar.Timeline.Actions.群减人数
+.il\youshu.il.txt	53818	### 鍚岀被 ACR.Scholar.Timeline.Actions.群奶人数
+.il\youshu.il.txt	53841	### 鍚岀被 ACR.Scholar.Timeline.Actions.群盾阈值
+.il\youshu.il.txt	53863	### 鍚岀被 ACR.Scholar.Timeline.Actions.起手设置
+.il\youshu.il.txt	53971	### 鍚岀被 ACR.Scholar.Timeline.Actions.醒梦阈值
+.il\youshu.il.txt	53994	### 鍚岀被 ACR.Scholar.Timeline.Actions.链子阈值
+.il\youshu.il.txt	54016	### 鍚岀被 ACR.Scholar.Timeline.Actions.预读时间
+.il\youshu.il.txt	54039	### 鍚岀被 ACR.Scholar.Resolvers.不屈不挠之策
+.il\youshu.il.txt	54147	### 鍚岀被 ACR.Scholar.Resolvers.仙光的低语
+.il\youshu.il.txt	54235	### 鍚岀被 ACR.Scholar.Resolvers.以太契约
+.il\youshu.il.txt	54352	### 鍚岀被 ACR.Scholar.Resolvers.以太超流
+.il\youshu.il.txt	54437	### 鍚岀被 ACR.Scholar.Resolvers.埋伏之毒
+.il\youshu.il.txt	54571	### 鍚岀被 ACR.Scholar.Resolvers.异想的幻光
+.il\youshu.il.txt	54648	### 鍚岀被 ACR.Scholar.Resolvers.异想的祥光
+.il\youshu.il.txt	54720	### 鍚岀被 ACR.Scholar.Resolvers.慰藉
+.il\youshu.il.txt	54842	### 鍚岀被 ACR.Scholar.Resolvers.深谋远虑之策
+.il\youshu.il.txt	54965	### 鍚岀被 ACR.Scholar.Resolvers.炽天附体
+.il\youshu.il.txt	55043	### 鍚岀被 ACR.Scholar.Resolvers.生命回生法
+.il\youshu.il.txt	55110	### 鍚岀被 ACR.Scholar.Resolvers.生命活性法
+.il\youshu.il.txt	55222	### 鍚岀被 ACR.Scholar.Resolvers.能量吸收
+.il\youshu.il.txt	55378	### 鍚岀被 ACR.Scholar.Resolvers.自动减伤
+.il\youshu.il.txt	56180	### 鍚岀被 ACR.Scholar.Resolvers.转化
+.il\youshu.il.txt	56236	### 鍚岀被 ACR.Scholar.Resolvers.连环计
+.il\youshu.il.txt	56376	### 鍚岀被 ACR.Scholar.Resolvers.醒梦
+.il\youshu.il.txt	56433	### 鍚岀被 ACR.Scholar.Resolvers.野战治疗阵
+.il\youshu.il.txt	56525	### 鍚岀被 ACR.Scholar.Resolvers.DOT
+.il\youshu.il.txt	56683	### 鍚岀被 ACR.Scholar.Resolvers.医术
+.il\youshu.il.txt	56820	### 鍚岀被 ACR.Scholar.Resolvers.即刻极炎法
+.il\youshu.il.txt	56930	### 鍚岀被 ACR.Scholar.Resolvers.双DOT
+.il\youshu.il.txt	56966	### 鍚岀被 ACR.Scholar.Resolvers.康复
+.il\youshu.il.txt	57024	### 鍚岀被 ACR.Scholar.Resolvers.意气轩昂之策
+.il\youshu.il.txt	57264	### 鍚岀被 ACR.Scholar.Resolvers.朝日召唤
+.il\youshu.il.txt	57329	### 鍚岀被 ACR.Scholar.Resolvers.极炎法
+.il\youshu.il.txt	57438	### 鍚岀被 ACR.Scholar.Resolvers.毁坏
+.il\youshu.il.txt	57583	### 鍚岀被 ACR.Scholar.Resolvers.移动走位即刻极炎法
+.il\youshu.il.txt	57713	### 鍚岀被 ACR.Scholar.Resolvers.绝亚康复
+.il\youshu.il.txt	57797	### 鍚岀被 ACR.Scholar.Resolvers.裂阵法
+.il\youshu.il.txt	57926	### 鍚岀被 ACR.Scholar.Resolvers.鼓舞激励之策
+.il\youshu.il.txt	58189	### 鍚岀被 ACR.Scholar.Resolvers.ScholarResolverBase
+.il\youshu.il.txt	58207	### 鍚岀被 ACR.Scholar.Resolvers.Strategy.复生
+.il\youshu.il.txt	58312	### 鍚岀被 ACR.Scholar.Resolvers.Strategy.学者奶满策略
+.il\youshu.il.txt	58668	### 鍚岀被 ACR.Scholar.Resolvers.Strategy.学者技能策略
+.il\youshu.il.txt	58927	### 鍚岀被 ACR.Scholar.Resolvers.Strategy.过路圣人复活
+.il\youshu.il.txt	58998	### 鍚岀被 ACR.Scholar.Openers.学者起手辅助
+.il\youshu.il.txt	59171	### 鍚岀被 ACR.Scholar.Openers.幻光群盾起手
+.il\youshu.il.txt	59230	### 鍚岀被 ACR.Scholar.Openers.扩散盾起手
+.il\youshu.il.txt	59296	### 鍚岀被 ACR.Scholar.Openers.空起手
+.il\youshu.il.txt	59328	### 鍚岀被 ACR.Sage.即刻活化贤炮热键
+.il\youshu.il.txt	59340	### 鍚岀被 ACR.Sage.神翼飞T热键
+.il\youshu.il.txt	59406	### 鍚岀被 ACR.Sage.SAGEACR
+.il\youshu.il.txt	59613	### 鍚岀被 ACR.Sage.SAGEACREntry
+.il\youshu.il.txt	59660	### 鍚岀被 ACR.Sage.SageEventHandler
+.il\youshu.il.txt	59809	### 鍚岀被 ACR.Sage.SageSettings
+.il\youshu.il.txt	59845	### 鍚岀被 ACR.Sage.SageSettingsData
+.il\youshu.il.txt	60184	### 鍚岀被 ACR.Sage.SageCustomComboHotkey
+.il\youshu.il.txt	60205	### 鍚岀被 ACR.Sage.SageCustomQtMode
+.il\youshu.il.txt	60228	### 鍚岀被 ACR.Sage.SageTools
+.il\youshu.il.txt	61533	### 鍚岀被 ACR.Sage.SageQT
+.il\youshu.il.txt	62759	### 鍚岀被 ACR.Sage.SageCommand
+.il\youshu.il.txt	62828	### 鍚岀被 ACR.Sage.SageHotkeyPanel
+.il\youshu.il.txt	63037	### 鍚岀被 ACR.Sage.SageHotkeySystem
+.il\youshu.il.txt	64281	### 鍚岀被 ACR.Sage.SageOverlay
+.il\youshu.il.txt	64527	### 鍚岀被 ACR.Sage.SageQtPanel
+.il\youshu.il.txt	64595	### 鍚岀被 ACR.Sage.SageSettingsTab
+.il\youshu.il.txt	65834	### 鍚岀被 ACR.Sage.SageOpenerSettingWindow
+.il\youshu.il.txt	66227	### 鍚岀被 ACR.Sage.SageSettingControls
+.il\youshu.il.txt	66299	### 鍚岀被 ACR.Sage.Timeline.Conditions.QtCheck
+.il\youshu.il.txt	66309	### 鍚岀被 ACR.Sage.Timeline.Conditions.红豆状态
+.il\youshu.il.txt	66356	### 鍚岀被 ACR.Sage.Timeline.Conditions.蓝豆状态
+.il\youshu.il.txt	66403	### 鍚岀被 ACR.Sage.Timeline.Actions.GCD单奶
+.il\youshu.il.txt	66425	### 鍚岀被 ACR.Sage.Timeline.Actions.GCD群奶
+.il\youshu.il.txt	66447	### 鍚岀被 ACR.Sage.Timeline.Actions.QtSetting
+.il\youshu.il.txt	66467	### 鍚岀被 ACR.Sage.Timeline.Actions.不上Dot阈值
+.il\youshu.il.txt	66489	### 鍚岀被 ACR.Sage.Timeline.Actions.保留红豆数量
+.il\youshu.il.txt	66511	### 鍚岀被 ACR.Sage.Timeline.Actions.保留蓝豆数量
+.il\youshu.il.txt	66533	### 鍚岀被 ACR.Sage.Timeline.Actions.失衡走位
+.il\youshu.il.txt	66554	### 鍚岀被 ACR.Sage.Timeline.Actions.寄生阈值
+.il\youshu.il.txt	66576	### 鍚岀被 ACR.Sage.Timeline.Actions.康复顺序
+.il\youshu.il.txt	66593	### 鍚岀被 ACR.Sage.Timeline.Actions.智慧之爱
+.il\youshu.il.txt	66615	### 鍚岀被 ACR.Sage.Timeline.Actions.灵橡阈值
+.il\youshu.il.txt	66637	### 鍚岀被 ACR.Sage.Timeline.Actions.热键
+.il\youshu.il.txt	66658	### 鍚岀被 ACR.Sage.Timeline.Actions.白牛阈值
+.il\youshu.il.txt	66680	### 鍚岀被 ACR.Sage.Timeline.Actions.群减人数
+.il\youshu.il.txt	66702	### 鍚岀被 ACR.Sage.Timeline.Actions.群奶人数
+.il\youshu.il.txt	66724	### 鍚岀被 ACR.Sage.Timeline.Actions.自生阈值
+.il\youshu.il.txt	66746	### 鍚岀被 ACR.Sage.Timeline.Actions.贤炮阈值
+.il\youshu.il.txt	66768	### 鍚岀被 ACR.Sage.Timeline.Actions.起手设置
+.il\youshu.il.txt	66837	### 鍚岀被 ACR.Sage.Timeline.Actions.输血阈值
+.il\youshu.il.txt	66859	### 鍚岀被 ACR.Sage.Timeline.Actions.醒梦阈值
+.il\youshu.il.txt	66882	### 鍚岀被 ACR.Sage.Timeline.Actions.预读时间
+.il\youshu.il.txt	66905	### 鍚岀被 ACR.Sage.Resolvers.SageResolverBase
+.il\youshu.il.txt	66939	### 鍚岀被 ACR.Sage.Resolvers.Strategy.复苏
+.il\youshu.il.txt	67044	### 鍚岀被 ACR.Sage.Resolvers.Strategy.贤者奶满策略
+.il\youshu.il.txt	67274	### 鍚岀被 ACR.Sage.Resolvers.Strategy.贤者技能策略
+.il\youshu.il.txt	67512	### 鍚岀被 ACR.Sage.Resolvers.Strategy.过路圣人复活
+.il\youshu.il.txt	67583	### 鍚岀被 ACR.Sage.Resolvers.GCD.DOT
+.il\youshu.il.txt	67716	### 鍚岀被 ACR.Sage.Resolvers.GCD.单盾
+.il\youshu.il.txt	67970	### 鍚岀被 ACR.Sage.Resolvers.GCD.即刻注药
+.il\youshu.il.txt	68064	### 鍚岀被 ACR.Sage.Resolvers.GCD.双DOT
+.il\youshu.il.txt	68120	### 鍚岀被 ACR.Sage.Resolvers.GCD.发炎
+.il\youshu.il.txt	68342	### 鍚岀被 ACR.Sage.Resolvers.GCD.失衡
+.il\youshu.il.txt	68484	### 鍚岀被 ACR.Sage.Resolvers.GCD.康复
+.il\youshu.il.txt	68542	### 鍚岀被 ACR.Sage.Resolvers.GCD.强制发炎
+.il\youshu.il.txt	68714	### 鍚岀被 ACR.Sage.Resolvers.GCD.注药
+.il\youshu.il.txt	68821	### 鍚岀被 ACR.Sage.Resolvers.GCD.移动走位即刻注药
+.il\youshu.il.txt	68935	### 鍚岀被 ACR.Sage.Resolvers.GCD.箭毒
+.il\youshu.il.txt	69117	### 鍚岀被 ACR.Sage.Resolvers.GCD.绝亚康复
+.il\youshu.il.txt	69201	### 鍚岀被 ACR.Sage.Resolvers.GCD.群DOT
+.il\youshu.il.txt	69369	### 鍚岀被 ACR.Sage.Resolvers.GCD.群盾
+.il\youshu.il.txt	69614	### 鍚岀被 ACR.Sage.Resolvers.GCD.诊断
+.il\youshu.il.txt	69703	### 鍚岀被 ACR.Sage.Resolvers.GCD.预后
+.il\youshu.il.txt	69823	### 鍚岀被 ACR.Sage.Resolvers.GCD.贤炮
+.il\youshu.il.txt	70059	### 鍚岀被 ACR.Sage.Resolvers.Ability.寄生
+.il\youshu.il.txt	70136	### 鍚岀被 ACR.Sage.Resolvers.Ability.心关
+.il\youshu.il.txt	70472	### 鍚岀被 ACR.Sage.Resolvers.Ability.心神风息
+.il\youshu.il.txt	70640	### 鍚岀被 ACR.Sage.Resolvers.Ability.拯救
+.il\youshu.il.txt	70755	### 鍚岀被 ACR.Sage.Resolvers.Ability.智慧之爱
+.il\youshu.il.txt	70841	### 鍚岀被 ACR.Sage.Resolvers.Ability.根素
+.il\youshu.il.txt	70894	### 鍚岀被 ACR.Sage.Resolvers.Ability.自动减伤
+.il\youshu.il.txt	71215	### 鍚岀被 ACR.Sage.Resolvers.Ability.自动单奶
+.il\youshu.il.txt	71537	### 鍚岀被 ACR.Sage.Resolvers.Ability.自生
+.il\youshu.il.txt	71701	### 鍚岀被 ACR.Sage.Resolvers.Ability.输血
+.il\youshu.il.txt	71811	### 鍚岀被 ACR.Sage.Resolvers.Ability.醒梦
+.il\youshu.il.txt	71868	### 鍚岀被 ACR.Sage.Openers.空起手
+.il\youshu.il.txt	71990	### 鍚岀被 ACR.Sage.Openers.自定义起手
+.il\youshu.il.txt	72569	### 鍚岀被 ACR.Sage.Openers.贤者起手辅助
+.il\youshu.il.txt	72672	### 鍚岀被 ACR.Astrologian.ASTACR
+.il\youshu.il.txt	72923	### 鍚岀被 ACR.Astrologian.ASTACREntry
+.il\youshu.il.txt	72970	### 鍚岀被 ACR.Astrologian.AstrologianEventHandler
+.il\youshu.il.txt	73110	### 鍚岀被 ACR.Astrologian.AstrologianSettings
+.il\youshu.il.txt	73146	### 鍚岀被 ACR.Astrologian.AstrologianSettingsData
+.il\youshu.il.txt	73499	### 鍚岀被 ACR.Astrologian.AstrologianCustomComboHotkey
+.il\youshu.il.txt	73520	### 鍚岀被 ACR.Astrologian.AstrologianCustomQtMode
+.il\youshu.il.txt	73543	### 鍚岀被 ACR.Astrologian.出卡1
+.il\youshu.il.txt	73570	### 鍚岀被 ACR.Astrologian.AstrologianTools
+.il\youshu.il.txt	74520	### 鍚岀被 ACR.Astrologian.AstrologianCardSettingWindow
+.il\youshu.il.txt	75201	### 鍚岀被 ACR.Astrologian.AstrologianCommand
+.il\youshu.il.txt	75270	### 鍚岀被 ACR.Astrologian.AstrologianHotkeyPanel
+.il\youshu.il.txt	75455	### 鍚岀被 ACR.Astrologian.AstrologianHotkeySystem
+.il\youshu.il.txt	76508	### 鍚岀被 ACR.Astrologian.AstrologianOverlay
+.il\youshu.il.txt	76754	### 鍚岀被 ACR.Astrologian.AstrologianUI
+.il\youshu.il.txt	76760	### 鍚岀被 ACR.Astrologian.AstrologianQtPanel
+.il\youshu.il.txt	76828	### 鍚岀被 ACR.Astrologian.AstrologianSettingsTab
+.il\youshu.il.txt	78297	### 鍚岀被 ACR.Astrologian.AstrologianSettingsUI
+.il\youshu.il.txt	78429	### 鍚岀被 ACR.Astrologian.AstrologianQT
+.il\youshu.il.txt	79627	### 鍚岀被 ACR.Astrologian.AstrologianSettingControls
+.il\youshu.il.txt	79684	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.QtCheck
+.il\youshu.il.txt	79694	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.先天充能层数
+.il\youshu.il.txt	79739	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.光速充能层数
+.il\youshu.il.txt	79780	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.卡1类型
+.il\youshu.il.txt	79836	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.卡2类型
+.il\youshu.il.txt	79892	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.卡3类型
+.il\youshu.il.txt	79948	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.天星交错充能层数
+.il\youshu.il.txt	79989	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.小奥秘卡类型
+.il\youshu.il.txt	80044	### 鍚岀被 ACR.Astrologian.Timeline.Conditions.抽卡类型
+.il\youshu.il.txt	80096	### 鍚岀被 ACR.Astrologian.Timeline.Actions.DOT走位
+.il\youshu.il.txt	80117	### 鍚岀被 ACR.Astrologian.Timeline.Actions.GCD单奶
+.il\youshu.il.txt	80139	### 鍚岀被 ACR.Astrologian.Timeline.Actions.GCD群奶
+.il\youshu.il.txt	80161	### 鍚岀被 ACR.Astrologian.Timeline.Actions.QtSetting
+.il\youshu.il.txt	80181	### 鍚岀被 ACR.Astrologian.Timeline.Actions.不上Dot阈值
+.il\youshu.il.txt	80203	### 鍚岀被 ACR.Astrologian.Timeline.Actions.中间学派阈值
+.il\youshu.il.txt	80225	### 鍚岀被 ACR.Astrologian.Timeline.Actions.保留先天数量
+.il\youshu.il.txt	80248	### 鍚岀被 ACR.Astrologian.Timeline.Actions.先天阈值
+.il\youshu.il.txt	80270	### 鍚岀被 ACR.Astrologian.Timeline.Actions.光速走位
+.il\youshu.il.txt	80291	### 鍚岀被 ACR.Astrologian.Timeline.Actions.吉星相位阈值
+.il\youshu.il.txt	80313	### 鍚岀被 ACR.Astrologian.Timeline.Actions.地星阈值
+.il\youshu.il.txt	80335	### 鍚岀被 ACR.Astrologian.Timeline.Actions.天宫图阈值
+.il\youshu.il.txt	80357	### 鍚岀被 ACR.Astrologian.Timeline.Actions.天星交错阈值
+.il\youshu.il.txt	80379	### 鍚岀被 ACR.Astrologian.Timeline.Actions.天星冲日阈值
+.il\youshu.il.txt	80401	### 鍚岀被 ACR.Astrologian.Timeline.Actions.康复顺序
+.il\youshu.il.txt	80418	### 鍚岀被 ACR.Astrologian.Timeline.Actions.擢升阈值
+.il\youshu.il.txt	80440	### 鍚岀被 ACR.Astrologian.Timeline.Actions.星位合图阈值
+.il\youshu.il.txt	80462	### 鍚岀被 ACR.Astrologian.Timeline.Actions.星体爆轰阈值
+.il\youshu.il.txt	80484	### 鍚岀被 ACR.Astrologian.Timeline.Actions.热键
+.il\youshu.il.txt	80505	### 鍚岀被 ACR.Astrologian.Timeline.Actions.群减人数
+.il\youshu.il.txt	80527	### 鍚岀被 ACR.Astrologian.Timeline.Actions.群奶人数
+.il\youshu.il.txt	80549	### 鍚岀被 ACR.Astrologian.Timeline.Actions.贵妇卡阈值
+.il\youshu.il.txt	80571	### 鍚岀被 ACR.Astrologian.Timeline.Actions.起手设置
+.il\youshu.il.txt	80646	### 鍚岀被 ACR.Astrologian.Timeline.Actions.醒梦阈值
+.il\youshu.il.txt	80669	### 鍚岀被 ACR.Astrologian.Timeline.Actions.预读时间
+.il\youshu.il.txt	80692	### 鍚岀被 ACR.Astrologian.Resolvers.中间学派
+.il\youshu.il.txt	80847	### 鍚岀被 ACR.Astrologian.Resolvers.先天禀赋
+.il\youshu.il.txt	81082	### 鍚岀被 ACR.Astrologian.Resolvers.光速
+.il\youshu.il.txt	81208	### 鍚岀被 ACR.Astrologian.Resolvers.光速走位
+.il\youshu.il.txt	81321	### 鍚岀被 ACR.Astrologian.Resolvers.出卡1
+.il\youshu.il.txt	81809	### 鍚岀被 ACR.Astrologian.Resolvers.出卡2
+.il\youshu.il.txt	82192	### 鍚岀被 ACR.Astrologian.Resolvers.出卡3
+.il\youshu.il.txt	82531	### 鍚岀被 ACR.Astrologian.Resolvers.占卜
+.il\youshu.il.txt	82621	### 鍚岀被 ACR.Astrologian.Resolvers.命运之轮
+.il\youshu.il.txt	82677	### 鍚岀被 ACR.Astrologian.Resolvers.地星
+.il\youshu.il.txt	82860	### 鍚岀被 ACR.Astrologian.Resolvers.天宫图
+.il\youshu.il.txt	83009	### 鍚岀被 ACR.Astrologian.Resolvers.天星交错
+.il\youshu.il.txt	83405	### 鍚岀被 ACR.Astrologian.Resolvers.天星冲日
+.il\youshu.il.txt	83499	### 鍚岀被 ACR.Astrologian.Resolvers.太阳星座
+.il\youshu.il.txt	83584	### 鍚岀被 ACR.Astrologian.Resolvers.小奥秘卡
+.il\youshu.il.txt	83921	### 鍚岀被 ACR.Astrologian.Resolvers.抽卡
+.il\youshu.il.txt	84152	### 鍚岀被 ACR.Astrologian.Resolvers.擢升
+.il\youshu.il.txt	84424	### 鍚岀被 ACR.Astrologian.Resolvers.星位合图
+.il\youshu.il.txt	84580	### 鍚岀被 ACR.Astrologian.Resolvers.星体爆轰
+.il\youshu.il.txt	84792	### 鍚岀被 ACR.Astrologian.Resolvers.神谕
+.il\youshu.il.txt	84945	### 鍚岀被 ACR.Astrologian.Resolvers.醒梦
+.il\youshu.il.txt	85002	### 鍚岀被 ACR.Astrologian.Resolvers.AstrologianResolverBase
+.il\youshu.il.txt	85012	### 鍚岀被 ACR.Astrologian.Resolvers.Strategy.占星奶满策略
+.il\youshu.il.txt	85200	### 鍚岀被 ACR.Astrologian.Resolvers.Strategy.占星技能策略
+.il\youshu.il.txt	85488	### 鍚岀被 ACR.Astrologian.Resolvers.Strategy.发卡设置
+.il\youshu.il.txt	87180	### 鍚岀被 ACR.Astrologian.Resolvers.Strategy.生辰
+.il\youshu.il.txt	87315	### 鍚岀被 ACR.Astrologian.Resolvers.Strategy.过路圣人复活
+.il\youshu.il.txt	87394	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.DOT
+.il\youshu.il.txt	87551	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.中重力
+.il\youshu.il.txt	87669	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.即刻落陷凶星
+.il\youshu.il.txt	87757	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.双DOT
+.il\youshu.il.txt	87793	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.吉星
+.il\youshu.il.txt	87965	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.吉星相位
+.il\youshu.il.txt	88294	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.大宇宙
+.il\youshu.il.txt	88464	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.康复
+.il\youshu.il.txt	88522	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.移动走位即刻落陷凶星
+.il\youshu.il.txt	88651	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.移动走位即刻重力
+.il\youshu.il.txt	88802	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.绝亚康复
+.il\youshu.il.txt	88886	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.落陷凶星
+.il\youshu.il.txt	89004	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.阳星
+.il\youshu.il.txt	89094	### 鍚岀被 ACR.Astrologian.Resolvers.GCD.阳星合相
+.il\youshu.il.txt	89292	### 鍚岀被 ACR.Astrologian.Openers.空起手
+.il\youshu.il.txt	89434	### 鍚岀被 ACR.Astrologian.Openers.占星3GCD前半起手
+.il\youshu.il.txt	89800	### 鍚岀被 ACR.Astrologian.Openers.AstrologianOpenerHelper
+.il\youshu.il.txt	89889	### CommandEntry
+.il\youshu.il.txt	90009	### PendingHotkey
+.il\youshu.il.txt	90393	### MainWindowSpec
+.il\youshu.il.txt	91175	### FloatingWindowSpec
+.il\youshu.il.txt	91529	### HotkeyTargetNameData
+.il\youshu.il.txt	91649	### StylePresetData
+.il\youshu.il.txt	91673	### QtThemePresetData
+.il\youshu.il.txt	92175	### RaiseMessageTracker
+.il\youshu.il.txt	92278	### ValidatedSpell
+.il\youshu.il.txt	92325	### ScholarDynamicHotkey
+.il\youshu.il.txt	92407	### 职业优先级配置
+.il\shiyuvi.il.txt	2	### AesEncryptionTool
+.il\shiyuvi.il.txt	337	### AetherflowManager
+.il\shiyuvi.il.txt	356	### EssentialDignity
+.il\shiyuvi.il.txt	630	### Benefic_II
+.il\shiyuvi.il.txt	686	### ForcedTimelineAction
+.il\shiyuvi.il.txt	773	### FrameCache
+.il\shiyuvi.il.txt	858	### BattleCharaDictionaryPool
+.il\shiyuvi.il.txt	887	### Scholar_MoSingleHeal
+.il\shiyuvi.il.txt	948	### SCH_Draw
+.il\shiyuvi.il.txt	1014	### SCH_PetMove
+.il\shiyuvi.il.txt	1043	### SCH_UnDraw
+.il\shiyuvi.il.txt	1067	### ShareProxy
+.il\shiyuvi.il.txt	1201	### BLMRotationEventHandler
+.il\shiyuvi.il.txt	9369	### AreaObjectFinder
+.il\shiyuvi.il.txt	9606	### Dalamud.Plugin.Services.IDataManager
+.il\shiyuvi.il.txt	9614	### BLM.BLM_ALL
+.il\shiyuvi.il.txt	9637	### BLM.BLM_AOE
+.il\shiyuvi.il.txt	9703	### BLM.BLM_offGCD
+.il\shiyuvi.il.txt	9723	### BLM.BLM_Move
+.il\shiyuvi.il.txt	9827	### BLM.BLM_Single
+.il\shiyuvi.il.txt	9844	### OmenTools.DService
+.il\shiyuvi.il.txt	9939	### OmenTools.Helpers.LuminaCache
+.il\shiyuvi.il.txt	10045	### AEAssist.CombatRoutine.AurasDefine
+.il\shiyuvi.il.txt	10078	### AEAssist.CombatRoutine.BLMData
+.il\shiyuvi.il.txt	10627	### AEAssist.CombatRoutine.SpellsDefine
+.il\shiyuvi.il.txt	10777	### AEAssist.CombatRoutine.Module.SpellActionTcsKey
+.il\shiyuvi.il.txt	10905	### AEAssist.CombatRoutine.Trigger.Define.SpellConfig
+.il\shiyuvi.il.txt	11620	### Linto.PvPSettings
+.il\shiyuvi.il.txt	11691	### Linto.LintoPvP.PVPApi.PVPTargetHelper
+.il\shiyuvi.il.txt	11825	### Linto.LintoPvP.PVPApi.PVPHelper
+.il\shiyuvi.il.txt	13109	### Linto.LintoPvP.PVPApi.PvPJobInterface
+.il\shiyuvi.il.txt	13112	### Linto.LintoPvP.PVPApi.BaseJobConfig
+.il\shiyuvi.il.txt	13161	### Linto.LintoPvP.PVPApi.职业配置
+.il\shiyuvi.il.txt	13191	### Linto.LintoPvP.PVPApi.PVPApi.Data.AurasDefine
+.il\shiyuvi.il.txt	13197	### Linto.LintoPvP.PVPApi.PVPApi.Data.SpellsDefine
+.il\shiyuvi.il.txt	13203	### SamplePlugin.Utils.OptimizedGetActionInRangeOrLoS
+.il\shiyuvi.il.txt	13300	### SamplePlugin.Utils.LineOfSightChecker
+.il\shiyuvi.il.txt	13353	### 鍚岀被 ACR3._0.HOOK
+.il\shiyuvi.il.txt	13448	### 鍚岀被 ACR3._0.MapHelper
+.il\shiyuvi.il.txt	13641	### 鍚岀被 ACR3._0.PvPWHMRotationEntry
+.il\shiyuvi.il.txt	13958	### 鍚岀被 ACR3._0.ScholarEnemyCheck
+.il\shiyuvi.il.txt	14309	### 鍚岀被 ACR3._0.鍚岀被 ACRActionMonitor
+.il\shiyuvi.il.txt	14754	### 鍚岀被 ACR3._0.鍚岀被 ACRBuffHelper
+.il\shiyuvi.il.txt	14836	### 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper
+.il\shiyuvi.il.txt	18100	### 鍚岀被 ACR3._0.WhiteListHelper
+.il\shiyuvi.il.txt	18155	### 鍚岀被 ACR3._0.WHMPVP.PvPWHMOverlay
+.il\shiyuvi.il.txt	18220	### 鍚岀被 ACR3._0.WHMPVP.PVPWHMRotationEventHandler
+.il\shiyuvi.il.txt	18288	### 鍚岀被 ACR3._0.WHMPVP.PvPWHMSettings
+.il\shiyuvi.il.txt	18360	### 鍚岀被 ACR3._0.WHMPVP.PvPWHMSettingUI
+.il\shiyuvi.il.txt	18374	### 鍚岀被 ACR3._0.WHMPVP.PvPWHMBattleData
+.il\shiyuvi.il.txt	18388	### 鍚岀被 ACR3._0.WHMPVP.GCD.冲刺
+.il\shiyuvi.il.txt	18437	### 鍚岀被 ACR3._0.WHMPVP.GCD.净化
+.il\shiyuvi.il.txt	18474	### 鍚岀被 ACR3._0.WHMPVP.GCD.愈疗
+.il\shiyuvi.il.txt	18578	### 鍚岀被 ACR3._0.WHMPVP.GCD.药
+.il\shiyuvi.il.txt	18624	### 鍚岀被 ACR3._0.WHMPVP.GCD.闪灼
+.il\shiyuvi.il.txt	18668	### 鍚岀被 ACR3._0.WHMPVP.GCD.飒闪
+.il\shiyuvi.il.txt	18717	### 鍚岀被 ACR3._0.WHMPVP.Ability.水流幕
+.il\shiyuvi.il.txt	18833	### 鍚岀被 ACR3._0.WHMPVP.Ability.自动LB
+.il\shiyuvi.il.txt	19385	### 鍚岀被 ACR3._0.WHMPVP.Ability.自然的奇迹
+.il\shiyuvi.il.txt	19445	### 鍚岀被 ACR3._0.WHMPVP.Ability.苦难之心
+.il\shiyuvi.il.txt	19517	### 鍚岀被 ACR3._0.Triggers.TriggerConfig
+.il\shiyuvi.il.txt	19567	### 鍚岀被 ACR3._0.Triggers.MPBelowUseItem23168
+.il\shiyuvi.il.txt	19728	### 鍚岀被 ACR3._0.BLM.鍚岀被 ACRBLMRotationEntry
+.il\shiyuvi.il.txt	20327	### 鍚岀被 ACR3._0.Sage.SageRotationEventHandler
+.il\shiyuvi.il.txt	20405	### 鍚岀被 ACR3._0.Sage.Sage_QT
+.il\shiyuvi.il.txt	20530	### 鍚岀被 ACR3._0.Sage.Triggers.强制释放均衡技能
+.il\shiyuvi.il.txt	20569	### 鍚岀被 ACR3._0.Sage.Triggers.强制队列改
+.il\shiyuvi.il.txt	20766	### 鍚岀被 ACR3._0.Sage.GCD.DOT
+.il\shiyuvi.il.txt	20840	### 鍚岀被 ACR3._0.Sage.GCD.Eukrasia
+.il\shiyuvi.il.txt	21087	### 鍚岀被 ACR3._0.Sage.Ability.Krasis
+.il\shiyuvi.il.txt	21186	### 鍚岀被 ACR3._0.Sage.Ability.Psyche
+.il\shiyuvi.il.txt	21217	### 鍚岀被 ACR3._0.Monk.MonkOverlay
+.il\shiyuvi.il.txt	21739	### 鍚岀被 ACR3._0.Monk.Qt
+.il\shiyuvi.il.txt	21773	### 鍚岀被 ACR3._0.Monk.MonkBattleData
+.il\shiyuvi.il.txt	21799	### 鍚岀被 ACR3._0.Monk.MonkOpener
+.il\shiyuvi.il.txt	21844	### 鍚岀被 ACR3._0.Monk.MonkRotationEventHandler
+.il\shiyuvi.il.txt	23022	### 鍚岀被 ACR3._0.Monk.MonkSettings
+.il\shiyuvi.il.txt	23104	### 鍚岀被 ACR3._0.Monk.MonkSettingView
+.il\shiyuvi.il.txt	23112	### 鍚岀被 ACR3._0.Monk.Monk_QT
+.il\shiyuvi.il.txt	23237	### 鍚岀被 ACR3._0.Monk.PartyBuff
+.il\shiyuvi.il.txt	23249	### 鍚岀被 ACR3._0.Monk.鍚岀被 ACRMonkRotationEntry
+.il\shiyuvi.il.txt	23876	### 鍚岀被 ACR3._0.Monk.MonkSkill
+.il\shiyuvi.il.txt	23887	### 鍚岀被 ACR3._0.Monk.豆子
+.il\shiyuvi.il.txt	23906	### 鍚岀被 ACR3._0.Monk.QT.Monk_LB
+.il\shiyuvi.il.txt	23916	### 鍚岀被 ACR3._0.Monk.GCD.乾坤斗气弹
+.il\shiyuvi.il.txt	23959	### 鍚岀被 ACR3._0.Monk.GCD.六合星导脚
+.il\shiyuvi.il.txt	23975	### 鍚岀被 ACR3._0.Monk.GCD.双掌打
+.il\shiyuvi.il.txt	24165	### 鍚岀被 ACR3._0.Monk.GCD.双龙脚
+.il\shiyuvi.il.txt	24404	### 鍚岀被 ACR3._0.Monk.GCD.四面脚
+.il\shiyuvi.il.txt	24531	### 鍚岀被 ACR3._0.Monk.GCD.地裂劲
+.il\shiyuvi.il.txt	24716	### 鍚岀被 ACR3._0.Monk.GCD.崩拳
+.il\shiyuvi.il.txt	24896	### 鍚岀被 ACR3._0.Monk.GCD.强制阴必杀
+.il\shiyuvi.il.txt	25033	### 鍚岀被 ACR3._0.Monk.GCD.必杀技
+.il\shiyuvi.il.txt	25088	### 鍚岀被 ACR3._0.Monk.GCD.斗气
+.il\shiyuvi.il.txt	25125	### 鍚岀被 ACR3._0.Monk.GCD.正拳
+.il\shiyuvi.il.txt	25345	### 鍚岀被 ACR3._0.Monk.GCD.演武
+.il\shiyuvi.il.txt	25407	### 鍚岀被 ACR3._0.Monk.GCD.破坏神冲
+.il\shiyuvi.il.txt	25653	### 鍚岀被 ACR3._0.Monk.GCD.破碎拳
+.il\shiyuvi.il.txt	25818	### 鍚岀被 ACR3._0.Monk.GCD.绝空拳
+.il\shiyuvi.il.txt	25874	### 鍚岀被 ACR3._0.Monk.GCD.连击
+.il\shiyuvi.il.txt	26180	### 鍚岀被 ACR3._0.Monk.Ability.义结金兰
+.il\shiyuvi.il.txt	26283	### 鍚岀被 ACR3._0.Monk.Ability.内丹
+.il\shiyuvi.il.txt	26317	### 鍚岀被 ACR3._0.Monk.Ability.单体豆子
+.il\shiyuvi.il.txt	26442	### 鍚岀被 ACR3._0.Monk.Ability.浴血
+.il\shiyuvi.il.txt	26476	### 鍚岀被 ACR3._0.Monk.Ability.牵制
+.il\shiyuvi.il.txt	26522	### 鍚岀被 ACR3._0.Monk.Ability.疾风极意
+.il\shiyuvi.il.txt	26583	### 鍚岀被 ACR3._0.Monk.Ability.真北
+.il\shiyuvi.il.txt	26680	### 鍚岀被 ACR3._0.Monk.Ability.真言
+.il\shiyuvi.il.txt	26744	### 鍚岀被 ACR3._0.Monk.Ability.红莲极意
+.il\shiyuvi.il.txt	26862	### 鍚岀被 ACR3._0.Monk.Ability.群体豆子
+.il\shiyuvi.il.txt	27060	### 鍚岀被 ACR3._0.Monk.Ability.金刚周天
+.il\shiyuvi.il.txt	27120	### 鍚岀被 ACR3._0.Monk.Ability.金刚极意
+.il\shiyuvi.il.txt	27169	### 鍚岀被 ACR3._0.Monk.Ability.震脚
+.il\shiyuvi.il.txt	27443	### 鍚岀被 ACR3._0.FA.SharedDangerAreaManager
+.il\shiyuvi.il.txt	28753	### 鍚岀被 ACR3._0.FA.DangerAreaInfo
+.il\shiyuvi.il.txt	28759	### 鍚岀被 ACR3._0.FA.职能传送到安全点
+.il\shiyuvi.il.txt	29225	### 鍚岀被 ACR3._0.FA.指定职能tp指定位置
+.il\shiyuvi.il.txt	29522	### 鍚岀被 ACR3._0.FA.显示危险区信息
+.il\shiyuvi.il.txt	29619	### 鍚岀被 ACR3._0.FA.添加十字危险区
+.il\shiyuvi.il.txt	31555	### 鍚岀被 ACR3._0.FA.添加圆形危险区
+.il\shiyuvi.il.txt	32815	### 鍚岀被 ACR3._0.FA.添加场地边缘
+.il\shiyuvi.il.txt	33651	### 鍚岀被 ACR3._0.FA.添加多重扇形危险区
+.il\shiyuvi.il.txt	35070	### 鍚岀被 ACR3._0.FA.添加扇形危险区
+.il\shiyuvi.il.txt	37033	### 鍚岀被 ACR3._0.FA.添加月环危险区
+.il\shiyuvi.il.txt	38349	### 鍚岀被 ACR3._0.FA.添加矩形危险区
+.il\shiyuvi.il.txt	40367	### 鍚岀被 ACR3._0.FA.清除危险区
+.il\shiyuvi.il.txt	40444	### HSS.utils.HSSBuff
+.il\shiyuvi.il.txt	41497	### 鍚岀被 ACR.AOEHelper
+.il\shiyuvi.il.txt	41529	### 鍚岀被 ACR.Feint
+.il\shiyuvi.il.txt	41579	### 鍚岀被 ACR.PullQtSyncService
+.il\shiyuvi.il.txt	41980	### 鍚岀被 ACR.Rescue
+.il\shiyuvi.il.txt	42045	### 鍚岀被 ACR.Resurrect
+.il\shiyuvi.il.txt	42122	### 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry
+.il\shiyuvi.il.txt	42653	### 鍚岀被 ACR.鍚岀被 ACRBlueMageRotationEntry
+.il\shiyuvi.il.txt	43299	### 鍚岀被 ACR.鍚岀被 ACRGunbreakerRotationEntry
+.il\shiyuvi.il.txt	43847	### 鍚岀被 ACR.鍚岀被 ACRMachinistRotationEntry
+.il\shiyuvi.il.txt	44289	### 鍚岀被 ACR.鍚岀被 ACRSageRotationEntry
+.il\shiyuvi.il.txt	44694	### 鍚岀被 ACR.Buff
+.il\shiyuvi.il.txt	44769	### 鍚岀被 ACR.鍚岀被 ACRScholarRotationEntry
+.il\shiyuvi.il.txt	46259	### 鍚岀被 ACR.鍚岀被 ACRViperRotationEntry
+.il\shiyuvi.il.txt	46706	### 鍚岀被 ACR.Sprint
+.il\shiyuvi.il.txt	46712	### 鍚岀被 ACR.Viper.ViperOverlay
+.il\shiyuvi.il.txt	47158	### 鍚岀被 ACR.Viper.Qt
+.il\shiyuvi.il.txt	47192	### 鍚岀被 ACR.Viper.ViperRotationEventHandler
+.il\shiyuvi.il.txt	47420	### 鍚岀被 ACR.Viper.ViperGaugeState
+.il\shiyuvi.il.txt	47582	### 鍚岀被 ACR.Viper.ViperRuntime
+.il\shiyuvi.il.txt	47882	### 鍚岀被 ACR.Viper.ViperSettings
+.il\shiyuvi.il.txt	47967	### 鍚岀被 ACR.Viper.ViperSettingView
+.il\shiyuvi.il.txt	47975	### 鍚岀被 ACR.Viper.VPRHotkeyRegistry
+.il\shiyuvi.il.txt	47998	### 鍚岀被 ACR.Viper.Triggers.NewQt
+.il\shiyuvi.il.txt	48341	### 鍚岀被 ACR.Viper.Triggers.VPR_TimelineHotkeyAction
+.il\shiyuvi.il.txt	48693	### 鍚岀被 ACR.Viper.GCD.Viper_Gcd
+.il\shiyuvi.il.txt	50056	### 鍚岀被 ACR.Viper.Ability.Viper_Ogcd
+.il\shiyuvi.il.txt	50671	### 鍚岀被 ACR.鍚岀被 ACRBlack.Triggers.BLM黑魔纹层数
+.il\shiyuvi.il.txt	50730	### 鍚岀被 ACR.BLM.BLMSettingView
+.il\shiyuvi.il.txt	50741	### 鍚岀被 ACR.鍚岀被 ACR.BLMBattleData
+.il\shiyuvi.il.txt	50767	### 鍚岀被 ACR.鍚岀被 ACR.GCD瞬发预览
+.il\shiyuvi.il.txt	51069	### 鍚岀被 ACR.鍚岀被 ACR.offGCD.BLM_减伤
+.il\shiyuvi.il.txt	51130	### 鍚岀被 ACR.鍚岀被 ACR.offGCD.BLM_爆发药
+.il\shiyuvi.il.txt	51166	### 鍚岀被 ACR.BLM_7.ActionEffectTracker
+.il\shiyuvi.il.txt	51427	### 鍚岀被 ACR.BLM_7.BetweentheLines
+.il\shiyuvi.il.txt	51495	### 鍚岀被 ACR.BLM_7.BLMOverlay
+.il\shiyuvi.il.txt	54336	### 鍚岀被 ACR.BLM_7.Qt
+.il\shiyuvi.il.txt	54471	### 鍚岀被 ACR.BLM_7.BLMActionKindRegistry
+.il\shiyuvi.il.txt	59161	### 鍚岀被 ACR.BLM_7.BLMHotkeyRegistry
+.il\shiyuvi.il.txt	59497	### 鍚岀被 ACR.BLM_7.BLMHotkeySkillQueue
+.il\shiyuvi.il.txt	60280	### 鍚岀被 ACR.BLM_7.BLMLimitBreakQueuedHotkeyResolver
+.il\shiyuvi.il.txt	60351	### 鍚岀被 ACR.BLM_7.BLMPotionQueuedHotkeyResolver
+.il\shiyuvi.il.txt	60525	### 鍚岀被 ACR.BLM_7.BLMQueuedActionHotkeyResolver
+.il\shiyuvi.il.txt	60675	### 鍚岀被 ACR.BLM_7.BLMSettings
+.il\shiyuvi.il.txt	60919	### 鍚岀被 ACR.BLM_7.BLMSprintQueuedHotkeyResolver
+.il\shiyuvi.il.txt	61015	### 鍚岀被 ACR.BLM_7.BLM_QT
+.il\shiyuvi.il.txt	61140	### 鍚岀被 ACR.BLM_7.DiveSystemChecker
+.il\shiyuvi.il.txt	61628	### 鍚岀被 ACR.BLM_7.BLMOpener
+.il\shiyuvi.il.txt	61769	### 鍚岀被 ACR.BLM_7.Triggers.Action_UseSkillById
+.il\shiyuvi.il.txt	61873	### 鍚岀被 ACR.BLM_7.Triggers.BLM_TimelineClearHotkeyQueueAction
+.il\shiyuvi.il.txt	61892	### 鍚岀被 ACR.BLM_7.Triggers.BLM_TimelineCustomOpenerAction
+.il\shiyuvi.il.txt	62593	### 鍚岀被 ACR.BLM_7.Triggers.BLM_TimelineHotkeyAction
+.il\shiyuvi.il.txt	62950	### 鍚岀被 ACR.BLM_7.Triggers.BLM_TimelineHotkeyQueueAction
+.il\shiyuvi.il.txt	63541	### 鍚岀被 ACR.BLM_7.Triggers.BLM耀星层数
+.il\shiyuvi.il.txt	63597	### 鍚岀被 ACR.BLM_7.Triggers.BLM通晓层数
+.il\shiyuvi.il.txt	63653	### 鍚岀被 ACR.BLM_7.Triggers.FA
+.il\shiyuvi.il.txt	63739	### 鍚岀被 ACR.BLM_7.Triggers.NewQt
+.il\shiyuvi.il.txt	64080	### 鍚岀被 ACR.BLM_7.Triggers.Opener5_7
+.il\shiyuvi.il.txt	64126	### 鍚岀被 ACR.BLM_7.Triggers.OpenerFlare
+.il\shiyuvi.il.txt	64172	### 鍚岀被 ACR.BLM_7.Triggers.三连保留数量
+.il\shiyuvi.il.txt	64238	### 鍚岀被 ACR.BLM_7.Triggers.豆子保留数量
+.il\shiyuvi.il.txt	64310	### 鍚岀被 ACR.BLM_7.Triggers.LB满3W就放LB
+.il\shiyuvi.il.txt	64347	### 鍚岀被 ACR.SharedJobView.JobViewQtDefinition
+.il\shiyuvi.il.txt	64501	### 鍚岀被 ACR.SharedJobView.JobViewQtPersistence
+.il\shiyuvi.il.txt	64507	### 鍚岀被 ACR.SharedJobView.JobViewHotkeyPersistence
+.il\shiyuvi.il.txt	64513	### 鍚岀被 ACR.SharedJobView.ScholarStyleJobViewHelper
+.il\shiyuvi.il.txt	65257	### 鍚岀被 ACR.CombatRoutine.Spell
+.il\shiyuvi.il.txt	65443	### 鍚岀被 ACR.Sage.Sage_Resurrect
+.il\shiyuvi.il.txt	65457	### 鍚岀被 ACR.Sage.SageOverlay
+.il\shiyuvi.il.txt	65680	### 鍚岀被 ACR.Sage.Qt
+.il\shiyuvi.il.txt	65714	### 鍚岀被 ACR.Sage.SageBattleData
+.il\shiyuvi.il.txt	65748	### 鍚岀被 ACR.Sage.SageSettings
+.il\shiyuvi.il.txt	65820	### 鍚岀被 ACR.Sage.SageSettingView
+.il\shiyuvi.il.txt	65831	### 鍚岀被 ACR.Sage.GCD.Dosis
+.il\shiyuvi.il.txt	65871	### 鍚岀被 ACR.Sage.GCD.Esuna
+.il\shiyuvi.il.txt	65945	### 鍚岀被 ACR.Sage.GCD.ExtraDOT
+.il\shiyuvi.il.txt	66225	### 鍚岀被 ACR.Sage.GCD.Sage_AOEHeal
+.il\shiyuvi.il.txt	66234	### 鍚岀被 ACR.Sage.GCD.Sage_LowHPSingleHeal
+.il\shiyuvi.il.txt	66292	### 鍚岀被 ACR.Sage.GCD.Sage_Resurrect
+.il\shiyuvi.il.txt	66301	### 鍚岀被 ACR.Sage.Ability.LucidDreaming
+.il\shiyuvi.il.txt	66337	### 鍚岀被 ACR.MCH.Triggers.NewQt
+.il\shiyuvi.il.txt	66678	### 鍚岀被 ACR.Machinist.MachinistOverlay
+.il\shiyuvi.il.txt	67008	### 鍚岀被 ACR.Machinist.Qt
+.il\shiyuvi.il.txt	67042	### 鍚岀被 ACR.Machinist.MachinistBattleData
+.il\shiyuvi.il.txt	67068	### 鍚岀被 ACR.Machinist.MachinistRotationEventHandler
+.il\shiyuvi.il.txt	67216	### 鍚岀被 ACR.Machinist.MachinistSettings
+.il\shiyuvi.il.txt	67285	### 鍚岀被 ACR.Machinist.MachinistSettingView
+.il\shiyuvi.il.txt	67293	### 鍚岀被 ACR.Machinist.Opener_MCH
+.il\shiyuvi.il.txt	67325	### 鍚岀被 ACR.Machinist.Triggers.MCHTriggerActionSpell
+.il\shiyuvi.il.txt	67404	### 鍚岀被 ACR.Machinist.GCD.Machinist_AutoCrossbow
+.il\shiyuvi.il.txt	67528	### 鍚岀被 ACR.Machinist.GCD.Machinist_Bioblaster
+.il\shiyuvi.il.txt	67661	### 鍚岀被 ACR.Machinist.GCD.Machinist_ChainSaw
+.il\shiyuvi.il.txt	67808	### 鍚岀被 ACR.Machinist.GCD.Machinist_CleanShot
+.il\shiyuvi.il.txt	67879	### 鍚岀被 ACR.Machinist.GCD.Machinist_Drill
+.il\shiyuvi.il.txt	68092	### 鍚岀被 ACR.Machinist.GCD.Machinist_Excavator
+.il\shiyuvi.il.txt	68125	### 鍚岀被 ACR.Machinist.GCD.Machinist_Full_Metal_Field
+.il\shiyuvi.il.txt	68158	### 鍚岀被 ACR.Machinist.GCD.Machinist_GCD
+.il\shiyuvi.il.txt	68218	### 鍚岀被 ACR.Machinist.GCD.Machinist_HeatBlast
+.il\shiyuvi.il.txt	68259	### 鍚岀被 ACR.Machinist.GCD.Machinist_HotShot
+.il\shiyuvi.il.txt	68432	### 鍚岀被 ACR.Machinist.GCD.Machinist_SlugShot
+.il\shiyuvi.il.txt	68502	### 鍚岀被 ACR.Machinist.GCD.Machinist_SplitShot
+.il\shiyuvi.il.txt	68569	### 鍚岀被 ACR.Machinist.GCD.Machinist_SpreadShot
+.il\shiyuvi.il.txt	68698	### 鍚岀被 ACR.Machinist.Ability.Machinist_BarrelStabilizer
+.il\shiyuvi.il.txt	68730	### 鍚岀被 ACR.Machinist.Ability.Machinist_Dismantle
+.il\shiyuvi.il.txt	68794	### 鍚岀被 ACR.Machinist.Ability.Machinist_HeadGraze
+.il\shiyuvi.il.txt	68836	### 鍚岀被 ACR.Machinist.Ability.Machinist_Hypercharge
+.il\shiyuvi.il.txt	69423	### 鍚岀被 ACR.Machinist.Ability.Machinist_Reassemble
+.il\shiyuvi.il.txt	69816	### 鍚岀被 ACR.Machinist.Ability.Machinist_RicochetGauss
+.il\shiyuvi.il.txt	69998	### 鍚岀被 ACR.Machinist.Ability.Machinist_RookAutoturret
+.il\shiyuvi.il.txt	70441	### 鍚岀被 ACR.Machinist.Ability.Machinist_Tactician
+.il\shiyuvi.il.txt	70508	### 鍚岀被 ACR.Machinist.Ability.Machinist_Wildfire
+.il\shiyuvi.il.txt	70553	### 鍚岀被 ACR.Scholar.Opener_ScholarM3S
+.il\shiyuvi.il.txt	70793	### 鍚岀被 ACR.Scholar.IsFairyGaugeReduced
+.il\shiyuvi.il.txt	70873	### 鍚岀被 ACR.Scholar.Opener_Scholar
+.il\shiyuvi.il.txt	70985	### 鍚岀被 ACR.Scholar.ScholarOverlay
+.il\shiyuvi.il.txt	72150	### 鍚岀被 ACR.Scholar.Qt
+.il\shiyuvi.il.txt	72184	### 鍚岀被 ACR.Scholar.ScholarBattleData
+.il\shiyuvi.il.txt	72218	### 鍚岀被 ACR.Scholar.ScholarRotationEventHandler
+.il\shiyuvi.il.txt	73668	### 鍚岀被 ACR.Scholar.ScholarSettings
+.il\shiyuvi.il.txt	73999	### 鍚岀被 ACR.Scholar.ScholarSettingView
+.il\shiyuvi.il.txt	74461	### 鍚岀被 ACR.Scholar.ScholarSpellHelper
+.il\shiyuvi.il.txt	74549	### 鍚岀被 ACR.Scholar.鍚岀被 ACRSpell
+.il\shiyuvi.il.txt	74576	### 鍚岀被 ACR.Scholar.TPWindowManager
+.il\shiyuvi.il.txt	74805	### 鍚岀被 ACR.Scholar.Triggers.AbilityCheck
+.il\shiyuvi.il.txt	74870	### 鍚岀被 ACR.Scholar.Triggers.DutyCheck
+.il\shiyuvi.il.txt	75155	### 鍚岀被 ACR.Scholar.Triggers.LBCheck
+.il\shiyuvi.il.txt	75204	### 鍚岀被 ACR.Scholar.Triggers.NewQt
+.il\shiyuvi.il.txt	75545	### 鍚岀被 ACR.Scholar.Triggers.NoTargetCheck
+.il\shiyuvi.il.txt	75580	### 鍚岀被 ACR.Scholar.Triggers.SCH
+.il\shiyuvi.il.txt	75586	### 鍚岀被 ACR.Scholar.Triggers.SCHTriggerActionSpell
+.il\shiyuvi.il.txt	75665	### 鍚岀被 ACR.Scholar.Triggers.SCH_AethorflowCount
+.il\shiyuvi.il.txt	75723	### 鍚岀被 ACR.Scholar.Triggers.SCH_AethorflowReserve
+.il\shiyuvi.il.txt	75792	### 鍚岀被 ACR.Scholar.Triggers.SCH_BattleTimeCheck
+.il\shiyuvi.il.txt	75837	### 鍚岀被 ACR.Scholar.Triggers.SCH_DeploymentTactics
+.il\shiyuvi.il.txt	76062	### 鍚岀被 ACR.Scholar.Triggers.SCH_PetFollow
+.il\shiyuvi.il.txt	76079	### 鍚岀被 ACR.Scholar.Triggers.SCH_QT
+.il\shiyuvi.il.txt	76202	### 鍚岀被 ACR.Scholar.Triggers.SCH_TimelineSettingAdjust
+.il\shiyuvi.il.txt	77399	### 鍚岀被 ACR.Scholar.Triggers.SCH_UsePotionCheck
+.il\shiyuvi.il.txt	77412	### 鍚岀被 ACR.Scholar.Triggers.WaitSkill
+.il\shiyuvi.il.txt	78111	### 鍚岀被 ACR.Scholar.GCD.Scholar_AOE
+.il\shiyuvi.il.txt	78207	### 鍚岀被 ACR.Scholar.GCD.Scholar_AOEGCDHeal
+.il\shiyuvi.il.txt	78491	### 鍚岀被 ACR.Scholar.GCD.Scholar_BaseGCD
+.il\shiyuvi.il.txt	78593	### 鍚岀被 ACR.Scholar.GCD.Scholar_Dot
+.il\shiyuvi.il.txt	78743	### 鍚岀被 ACR.Scholar.GCD.Scholar_Esuna
+.il\shiyuvi.il.txt	78807	### 鍚岀被 ACR.Scholar.GCD.Scholar_ExtraDot
+.il\shiyuvi.il.txt	79089	### 鍚岀被 ACR.Scholar.GCD.Scholar_FishHelper
+.il\shiyuvi.il.txt	79128	### 鍚岀被 ACR.Scholar.GCD.Scholar_ForceRuin2
+.il\shiyuvi.il.txt	79168	### 鍚岀被 ACR.Scholar.GCD.Scholar_GetPet
+.il\shiyuvi.il.txt	79244	### 鍚岀被 ACR.Scholar.GCD.Scholar_MoveGCD
+.il\shiyuvi.il.txt	79386	### 鍚岀被 ACR.Scholar.GCD.Scholar_Resurrect
+.il\shiyuvi.il.txt	79889	### 鍚岀被 ACR.Scholar.GCD.Scholar_SingleGCDHeal
+.il\shiyuvi.il.txt	80225	### 鍚岀被 ACR.Scholar.GCD.Scholar_SuperAOEHeal
+.il\shiyuvi.il.txt	80464	### 鍚岀被 ACR.Scholar.GCD.Scholar_TankSingleShield
+.il\shiyuvi.il.txt	80599	### 鍚岀被 ACR.Scholar.GCD.Scholar_WhitelistDot
+.il\shiyuvi.il.txt	80834	### 鍚岀被 ACR.Scholar.Ability.HackBox
+.il\shiyuvi.il.txt	81035	### 鍚岀被 ACR.Scholar.Ability.OmegaM
+.il\shiyuvi.il.txt	81109	### 鍚岀被 ACR.Scholar.Ability.Scholar_Aetherpact
+.il\shiyuvi.il.txt	81310	### 鍚岀被 ACR.Scholar.Ability.Scholar_AutoAetherflow
+.il\shiyuvi.il.txt	81399	### 鍚岀被 ACR.Scholar.Ability.Scholar_AutoDissipation
+.il\shiyuvi.il.txt	81511	### 鍚岀被 ACR.Scholar.Ability.Scholar_Baneful_Impaction
+.il\shiyuvi.il.txt	81585	### 鍚岀被 ACR.Scholar.Ability.Scholar_ChainStrategem
+.il\shiyuvi.il.txt	81716	### 鍚岀被 ACR.Scholar.Ability.Scholar_Consolation
+.il\shiyuvi.il.txt	81854	### 鍚岀被 ACR.Scholar.Ability.Scholar_DissolveUnion
+.il\shiyuvi.il.txt	81938	### 鍚岀被 ACR.Scholar.Ability.Scholar_EmergencyTactics
+.il\shiyuvi.il.txt	82096	### 鍚岀被 ACR.Scholar.Ability.Scholar_EnergyDrain2
+.il\shiyuvi.il.txt	82366	### 鍚岀被 ACR.Scholar.Ability.Scholar_Excogitation
+.il\shiyuvi.il.txt	82706	### 鍚岀被 ACR.Scholar.Ability.Scholar_Expedient
+.il\shiyuvi.il.txt	82795	### 鍚岀被 ACR.Scholar.Ability.Scholar_FeyBlessing
+.il\shiyuvi.il.txt	82906	### 鍚岀被 ACR.Scholar.Ability.Scholar_FeyIllumination
+.il\shiyuvi.il.txt	83009	### 鍚岀被 ACR.Scholar.Ability.Scholar_ForceAetherflow
+.il\shiyuvi.il.txt	83049	### 鍚岀被 ACR.Scholar.Ability.Scholar_ForceLucidDreaming
+.il\shiyuvi.il.txt	83090	### 鍚岀被 ACR.Scholar.Ability.Scholar_Indomitability
+.il\shiyuvi.il.txt	83236	### 鍚岀被 ACR.Scholar.Ability.Scholar_LowMpAbilityBridge
+.il\shiyuvi.il.txt	83340	### 鍚岀被 ACR.Scholar.Ability.Scholar_OffGcdGate
+.il\shiyuvi.il.txt	83364	### 鍚岀被 ACR.Scholar.Ability.Scholar_LucidDreaming
+.il\shiyuvi.il.txt	83410	### 鍚岀被 ACR.Scholar.Ability.Scholar_Lustrate
+.il\shiyuvi.il.txt	83704	### 鍚岀被 ACR.Scholar.Ability.Scholar_Protraction
+.il\shiyuvi.il.txt	83747	### 鍚岀被 ACR.Scholar.Ability.Scholar_Recitation
+.il\shiyuvi.il.txt	83990	### 鍚岀被 ACR.Scholar.Ability.Scholar_SacredSoil
+.il\shiyuvi.il.txt	84215	### 鍚岀被 ACR.Scholar.Ability.Scholar_Seraphism
+.il\shiyuvi.il.txt	84328	### 鍚岀被 ACR.Scholar.Ability.Scholar_SummonSeraph
+.il\shiyuvi.il.txt	84436	### 鍚岀被 ACR.Scholar.Ability.Scholar_TankAetherpact
+.il\shiyuvi.il.txt	84608	### 鍚岀被 ACR.Scholar.Ability.Scholar_TankExcogitation
+.il\shiyuvi.il.txt	84753	### 鍚岀被 ACR.Scholar.Ability.Scholar_WhisperingDawn
+.il\shiyuvi.il.txt	84916	### 鍚岀被 ACR.Scholar.Ability.Scholar_AOEShield
+.il\shiyuvi.il.txt	84925	### 鍚岀被 ACR.Scholar.Ability.Scholar_DeploymentTactics
+.il\shiyuvi.il.txt	84934	### 鍚岀被 ACR.Scholar.Ability.Scholar_DeploymentTacticsNoSwiftCast
+.il\shiyuvi.il.txt	84943	### 鍚岀被 ACR.Scholar.Ability.Scholar_FeyIlluminationQT
+.il\shiyuvi.il.txt	84949	### 鍚岀被 ACR.Scholar.Ability.Scholar_ForceResurrect
+.il\shiyuvi.il.txt	84958	### 鍚岀被 ACR.Scholar.Ability.Scholar_LowHPSingleHeal
+.il\shiyuvi.il.txt	85029	### 鍚岀被 ACR.Scholar.Ability.Scholar_Shield
+.il\shiyuvi.il.txt	85060	### 鍚岀被 ACR.Scholar.Ability.Scholar_Succor
+.il\shiyuvi.il.txt	85069	### 鍚岀被 ACR.Gunbreaker.GNBHotkeyRegistry
+.il\shiyuvi.il.txt	85092	### 鍚岀被 ACR.Gunbreaker.GunbreakerAmmoHelper
+.il\shiyuvi.il.txt	85295	### 鍚岀被 ACR.Gunbreaker.GunbreakerOverlay
+.il\shiyuvi.il.txt	85751	### 鍚岀被 ACR.Gunbreaker.Qt
+.il\shiyuvi.il.txt	85785	### 鍚岀被 ACR.Gunbreaker.GunbreakerRotationEventHandler
+.il\shiyuvi.il.txt	85887	### 鍚岀被 ACR.Gunbreaker.GunbreakerSettings
+.il\shiyuvi.il.txt	85987	### 鍚岀被 ACR.Gunbreaker.GunbreakerSettingView
+.il\shiyuvi.il.txt	85995	### 鍚岀被 ACR.Gunbreaker.Triggers.NewQt
+.il\shiyuvi.il.txt	86338	### 鍚岀被 ACR.Gunbreaker.Triggers.GNB_TimelineHotkeyAction
+.il\shiyuvi.il.txt	86690	### 鍚岀被 ACR.Gunbreaker.Hotkey.GNB_BowShockSelfAoe
+.il\shiyuvi.il.txt	86806	### 鍚岀被 ACR.Gunbreaker.Hotkey.GNB_ShirkPartyTank
+.il\shiyuvi.il.txt	87027	### 鍚岀被 ACR.Gunbreaker.GCD.Gunbreaker_Gcd
+.il\shiyuvi.il.txt	88049	### 鍚岀被 ACR.Gunbreaker.Ability.Gunbreaker_Ogcd
+.il\shiyuvi.il.txt	89710	### 鍚岀被 ACR.BlueMage.BlueMageOverlay
+.il\shiyuvi.il.txt	90385	### 鍚岀被 ACR.BlueMage.Qt
+.il\shiyuvi.il.txt	90417	### 鍚岀被 ACR.BlueMage.BlueMageActionLocks
+.il\shiyuvi.il.txt	90476	### 鍚岀被 ACR.BlueMage.BlueMageActiveSpells
+.il\shiyuvi.il.txt	90743	### 鍚岀被 ACR.BlueMage.BlueMageBuffTracker
+.il\shiyuvi.il.txt	90815	### 鍚岀被 ACR.BlueMage.BlueMageBurstPlan
+.il\shiyuvi.il.txt	90842	### 鍚岀被 ACR.BlueMage.BlueMageBurstPlanner
+.il\shiyuvi.il.txt	91762	### 鍚岀被 ACR.BlueMage.BlueMageDotLibrary
+.il\shiyuvi.il.txt	91842	### 鍚岀被 ACR.BlueMage.BlueMageDotTracker
+.il\shiyuvi.il.txt	91955	### 鍚岀被 ACR.BlueMage.BlueMageLocalization
+.il\shiyuvi.il.txt	92065	### 鍚岀被 ACR.BlueMage.BlueMageMimicryHelper
+.il\shiyuvi.il.txt	92091	### 鍚岀被 ACR.BlueMage.BlueMageRotationEventHandler
+.il\shiyuvi.il.txt	92253	### 鍚岀被 ACR.BlueMage.BlueMageSettings
+.il\shiyuvi.il.txt	92343	### 鍚岀被 ACR.BlueMage.BlueMageSettingView
+.il\shiyuvi.il.txt	92562	### 鍚岀被 ACR.BlueMage.BlueMageSpellbookAudit
+.il\shiyuvi.il.txt	92769	### 鍚岀被 ACR.BlueMage.BlueMageSpellLibrary
+.il\shiyuvi.il.txt	93750	### 鍚岀被 ACR.BlueMage.BlueMageSpells
+.il\shiyuvi.il.txt	93819	### 鍚岀被 ACR.BlueMage.Triggers.NewQt
+.il\shiyuvi.il.txt	94158	### 鍚岀被 ACR.BlueMage.HotKey.BlueMage_AngelWhisper
+.il\shiyuvi.il.txt	94163	### 鍚岀被 ACR.BlueMage.GCD.BlueMage_DpsGcd
+.il\shiyuvi.il.txt	95823	### 鍚岀被 ACR.BlueMage.Ability.BlueMage_SpecialOgcd
+.il\shiyuvi.il.txt	96215	### 鍚岀被 ACR.Ast.Aspected_Benefic
+.il\shiyuvi.il.txt	96276	### 鍚岀被 ACR.Ast.Celestial_Intersection
+.il\shiyuvi.il.txt	96332	### 鍚岀被 ACR.Ast.Essential_Dignity
+.il\shiyuvi.il.txt	96388	### 鍚岀被 ACR.Ast.Helios_Conjunction
+.il\shiyuvi.il.txt	96402	### 鍚岀被 ACR.AST.ASTOverlay
+.il\shiyuvi.il.txt	96678	### 鍚岀被 ACR.AST.Qt
+.il\shiyuvi.il.txt	96712	### 鍚岀被 ACR.AST.ASTRotationEventHandler
+.il\shiyuvi.il.txt	96861	### 鍚岀被 ACR.AST.ASTSettings
+.il\shiyuvi.il.txt	97419	### 鍚岀被 ACR.AST.ASTSettingView
+.il\shiyuvi.il.txt	97562	### 鍚岀被 ACR.AST.ASTSkill
+.il\shiyuvi.il.txt	97568	### 鍚岀被 ACR.AST.JobTranslations
+.il\shiyuvi.il.txt	97696	### 鍚岀被 ACR.AST.JobPriorityUI
+.il\shiyuvi.il.txt	97846	### 鍚岀被 ACR.AST.Trigggers.AST_UsePotionCheck
+.il\shiyuvi.il.txt	97859	### 鍚岀被 ACR.AST.Trigggers.Lady_of_Crowns
+.il\shiyuvi.il.txt	97915	### 鍚岀被 ACR.AST.Trigggers.Play_I
+.il\shiyuvi.il.txt	98020	### 鍚岀被 ACR.AST.Triggers.AST_QT
+.il\shiyuvi.il.txt	98143	### 鍚岀被 ACR.AST.Triggers.NewQt
+.il\shiyuvi.il.txt	98484	### 鍚岀被 ACR.AST.GCD.AutoGCDHeal
+.il\shiyuvi.il.txt	98593	### 鍚岀被 ACR.AST.GCD.Combust
+.il\shiyuvi.il.txt	98643	### 鍚岀被 ACR.AST.GCD.Esuna
+.il\shiyuvi.il.txt	98699	### 鍚岀被 ACR.AST.GCD.ExtraCombust
+.il\shiyuvi.il.txt	98954	### 鍚岀被 ACR.AST.GCD.Gravity
+.il\shiyuvi.il.txt	99043	### 鍚岀被 ACR.AST.GCD.Malefic
+.il\shiyuvi.il.txt	99088	### 鍚岀被 ACR.AST.Ability.Burst
+.il\shiyuvi.il.txt	99205	### 鍚岀被 ACR.AST.Ability.Divination
+.il\shiyuvi.il.txt	99257	### 鍚岀被 ACR.AST.Ability.GetCard
+.il\shiyuvi.il.txt	99323	### 鍚岀被 ACR.AST.Ability.Horoscope
+.il\shiyuvi.il.txt	99392	### 鍚岀被 ACR.AST.Ability.LightSpeed
+.il\shiyuvi.il.txt	99446	### 鍚岀被 ACR.AST.Ability.Oracle
+.il\shiyuvi.il.txt	99488	### 鍚岀被 ACR.AST.Ability.Ast_LucidDreaming
+.il\shiyuvi.il.txt	99524	### 鍚岀被 ACR.AST.Ability.AST_Resurrect
+.il\shiyuvi.il.txt	99533	### Avarice.Data.ActionWatching
+.il\shiyuvi.il.txt	100011	### Avarice.Data.ActionManagerHelper
+.il\shiyuvi.il.txt	100017	### Benefic2
+.il\shiyuvi.il.txt	100097	### MoSingleHeal
+.il\shiyuvi.il.txt	100176	### QueuedInsertDebugSnapshot
+.il\shiyuvi.il.txt	100926	### TimelineOpenerStep
+.il\shiyuvi.il.txt	101186	### TimelineOpenerRequest
+.il\shiyuvi.il.txt	101425	### IndependentOpenerStep
+.il\shiyuvi.il.txt	101715	### GCDHelper
+.il\shiyuvi.il.txt	101733	### BLMHelper
+.il\shiyuvi.il.txt	101803	### BLM_ST_AdvancedMode
+.il\shiyuvi.il.txt	102864	### BLM_AoE_AdvancedMode
+.il\shiyuvi.il.txt	104222	### TargetSelector
+.il\shiyuvi.il.txt	104720	### 龟壳
+.il\shiyuvi.il.txt	104787	### 白魔LB
+.il\shiyuvi.il.txt	104896	### ExecuteCommandDelegate
+.il\shiyuvi.il.txt	104902	### EnemyPositionRecord
+.il\shiyuvi.il.txt	104908	### BattleCharaListPool
+.il\shiyuvi.il.txt	104937	### WHMQt
+.il\shiyuvi.il.txt	104969	### LB
+.il\shiyuvi.il.txt	105131	### AOEList
+.il\shiyuvi.il.txt	106965	### RescueTarget
+.il\shiyuvi.il.txt	107049	### TheSprint
+.il\shiyuvi.il.txt	107115	### ActionEffectEntry
+.il\shiyuvi.il.txt	107243	### ReceiveActionEffectDelegate
+.il\shiyuvi.il.txt	107249	### QueuedHotkeyAction
+.il\shiyuvi.il.txt	107543	### ScheduledCooldownAction
+.il\shiyuvi.il.txt	107837	### BLMDebugVFXHelper
+.il\shiyuvi.il.txt	108141	### DiveStatus
+.il\shiyuvi.il.txt	108147	### OpenerOption
+.il\shiyuvi.il.txt	108538	### QueueState
+.il\shiyuvi.il.txt	108556	### Resurrect
+.il\shiyuvi.il.txt	108666	### AOEShield
+.il\shiyuvi.il.txt	108753	### LowHPSingleHeal
+.il\shiyuvi.il.txt	108841	### Resurrect
+.il\shiyuvi.il.txt	108951	### SettingOption
+.il\shiyuvi.il.txt	109232	### SettingEntry
+.il\shiyuvi.il.txt	109241	### AOEShield
+.il\shiyuvi.il.txt	109319	### DeploymentTactics
+.il\shiyuvi.il.txt	109570	### DeploymentTacticsNoSwiftCast
+.il\shiyuvi.il.txt	109807	### FeyIllumination
+.il\shiyuvi.il.txt	109878	### ForceResurrect
+.il\shiyuvi.il.txt	110007	### LowHPSingleHeal
+.il\shiyuvi.il.txt	110196	### Shield
+.il\shiyuvi.il.txt	110280	### ShieldCenter
+.il\shiyuvi.il.txt	110350	### Succor
+.il\shiyuvi.il.txt	110443	### DotInfo
+.il\shiyuvi.il.txt	110605	### BluActionMeta
+.il\shiyuvi.il.txt	110835	### AngelWhisperHotkey
+.il\shiyuvi.il.txt	110982	### RamUltravibrationHotkey
+.il\shiyuvi.il.txt	111166	### AspectedBenefic
+.il\shiyuvi.il.txt	111246	### CelestialIntersection
+.il\shiyuvi.il.txt	111331	### EssentialDignity
+.il\shiyuvi.il.txt	111411	### HeliosConjunction
+.il\shiyuvi.il.txt	111486	### Resurrect
+.il\shiyuvi.il.txt	111596	### ActionUsedDelegate
+.il\shiyuvi.il.txt	111602	### ReceiveActionEffectDelegate
+.il\shiyuvi.il.txt	111608	### SendActionDelegate

@@ -1,0 +1,1862 @@
+﻿### S.Triggers.AbilityCheck
+  :: bool Draw()
+  :: static bool CanSpellWeave(uint actionID, double weaveTime)
+     // locals: V0=castTimeRemaining
+IL_0000: call A.Core::get_Me
+IL_0005: callvirt D.IBattleChara::get_TotalCastTime
+IL_000a: call A.Core::get_Me
+IL_000f: callvirt D.IBattleChara::get_CurrentCastTime
+IL_0016: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_001c: callvirt A.MemoryApi.MemApiSpell::GetCooldown
+IL_0024: call System.TimeSpan::get_TotalSeconds
+IL_002a: ble.un.s IL_005e
+IL_002e: ldc.r8 0.5
+IL_0037: bgt.un.s IL_005e
+IL_0039: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_003f: callvirt A.MemoryApi.MemApiSpell::GetCooldown
+IL_0047: call System.TimeSpan::get_TotalSeconds
+IL_0051: ldc.r8 0
+IL_005a: blt.un.s IL_005e
+  :: bool canWeave()
+IL_0000: call A.Core::Resolve<A.MemoryApi.MemApiSpellCastInfo>
+IL_0005: callvirt A.MemoryApi.MemApiSpellCastInfo::get_LastSpellId
+IL_000a: brfalse.s IL_0025
+IL_000c: call A.Core::Resolve<A.MemoryApi.MemApiSpellCastInfo>
+IL_0011: callvirt A.MemoryApi.MemApiSpellCastInfo::get_LastSpellId
+IL_0016: ldc.r8 0.6
+IL_001f: call S.Triggers.AbilityCheck::CanSpellWeave
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+IL_0001: call S.Triggers.AbilityCheck::canWeave
+IL_0006: brfalse.s IL_000a
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.DutyCheck
+  :: bool Draw()
+IL_0000: ldstr "妫€娴嬪壇鏈繘搴﹀凡瀹屾垚"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000b: ldflda S.Triggers.DutyCheck::Duty
+IL_0014: initobj IM.ImU8String
+IL_001c: call IM.ImGui::InputInt
+IL_0021: brfalse.s IL_003a
+IL_0025: ldfld S.Triggers.DutyCheck::Duty
+IL_002b: ldc.i4 2147483647
+IL_0030: call System.Math::Clamp
+IL_0035: stfld S.Triggers.DutyCheck::Duty
+  :: static bool IsObjectiveComplete(int objectiveIndex)
+     // locals: V0=dutyState, V1=toDoListAddonPtr, V2=toDoListAddon, V3=objectives, V4=i, V5=node, V6=componentNode, V7=textNode, V8=text, V9=match, V10=current, V11=needed
+IL_0000: call ECommons.DalamudServices.Svc::get_DutyState
+IL_0007: brfalse.s IL_0011
+IL_000a: callvirt Dalamud.Plugin.Services.IDutyState::get_IsDutyStarted
+IL_000f: brtrue.s IL_0013
+IL_0013: call ECommons.DalamudServices.Svc::get_GameGui
+IL_0018: ldstr "_ToDoList"
+IL_001e: callvirt Dalamud.Plugin.Services.IGameGui::GetAddonByName
+IL_0026: call Dalamud.Game.NativeWrapper.AtkUnitBasePtr::get_IsNull
+IL_002b: brfalse.s IL_002f
+IL_0030: ldfld Dalamud.Game.NativeWrapper.AtkUnitBasePtr::Address
+IL_0039: bne.un.s IL_003d
+IL_003d: newobj G.List`1<bool>::.ctor
+IL_0046: br IL_0140
+IL_004c: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkUnitBase::UldManager
+IL_0051: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkUldManager::NodeList
+IL_0059: sizeof FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode*
+IL_0066: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode::NodeId
+IL_006b: ldc.i4 21000
+IL_0070: ble.un IL_013a
+IL_0077: call FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode::GetAsAtkComponentNode
+IL_0082: beq IL_013a
+IL_0089: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkComponentNode::Component
+IL_008e: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkComponentBase::UldManager
+IL_0094: call FFXIVClientStructs.FFXIV.Component.GUI.AtkUldManager::SearchNodeById
+IL_0099: call FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode::GetAsAtkTextNode
+IL_00a4: beq IL_013a
+IL_00ab: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkTextNode::NodeText
+IL_00b6: callvirt System.Object::ToString
+IL_00bf: ldstr "(.*?)\s*\((\d+)/(\d+)\)"
+IL_00c4: call System.Text.RegularExpressions.Regex::Match
+IL_00cd: callvirt System.Text.RegularExpressions.Group::get_Success
+IL_00d2: brfalse.s IL_0117
+IL_00d6: callvirt System.Text.RegularExpressions.Match::get_Groups
+IL_00dc: callvirt System.Text.RegularExpressions.GroupCollection::get_Item
+IL_00e1: callvirt System.Text.RegularExpressions.Capture::get_Value
+IL_00e6: call System.Int32::Parse
+IL_00ef: callvirt System.Text.RegularExpressions.Match::get_Groups
+IL_00f5: callvirt System.Text.RegularExpressions.GroupCollection::get_Item
+IL_00fa: callvirt System.Text.RegularExpressions.Capture::get_Value
+IL_00ff: call System.Int32::Parse
+IL_010b: clt
+IL_010e: ceq
+IL_0110: callvirt G.List`1<bool>::Add
+IL_0115: br.s IL_013a
+IL_011a: ldstr "鉁?
+IL_011f: callvirt System.String::Contains
+IL_0124: brtrue.s IL_0134
+IL_0128: ldstr "1/1"
+IL_012d: callvirt System.String::EndsWith
+IL_0132: br.s IL_0135
+IL_0135: callvirt G.List`1<bool>::Add
+IL_0143: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkUnitBase::UldManager
+IL_0148: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkUldManager::NodeListCount
+IL_014d: blt IL_004b
+IL_0154: blt.s IL_0167
+IL_0158: callvirt G.List`1<bool>::get_Count
+IL_015d: bge.s IL_0167
+IL_0161: callvirt G.List`1<bool>::get_Item
+  :: static int GetObjectivesCount()
+     // locals: V0=dutyState, V1=toDoListAddonPtr, V2=toDoListAddon, V3=count, V4=i, V5=node, V6=componentNode
+IL_0000: call ECommons.DalamudServices.Svc::get_DutyState
+IL_0007: brfalse.s IL_0011
+IL_000a: callvirt Dalamud.Plugin.Services.IDutyState::get_IsDutyStarted
+IL_000f: brtrue.s IL_0013
+IL_0013: call ECommons.DalamudServices.Svc::get_GameGui
+IL_0018: ldstr "_ToDoList"
+IL_001e: callvirt Dalamud.Plugin.Services.IGameGui::GetAddonByName
+IL_0026: call Dalamud.Game.NativeWrapper.AtkUnitBasePtr::get_IsNull
+IL_002b: brfalse.s IL_002f
+IL_0030: ldfld Dalamud.Game.NativeWrapper.AtkUnitBasePtr::Address
+IL_0039: bne.un.s IL_003d
+IL_0042: br.s IL_009f
+IL_0045: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkUnitBase::UldManager
+IL_004a: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkUldManager::NodeList
+IL_0052: sizeof FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode*
+IL_005f: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode::NodeId
+IL_0064: ldc.i4 21000
+IL_0069: ble.un.s IL_0099
+IL_006d: call FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode::GetAsAtkComponentNode
+IL_0078: beq.s IL_0099
+IL_007c: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkComponentNode::Component
+IL_0081: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkComponentBase::UldManager
+IL_0087: call FFXIVClientStructs.FFXIV.Component.GUI.AtkUldManager::SearchNodeById
+IL_008c: call FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode::GetAsAtkTextNode
+IL_0093: beq.s IL_0099
+IL_00a2: ldflda FFXIVClientStructs.FFXIV.Component.GUI.AtkUnitBase::UldManager
+IL_00a7: ldfld FFXIVClientStructs.FFXIV.Component.GUI.AtkUldManager::NodeListCount
+IL_00ac: blt.s IL_0044
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+     // locals: V0=totalObjectives
+IL_0000: call S.Triggers.DutyCheck::GetObjectivesCount
+IL_0007: brfalse.s IL_001b
+IL_000a: ldfld S.Triggers.DutyCheck::Duty
+IL_0010: bgt.s IL_001b
+IL_0013: ldfld S.Triggers.DutyCheck::Duty
+IL_0019: bge.s IL_001d
+IL_001e: ldfld S.Triggers.DutyCheck::Duty
+IL_0024: bne.un.s IL_0034
+IL_0027: ldfld S.Triggers.DutyCheck::Duty
+IL_002e: call S.Triggers.DutyCheck::IsObjectiveComplete
+IL_0035: ldfld S.Triggers.DutyCheck::Duty
+IL_003c: call S.Triggers.DutyCheck::IsObjectiveComplete
+IL_0041: brfalse.s IL_0052
+IL_0044: ldfld S.Triggers.DutyCheck::Duty
+IL_0049: call S.Triggers.DutyCheck::IsObjectiveComplete
+IL_004f: ceq
+  :: void .ctor()
+IL_0002: stfld S.Triggers.DutyCheck::Duty
+IL_0008: call System.Object::.ctor
+
+### S.Triggers.LBCheck
+  :: bool Draw()
+IL_0000: ldstr "LB鏉℃暟鏄惁绛変簬"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000b: ldflda S.Triggers.LBCheck::LB
+IL_0014: initobj IM.ImU8String
+IL_001c: call IM.ImGui::InputInt
+IL_0021: brfalse.s IL_0036
+IL_0025: ldfld S.Triggers.LBCheck::LB
+IL_002c: call System.Math::Clamp
+IL_0031: stfld S.Triggers.LBCheck::LB
+  :: static int GetLimitBreakLevel()
+IL_0000: call A.Core::get_Me
+IL_0005: call A.Extension.LocalPlayerExtension::LimitBreakCurrentValue
+IL_000b: ldc.i4 10000
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+IL_0000: call S.Triggers.LBCheck::GetLimitBreakLevel
+IL_0006: ldfld S.Triggers.LBCheck::LB
+IL_000b: bne.un.s IL_000f
+  :: void .ctor()
+IL_0002: stfld S.Triggers.LBCheck::LB
+IL_0008: call System.Object::.ctor
+
+### S.Triggers.NewQt
+  :: bool Draw()
+     // locals: V0=count, V1=toRemove, V4=qt, V5=isEnabled, V7=value, V9=kvp, V10=qt, V11=val, V12=color, V13=status, V15=qt, V16=key, V17=key
+IL_0000: call IM.ImGui::NewLine
+IL_0005: call IM.ImGui::Separator
+IL_000a: ldstr "鐐瑰嚮鎸夐挳鍦ㄤ笁绉嶇姸鎬侀棿鍒囨崲锛氭湭娣诲姞 / 宸插叧闂?/ 宸插惎鐢?
+IL_000f: call IM.ImU8String::op_Implicit
+IL_0014: call IM.ImGui::Text
+IL_0019: call IM.ImGui::NewLine
+IL_0021: ldfld S.Triggers.NewQt::qtArray
+IL_0026: brfalse IL_013a
+IL_002c: ldfld S.Triggers.NewQt::qtArray
+IL_0034: br IL_0131
+IL_003b: ldelem.ref
+IL_0040: call IM.ImU8String::op_Implicit
+IL_0045: call IM.ImGui::PushID
+IL_004b: ldfld S.Triggers.NewQt::qtValues
+IL_0054: callvirt G.Dictionary`2<string,bool>::TryGetValue
+IL_0059: brfalse.s IL_009b
+IL_005e: brtrue.s IL_007b
+IL_0060: ldc.r4 1
+IL_0065: ldc.r4 0.4
+IL_006a: ldc.r4 0.7
+IL_006f: ldc.r4 1
+IL_0074: newobj N.Vector4::.ctor
+IL_0079: br.s IL_0094
+IL_007b: ldc.r4 0
+IL_0080: ldc.r4 1
+IL_0085: ldc.r4 0
+IL_008a: ldc.r4 1
+IL_008f: newobj N.Vector4::.ctor
+IL_0094: call IM.ImGui::PushStyleColor
+IL_0099: br.s IL_00ba
+IL_009c: ldc.r4 1
+IL_00a1: ldc.r4 1
+IL_00a6: ldc.r4 1
+IL_00ab: ldc.r4 1
+IL_00b0: newobj N.Vector4::.ctor
+IL_00b5: call IM.ImGui::PushStyleColor
+IL_00bc: call IM.ImU8String::op_Implicit
+IL_00c3: initobj N.Vector2
+IL_00cb: call IM.ImGui::Button
+IL_00d0: brfalse.s IL_0115
+IL_00d3: ldfld S.Triggers.NewQt::qtValues
+IL_00dc: callvirt G.Dictionary`2<string,bool>::TryGetValue
+IL_00e1: brtrue.s IL_00f3
+IL_00e4: ldfld S.Triggers.NewQt::qtValues
+IL_00ec: callvirt G.Dictionary`2<string,bool>::set_Item
+IL_00f1: br.s IL_0115
+IL_00f5: brtrue.s IL_0107
+IL_00f8: ldfld S.Triggers.NewQt::qtValues
+IL_0100: callvirt G.Dictionary`2<string,bool>::set_Item
+IL_0105: br.s IL_0115
+IL_0108: ldfld S.Triggers.NewQt::qtValues
+IL_010f: callvirt G.Dictionary`2<string,bool>::Remove
+IL_0115: call IM.ImGui::PopStyleColor
+IL_011a: call IM.ImGui::PopID
+IL_0126: brfalse.s IL_012d
+IL_0128: call IM.ImGui::SameLine
+IL_0133: ldlen
+IL_0135: blt IL_0039
+IL_013a: call IM.ImGui::NewLine
+IL_013f: call IM.ImGui::Separator
+IL_0145: ldfld S.Triggers.NewQt::qtValues
+IL_014a: callvirt G.Dictionary`2<string,bool>::get_Count
+IL_014f: brtrue.s IL_0153
+IL_0153: newobj G.List`1<string>::.ctor
+IL_015a: ldfld S.Triggers.NewQt::qtValues
+IL_015f: callvirt G.Dictionary`2<string,bool>::GetEnumerator
+IL_0166: br IL_0251
+IL_016d: call Enumerator<string,bool>::get_Current
+IL_0176: call G.KeyValuePair`2<string,bool>::get_Key
+IL_017f: call G.KeyValuePair`2<string,bool>::get_Value
+IL_0188: call IM.ImU8String::op_Implicit
+IL_018d: call IM.ImGui::PushID
+IL_0192: ldstr " "
+IL_0197: call IM.ImU8String::op_Implicit
+IL_019e: call IM.ImGui::Checkbox
+IL_01a3: brfalse.s IL_01b4
+IL_01a6: ldfld S.Triggers.NewQt::qtValues
+IL_01af: callvirt G.Dictionary`2<string,bool>::set_Item
+IL_01b4: call IM.ImGui::SameLine
+IL_01bb: call IM.ImU8String::op_Implicit
+IL_01c0: call IM.ImGui::Text
+IL_01c5: call IM.ImGui::SameLine
+IL_01cc: brtrue.s IL_01e9
+IL_01ce: ldc.r4 1
+IL_01d3: ldc.r4 0
+IL_01d8: ldc.r4 0
+IL_01dd: ldc.r4 1
+IL_01e2: newobj N.Vector4::.ctor
+IL_01e7: br.s IL_0202
+IL_01e9: ldc.r4 0
+IL_01ee: ldc.r4 1
+IL_01f3: ldc.r4 0
+IL_01f8: ldc.r4 1
+IL_01fd: newobj N.Vector4::.ctor
+IL_0206: brtrue.s IL_020f
+IL_0208: ldstr "锛堝凡鍏抽棴锛?
+IL_020d: br.s IL_0214
+IL_020f: ldstr "锛堝凡鍚敤锛?
+IL_021a: call IM.ImU8String::op_Implicit
+IL_021f: call IM.ImGui::TextColored
+IL_0224: call IM.ImGui::SameLine
+IL_0229: ldstr "鍒犻櫎"
+IL_022e: call IM.ImU8String::op_Implicit
+IL_0235: initobj N.Vector2
+IL_023d: call IM.ImGui::Button
+IL_0242: brfalse.s IL_024c
+IL_0247: callvirt G.List`1<string>::Add
+IL_024c: call IM.ImGui::PopID
+IL_0253: call Enumerator<string,bool>::MoveNext
+IL_0258: brtrue IL_016b
+IL_026e: callvirt G.List`1<string>::GetEnumerator
+IL_0275: br.s IL_028e
+IL_0279: call Enumerator<string>::get_Current
+IL_0281: ldfld S.Triggers.NewQt::qtValues
+IL_0288: callvirt G.Dictionary`2<string,bool>::Remove
+IL_0290: call Enumerator<string>::MoveNext
+IL_0295: brtrue.s IL_0277
+IL_02a7: call IM.ImGui::Separator
+IL_02ac: ldstr "鍏ㄩ儴鍚敤"
+IL_02b1: call IM.ImU8String::op_Implicit
+IL_02b8: initobj N.Vector2
+IL_02c0: call IM.ImGui::Button
+IL_02c5: brfalse.s IL_0310
+IL_02c8: ldfld S.Triggers.NewQt::qtValues
+IL_02cd: callvirt G.Dictionary`2<string,bool>::get_Keys
+IL_02d2: newobj G.List`1<string>::.ctor
+IL_02d7: call G.List`1<string>::GetEnumerator
+IL_02de: br.s IL_02f7
+IL_02e2: call Enumerator<string>::get_Current
+IL_02ea: ldfld S.Triggers.NewQt::qtValues
+IL_02f2: callvirt G.Dictionary`2<string,bool>::set_Item
+IL_02f9: call Enumerator<string>::MoveNext
+IL_02fe: brtrue.s IL_02e0
+IL_0310: call IM.ImGui::SameLine
+IL_0315: ldstr "鍏ㄩ儴鍏抽棴"
+IL_031a: call IM.ImU8String::op_Implicit
+IL_0321: initobj N.Vector2
+IL_0329: call IM.ImGui::Button
+IL_032e: brfalse.s IL_0379
+IL_0331: ldfld S.Triggers.NewQt::qtValues
+IL_0336: callvirt G.Dictionary`2<string,bool>::get_Keys
+IL_033b: newobj G.List`1<string>::.ctor
+IL_0340: call G.List`1<string>::GetEnumerator
+IL_0347: br.s IL_0360
+IL_034b: call Enumerator<string>::get_Current
+IL_0353: ldfld S.Triggers.NewQt::qtValues
+IL_035b: callvirt G.Dictionary`2<string,bool>::set_Item
+IL_0362: call Enumerator<string>::MoveNext
+IL_0367: brtrue.s IL_0349
+IL_0379: call IM.ImGui::SameLine
+IL_037e: ldstr "娓呴櫎鎵€鏈?
+IL_0383: call IM.ImU8String::op_Implicit
+IL_038a: initobj N.Vector2
+IL_0392: call IM.ImGui::Button
+IL_0397: brfalse.s IL_03a4
+IL_039a: ldfld S.Triggers.NewQt::qtValues
+IL_039f: callvirt G.Dictionary`2<string,bool>::Clear
+  :: bool Handle()
+     // locals: V1=kvp
+IL_0001: ldfld S.Triggers.NewQt::qtValues
+IL_0006: callvirt G.Dictionary`2<string,bool>::GetEnumerator
+IL_000c: br.s IL_0036
+IL_0010: call Enumerator<string,bool>::get_Current
+IL_0016: ldsfld A.ACRScholarRotationEntry::JobViewWindow
+IL_001b: brfalse.s IL_0036
+IL_001d: ldsfld A.ACRScholarRotationEntry::JobViewWindow
+IL_0024: call G.KeyValuePair`2<string,bool>::get_Key
+IL_002b: call G.KeyValuePair`2<string,bool>::get_Value
+IL_0030: callvirt R.View.JobView.JobViewWindow::SetQt
+IL_0038: call Enumerator<string,bool>::MoveNext
+IL_003d: brtrue.s IL_000e
+  :: void .ctor()
+IL_0001: ldstr "SCH/New QT"
+IL_0006: stfld S.Triggers.NewQt::<DisplayName>k__BackingField
+IL_000c: ldsfld System.String::Empty
+IL_0011: stfld S.Triggers.NewQt::<Remark>k__BackingField
+IL_0017: newobj G.Dictionary`2<string,bool>::.ctor
+IL_001c: stfld S.Triggers.NewQt::qtValues
+IL_0022: ldsfld A.ACRScholarRotationEntry::JobViewWindow
+IL_0028: brtrue.s IL_002e
+IL_002c: br.s IL_0033
+IL_002e: call R.View.JobView.JobViewWindow::GetQtArray
+IL_0033: stfld S.Triggers.NewQt::qtArray
+IL_0039: call System.Object::.ctor
+
+### S.Triggers.NoTargetCheck
+  :: bool Draw()
+IL_0000: ldstr "妫€娴嬭窛绂昏寖鍥?
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000b: ldflda S.Triggers.NoTargetCheck::range
+IL_0014: initobj IM.ImU8String
+IL_001c: call IM.ImGui::InputInt
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+IL_0002: ldfld S.Triggers.NoTargetCheck::range
+IL_0008: call A3.ACRTargetHelper::TargetCount
+IL_000d: brfalse.s IL_0011
+  :: void .ctor()
+IL_0001: ldc.i4.s 100
+IL_0003: stfld S.Triggers.NoTargetCheck::range
+IL_0009: call System.Object::.ctor
+
+### S.Triggers.SCH
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.SCHTriggerActionSpell
+  :: void Check()
+  :: bool Draw()
+IL_0001: call S.Triggers.SCHTriggerActionSpell::get_Clear
+IL_0006: brfalse.s IL_0014
+IL_000a: call S.Triggers.SCHTriggerActionSpell::get_Clear
+IL_000f: stfld S.Triggers.SCHTriggerActionSpell::clear
+IL_0014: ldstr "鏄惁娓呴櫎闃熷垪"
+IL_0019: call IM.ImU8String::op_Implicit
+IL_001f: ldflda S.Triggers.SCHTriggerActionSpell::clear
+IL_0024: call IM.ImGui::Checkbox
+IL_0029: brfalse.s IL_0037
+IL_002d: ldfld S.Triggers.SCHTriggerActionSpell::clear
+IL_0032: call S.Triggers.SCHTriggerActionSpell::set_Clear
+IL_0038: ldfld S.Triggers.SCHTriggerActionSpell::clear
+IL_003d: brtrue.s IL_004a
+IL_0040: call S.Triggers.SCHTriggerActionSpell::get_SpellConfig
+IL_0045: callvirt R.Trigger.Define.SpellConfig::OnGUI
+  :: bool Handle()
+IL_0001: call S.Triggers.SCHTriggerActionSpell::get_Clear
+IL_0006: brfalse.s IL_0028
+IL_0008: ldsfld S.ScholarBattleData::Instance
+IL_000d: ldfld S.ScholarBattleData::SpellQueueAbility
+IL_0012: callvirt G.Queue`1<R.Spell>::Clear
+IL_0017: ldsfld S.ScholarBattleData::Instance
+IL_001c: ldfld S.ScholarBattleData::SpellQueueGCD
+IL_0021: callvirt G.Queue`1<R.Spell>::Clear
+IL_0028: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_002e: call S.Triggers.SCHTriggerActionSpell::get_SpellConfig
+IL_0033: callvirt R.Trigger.Define.SpellConfig::Create
+IL_0038: ldfld R.Spell::Id
+IL_003d: callvirt A.MemoryApi.MemApiSpell::GetSpellType
+IL_0043: bne.un.s IL_005f
+IL_0045: ldsfld S.ScholarBattleData::Instance
+IL_004a: ldfld S.ScholarBattleData::SpellQueueAbility
+IL_0050: call S.Triggers.SCHTriggerActionSpell::get_SpellConfig
+IL_0055: callvirt R.Trigger.Define.SpellConfig::Create
+IL_005a: callvirt G.Queue`1<R.Spell>::Enqueue
+IL_005f: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_0065: call S.Triggers.SCHTriggerActionSpell::get_SpellConfig
+IL_006a: callvirt R.Trigger.Define.SpellConfig::Create
+IL_006f: ldfld R.Spell::Id
+IL_0074: callvirt A.MemoryApi.MemApiSpell::GetSpellType
+IL_007a: beq.s IL_0096
+IL_007c: ldsfld S.ScholarBattleData::Instance
+IL_0081: ldfld S.ScholarBattleData::SpellQueueGCD
+IL_0087: call S.Triggers.SCHTriggerActionSpell::get_SpellConfig
+IL_008c: callvirt R.Trigger.Define.SpellConfig::Create
+IL_0091: callvirt G.Queue`1<R.Spell>::Enqueue
+  :: void .ctor()
+IL_0001: newobj R.Trigger.Define.SpellConfig::.ctor
+IL_0006: stfld S.Triggers.SCHTriggerActionSpell::<SpellConfig>k__BackingField
+IL_000c: call System.Object::.ctor
+
+### S.Triggers.SCH_AethorflowCount
+  :: bool Draw()
+IL_0000: ldstr "妫€娴嬩互澶眰鏁板ぇ浜庣瓑浜庤瀹氬€?
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000b: ldflda S.Triggers.SCH_AethorflowCount::useGreaterThanOrEqual
+IL_0010: call IM.ImGui::Checkbox
+IL_0016: ldstr "妫€娴嬭眴瀛愭暟閲忛槇鍊?灏忎簬绛変簬)"
+IL_001b: call IM.ImU8String::op_Implicit
+IL_0021: ldflda S.Triggers.SCH_AethorflowCount::AetherflowCount
+IL_002a: initobj IM.ImU8String
+IL_0032: call IM.ImGui::InputInt
+IL_0037: brfalse.s IL_004c
+IL_003b: ldfld S.Triggers.SCH_AethorflowCount::AetherflowCount
+IL_0042: call System.Math::Clamp
+IL_0047: stfld S.Triggers.SCH_AethorflowCount::AetherflowCount
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+     // locals: V0=currentAetherflowCount
+IL_0000: call A.Core::Resolve<A.MemoryApi.MemApiBuff>
+IL_0005: call A.Core::get_Me
+IL_000a: ldc.i4 304
+IL_000f: callvirt A.MemoryApi.MemApiBuff::BuffStackCount
+IL_0016: ldfld S.Triggers.SCH_AethorflowCount::useGreaterThanOrEqual
+IL_001b: brfalse.s IL_0028
+IL_001f: ldfld S.Triggers.SCH_AethorflowCount::AetherflowCount
+IL_0024: blt.s IL_0033
+IL_002a: ldfld S.Triggers.SCH_AethorflowCount::AetherflowCount
+IL_002f: bgt.s IL_0033
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.SCH_AethorflowReserve
+  :: string R.Trigger.ITriggerBase.get_Remark()
+IL_0001: ldfld S.Triggers.SCH_AethorflowReserve::<R.Trigger.ITriggerBase.Remark>k__BackingField
+  :: void R.Trigger.ITriggerBase.set_Remark(string value)
+IL_0002: stfld S.Triggers.SCH_AethorflowReserve::<R.Trigger.ITriggerBase.Remark>k__BackingField
+  :: void Check()
+IL_0001: ldfld S.Triggers.SCH_AethorflowReserve::AetherflowReserve
+IL_0007: blt.s IL_0012
+IL_000a: ldfld S.Triggers.SCH_AethorflowReserve::AetherflowReserve
+IL_0010: ble.s IL_001d
+IL_0012: ldstr "AethorflowReserve must be 0 to 3"
+IL_0017: newobj System.Exception::.ctor
+IL_001c: throw
+  :: bool Draw()
+IL_0000: ldstr "娉ㄦ剰:姝よ缃細蹇界暐鑳介噺鍚告敹鐨勮嚜鍔ㄥ紑鍏?寮哄埗灏嗕互澶眰鏁版帶鍒跺湪鎸囧畾鏁板€煎強浠ヤ笅"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000a: call IM.ImGui::Text
+IL_000f: ldstr "鍗冲綋鍓嶆棤璁烘湁澶氬皯璞嗗瓙锛岄兘浼氭墦鑳介噺鍚告敹鐩村埌璞嗗瓙鏁伴噺灏忎簬绛変簬璁惧畾鍊?
+IL_0014: call IM.ImU8String::op_Implicit
+IL_0019: call IM.ImGui::Text
+IL_001e: ldstr "鎻愮ず:鍦ㄧ紪鍐欐妧鑳借酱鏃?寤鸿鍏抽棴鑳介噺鍚告敹鐨勮嚜鍔ㄨЕ鍙戝姛鑳絈T"
+IL_0023: call IM.ImU8String::op_Implicit
+IL_0028: call IM.ImGui::Text
+IL_002d: ldstr "璞嗗瓙淇濈暀灞傛暟"
+IL_0032: call IM.ImU8String::op_Implicit
+IL_0038: ldflda S.Triggers.SCH_AethorflowReserve::AetherflowReserve
+IL_0041: initobj IM.ImU8String
+IL_0049: call IM.ImGui::InputInt
+IL_004e: brfalse.s IL_0063
+IL_0052: ldfld S.Triggers.SCH_AethorflowReserve::AetherflowReserve
+IL_0059: call System.Math::Clamp
+IL_005e: stfld S.Triggers.SCH_AethorflowReserve::AetherflowReserve
+  :: bool Remark()
+  :: bool Handle()
+IL_0000: ldsfld S.ScholarBattleData::Instance
+IL_0006: ldfld S.Triggers.SCH_AethorflowReserve::AetherflowReserve
+IL_000b: stfld S.ScholarBattleData::AethorflowReserve
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.SCH_BattleTimeCheck
+  :: string R.Trigger.ITriggerBase.get_Remark()
+IL_0001: ldfld S.Triggers.SCH_BattleTimeCheck::<R.Trigger.ITriggerBase.Remark>k__BackingField
+  :: void R.Trigger.ITriggerBase.set_Remark(string value)
+IL_0002: stfld S.Triggers.SCH_BattleTimeCheck::<R.Trigger.ITriggerBase.Remark>k__BackingField
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+IL_0000: ldsfld M.AI::Instance
+IL_0005: callvirt M.AI::get_BattleData
+IL_000a: callvirt M.BattleData::get_CurrBattleTimeInMs
+IL_0011: ldfld S.Triggers.SCH_BattleTimeCheck::BattleTimeMs
+IL_0016: ble.un.s IL_001a
+  :: bool Draw()
+IL_0000: ldstr "璀﹀憡:浣跨敤姝ゅ姛鑳戒粎鐢ㄤ簬鑷敤锛屼弗绂佷笂浼犱簯杞?涓嶇鍚圓E瑙勮寖)"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000a: call IM.ImGui::Text
+IL_000f: ldstr "鎴樻枟寮€濮嬪悗澶氬皯绉?
+IL_0014: call IM.ImU8String::op_Implicit
+IL_001a: ldflda S.Triggers.SCH_BattleTimeCheck::BattleTimeMs
+IL_001f: ldc.r4 0
+IL_0024: ldc.r4 0
+IL_002b: initobj IM.ImU8String
+IL_0033: call IM.ImGui::InputFloat
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.SCH_DeploymentTactics
+  :: bool Draw()
+IL_0000: ldstr "鏄惁浣跨敤鍗冲埢"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000b: ldflda S.Triggers.SCH_DeploymentTactics::SwiftCast
+IL_0010: call IM.ImGui::Checkbox
+  :: static D.IBattleChara DeploymentTacticsTarget()
+IL_0000: call A.Core::get_Me
+  :: bool Handle()
+IL_0000: ldsfld M.AI::Instance
+IL_0005: callvirt M.AI::get_BattleData
+IL_000a: callvirt M.BattleData::get_NextSlot
+IL_000f: brtrue.s IL_002a
+IL_0011: ldsfld M.AI::Instance
+IL_0016: callvirt M.AI::get_BattleData
+IL_001b: ldc.i4 600
+IL_0020: newobj M.Slot::.ctor
+IL_0025: callvirt M.BattleData::set_NextSlot
+IL_002a: ldc.i4 3585
+IL_002f: call H.SpellHelper::GetSpell
+IL_0034: call H.SpellExtension::IsReadyWithCanCast
+IL_0039: brfalse IL_027a
+IL_003e: ldc.i4 16542
+IL_0043: call H.SpellHelper::GetSpell
+IL_0048: call H.SpellExtension::IsReadyWithCanCast
+IL_004d: brtrue.s IL_0064
+IL_004f: call A.Core::get_Me
+IL_0054: ldc.i4 1896
+IL_005a: call A.Extension.GameObjectExtension::HasAura
+IL_005f: brfalse IL_027a
+IL_0064: call A.Core::get_Me
+IL_0069: ldc.i4 1896
+IL_006f: call A.Extension.GameObjectExtension::HasAura
+IL_0074: brfalse.s IL_0087
+IL_0076: ldc.i4 37014
+IL_007b: ldc.i4 20000
+IL_0080: call H.SpellExtension::RecentlyUsed
+IL_0085: brtrue.s IL_00b5
+IL_0087: ldsfld M.AI::Instance
+IL_008c: callvirt M.AI::get_BattleData
+IL_0091: callvirt M.BattleData::get_NextSlot
+IL_0096: ldc.i4 16542
+IL_009b: call H.SpellHelper::GetSpell
+IL_00a0: ldfld R.Spell::Id
+IL_00a5: call A.Core::get_Me
+IL_00aa: newobj R.Spell::.ctor
+IL_00af: callvirt M.Slot::Add
+IL_00b5: ldc.i4 7561
+IL_00ba: call H.SpellHelper::GetSpell
+IL_00bf: call H.SpellExtension::IsReadyWithCanCast
+IL_00c4: brtrue.s IL_0120
+IL_00c6: ldc.i4 25867
+IL_00cb: call H.SpellHelper::GetSpell
+IL_00d0: call H.SpellExtension::IsReadyWithCanCast
+IL_00d5: brtrue.s IL_0120
+IL_00d7: ldsfld M.AI::Instance
+IL_00dc: callvirt M.AI::get_BattleData
+IL_00e1: callvirt M.BattleData::get_NextSlot
+IL_00e6: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_00eb: ldc.i4 185
+IL_00f0: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_00f5: ldsfld <>O::<0>__DeploymentTacticsTarget
+IL_00fb: brtrue.s IL_0110
+IL_00ff: ldftn S.Triggers.SCH_DeploymentTactics::DeploymentTacticsTarget
+IL_0105: newobj System.Func`1<D.IBattleChara>::.ctor
+IL_010b: stsfld <>O::<0>__DeploymentTacticsTarget
+IL_0110: newobj R.Spell::.ctor
+IL_0115: callvirt M.Slot::Add
+IL_011b: br IL_0231
+IL_0120: call A.Core::get_Me
+IL_0125: call A.Extension.GameObjectExtension::GetCurrTarget
+IL_012a: brfalse.s IL_0167
+IL_012c: call A.Core::get_Me
+IL_0131: call A.Extension.GameObjectExtension::GetCurrTarget
+IL_0136: call A.Extension.GameObjectExtension::IsEnemy
+IL_013b: brfalse.s IL_0167
+IL_013d: ldsfld M.AI::Instance
+IL_0142: callvirt M.AI::get_BattleData
+IL_0147: callvirt M.BattleData::get_NextSlot
+IL_014c: ldc.i4 17870
+IL_0151: call H.SpellHelper::GetSpell
+IL_0156: ldfld R.Spell::Id
+IL_015c: newobj R.Spell::.ctor
+IL_0161: callvirt M.Slot::Add
+IL_0167: ldc.i4 7561
+IL_016c: call H.SpellHelper::GetSpell
+IL_0171: call H.SpellExtension::IsReadyWithCanCast
+IL_0176: brfalse.s IL_01ae
+IL_0179: ldfld S.Triggers.SCH_DeploymentTactics::SwiftCast
+IL_017e: brfalse.s IL_01ae
+IL_0180: ldsfld M.AI::Instance
+IL_0185: callvirt M.AI::get_BattleData
+IL_018a: callvirt M.BattleData::get_NextSlot
+IL_018f: ldc.i4 7561
+IL_0194: call H.SpellHelper::GetSpell
+IL_0199: ldfld R.Spell::Id
+IL_019e: call A.Core::get_Me
+IL_01a3: newobj R.Spell::.ctor
+IL_01a8: callvirt M.Slot::Add
+IL_01ae: ldc.i4 25867
+IL_01b3: call H.SpellHelper::GetSpell
+IL_01b8: call H.SpellExtension::IsReadyWithCanCast
+IL_01bd: brfalse.s IL_01ed
+IL_01bf: ldsfld M.AI::Instance
+IL_01c4: callvirt M.AI::get_BattleData
+IL_01c9: callvirt M.BattleData::get_NextSlot
+IL_01ce: ldc.i4 25867
+IL_01d3: call H.SpellHelper::GetSpell
+IL_01d8: ldfld R.Spell::Id
+IL_01dd: call S.Triggers.SCH_DeploymentTactics::DeploymentTacticsTarget
+IL_01e2: newobj R.Spell::.ctor
+IL_01e7: callvirt M.Slot::Add
+IL_01ed: ldsfld M.AI::Instance
+IL_01f2: callvirt M.AI::get_BattleData
+IL_01f7: callvirt M.BattleData::get_NextSlot
+IL_01fc: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_0201: ldc.i4 185
+IL_0206: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_020b: ldsfld <>O::<0>__DeploymentTacticsTarget
+IL_0211: brtrue.s IL_0226
+IL_0215: ldftn S.Triggers.SCH_DeploymentTactics::DeploymentTacticsTarget
+IL_021b: newobj System.Func`1<D.IBattleChara>::.ctor
+IL_0221: stsfld <>O::<0>__DeploymentTacticsTarget
+IL_0226: newobj R.Spell::.ctor
+IL_022b: callvirt M.Slot::Add
+IL_0231: ldsfld M.AI::Instance
+IL_0236: callvirt M.AI::get_BattleData
+IL_023b: callvirt M.BattleData::get_NextSlot
+IL_0240: ldc.i4 3585
+IL_0245: call H.SpellHelper::GetSpell
+IL_024a: ldfld R.Spell::Id
+IL_024f: ldsfld <>O::<0>__DeploymentTacticsTarget
+IL_0255: brtrue.s IL_026a
+IL_0259: ldftn S.Triggers.SCH_DeploymentTactics::DeploymentTacticsTarget
+IL_025f: newobj System.Func`1<D.IBattleChara>::.ctor
+IL_0265: stsfld <>O::<0>__DeploymentTacticsTarget
+IL_026a: newobj R.Spell::.ctor
+IL_026f: callvirt M.Slot::Add
+IL_0275: br IL_0338
+IL_027a: call A.Core::get_Me
+IL_027f: callvirt D.ICharacter::get_Level
+IL_0284: ldc.i4.s 56
+IL_0286: blt IL_0338
+IL_028b: call A.Core::get_Me
+IL_0290: callvirt D.ICharacter::get_Level
+IL_0295: ldc.i4.s 74
+IL_0297: bge IL_0338
+IL_029c: ldc.i4 3585
+IL_02a1: call H.SpellHelper::GetSpell
+IL_02a6: call H.SpellExtension::IsReadyWithCanCast
+IL_02ab: brfalse IL_0338
+IL_02b0: ldsfld M.AI::Instance
+IL_02b5: callvirt M.AI::get_BattleData
+IL_02ba: callvirt M.BattleData::get_NextSlot
+IL_02bf: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_02c4: ldc.i4 185
+IL_02c9: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_02ce: ldsfld <>O::<0>__DeploymentTacticsTarget
+IL_02d4: brtrue.s IL_02e9
+IL_02d8: ldftn S.Triggers.SCH_DeploymentTactics::DeploymentTacticsTarget
+IL_02de: newobj System.Func`1<D.IBattleChara>::.ctor
+IL_02e4: stsfld <>O::<0>__DeploymentTacticsTarget
+IL_02e9: newobj R.Spell::.ctor
+IL_02ee: callvirt M.Slot::Add
+IL_02f4: ldsfld M.AI::Instance
+IL_02f9: callvirt M.AI::get_BattleData
+IL_02fe: callvirt M.BattleData::get_NextSlot
+IL_0303: ldc.i4 3585
+IL_0308: call H.SpellHelper::GetSpell
+IL_030d: ldfld R.Spell::Id
+IL_0312: ldsfld <>O::<0>__DeploymentTacticsTarget
+IL_0318: brtrue.s IL_032d
+IL_031c: ldftn S.Triggers.SCH_DeploymentTactics::DeploymentTacticsTarget
+IL_0322: newobj System.Func`1<D.IBattleChara>::.ctor
+IL_0328: stsfld <>O::<0>__DeploymentTacticsTarget
+IL_032d: newobj R.Spell::.ctor
+IL_0332: callvirt M.Slot::Add
+  :: void .ctor()
+IL_0002: stfld S.Triggers.SCH_DeploymentTactics::SwiftCast
+IL_0008: call System.Object::.ctor
+
+### S.Triggers.SCH_PetFollow
+  :: bool Draw()
+  :: bool Handle()
+IL_0000: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_0005: call A.Core::get_Me
+IL_000a: callvirt D.IGameObject::get_Position
+IL_0010: callvirt A.MemoryApi.MemApiSpell::PetMove
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.SCH_QT
+  :: void Check()
+  :: bool Draw()
+     // locals: V0=qtArray
+IL_0000: call S.Qt::GetQtArray
+IL_0009: call S.Triggers.SCH_QT::get_ValueName
+IL_000e: call System.Array::IndexOf<string>
+IL_0013: stfld S.Triggers.SCH_QT::褰撳墠combo
+IL_0019: ldfld S.Triggers.SCH_QT::褰撳墠combo
+IL_001f: bne.un.s IL_0028
+IL_0023: stfld S.Triggers.SCH_QT::褰撳墠combo
+IL_002a: call S.Triggers.SCH_QT::get_Value
+IL_0030: ceq
+IL_0032: stfld S.Triggers.SCH_QT::radioCheck
+IL_0037: ldstr "###TriggerTab"
+IL_003c: call IM.ImU8String::op_Implicit
+IL_0042: call IM.ImGui::BeginTabBar
+IL_0047: brfalse IL_0138
+IL_004c: ldstr "Scholar"
+IL_0051: call IM.ImU8String::op_Implicit
+IL_0057: call IM.ImGui::BeginTabItem
+IL_005c: brfalse IL_0133
+IL_0061: ldstr "###TriggerSage"
+IL_0066: call IM.ImU8String::op_Implicit
+IL_006b: ldc.r4 0
+IL_0070: ldc.r4 0
+IL_0075: newobj N.Vector2::.ctor
+IL_007c: call IM.ImGui::BeginChild
+IL_0082: ldstr "Qt"
+IL_0087: call IM.ImU8String::op_Implicit
+IL_008d: ldflda S.Triggers.SCH_QT::radioType
+IL_0093: call IM.ImGui::RadioButton<int>
+IL_0099: call IM.ImGui::NewLine
+IL_009e: ldc.r4 0
+IL_00a3: ldc.r4 40
+IL_00a8: newobj N.Vector2::.ctor
+IL_00ad: call IM.ImGui::SetCursorPos
+IL_00b3: ldfld S.Triggers.SCH_QT::radioType
+IL_00b8: brtrue.s IL_0129
+IL_00ba: ldstr "Qt寮€鍏?
+IL_00bf: call IM.ImU8String::op_Implicit
+IL_00c5: ldflda S.Triggers.SCH_QT::褰撳墠combo
+IL_00cb: call System.ReadOnlySpan`1<string>::op_Implicit
+IL_00d1: ldlen
+IL_00d3: call IM.ImGui::Combo
+IL_00dc: ldfld S.Triggers.SCH_QT::褰撳墠combo
+IL_00e1: ldelem.ref
+IL_00e2: call S.Triggers.SCH_QT::set_ValueName
+IL_00e7: ldstr "寮€"
+IL_00ec: call IM.ImU8String::op_Implicit
+IL_00f2: ldflda S.Triggers.SCH_QT::radioCheck
+IL_00f8: call IM.ImGui::RadioButton<int>
+IL_00fe: call IM.ImGui::SameLine
+IL_0103: ldstr "鍏?
+IL_0108: call IM.ImU8String::op_Implicit
+IL_010e: ldflda S.Triggers.SCH_QT::radioCheck
+IL_0114: call IM.ImGui::RadioButton<int>
+IL_011c: ldfld S.Triggers.SCH_QT::radioCheck
+IL_0122: ceq
+IL_0124: call S.Triggers.SCH_QT::set_Value
+IL_0129: call IM.ImGui::EndChild
+IL_012e: call IM.ImGui::EndTabItem
+IL_0133: call IM.ImGui::EndTabBar
+  :: bool Handle()
+IL_0000: ldsfld A.ACRScholarRotationEntry::JobViewWindow
+IL_0006: call S.Triggers.SCH_QT::get_ValueName
+IL_000c: call S.Triggers.SCH_QT::get_Value
+IL_0011: callvirt R.View.JobView.JobViewWindow::SetQt
+  :: void .ctor()
+IL_0001: ldstr ""
+IL_0006: call System.MemoryExtensions::AsSpan
+IL_000b: newobj System.String::.ctor
+IL_0010: stfld S.Triggers.SCH_QT::<ValueName>k__BackingField
+IL_0016: call System.Object::.ctor
+
+### S.Triggers.SCH_TimelineSettingAdjust
+  :: void Check()
+     // locals: V1=key
+IL_0001: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0006: callvirt G.Dictionary`2<SettingKey,SettingEntry>::get_Keys
+IL_000b: call System.Linq.Enumerable::ToList<SettingKey>
+IL_0010: callvirt G.List`1<SettingKey>::GetEnumerator
+IL_0016: br.s IL_003a
+IL_001a: call Enumerator<SettingKey>::get_Current
+IL_0020: ldsfld S.Triggers.SCH_TimelineSettingAdjust::OptionByKey
+IL_0026: callvirt G.Dictionary`2<SettingKey,SettingOption>::ContainsKey
+IL_002b: brtrue.s IL_003a
+IL_002e: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0034: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Remove
+IL_003c: call Enumerator<SettingKey>::MoveNext
+IL_0041: brtrue.s IL_0018
+  :: bool Draw()
+     // locals: V0=count, V3=option, V4=entry, V5=color, V7=option, V8=entry
+IL_0000: ldstr "鐐瑰嚮鎸夐挳鍦ㄧ姸鎬侀棿鍒囨崲锛氭湭娣诲姞 / 宸插叧闂?/ 宸插惎鐢ㄣ€?
+鏁板€肩被閫夐」涓烘湭娣诲姞/宸叉坊鍔犮€?
+"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000a: call IM.ImGui::Text
+IL_0011: ldsfld S.Triggers.SCH_TimelineSettingAdjust::Options
+IL_0019: br IL_0112
+IL_0020: ldelem.ref
+IL_0023: callvirt SettingOption::get_Label
+IL_0028: call IM.ImU8String::op_Implicit
+IL_002d: call IM.ImGui::PushID
+IL_0033: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0039: callvirt SettingOption::get_Key
+IL_0040: callvirt G.Dictionary`2<SettingKey,SettingEntry>::TryGetValue
+IL_0045: brfalse.s IL_00b4
+IL_0048: callvirt SettingOption::get_Kind
+IL_004e: beq.s IL_006b
+IL_0050: ldc.r4 0
+IL_0055: ldc.r4 1
+IL_005a: ldc.r4 0
+IL_005f: ldc.r4 1
+IL_0064: newobj N.Vector4::.ctor
+IL_0069: br.s IL_00a8
+IL_006d: ldfld SettingEntry::BoolValue
+IL_0072: brtrue.s IL_008f
+IL_0074: ldc.r4 1
+IL_0079: ldc.r4 0.4
+IL_007e: ldc.r4 0.7
+IL_0083: ldc.r4 1
+IL_0088: newobj N.Vector4::.ctor
+IL_008d: br.s IL_00a8
+IL_008f: ldc.r4 0
+IL_0094: ldc.r4 1
+IL_0099: ldc.r4 0
+IL_009e: ldc.r4 1
+IL_00a3: newobj N.Vector4::.ctor
+IL_00ad: call IM.ImGui::PushStyleColor
+IL_00b2: br.s IL_00d3
+IL_00b5: ldc.r4 1
+IL_00ba: ldc.r4 1
+IL_00bf: ldc.r4 1
+IL_00c4: ldc.r4 1
+IL_00c9: newobj N.Vector4::.ctor
+IL_00ce: call IM.ImGui::PushStyleColor
+IL_00d4: callvirt SettingOption::get_Label
+IL_00d9: call IM.ImU8String::op_Implicit
+IL_00e0: initobj N.Vector2
+IL_00e8: call IM.ImGui::Button
+IL_00ed: brfalse.s IL_00f6
+IL_00f1: call S.Triggers.SCH_TimelineSettingAdjust::ToggleSelection
+IL_00f6: call IM.ImGui::PopStyleColor
+IL_00fb: call IM.ImGui::PopID
+IL_0107: brfalse.s IL_010e
+IL_0109: call IM.ImGui::SameLine
+IL_0114: ldlen
+IL_0116: blt IL_001e
+IL_011b: call IM.ImGui::NewLine
+IL_0120: call IM.ImGui::Separator
+IL_0126: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_012b: callvirt G.Dictionary`2<SettingKey,SettingEntry>::get_Count
+IL_0131: ble.s IL_0197
+IL_0133: ldsfld S.Triggers.SCH_TimelineSettingAdjust::Options
+IL_013b: br.s IL_0191
+IL_013f: ldelem.ref
+IL_0143: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_014a: callvirt SettingOption::get_Key
+IL_0151: callvirt G.Dictionary`2<SettingKey,SettingEntry>::TryGetValue
+IL_0156: brfalse.s IL_018d
+IL_015a: callvirt SettingOption::get_Label
+IL_015f: call IM.ImU8String::op_Implicit
+IL_0164: call IM.ImGui::PushID
+IL_016e: call S.Triggers.SCH_TimelineSettingAdjust::DrawEntry
+IL_0173: call IM.ImGui::PopID
+IL_0178: brfalse.s IL_018d
+IL_017b: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0182: callvirt SettingOption::get_Key
+IL_0187: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Remove
+IL_0193: ldlen
+IL_0195: blt.s IL_013d
+IL_0197: call IM.ImGui::Separator
+IL_019c: ldstr "鍏ㄩ€?
+IL_01a1: call IM.ImU8String::op_Implicit
+IL_01a8: initobj N.Vector2
+IL_01b0: call IM.ImGui::Button
+IL_01b5: brfalse.s IL_01bd
+IL_01b8: call S.Triggers.SCH_TimelineSettingAdjust::SelectAllFromSettings
+IL_01bd: call IM.ImGui::SameLine
+IL_01c2: ldstr "璇诲彇褰撳墠璁剧疆"
+IL_01c7: call IM.ImU8String::op_Implicit
+IL_01ce: initobj N.Vector2
+IL_01d6: call IM.ImGui::Button
+IL_01db: brfalse.s IL_01e3
+IL_01de: call S.Triggers.SCH_TimelineSettingAdjust::LoadSelectedFromSettings
+IL_01e3: call IM.ImGui::SameLine
+IL_01e8: ldstr "鍏ㄩ儴鍚敤"
+IL_01ed: call IM.ImU8String::op_Implicit
+IL_01f4: initobj N.Vector2
+IL_01fc: call IM.ImGui::Button
+IL_0201: brfalse.s IL_020a
+IL_0205: call S.Triggers.SCH_TimelineSettingAdjust::SetAllBoolValues
+IL_020a: call IM.ImGui::SameLine
+IL_020f: ldstr "鍏ㄩ儴鍏抽棴"
+IL_0214: call IM.ImU8String::op_Implicit
+IL_021b: initobj N.Vector2
+IL_0223: call IM.ImGui::Button
+IL_0228: brfalse.s IL_0231
+IL_022c: call S.Triggers.SCH_TimelineSettingAdjust::SetAllBoolValues
+IL_0231: call IM.ImGui::SameLine
+IL_0236: ldstr "娓呴櫎鎵€鏈?
+IL_023b: call IM.ImU8String::op_Implicit
+IL_0242: initobj N.Vector2
+IL_024a: call IM.ImGui::Button
+IL_024f: brfalse.s IL_025c
+IL_0252: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0257: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Clear
+  :: bool Handle()
+IL_0001: call S.Triggers.SCH_TimelineSettingAdjust::ApplyToSettings
+IL_0006: ldsfld S.ScholarSettings::Instance
+IL_000b: callvirt S.ScholarSettings::save
+  :: void ToggleSelection(SettingOption option)
+     // locals: V0=newEntry, V1=entry
+IL_0001: callvirt SettingOption::get_Kind
+IL_0007: bne.un.s IL_0067
+IL_000a: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0010: callvirt SettingOption::get_Key
+IL_0017: callvirt G.Dictionary`2<SettingKey,SettingEntry>::TryGetValue
+IL_001c: brtrue.s IL_0044
+IL_001f: callvirt SettingOption::get_Kind
+IL_0024: newobj SettingEntry::.ctor
+IL_002b: stfld SettingEntry::BoolValue
+IL_0032: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0038: callvirt SettingOption::get_Key
+IL_003e: callvirt G.Dictionary`2<SettingKey,SettingEntry>::set_Item
+IL_0045: ldfld SettingEntry::BoolValue
+IL_004a: brtrue.s IL_0054
+IL_004e: stfld SettingEntry::BoolValue
+IL_0055: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_005b: callvirt SettingOption::get_Key
+IL_0060: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Remove
+IL_0068: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_006e: callvirt SettingOption::get_Key
+IL_0073: callvirt G.Dictionary`2<SettingKey,SettingEntry>::ContainsKey
+IL_0078: brfalse.s IL_008d
+IL_007b: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0081: callvirt SettingOption::get_Key
+IL_0086: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Remove
+IL_008e: callvirt SettingOption::get_Kind
+IL_0093: newobj SettingEntry::.ctor
+IL_009b: callvirt SettingOption::get_Key
+IL_00a0: call S.Triggers.SCH_TimelineSettingAdjust::FillEntryFromSettings
+IL_00a6: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_00ac: callvirt SettingOption::get_Key
+IL_00b2: callvirt G.Dictionary`2<SettingKey,SettingEntry>::set_Item
+  :: bool DrawEntry(SettingOption option, SettingEntry entry)
+     // locals: V0=remove, V1=boolValue, V2=statusColor, V3=statusText
+IL_0003: callvirt SettingOption::get_Kind
+IL_000c: switch [IL_0174, IL_00dc, IL_0022]
+IL_001d: br IL_0200
+IL_0023: ldfld SettingEntry::BoolValue
+IL_0029: ldstr " "
+IL_002e: call IM.ImU8String::op_Implicit
+IL_0035: call IM.ImGui::Checkbox
+IL_003a: brfalse.s IL_0043
+IL_003e: stfld SettingEntry::BoolValue
+IL_0043: call IM.ImGui::SameLine
+IL_0049: callvirt SettingOption::get_Label
+IL_004e: call IM.ImU8String::op_Implicit
+IL_0053: call IM.ImGui::Text
+IL_0058: call IM.ImGui::SameLine
+IL_005e: brtrue.s IL_007b
+IL_0060: ldc.r4 1
+IL_0065: ldc.r4 0
+IL_006a: ldc.r4 0
+IL_006f: ldc.r4 1
+IL_0074: newobj N.Vector4::.ctor
+IL_0079: br.s IL_0094
+IL_007b: ldc.r4 0
+IL_0080: ldc.r4 1
+IL_0085: ldc.r4 0
+IL_008a: ldc.r4 1
+IL_008f: newobj N.Vector4::.ctor
+IL_0096: brtrue.s IL_009f
+IL_0098: ldstr "锛堝凡鍏抽棴锛?
+IL_009d: br.s IL_00a4
+IL_009f: ldstr "锛堝凡鍚敤锛?
+IL_00a8: call IM.ImU8String::op_Implicit
+IL_00ad: call IM.ImGui::TextColored
+IL_00b2: call IM.ImGui::SameLine
+IL_00b7: ldstr "鍒犻櫎"
+IL_00bc: call IM.ImU8String::op_Implicit
+IL_00c3: initobj N.Vector2
+IL_00cb: call IM.ImGui::Button
+IL_00d0: brfalse IL_0200
+IL_00d7: br IL_0200
+IL_00dd: callvirt SettingOption::get_Label
+IL_00e2: call IM.ImU8String::op_Implicit
+IL_00e7: call IM.ImGui::Text
+IL_00ec: call IM.ImGui::SameLine
+IL_00f1: ldc.r4 160
+IL_00f6: call IM.ImGui::SetNextItemWidth
+IL_00fb: ldstr "##int"
+IL_0100: call IM.ImU8String::op_Implicit
+IL_0106: ldflda SettingEntry::IntValue
+IL_010c: callvirt SettingOption::get_Min
+IL_0113: callvirt SettingOption::get_Max
+IL_011b: initobj IM.ImU8String
+IL_0124: call IM.ImGui::SliderInt
+IL_0129: brfalse.s IL_014a
+IL_012d: ldfld SettingEntry::IntValue
+IL_0133: callvirt SettingOption::get_Min
+IL_013a: callvirt SettingOption::get_Max
+IL_0140: call System.Math::Clamp
+IL_0145: stfld SettingEntry::IntValue
+IL_014a: call IM.ImGui::SameLine
+IL_014f: ldstr "鍒犻櫎"
+IL_0154: call IM.ImU8String::op_Implicit
+IL_015b: initobj N.Vector2
+IL_0163: call IM.ImGui::Button
+IL_0168: brfalse IL_0200
+IL_016f: br IL_0200
+IL_0175: callvirt SettingOption::get_Label
+IL_017a: call IM.ImU8String::op_Implicit
+IL_017f: call IM.ImGui::Text
+IL_0184: call IM.ImGui::SameLine
+IL_0189: ldc.r4 160
+IL_018e: call IM.ImGui::SetNextItemWidth
+IL_0193: ldstr "##float"
+IL_0198: call IM.ImU8String::op_Implicit
+IL_019e: ldflda SettingEntry::FloatValue
+IL_01a4: callvirt SettingOption::get_Min
+IL_01aa: callvirt SettingOption::get_Max
+IL_01b1: initobj IM.ImU8String
+IL_01ba: call IM.ImGui::SliderFloat
+IL_01bf: brfalse.s IL_01de
+IL_01c3: ldfld SettingEntry::FloatValue
+IL_01c9: callvirt SettingOption::get_Min
+IL_01cf: callvirt SettingOption::get_Max
+IL_01d4: call System.Math::Clamp
+IL_01d9: stfld SettingEntry::FloatValue
+IL_01de: call IM.ImGui::SameLine
+IL_01e3: ldstr "鍒犻櫎"
+IL_01e8: call IM.ImU8String::op_Implicit
+IL_01ef: initobj N.Vector2
+IL_01f7: call IM.ImGui::Button
+IL_01fc: brfalse.s IL_0200
+  :: void SelectAllFromSettings()
+     // locals: V2=option, V3=entry
+IL_0001: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0006: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Clear
+IL_000b: ldsfld S.Triggers.SCH_TimelineSettingAdjust::Options
+IL_0013: br.s IL_0047
+IL_0017: ldelem.ref
+IL_001a: callvirt SettingOption::get_Kind
+IL_001f: newobj SettingEntry::.ctor
+IL_0027: callvirt SettingOption::get_Key
+IL_002c: call S.Triggers.SCH_TimelineSettingAdjust::FillEntryFromSettings
+IL_0032: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0038: callvirt SettingOption::get_Key
+IL_003e: callvirt G.Dictionary`2<SettingKey,SettingEntry>::set_Item
+IL_0049: ldlen
+IL_004b: blt.s IL_0015
+  :: void LoadSelectedFromSettings()
+     // locals: V1=key, V2=option, V3=entry
+IL_0001: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0006: callvirt G.Dictionary`2<SettingKey,SettingEntry>::get_Count
+IL_000b: brtrue.s IL_0014
+IL_000e: call S.Triggers.SCH_TimelineSettingAdjust::SelectAllFromSettings
+IL_0015: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_001a: callvirt G.Dictionary`2<SettingKey,SettingEntry>::get_Keys
+IL_001f: call System.Linq.Enumerable::ToList<SettingKey>
+IL_0024: callvirt G.List`1<SettingKey>::GetEnumerator
+IL_002a: br.s IL_0082
+IL_002e: call Enumerator<SettingKey>::get_Current
+IL_0034: ldsfld S.Triggers.SCH_TimelineSettingAdjust::OptionByKey
+IL_003c: callvirt G.Dictionary`2<SettingKey,SettingOption>::TryGetValue
+IL_0041: brtrue.s IL_0052
+IL_0044: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_004a: callvirt G.Dictionary`2<SettingKey,SettingEntry>::Remove
+IL_0050: br.s IL_0082
+IL_0053: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_005b: callvirt G.Dictionary`2<SettingKey,SettingEntry>::TryGetValue
+IL_0060: brtrue.s IL_007b
+IL_0063: callvirt SettingOption::get_Kind
+IL_0068: newobj SettingEntry::.ctor
+IL_006f: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_0076: callvirt G.Dictionary`2<SettingKey,SettingEntry>::set_Item
+IL_007d: call S.Triggers.SCH_TimelineSettingAdjust::FillEntryFromSettings
+IL_0084: call Enumerator<SettingKey>::MoveNext
+IL_0089: brtrue.s IL_002c
+  :: void SetAllBoolValues(bool value)
+     // locals: V2=option, V3=entry
+IL_0000: ldsfld S.Triggers.SCH_TimelineSettingAdjust::Options
+IL_0008: br.s IL_0055
+IL_000c: ldelem.ref
+IL_000f: callvirt SettingOption::get_Kind
+IL_0015: bne.un.s IL_0051
+IL_0018: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_001e: callvirt SettingOption::get_Key
+IL_0025: callvirt G.Dictionary`2<SettingKey,SettingEntry>::TryGetValue
+IL_002a: brtrue.s IL_004a
+IL_002d: callvirt SettingOption::get_Kind
+IL_0032: newobj SettingEntry::.ctor
+IL_0039: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_003f: callvirt SettingOption::get_Key
+IL_0045: callvirt G.Dictionary`2<SettingKey,SettingEntry>::set_Item
+IL_004c: stfld SettingEntry::BoolValue
+IL_0057: ldlen
+IL_0059: blt.s IL_000a
+  :: static void FillEntryFromSettings(SettingEntry entry, SettingKey key)
+     // locals: V0=settings
+IL_0000: ldsfld S.ScholarSettings::Instance
+IL_0007: switch [IL_0071, IL_007e, IL_008b, IL_0098, IL_00a5, IL_00b2, IL_00bf, IL_00cc, IL_00d9, IL_00e6, IL_00f3, IL_0100, IL_010d, IL_011a, IL_0127, IL_0134, IL_0141, IL_014e, IL_015b, IL_0168, IL_0175, IL_0182, IL_018f, IL_019c, IL_01a9]
+IL_0073: ldfld S.ScholarSettings::AOEHealCount
+IL_0078: stfld SettingEntry::IntValue
+IL_0080: ldfld S.ScholarSettings::NoTTarget
+IL_0085: stfld SettingEntry::BoolValue
+IL_008d: ldfld S.ScholarSettings::TankHealer
+IL_0092: stfld SettingEntry::BoolValue
+IL_009a: ldfld S.ScholarSettings::Adloquium
+IL_009f: stfld SettingEntry::FloatValue
+IL_00a7: ldfld S.ScholarSettings::TankAdloquium
+IL_00ac: stfld SettingEntry::FloatValue
+IL_00b4: ldfld S.ScholarSettings::Succor
+IL_00b9: stfld SettingEntry::FloatValue
+IL_00c1: ldfld S.ScholarSettings::WhisperingDawn
+IL_00c6: stfld SettingEntry::FloatValue
+IL_00ce: ldfld S.ScholarSettings::Indomitability
+IL_00d3: stfld SettingEntry::FloatValue
+IL_00db: ldfld S.ScholarSettings::FeyBlessing
+IL_00e0: stfld SettingEntry::FloatValue
+IL_00e8: ldfld S.ScholarSettings::SummonSeraph
+IL_00ed: stfld SettingEntry::FloatValue
+IL_00f5: ldfld S.ScholarSettings::Seraphism
+IL_00fa: stfld SettingEntry::FloatValue
+IL_0102: ldfld S.ScholarSettings::Aetherpact
+IL_0107: stfld SettingEntry::FloatValue
+IL_010f: ldfld S.ScholarSettings::Lustrate
+IL_0114: stfld SettingEntry::FloatValue
+IL_011c: ldfld S.ScholarSettings::LowLevelSingleHeal
+IL_0121: stfld SettingEntry::FloatValue
+IL_0129: ldfld S.ScholarSettings::LowLevelAoeHeal
+IL_012e: stfld SettingEntry::FloatValue
+IL_0136: ldfld S.ScholarSettings::EmergencyTactics
+IL_013b: stfld SettingEntry::FloatValue
+IL_0143: ldfld S.ScholarSettings::ForceLucidDreaming
+IL_0148: stfld SettingEntry::IntValue
+IL_0150: ldfld S.ScholarSettings::LucidDreaming
+IL_0155: stfld SettingEntry::IntValue
+IL_015d: ldfld S.ScholarSettings::LowMpStopThreshold
+IL_0162: stfld SettingEntry::IntValue
+IL_016a: ldfld S.ScholarSettings::BossDot
+IL_016f: stfld SettingEntry::FloatValue
+IL_0177: ldfld S.ScholarSettings::NotBossDot
+IL_017c: stfld SettingEntry::FloatValue
+IL_0184: ldfld S.ScholarSettings::GCDShield
+IL_0189: stfld SettingEntry::FloatValue
+IL_0191: ldfld S.ScholarSettings::GCDAOEHeal
+IL_0196: stfld SettingEntry::FloatValue
+IL_019e: ldfld S.ScholarSettings::QT搴旀€ョ兢鐩炬不鐤楅槇鍊?
+IL_01a3: stfld SettingEntry::FloatValue
+IL_01ab: ldfld S.ScholarSettings::QT搴旀€ョ兢鐩炬不鐤椾汉鏁?
+IL_01b0: stfld SettingEntry::IntValue
+  :: void ApplyToSettings()
+     // locals: V0=settings, V2=kvp, V3=key, V4=entry
+IL_0000: ldsfld S.ScholarSettings::Instance
+IL_0007: ldfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_000c: callvirt G.Dictionary`2<SettingKey,SettingEntry>::GetEnumerator
+IL_0012: br IL_038d
+IL_0019: call Enumerator<SettingKey,SettingEntry>::get_Current
+IL_0021: call G.KeyValuePair`2<SettingKey,SettingEntry>::get_Key
+IL_0029: call G.KeyValuePair`2<SettingKey,SettingEntry>::get_Value
+IL_0031: switch [IL_009f, IL_00b8, IL_00ca, IL_00dc, IL_00fd, IL_011e, IL_013f, IL_0160, IL_0181, IL_01a2, IL_01c3, IL_01e4, IL_0205, IL_0226, IL_0247, IL_0268, IL_0289, IL_02a6, IL_02c3, IL_02e0, IL_0301, IL_031f, IL_033d, IL_035b, IL_0379]
+IL_009a: br IL_038d
+IL_00a2: ldfld SettingEntry::IntValue
+IL_00a9: call System.Math::Clamp
+IL_00ae: stfld S.ScholarSettings::AOEHealCount
+IL_00b3: br IL_038d
+IL_00bb: ldfld SettingEntry::BoolValue
+IL_00c0: stfld S.ScholarSettings::NoTTarget
+IL_00c5: br IL_038d
+IL_00cd: ldfld SettingEntry::BoolValue
+IL_00d2: stfld S.ScholarSettings::TankHealer
+IL_00d7: br IL_038d
+IL_00df: ldfld SettingEntry::FloatValue
+IL_00e4: ldc.r4 0
+IL_00e9: ldc.r4 1
+IL_00ee: call System.Math::Clamp
+IL_00f3: stfld S.ScholarSettings::Adloquium
+IL_00f8: br IL_038d
+IL_0100: ldfld SettingEntry::FloatValue
+IL_0105: ldc.r4 0
+IL_010a: ldc.r4 1
+IL_010f: call System.Math::Clamp
+IL_0114: stfld S.ScholarSettings::TankAdloquium
+IL_0119: br IL_038d
+IL_0121: ldfld SettingEntry::FloatValue
+IL_0126: ldc.r4 0
+IL_012b: ldc.r4 1
+IL_0130: call System.Math::Clamp
+IL_0135: stfld S.ScholarSettings::Succor
+IL_013a: br IL_038d
+IL_0142: ldfld SettingEntry::FloatValue
+IL_0147: ldc.r4 0
+IL_014c: ldc.r4 1
+IL_0151: call System.Math::Clamp
+IL_0156: stfld S.ScholarSettings::WhisperingDawn
+IL_015b: br IL_038d
+IL_0163: ldfld SettingEntry::FloatValue
+IL_0168: ldc.r4 0
+IL_016d: ldc.r4 1
+IL_0172: call System.Math::Clamp
+IL_0177: stfld S.ScholarSettings::Indomitability
+IL_017c: br IL_038d
+IL_0184: ldfld SettingEntry::FloatValue
+IL_0189: ldc.r4 0
+IL_018e: ldc.r4 1
+IL_0193: call System.Math::Clamp
+IL_0198: stfld S.ScholarSettings::FeyBlessing
+IL_019d: br IL_038d
+IL_01a5: ldfld SettingEntry::FloatValue
+IL_01aa: ldc.r4 0
+IL_01af: ldc.r4 1
+IL_01b4: call System.Math::Clamp
+IL_01b9: stfld S.ScholarSettings::SummonSeraph
+IL_01be: br IL_038d
+IL_01c6: ldfld SettingEntry::FloatValue
+IL_01cb: ldc.r4 0
+IL_01d0: ldc.r4 1
+IL_01d5: call System.Math::Clamp
+IL_01da: stfld S.ScholarSettings::Seraphism
+IL_01df: br IL_038d
+IL_01e7: ldfld SettingEntry::FloatValue
+IL_01ec: ldc.r4 0
+IL_01f1: ldc.r4 1
+IL_01f6: call System.Math::Clamp
+IL_01fb: stfld S.ScholarSettings::Aetherpact
+IL_0200: br IL_038d
+IL_0208: ldfld SettingEntry::FloatValue
+IL_020d: ldc.r4 0
+IL_0212: ldc.r4 1
+IL_0217: call System.Math::Clamp
+IL_021c: stfld S.ScholarSettings::Lustrate
+IL_0221: br IL_038d
+IL_0229: ldfld SettingEntry::FloatValue
+IL_022e: ldc.r4 0
+IL_0233: ldc.r4 1
+IL_0238: call System.Math::Clamp
+IL_023d: stfld S.ScholarSettings::LowLevelSingleHeal
+IL_0242: br IL_038d
+IL_024a: ldfld SettingEntry::FloatValue
+IL_024f: ldc.r4 0
+IL_0254: ldc.r4 1
+IL_0259: call System.Math::Clamp
+IL_025e: stfld S.ScholarSettings::LowLevelAoeHeal
+IL_0263: br IL_038d
+IL_026b: ldfld SettingEntry::FloatValue
+IL_0270: ldc.r4 0
+IL_0275: ldc.r4 1
+IL_027a: call System.Math::Clamp
+IL_027f: stfld S.ScholarSettings::EmergencyTactics
+IL_0284: br IL_038d
+IL_028c: ldfld SettingEntry::IntValue
+IL_0292: ldc.i4 20000
+IL_0297: call System.Math::Clamp
+IL_029c: stfld S.ScholarSettings::ForceLucidDreaming
+IL_02a1: br IL_038d
+IL_02a9: ldfld SettingEntry::IntValue
+IL_02af: ldc.i4 20000
+IL_02b4: call System.Math::Clamp
+IL_02b9: stfld S.ScholarSettings::LucidDreaming
+IL_02be: br IL_038d
+IL_02c6: ldfld SettingEntry::IntValue
+IL_02cc: ldc.i4 20000
+IL_02d1: call System.Math::Clamp
+IL_02d6: stfld S.ScholarSettings::LowMpStopThreshold
+IL_02db: br IL_038d
+IL_02e3: ldfld SettingEntry::FloatValue
+IL_02e8: ldc.r4 0
+IL_02ed: ldc.r4 1
+IL_02f2: call System.Math::Clamp
+IL_02f7: stfld S.ScholarSettings::BossDot
+IL_02fc: br IL_038d
+IL_0304: ldfld SettingEntry::FloatValue
+IL_0309: ldc.r4 0
+IL_030e: ldc.r4 1
+IL_0313: call System.Math::Clamp
+IL_0318: stfld S.ScholarSettings::NotBossDot
+IL_031d: br.s IL_038d
+IL_0322: ldfld SettingEntry::FloatValue
+IL_0327: ldc.r4 0
+IL_032c: ldc.r4 1
+IL_0331: call System.Math::Clamp
+IL_0336: stfld S.ScholarSettings::GCDShield
+IL_033b: br.s IL_038d
+IL_0340: ldfld SettingEntry::FloatValue
+IL_0345: ldc.r4 0
+IL_034a: ldc.r4 1
+IL_034f: call System.Math::Clamp
+IL_0354: stfld S.ScholarSettings::GCDAOEHeal
+IL_0359: br.s IL_038d
+IL_035e: ldfld SettingEntry::FloatValue
+IL_0363: ldc.r4 0
+IL_0368: ldc.r4 1
+IL_036d: call System.Math::Clamp
+IL_0372: stfld S.ScholarSettings::QT搴旀€ョ兢鐩炬不鐤楅槇鍊?
+IL_0377: br.s IL_038d
+IL_037c: ldfld SettingEntry::IntValue
+IL_0383: call System.Math::Clamp
+IL_0388: stfld S.ScholarSettings::QT搴旀€ョ兢鐩炬不鐤椾汉鏁?
+IL_038f: call Enumerator<SettingKey,SettingEntry>::MoveNext
+IL_0394: brtrue IL_0017
+  :: void .ctor()
+IL_0001: newobj G.Dictionary`2<SettingKey,SettingEntry>::.ctor
+IL_0006: stfld S.Triggers.SCH_TimelineSettingAdjust::selected
+IL_000c: ldsfld System.String::Empty
+IL_0011: stfld S.Triggers.SCH_TimelineSettingAdjust::<Remark>k__BackingField
+IL_0017: call System.Object::.ctor
+  :: static void .cctor()
+IL_0000: ldc.i4.s 25
+IL_0002: newarr SettingOption
+IL_000a: ldstr "缇ゅザ浜烘暟"
+IL_0010: ldc.r4 1
+IL_0015: ldc.r4 8
+IL_001a: newobj SettingOption::.ctor
+IL_001f: stelem.ref
+IL_0023: ldstr "缇ゅザ鏃犺T琛€閲?
+IL_0029: ldc.r4 0
+IL_002e: ldc.r4 1
+IL_0033: newobj SettingOption::.ctor
+IL_0038: stelem.ref
+IL_003c: ldstr "妫€娴嬪潶鍏嬪ぇ鍑忎激灏辩粰缃╁瓙"
+IL_0042: ldc.r4 0
+IL_0047: ldc.r4 1
+IL_004c: newobj SettingOption::.ctor
+IL_0051: stelem.ref
+IL_0055: ldstr "鍗曠浘闃堝€?
+IL_005b: ldc.r4 0
+IL_0060: ldc.r4 1
+IL_0065: newobj SettingOption::.ctor
+IL_006a: stelem.ref
+IL_006e: ldstr "T鍗曠浘闃堝€?
+IL_0074: ldc.r4 0
+IL_0079: ldc.r4 1
+IL_007e: newobj SettingOption::.ctor
+IL_0083: stelem.ref
+IL_0087: ldstr "缇ょ浘闃堝€?
+IL_008d: ldc.r4 0
+IL_0092: ldc.r4 1
+IL_0097: newobj SettingOption::.ctor
+IL_009c: stelem.ref
+IL_00a0: ldstr "浣庤闃堝€?
+IL_00a6: ldc.r4 0
+IL_00ab: ldc.r4 1
+IL_00b0: newobj SettingOption::.ctor
+IL_00b5: stelem.ref
+IL_00b9: ldstr "涓嶅眻闃堝€?
+IL_00bf: ldc.r4 0
+IL_00c4: ldc.r4 1
+IL_00c9: newobj SettingOption::.ctor
+IL_00ce: stelem.ref
+IL_00d2: ldstr "绁ュ厜闃堝€?
+IL_00d8: ldc.r4 0
+IL_00dd: ldc.r4 1
+IL_00e2: newobj SettingOption::.ctor
+IL_00e7: stelem.ref
+IL_00e9: ldc.i4.s 9
+IL_00eb: ldc.i4.s 9
+IL_00ed: ldstr "澶уぉ浣块槇鍊?
+IL_00f3: ldc.r4 0
+IL_00f8: ldc.r4 1
+IL_00fd: newobj SettingOption::.ctor
+IL_0102: stelem.ref
+IL_0104: ldc.i4.s 10
+IL_0106: ldc.i4.s 10
+IL_0108: ldstr "鍙樿韩闃堝€?
+IL_010e: ldc.r4 0
+IL_0113: ldc.r4 1
+IL_0118: newobj SettingOption::.ctor
+IL_011d: stelem.ref
+IL_011f: ldc.i4.s 11
+IL_0121: ldc.i4.s 11
+IL_0123: ldstr "閾惧瓙闃堝€?
+IL_0129: ldc.r4 0
+IL_012e: ldc.r4 1
+IL_0133: newobj SettingOption::.ctor
+IL_0138: stelem.ref
+IL_013a: ldc.i4.s 12
+IL_013c: ldc.i4.s 12
+IL_013e: ldstr "娲绘€ф硶闃堝€?
+IL_0144: ldc.r4 0
+IL_0149: ldc.r4 1
+IL_014e: newobj SettingOption::.ctor
+IL_0153: stelem.ref
+IL_0155: ldc.i4.s 13
+IL_0157: ldc.i4.s 13
+IL_0159: ldstr "浣庣瓑绾у崟濂堕槇鍊?
+IL_015f: ldc.r4 0
+IL_0164: ldc.r4 1
+IL_0169: newobj SettingOption::.ctor
+IL_016e: stelem.ref
+IL_0170: ldc.i4.s 14
+IL_0172: ldc.i4.s 14
+IL_0174: ldstr "浣庣瓑绾х兢濂堕槇鍊?
+IL_017a: ldc.r4 0
+IL_017f: ldc.r4 1
+IL_0184: newobj SettingOption::.ctor
+IL_0189: stelem.ref
+IL_018b: ldc.i4.s 15
+IL_018d: ldc.i4.s 15
+IL_018f: ldstr "搴旀€ョ兢鐩?
+IL_0195: ldc.r4 0
+IL_019a: ldc.r4 1
+IL_019f: newobj SettingOption::.ctor
+IL_01a4: stelem.ref
+IL_01a6: ldc.i4.s 16
+IL_01a8: ldc.i4.s 16
+IL_01aa: ldstr "寮哄埗閱掓ⅵ闃堝€?
+IL_01b0: ldc.r4 0
+IL_01b5: ldc.r4 20000
+IL_01ba: newobj SettingOption::.ctor
+IL_01bf: stelem.ref
+IL_01c1: ldc.i4.s 17
+IL_01c3: ldc.i4.s 17
+IL_01c5: ldstr "閱掓ⅵ闃堝€?
+IL_01cb: ldc.r4 0
+IL_01d0: ldc.r4 20000
+IL_01d5: newobj SettingOption::.ctor
+IL_01da: stelem.ref
+IL_01dc: ldc.i4.s 18
+IL_01de: ldc.i4.s 18
+IL_01e0: ldstr "浣庤摑鍋滆緭鍑洪槇鍊?
+IL_01e6: ldc.r4 0
+IL_01eb: ldc.r4 20000
+IL_01f0: newobj SettingOption::.ctor
+IL_01f5: stelem.ref
+IL_01f7: ldc.i4.s 19
+IL_01f9: ldc.i4.s 19
+IL_01fb: ldstr "Boss浣庝簬澶氬皯琛€涓嶄笂DOT"
+IL_0201: ldc.r4 0
+IL_0206: ldc.r4 1
+IL_020b: newobj SettingOption::.ctor
+IL_0210: stelem.ref
+IL_0212: ldc.i4.s 20
+IL_0214: ldc.i4.s 20
+IL_0216: ldstr "灏忔€綆浜庡灏戣涓嶄笂DOT"
+IL_021c: ldc.r4 0
+IL_0221: ldc.r4 1
+IL_0226: newobj SettingOption::.ctor
+IL_022b: stelem.ref
+IL_022d: ldc.i4.s 21
+IL_022f: ldc.i4.s 21
+IL_0231: ldstr "鎬ユ晳缇ょ浘"
+IL_0237: ldc.r4 0
+IL_023c: ldc.r4 1
+IL_0241: newobj SettingOption::.ctor
+IL_0246: stelem.ref
+IL_0248: ldc.i4.s 22
+IL_024a: ldc.i4.s 22
+IL_024c: ldstr "鎬ユ晳搴旀€ョ兢鐩?
+IL_0252: ldc.r4 0
+IL_0257: ldc.r4 1
+IL_025c: newobj SettingOption::.ctor
+IL_0261: stelem.ref
+IL_0263: ldc.i4.s 23
+IL_0265: ldc.i4.s 23
+IL_0267: ldstr "鐗规畩闃堝€肩兢濂?闃堝€?
+IL_026d: ldc.r4 0
+IL_0272: ldc.r4 1
+IL_0277: newobj SettingOption::.ctor
+IL_027c: stelem.ref
+IL_027e: ldc.i4.s 24
+IL_0280: ldc.i4.s 24
+IL_0282: ldstr "鐗规畩闃堝€肩兢濂?浜烘暟"
+IL_0288: ldc.r4 1
+IL_028d: ldc.r4 8
+IL_0292: newobj SettingOption::.ctor
+IL_0297: stelem.ref
+IL_0298: stsfld S.Triggers.SCH_TimelineSettingAdjust::Options
+IL_029d: ldsfld S.Triggers.SCH_TimelineSettingAdjust::Options
+IL_02a2: ldsfld <>c::<>9
+IL_02a7: ldftn <>c::<.cctor>b__24_0
+IL_02ad: newobj System.Func`2<SettingOption,SettingKey>::.ctor
+IL_02b2: call System.Linq.Enumerable::ToDictionary<SettingOption,SettingKey>
+IL_02b7: stsfld S.Triggers.SCH_TimelineSettingAdjust::OptionByKey
+
+### S.Triggers.SCH_UsePotionCheck
+  :: bool Draw()
+  :: bool Handle(R.Trigger.ITriggerCondParams condParams)
+IL_0000: ldsfld S.ScholarSettings::Instance
+IL_0005: ldfld S.ScholarSettings::UsePotion
+  :: void .ctor()
+IL_0001: call System.Object::.ctor
+
+### S.Triggers.WaitSkill
+  :: R.Spell Create()
+     // locals: V0=func, V1=target, V2=name, V3=interpolatedStringHandler, V4=name, V5=interpolatedStringHandler, V6=name, V7=interpolatedStringHandler
+IL_0001: ldfld S.Triggers.WaitSkill::TargetSelector
+IL_0006: ldfld R.Trigger.Define.TargetSelector::Enable
+IL_000b: brfalse IL_00a2
+IL_0011: ldfld S.Triggers.WaitSkill::TargetSelector
+IL_0016: callvirt R.Trigger.Define.TargetSelector::GetTarget
+IL_001c: call A.Core::Resolve<A.MemoryApi.MemApiCondition>
+IL_0021: callvirt A.MemoryApi.MemApiCondition::InDutyRecorderPlayback
+IL_0026: brfalse.s IL_0095
+IL_0028: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_002e: ldfld S.Triggers.WaitSkill::SpellId
+IL_0033: callvirt A.MemoryApi.MemApiSpell::GetName
+IL_003b: ldc.i4.s 22
+IL_0045: ldstr "[浠诲姟鍥為【] 鏃堕棿杞村垱寤烘妧鑳?"
+IL_0052: ldfld S.Triggers.WaitSkill::SpellId
+IL_005e: ldstr " "
+IL_0072: ldstr " 鐩爣-> "
+IL_007f: callvirt D.IGameObject::get_Name
+IL_0090: call H.LogHelper::Print
+IL_0096: ldfld S.Triggers.WaitSkill::SpellId
+IL_009c: newobj R.Spell::.ctor
+IL_00a3: ldfld S.Triggers.WaitSkill::TargetType
+IL_00a8: ldc.i4.s 101
+IL_00aa: bne.un IL_013c
+IL_00af: call A.Core::Resolve<A.MemoryApi.MemApiCondition>
+IL_00b4: callvirt A.MemoryApi.MemApiCondition::InDutyRecorderPlayback
+IL_00b9: brfalse.s IL_012a
+IL_00bb: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_00c1: ldfld S.Triggers.WaitSkill::SpellId
+IL_00c6: callvirt A.MemoryApi.MemApiSpell::GetName
+IL_00cf: ldc.i4.s 24
+IL_00d9: ldstr "[浠诲姟鍥為【] 鏃堕棿杞村垱寤烘妧鑳?"
+IL_00e6: ldfld S.Triggers.WaitSkill::SpellId
+IL_00f2: ldstr " "
+IL_0107: ldstr " 鐩爣绫诲瀷-> "
+IL_0114: ldfld S.Triggers.WaitSkill::TargetType
+IL_0125: call H.LogHelper::Print
+IL_012b: ldfld S.Triggers.WaitSkill::SpellId
+IL_0131: ldfld S.Triggers.WaitSkill::Location
+IL_0136: newobj R.Spell::.ctor
+IL_013d: ldfld S.Triggers.WaitSkill::TargetType
+IL_0142: ldc.i4.s 102
+IL_0144: beq IL_01dc
+IL_0149: call A.Core::Resolve<A.MemoryApi.MemApiCondition>
+IL_014e: callvirt A.MemoryApi.MemApiCondition::InDutyRecorderPlayback
+IL_0153: brfalse.s IL_01c4
+IL_0155: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_015b: ldfld S.Triggers.WaitSkill::SpellId
+IL_0160: callvirt A.MemoryApi.MemApiSpell::GetName
+IL_0169: ldc.i4.s 24
+IL_0173: ldstr "[浠诲姟鍥為【] 鏃堕棿杞村垱寤烘妧鑳?"
+IL_0180: ldfld S.Triggers.WaitSkill::SpellId
+IL_018c: ldstr " "
+IL_01a1: ldstr " 鐩爣绫诲瀷-> "
+IL_01ae: ldfld S.Triggers.WaitSkill::TargetType
+IL_01bf: call H.LogHelper::Print
+IL_01c5: ldfld S.Triggers.WaitSkill::Category
+IL_01cb: ldfld S.Triggers.WaitSkill::SpellId
+IL_01d1: ldfld S.Triggers.WaitSkill::TargetType
+IL_01d6: call R.Spell::Create
+IL_01dd: ldftn S.Triggers.WaitSkill::<Create>b__15_0
+IL_01e3: newobj System.Func`1<D.IBattleChara>::.ctor
+IL_01ea: ldfld S.Triggers.WaitSkill::Category
+IL_01f0: ldfld S.Triggers.WaitSkill::SpellId
+IL_01f5: ldc.i4.s 102
+IL_01f7: call R.Spell::Create
+IL_01fe: callvirt R.Spell::set_GetDynamicsTarget
+  :: bool Draw()
+IL_0000: ldstr "灞傛暟杈惧埌鎸囧畾灞傛暟鍚庢墠閲婃斁"
+IL_0005: call IM.ImU8String::op_Implicit
+IL_000b: ldflda S.Triggers.WaitSkill::ChargeCount
+IL_0014: initobj IM.ImU8String
+IL_001c: call IM.ImGui::InputInt
+IL_0022: ldstr "鎶€鑳界被鍨?
+IL_0028: ldflda S.Triggers.WaitSkill::Category
+IL_002d: ldc.i4 200
+IL_0032: call A.GUI.ImGuiHelper::DrawEnum<R.SpellCategory>
+IL_0038: ldfld S.Triggers.WaitSkill::Category
+IL_003d: brtrue.s IL_008b
+IL_003f: ldstr "鎶€鑳絀d"
+IL_0045: ldflda S.Triggers.WaitSkill::SpellId
+IL_004b: call A.GUI.ImGuiHelper::LeftInputInt
+IL_0050: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_0056: ldfld S.Triggers.WaitSkill::SpellId
+IL_005b: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_0061: ble.un.s IL_008b
+IL_0063: call IM.ImGui::SameLine
+IL_0069: ldfld S.Triggers.WaitSkill::SpellId
+IL_006e: call H.SpellHelper::GetSpell
+IL_0073: callvirt R.Spell::get_Name
+IL_0079: brtrue.s IL_0081
+IL_007c: ldstr ""
+IL_0081: call IM.ImU8String::op_Implicit
+IL_0086: call IM.ImGui::Text
+IL_008c: ldfld S.Triggers.WaitSkill::Category
+IL_0094: bgt.un IL_0215
+IL_0099: ldstr "鎶€鑳界洰鏍?"
+IL_009e: call IM.ImU8String::op_Implicit
+IL_00a3: call IM.ImGui::Text
+IL_00aa: call A.GUI.IndentGroupWrapper::.ctor
+IL_00b0: ldfld S.Triggers.WaitSkill::TargetSelector
+IL_00b5: callvirt R.Trigger.Define.TargetSelector::OnGUI
+IL_00bb: ldfld S.Triggers.WaitSkill::TargetSelector
+IL_00c0: ldfld R.Trigger.Define.TargetSelector::Enable
+IL_00c5: brfalse.s IL_00cc
+IL_00cc: ldstr "鎶€鑳界洰鏍?
+IL_00d2: ldflda S.Triggers.WaitSkill::TargetType
+IL_00d7: ldc.i4 200
+IL_00dc: call A.GUI.ImGuiHelper::DrawEnum<R.SpellTargetType>
+IL_00e2: ldfld S.Triggers.WaitSkill::TargetType
+IL_00e7: ldc.i4.s 101
+IL_00e9: bne.un.s IL_0115
+IL_00eb: ldstr "鍧愭爣"
+IL_00f0: call IM.ImU8String::op_Implicit
+IL_00f6: ldflda S.Triggers.WaitSkill::Location
+IL_00fb: ldc.r4 0
+IL_0100: ldc.r4 0
+IL_0107: initobj IM.ImU8String
+IL_010f: call IM.ImGui::InputFloat3
+IL_0116: ldfld S.Triggers.WaitSkill::TargetType
+IL_011b: ldc.i4.s 102
+IL_011d: bne.un IL_0205
+IL_0122: ldstr "鐩墠鍙敮鎸佸姩鎬侀€夋嫨闃熷弸"
+IL_0127: call IM.ImU8String::op_Implicit
+IL_012c: call IM.ImGui::Text
+IL_0132: ldfld S.Triggers.WaitSkill::IsPartyMember
+IL_0137: brfalse IL_01d3
+IL_013c: ldstr "鑱屼笟闄愬埗"
+IL_0142: ldflda S.Triggers.WaitSkill::LimitJobType
+IL_0147: ldc.i4 200
+IL_014c: call A.GUI.ImGuiHelper::DrawEnum<R.SpellTargetLimit_JobType>
+IL_0151: ldstr "HP鏈€澶у€兼潯浠?
+IL_0157: ldflda S.Triggers.WaitSkill::LimitMaxHpType
+IL_015c: ldc.i4 200
+IL_0161: call A.GUI.ImGuiHelper::DrawEnum<R.SpellTargetLimit_HPType>
+IL_0167: ldfld S.Triggers.WaitSkill::LimitMaxHpType
+IL_016c: brtrue.s IL_0183
+IL_016e: ldstr "HP褰撳墠鍊兼潯浠?
+IL_0174: ldflda S.Triggers.WaitSkill::LimitHpType
+IL_0179: ldc.i4 200
+IL_017e: call A.GUI.ImGuiHelper::DrawEnum<R.SpellTargetLimit_HPType>
+IL_0183: ldstr "BuffId闄愬埗"
+IL_0189: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_018e: ldsfld <>c::<>9__16_0
+IL_0194: brtrue.s IL_01ad
+IL_0197: ldsfld <>c::<>9
+IL_019c: ldftn <>c::<Draw>b__16_0
+IL_01a2: newobj System.Func`1<uint>::.ctor
+IL_01a8: stsfld <>c::<>9__16_0
+IL_01ad: ldsfld <>c::<>9__16_1
+IL_01b3: brtrue.s IL_01cc
+IL_01b6: ldsfld <>c::<>9
+IL_01bb: ldftn <>c::<Draw>b__16_1
+IL_01c1: newobj System.Func`2<uint,uint>::.ctor
+IL_01c7: stsfld <>c::<>9__16_1
+IL_01cc: call A.GUI.ImGuiHelper::DrawList<uint>
+IL_01d3: ldstr "HP鏈€澶у€兼潯浠?
+IL_01d9: ldflda S.Triggers.WaitSkill::LimitMaxHpType
+IL_01de: ldc.i4 200
+IL_01e3: call A.GUI.ImGuiHelper::DrawEnum<R.SpellTargetLimit_HPType>
+IL_01e9: ldfld S.Triggers.WaitSkill::LimitMaxHpType
+IL_01ee: brtrue.s IL_0205
+IL_01f0: ldstr "HP褰撳墠鍊兼潯浠?
+IL_01f6: ldflda S.Triggers.WaitSkill::LimitHpType
+IL_01fb: ldc.i4 200
+IL_0200: call A.GUI.ImGuiHelper::DrawEnum<R.SpellTargetLimit_HPType>
+  :: bool Handle()
+IL_0000: ldsfld M.AI::Instance
+IL_0005: callvirt M.AI::get_BattleData
+IL_000a: ldc.i4 600
+IL_000f: newobj M.Slot::.ctor
+IL_0014: callvirt M.BattleData::set_NextSlot
+IL_0019: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_001f: ldfld S.Triggers.WaitSkill::SpellId
+IL_0024: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_0029: call H.SpellExtension::IsUnlock
+IL_002e: brtrue.s IL_003c
+IL_0030: ldstr "鎶€鑳芥湭瑙ｉ攣锛岃烦杩囨妧鑳介噴鏀撅紝璇锋鏌ユ椂闂磋酱"
+IL_0035: call H.LogHelper::Error
+IL_003c: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_0042: ldfld S.Triggers.WaitSkill::SpellId
+IL_0047: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_004c: call H.SpellHelper::GetSpell
+IL_0051: callvirt R.Spell::get_Charges
+IL_0057: ldfld S.Triggers.WaitSkill::ChargeCount
+IL_005d: blt.un.s IL_0092
+IL_005f: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_0065: ldfld S.Triggers.WaitSkill::SpellId
+IL_006a: callvirt A.MemoryApi.MemApiSpell::CheckActionChange
+IL_006f: call H.SpellHelper::GetSpell
+IL_0074: call H.SpellExtension::IsReadyWithCanCast
+IL_0079: brfalse.s IL_0092
+IL_007b: ldsfld M.AI::Instance
+IL_0080: callvirt M.AI::get_BattleData
+IL_0086: call S.Triggers.WaitSkill::Create
+IL_008b: callvirt M.BattleData::AddSpell2NextSlot
+  :: void .ctor()
+IL_0002: stfld S.Triggers.WaitSkill::ChargeCount
+IL_0009: stfld S.Triggers.WaitSkill::IsPartyMember
+IL_000f: newobj G.List`1<uint>::.ctor
+IL_0014: stfld S.Triggers.WaitSkill::LimitBuffIds
+IL_001a: newobj R.Trigger.Define.TargetSelector::.ctor
+IL_001f: stfld S.Triggers.WaitSkill::TargetSelector
+IL_0025: call System.Object::.ctor
+  :: D.IBattleChara <Create>b__15_0()
+     // locals: V0=ibattleCharaList, V1=ibattleChara, V4=enumerator, V5=current, V6=enumerator, V7=current, V8=enumerator, V9=current, V10=enumerator, V11=current, V13=characterAgent, V14=name, V15=interpolatedStringHandler
+IL_0000: call FrameCache::get_CastableParty
+IL_0007: ldfld S.Triggers.WaitSkill::LimitJobType
+IL_0010: switch [IL_0023, IL_002b, IL_0033]
+IL_0021: br.s IL_0039
+IL_0023: call FrameCache::get_CastableTanks
+IL_0029: br.s IL_0039
+IL_002b: call FrameCache::get_CastableHealers
+IL_0031: br.s IL_0039
+IL_0033: call FrameCache::get_CastableDps
+IL_003c: ldfld S.Triggers.WaitSkill::LimitMaxHpType
+IL_0041: brfalse IL_017b
+IL_0047: ldfld S.Triggers.WaitSkill::LimitMaxHpType
+IL_004f: beq.s IL_005d
+IL_0053: beq IL_00ec
+IL_0058: br IL_02f9
+IL_005e: callvirt G.List`1<D.IBattleChara>::GetEnumerator
+IL_0065: br.s IL_00d0
+IL_0069: call Enumerator<D.IBattleChara>::get_Current
+IL_0071: brtrue.s IL_009b
+IL_0074: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0079: callvirt G.List`1<uint>::get_Count
+IL_007f: ble.s IL_0096
+IL_0084: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_008a: call A.Extension.GameObjectExtension::HasAnyAura
+IL_008f: brfalse.s IL_00d0
+IL_0094: br.s IL_00d0
+IL_0099: br.s IL_00d0
+IL_009d: callvirt D.ICharacter::get_MaxHp
+IL_00a3: callvirt D.ICharacter::get_MaxHp
+IL_00a8: bge.un.s IL_00d0
+IL_00ab: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_00b0: callvirt G.List`1<uint>::get_Count
+IL_00b6: ble.s IL_00cd
+IL_00bb: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_00c1: call A.Extension.GameObjectExtension::HasAnyAura
+IL_00c6: brfalse.s IL_00d0
+IL_00cb: br.s IL_00d0
+IL_00d2: call Enumerator<D.IBattleChara>::MoveNext
+IL_00d7: brtrue.s IL_0067
+IL_00ed: callvirt G.List`1<D.IBattleChara>::GetEnumerator
+IL_00f4: br.s IL_015f
+IL_00f8: call Enumerator<D.IBattleChara>::get_Current
+IL_0100: brtrue.s IL_012a
+IL_0103: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0108: callvirt G.List`1<uint>::get_Count
+IL_010e: ble.s IL_0125
+IL_0113: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0119: call A.Extension.GameObjectExtension::HasAnyAura
+IL_011e: brfalse.s IL_015f
+IL_0123: br.s IL_015f
+IL_0128: br.s IL_015f
+IL_012c: callvirt D.ICharacter::get_MaxHp
+IL_0132: callvirt D.ICharacter::get_MaxHp
+IL_0137: ble.un.s IL_015f
+IL_013a: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_013f: callvirt G.List`1<uint>::get_Count
+IL_0145: ble.s IL_015c
+IL_014a: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0150: call A.Extension.GameObjectExtension::HasAnyAura
+IL_0155: brfalse.s IL_015f
+IL_015a: br.s IL_015f
+IL_0161: call Enumerator<D.IBattleChara>::MoveNext
+IL_0166: brtrue.s IL_00f6
+IL_017c: ldfld S.Triggers.WaitSkill::LimitHpType
+IL_0181: brfalse IL_02b8
+IL_0187: ldfld S.Triggers.WaitSkill::LimitHpType
+IL_018f: beq.s IL_019d
+IL_0193: beq IL_022c
+IL_0198: br IL_02f9
+IL_019e: callvirt G.List`1<D.IBattleChara>::GetEnumerator
+IL_01a5: br.s IL_0210
+IL_01a9: call Enumerator<D.IBattleChara>::get_Current
+IL_01b1: brtrue.s IL_01db
+IL_01b4: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_01b9: callvirt G.List`1<uint>::get_Count
+IL_01bf: ble.s IL_01d6
+IL_01c4: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_01ca: call A.Extension.GameObjectExtension::HasAnyAura
+IL_01cf: brfalse.s IL_0210
+IL_01d4: br.s IL_0210
+IL_01d9: br.s IL_0210
+IL_01dd: callvirt D.ICharacter::get_CurrentHp
+IL_01e3: callvirt D.ICharacter::get_CurrentHp
+IL_01e8: bge.un.s IL_0210
+IL_01eb: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_01f0: callvirt G.List`1<uint>::get_Count
+IL_01f6: ble.s IL_020d
+IL_01fb: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0201: call A.Extension.GameObjectExtension::HasAnyAura
+IL_0206: brfalse.s IL_0210
+IL_020b: br.s IL_0210
+IL_0212: call Enumerator<D.IBattleChara>::MoveNext
+IL_0217: brtrue.s IL_01a7
+IL_022d: callvirt G.List`1<D.IBattleChara>::GetEnumerator
+IL_0234: br.s IL_029f
+IL_0238: call Enumerator<D.IBattleChara>::get_Current
+IL_0240: brtrue.s IL_026a
+IL_0243: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0248: callvirt G.List`1<uint>::get_Count
+IL_024e: ble.s IL_0265
+IL_0253: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0259: call A.Extension.GameObjectExtension::HasAnyAura
+IL_025e: brfalse.s IL_029f
+IL_0263: br.s IL_029f
+IL_0268: br.s IL_029f
+IL_026c: callvirt D.ICharacter::get_CurrentHp
+IL_0272: callvirt D.ICharacter::get_CurrentHp
+IL_0277: ble.un.s IL_029f
+IL_027a: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_027f: callvirt G.List`1<uint>::get_Count
+IL_0285: ble.s IL_029c
+IL_028a: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_0290: call A.Extension.GameObjectExtension::HasAnyAura
+IL_0295: brfalse.s IL_029f
+IL_029a: br.s IL_029f
+IL_02a1: call Enumerator<D.IBattleChara>::MoveNext
+IL_02a6: brtrue.s IL_0236
+IL_02b9: callvirt G.List`1<D.IBattleChara>::GetEnumerator
+IL_02c0: br.s IL_02e0
+IL_02c4: call Enumerator<D.IBattleChara>::get_Current
+IL_02ce: ldfld S.Triggers.WaitSkill::LimitBuffIds
+IL_02d4: call A.Extension.GameObjectExtension::HasAnyAura
+IL_02d9: brfalse.s IL_02e0
+IL_02e2: call Enumerator<D.IBattleChara>::MoveNext
+IL_02e7: brtrue.s IL_02c2
+IL_02f9: call A.Core::Resolve<A.MemoryApi.MemApiCondition>
+IL_02fe: callvirt A.MemoryApi.MemApiCondition::InDutyRecorderPlayback
+IL_0303: brfalse.s IL_0374
+IL_0305: call A.Core::Resolve<A.MemoryApi.MemApiSpell>
+IL_030b: ldfld S.Triggers.WaitSkill::SpellId
+IL_0310: callvirt A.MemoryApi.MemApiSpell::GetName
+IL_0319: ldc.i4.s 22
+IL_0323: ldstr "[浠诲姟鍥為【] 鏃堕棿杞村垱寤烘妧鑳?"
+IL_0330: ldfld S.Triggers.WaitSkill::SpellId
+IL_033c: ldstr " "
+IL_0351: ldstr " 鐩爣-> "
+IL_035e: callvirt D.IGameObject::get_Name
+IL_036f: call H.LogHelper::Print
+
+### S.GCD.Scholar_AOE

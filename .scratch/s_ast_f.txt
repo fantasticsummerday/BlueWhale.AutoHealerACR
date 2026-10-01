@@ -1,0 +1,2531 @@
+### 鍚岀被 ACR.Ast.Aspected_Benefic
+  :: static Dalamud.Game.ClientState.Objects.Types.IBattleChara Target()
+     // locals: V0=tarrget, V1=bestHpPercent, V3=ally, V4=hpPercent
+     IL_0002: ldc.r4 3.4028235E+38
+     IL_0008: call FrameCache::get_CastableAlliesWithin30
+     IL_000d: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_0017: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_001e: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentHp
+     IL_0023: ldc.i4.0
+     IL_0024: ble.un.s IL_0056
+     IL_0027: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_002c: brfalse.s IL_0056
+     IL_002f: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0034: brfalse.s IL_0056
+     IL_0037: ldc.i4 835
+     IL_003c: ldc.i4.0
+     IL_003d: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_0042: brtrue.s IL_0056
+     IL_0045: call AEAssist.Extension.GameObjectExtension::CurrentHpPercent
+     IL_004f: bge.un.s IL_0056
+     IL_0058: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_005d: brtrue.s IL_0015
+     IL_0069: callvirt System.IDisposable::Dispose
+     IL_0070: brfalse.s IL_0074
+     IL_0073: ret
+     IL_0074: call AEAssist.Core::get_Me
+     IL_0079: ret
+  :: static uint spellid()
+     IL_0000: ldc.i4 3595
+     IL_0005: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.Ast.Celestial_Intersection
+  :: static Dalamud.Game.ClientState.Objects.Types.IBattleChara Target()
+     // locals: V0=tarrget, V1=bestHpPercent, V3=ally, V4=hpPercent
+     IL_0002: ldc.r4 3.4028235E+38
+     IL_0008: call FrameCache::get_CastableAlliesWithin30
+     IL_000d: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_0017: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_001e: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentHp
+     IL_0023: ldc.i4.0
+     IL_0024: ble.un.s IL_0048
+     IL_0027: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_002c: brfalse.s IL_0048
+     IL_002f: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0034: brfalse.s IL_0048
+     IL_0037: call AEAssist.Extension.GameObjectExtension::CurrentHpPercent
+     IL_0041: bge.un.s IL_0048
+     IL_004a: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_004f: brtrue.s IL_0015
+     IL_005b: callvirt System.IDisposable::Dispose
+     IL_0062: brfalse.s IL_0066
+     IL_0065: ret
+     IL_0066: call AEAssist.Core::get_Me
+     IL_006b: ret
+  :: static uint spellid()
+     IL_0000: ldc.i4 16556
+     IL_0005: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.Ast.Essential_Dignity
+  :: static Dalamud.Game.ClientState.Objects.Types.IBattleChara Target()
+     // locals: V0=tarrget, V1=bestHpPercent, V3=ally, V4=hpPercent
+     IL_0002: ldc.r4 3.4028235E+38
+     IL_0008: call FrameCache::get_CastableAlliesWithin30
+     IL_000d: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_0017: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_001e: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentHp
+     IL_0023: ldc.i4.0
+     IL_0024: ble.un.s IL_0048
+     IL_0027: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_002c: brfalse.s IL_0048
+     IL_002f: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0034: brfalse.s IL_0048
+     IL_0037: call AEAssist.Extension.GameObjectExtension::CurrentHpPercent
+     IL_0041: bge.un.s IL_0048
+     IL_004a: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_004f: brtrue.s IL_0015
+     IL_005b: callvirt System.IDisposable::Dispose
+     IL_0062: brfalse.s IL_0066
+     IL_0065: ret
+     IL_0066: call AEAssist.Core::get_Me
+     IL_006b: ret
+  :: static uint spellid()
+     IL_0000: ldc.i4 3614
+     IL_0005: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.Ast.Helios_Conjunction
+  :: static Dalamud.Game.ClientState.Objects.Types.IBattleChara Target()
+     IL_0000: call AEAssist.Core::get_Me
+     IL_0005: ret
+  :: static uint spellid()
+     IL_0000: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_0005: ldc.i4 37030
+     IL_000a: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_000f: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.ASTOverlay
+  :: uint GetCurrentTargetNameIdUint()
+     IL_0000: call AEAssist.Core::get_Me
+     IL_0005: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_000a: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_NameId
+     IL_000f: ret
+  :: string GetCurrentTargetNameIdString()
+     IL_0000: call AEAssist.Core::get_Me
+     IL_0005: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_000a: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_NameId
+     IL_0012: call System.UInt32::ToString
+     IL_0017: ret
+  :: void DrawGeneral(AEAssist.CombatRoutine.View.JobView.JobViewWindow jobViewWindow)
+     IL_0000: ldstr "职业优先级设置"
+     IL_0005: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_000a: ldc.i4.0
+     IL_000b: call Dalamud.Bindings.ImGui.ImGui::Begin
+     IL_0010: brfalse.s IL_001d
+     IL_0012: ldarg.0
+     IL_0013: ldfld 鍚岀被 ACR.AST.ASTOverlay::jobPriorityUI
+     IL_0018: callvirt 鍚岀被 ACR.AST.JobPriorityUI::Draw
+     IL_001d: call Dalamud.Bindings.ImGui.ImGui::End
+     IL_0022: ret
+  :: void DrawControl(AEAssist.CombatRoutine.View.JobView.JobViewWindow jobViewWindow)
+     IL_0000: ldstr "插入技能状态"
+     IL_0005: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_000a: ldc.i4.0
+     IL_000b: call Dalamud.Bindings.ImGui.ImGui::CollapsingHeader
+     IL_0010: brfalse IL_00a0
+     IL_0015: ldstr "清除队列"
+     IL_001a: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0028: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_002d: brfalse.s IL_0057
+     IL_002f: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0034: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0039: ldfld AEAssist.CombatRoutine.Module.BattleData::HighPrioritySlots_OffGCD
+     IL_003e: callvirt System.Collections.Generic.Queue`1<AEAssist.CombatRoutine.Module.Slot>::Clear
+     IL_0043: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0048: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_004d: ldfld AEAssist.CombatRoutine.Module.BattleData::HighPrioritySlots_GCD
+     IL_0052: callvirt System.Collections.Generic.Queue`1<AEAssist.CombatRoutine.Module.Slot>::Clear
+     IL_0057: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_005c: ldstr "清除一个"
+     IL_0061: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_006f: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_0074: brfalse.s IL_00a0
+     IL_0076: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_007b: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0080: ldfld AEAssist.CombatRoutine.Module.BattleData::HighPrioritySlots_OffGCD
+     IL_0085: callvirt System.Collections.Generic.Queue`1<AEAssist.CombatRoutine.Module.Slot>::Dequeue
+     IL_008b: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0090: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0095: ldfld AEAssist.CombatRoutine.Module.BattleData::HighPrioritySlots_GCD
+     IL_009a: callvirt System.Collections.Generic.Queue`1<AEAssist.CombatRoutine.Module.Slot>::Dequeue
+     IL_00a0: ldstr "启用时间轴爆发药"
+     IL_00a5: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00aa: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00af: ldflda 鍚岀被 ACR.AST.ASTSettings::UsePotion
+     IL_00b4: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_00b9: brfalse.s IL_00c5
+     IL_00bb: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00c0: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_00c5: ret
+  :: void DrawDev(AEAssist.CombatRoutine.View.JobView.JobViewWindow jobViewWindow)
+     IL_0000: ldstr "打印当前太阳神目标"
+     IL_0005: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0013: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_0018: brfalse.s IL_005d
+     IL_001a: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiChatMessage>
+     IL_0021: ldc.i4.5
+     IL_0022: ldc.i4.1
+     IL_0023: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::.ctor
+     IL_002a: ldstr "太阳神目标"
+     IL_002f: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendLiteral
+     IL_0036: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_003b: ldc.i4.1
+     IL_003c: ldc.i4 27023
+     IL_0041: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_0046: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendFormatted<Dalamud.Game.ClientState.Objects.Types.IBattleChara>
+     IL_004d: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::ToStringAndClear
+     IL_0052: ldc.i4.1
+     IL_0053: ldc.i4 3000
+     IL_0058: callvirt AEAssist.MemoryApi.MemApiChatMessage::Toast2
+     IL_005d: ldstr "打印当前放浪神目标"
+     IL_0062: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0070: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_0075: brfalse.s IL_00ba
+     IL_0077: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiChatMessage>
+     IL_007e: ldc.i4.5
+     IL_007f: ldc.i4.1
+     IL_0080: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::.ctor
+     IL_0087: ldstr "放浪神目标"
+     IL_008c: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendLiteral
+     IL_0093: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0098: ldc.i4.0
+     IL_0099: ldc.i4 27026
+     IL_009e: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_00a3: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendFormatted<Dalamud.Game.ClientState.Objects.Types.IBattleChara>
+     IL_00aa: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::ToStringAndClear
+     IL_00af: ldc.i4.1
+     IL_00b0: ldc.i4 3000
+     IL_00b5: callvirt AEAssist.MemoryApi.MemApiChatMessage::Toast2
+     IL_00bc: ldc.i4.2
+     IL_00bd: ldc.i4.1
+     IL_00be: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_00c5: ldstr "白卡"
+     IL_00ca: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_00d1: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_00d6: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_00db: ldc.i4.8
+     IL_00dc: ceq
+     IL_00de: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<bool>
+     IL_00e4: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_00eb: ldc.i4.2
+     IL_00ec: ldc.i4.1
+     IL_00ed: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_00f4: ldstr "红卡"
+     IL_00f9: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_0100: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0105: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_010a: ldc.i4.7
+     IL_010b: ceq
+     IL_010d: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<bool>
+     IL_0114: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_011b: ldc.i4.6
+     IL_011c: ldc.i4.1
+     IL_011d: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_0124: ldstr "占卜冷却时间"
+     IL_0129: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_0130: ldc.i4 16552
+     IL_0135: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_013a: callvirt AEAssist.CombatRoutine.Spell::get_Cooldown
+     IL_0143: call System.TimeSpan::get_TotalMilliseconds
+     IL_0148: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<double>
+     IL_014f: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_0156: ldc.i4.s 10
+     IL_0158: ldc.i4.1
+     IL_0159: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_0160: ldstr "光速buff剩余时间"
+     IL_0165: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_016c: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiBuff>
+     IL_0171: call AEAssist.Core::get_Me
+     IL_0176: ldc.i4 841
+     IL_017b: ldc.i4.1
+     IL_017c: callvirt AEAssist.MemoryApi.MemApiBuff::GetAuraTimeleft
+     IL_0181: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<int>
+     IL_0188: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_018d: ldstr "小队"
+     IL_0192: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0197: call Dalamud.Bindings.ImGui.ImGui::TreeNode
+     IL_019c: brfalse.s IL_01fd
+     IL_01a0: ldc.i4.5
+     IL_01a1: ldc.i4.1
+     IL_01a2: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_01a9: ldstr "小队人数："
+     IL_01ae: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_01b5: call FrameCache::get_CastableParty
+     IL_01ba: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Count
+     IL_01bf: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<int>
+     IL_01c6: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_01cd: ldc.i4.7
+     IL_01ce: ldc.i4.1
+     IL_01cf: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_01d6: ldstr "小队坦克数量："
+     IL_01db: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_01e2: call FrameCache::get_CastableTanks
+     IL_01e7: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Count
+     IL_01ec: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<int>
+     IL_01f3: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_01f8: call Dalamud.Bindings.ImGui.ImGui::TreePop
+     IL_01fd: ret
+  :: void DrawQt(AEAssist.CombatRoutine.View.JobView.JobViewWindow jobViewWindow)
+     IL_0000: ldstr "AST"
+     IL_0005: ldarg.1
+     IL_0006: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::DefaultQtDefinitions
+     IL_000b: newobj 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::.ctor
+     IL_0011: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0016: ldfld 鍚岀被 ACR.AST.ASTSettings::JobViewSave
+     IL_001b: callvirt 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::set_JobViewSave
+     IL_0021: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0026: callvirt 鍚岀被 ACR.AST.ASTSettings::get_UserCustomQtDefaultValues
+     IL_002b: callvirt 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::set_UserCustomQtDefaultValues
+     IL_0031: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0036: callvirt 鍚岀被 ACR.AST.ASTSettings::get_UserCustomQtUnVisibleList
+     IL_003b: callvirt 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::set_UserCustomQtUnVisibleList
+     IL_0041: ldsfld <>c::<>9__11_0
+     IL_0047: brtrue.s IL_0060
+     IL_004a: ldsfld <>c::<>9
+     IL_0055: newobj System.Func`1<bool>::.ctor
+     IL_0060: callvirt 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::set_GetAppliedQtVisibilityDefaults
+     IL_0066: ldsfld <>c::<>9__11_1
+     IL_006c: brtrue.s IL_0085
+     IL_006f: ldsfld <>c::<>9
+     IL_007a: newobj System.Action`1<bool>::.ctor
+     IL_0085: callvirt 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::set_SetAppliedQtVisibilityDefaults
+     IL_008b: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0096: newobj System.Action::.ctor
+     IL_009b: callvirt 鍚岀被 ACR.SharedJobView.JobViewQtPersistence::set_Save
+     IL_00a0: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::DefaultHiddenQts
+     IL_00a5: call 鍚岀被 ACR.SharedJobView.ScholarStyleJobViewHelper::DrawQtManager
+     IL_00aa: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: newobj 鍚岀被 ACR.AST.JobPriorityUI::.ctor
+     IL_000b: ldarg.0
+     IL_000c: call System.Object::.ctor
+     IL_0011: ret
+### 鍚岀被 ACR.AST.Qt
+  :: static bool GetQt(string qtName)
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: ldarg.0
+     IL_0006: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::GetQt
+     IL_000b: ret
+  :: static bool ReverseQt(string qtName)
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: ldarg.0
+     IL_0006: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::ReverseQt
+     IL_000b: ret
+  :: static bool SetQt(string qtName, bool qtValue)
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: ldarg.0
+     IL_0006: ldarg.1
+     IL_0007: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::SetQt
+     IL_000c: ret
+  :: static void Reset()
+     IL_0000: ret
+  :: static void NewDefault(string qtName, bool newDefault)
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: ldarg.0
+     IL_0006: ldarg.1
+     IL_0007: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::NewDefault
+     IL_000c: ret
+  :: static void SetDefaultFromNow()
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::SetDefaultFromNow
+     IL_000a: ret
+  :: static string[] GetQtArray()
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::GetQtArray
+     IL_000a: ret
+### 鍚岀被 ACR.AST.ASTRotationEventHandler
+  :: void OnResetBattle()
+     IL_0000: call 鍚岀被 ACR.AST.Qt::Reset
+     IL_0005: ldarg.0
+     IL_0006: ldc.i4.0
+     IL_000c: ret
+  :: System.Threading.Tasks.Task OnNoTarget()
+     IL_0002: call System.Runtime.CompilerServices.AsyncTaskMethodBuilder::Create
+     IL_000e: ldarg.0
+     IL_0016: ldc.i4.m1
+     IL_001e: ldflda <OnNoTarget>d__2::<>t__builder
+     IL_0025: call System.Runtime.CompilerServices.AsyncTaskMethodBuilder::Start<<OnNoTarget>d__2>
+     IL_002c: ldflda <OnNoTarget>d__2::<>t__builder
+     IL_0031: call System.Runtime.CompilerServices.AsyncTaskMethodBuilder::get_Task
+     IL_0036: ret
+  :: bool AutoLucidDream(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldc.i4 7562
+     IL_0005: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_000a: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_000f: brtrue.s IL_0013
+     IL_0011: ldc.i4.0
+     IL_0012: ret
+     IL_0013: call AEAssist.Core::get_Me
+     IL_0018: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentMp
+     IL_001d: ldc.i4 8000
+     IL_0022: bge.un.s IL_003c
+     IL_0024: ldarg.1
+     IL_0025: ldc.i4 7562
+     IL_002a: call AEAssist.Core::get_Me
+     IL_002f: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0034: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_003a: ldc.i4.1
+     IL_003b: ret
+     IL_003c: ldc.i4.0
+     IL_003d: ret
+  :: void OnSpellCastSuccess(AEAssist.CombatRoutine.Module.Slot slot, AEAssist.CombatRoutine.Spell spell)
+     IL_0000: ret
+  :: void AfterSpell(AEAssist.CombatRoutine.Module.Slot slot, AEAssist.CombatRoutine.Spell spell)
+     IL_0000: ldc.i4 7561
+     IL_0005: call AEAssist.Helper.GCDHelper::GetGCDDuration
+     IL_000a: ldc.i4.s 100
+     IL_000c: sub
+     IL_000d: call AEAssist.Helper.SpellExtension::RecentlyUsed
+     IL_0012: brtrue.s IL_0025
+     IL_0014: ldc.i4 3606
+     IL_0019: ldc.i4 15000
+     IL_001e: call AEAssist.Helper.SpellExtension::RecentlyUsed
+     IL_0023: brfalse.s IL_0036
+     IL_0025: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_002a: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_002f: ldc.i4.2
+     IL_0030: callvirt AEAssist.CombatRoutine.Module.BattleData::set_CurrGcdAbilityCount
+     IL_0035: ret
+     IL_0036: ldarg.2
+     IL_0037: ldfld AEAssist.CombatRoutine.Spell::Id
+     IL_003e: ldc.i4 16554
+     IL_0043: bgt.un.s IL_00b7
+     IL_0046: ldc.i4 3615
+     IL_004b: bgt.un.s IL_00a6
+     IL_004e: ldc.i4 3594
+     IL_0053: sub
+     IL_0054: switch [IL_00e2, IL_00f3, IL_00e2, IL_0114, IL_00e2, IL_00f3, IL_00e2, IL_00e2, IL_0114, IL_0104, IL_0114, IL_0114, IL_0114, IL_0114, IL_00f3, IL_0114, IL_00e2]
+     IL_009e: ldc.i4 3615
+     IL_00a3: beq.s IL_00e2
+     IL_00a5: ret
+     IL_00a7: ldc.i4 7442
+     IL_00ac: beq.s IL_00e2
+     IL_00af: ldc.i4 16554
+     IL_00b4: beq.s IL_00f3
+     IL_00b6: ret
+     IL_00b8: ldc.i4 25872
+     IL_00bd: bgt.un.s IL_00d2
+     IL_00c0: ldc.i4 16555
+     IL_00c5: beq.s IL_00e2
+     IL_00c8: ldc.i4 25871
+     IL_00cd: sub
+     IL_00ce: ldc.i4.1
+     IL_00cf: ble.un.s IL_00e2
+     IL_00d1: ret
+     IL_00d3: ldc.i4 25874
+     IL_00d8: beq.s IL_00f3
+     IL_00db: ldc.i4 37030
+     IL_00e0: bne.un.s IL_0114
+     IL_00e2: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_00e7: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_00ec: ldc.i4.1
+     IL_00ed: callvirt AEAssist.CombatRoutine.Module.BattleData::set_CurrGcdAbilityCount
+     IL_00f2: ret
+     IL_00f3: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_00f8: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_00fd: ldc.i4.2
+     IL_00fe: callvirt AEAssist.CombatRoutine.Module.BattleData::set_CurrGcdAbilityCount
+     IL_0103: ret
+     IL_0104: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0109: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_010e: ldc.i4.0
+     IL_010f: callvirt AEAssist.CombatRoutine.Module.BattleData::set_CurrGcdAbilityCount
+     IL_0114: ret
+  :: void OnBattleUpdate(int currTime)
+     IL_0000: ret
+  :: System.Threading.Tasks.Task OnPreCombat()
+     IL_0002: call System.Runtime.CompilerServices.AsyncTaskMethodBuilder::Create
+     IL_000e: ldc.i4.m1
+     IL_0016: ldflda <OnPreCombat>d__8::<>t__builder
+     IL_001d: call System.Runtime.CompilerServices.AsyncTaskMethodBuilder::Start<<OnPreCombat>d__8>
+     IL_0024: ldflda <OnPreCombat>d__8::<>t__builder
+     IL_0029: call System.Runtime.CompilerServices.AsyncTaskMethodBuilder::get_Task
+     IL_002e: ret
+  :: void OnExitRotation()
+     IL_0000: ret
+  :: void OnTerritoryChanged()
+     IL_0000: ret
+  :: void OnEnterRotation()
+     IL_0000: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.ASTSettings
+  :: static void Build(string settingPath)
+     IL_0000: ldarg.0
+     IL_0001: ldstr "ASTSettings.json"
+     IL_0006: call System.IO.Path::Combine
+     IL_0010: ldsfld 鍚岀被 ACR.AST.ASTSettings::path
+     IL_0015: call System.IO.File::Exists
+     IL_001a: brtrue.s IL_0031
+     IL_001c: newobj 鍚岀被 ACR.AST.ASTSettings::.ctor
+     IL_0021: call 鍚岀被 ACR.AST.ASTSettings::set_Instance
+     IL_0026: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_002b: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_0030: ret
+     IL_0032: ldsfld 鍚岀被 ACR.AST.ASTSettings::path
+     IL_0037: call System.IO.File::ReadAllText
+     IL_003c: call AEAssist.IO.JsonHelper::FromJson<鍚岀被 ACR.AST.ASTSettings>
+     IL_0041: call 鍚岀被 ACR.AST.ASTSettings::set_Instance
+     IL_0046: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_004b: callvirt 鍚岀被 ACR.AST.ASTSettings::get_SolarPriorityJobs
+     IL_0050: brfalse.s IL_0066
+     IL_0052: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0057: callvirt 鍚岀被 ACR.AST.ASTSettings::get_SolarPriorityJobs
+     IL_005c: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::get_Count
+     IL_0061: brtrue IL_0125
+     IL_0066: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_006b: newobj System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::.ctor
+     IL_0071: ldc.i4.s 22
+     IL_0073: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0079: ldc.i4.s 41
+     IL_007b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0081: ldc.i4.s 20
+     IL_0083: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0089: ldc.i4.s 30
+     IL_008b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0091: ldc.i4.s 34
+     IL_0093: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0099: ldc.i4.s 39
+     IL_009b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00a1: ldc.i4.s 36
+     IL_00a3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00a9: ldc.i4.s 42
+     IL_00ab: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00b1: ldc.i4.s 25
+     IL_00b3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00b9: ldc.i4.s 35
+     IL_00bb: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00c1: ldc.i4.s 31
+     IL_00c3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00c9: ldc.i4.s 27
+     IL_00cb: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00d1: ldc.i4.s 23
+     IL_00d3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00d9: ldc.i4.s 38
+     IL_00db: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00e1: ldc.i4.s 32
+     IL_00e3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00e9: ldc.i4.s 19
+     IL_00eb: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00f1: ldc.i4.s 37
+     IL_00f3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00f9: ldc.i4.s 21
+     IL_00fb: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0101: ldc.i4.s 24
+     IL_0103: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0109: ldc.i4.s 40
+     IL_010b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0111: ldc.i4.s 33
+     IL_0113: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0119: ldc.i4.s 28
+     IL_011b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0120: callvirt 鍚岀被 ACR.AST.ASTSettings::set_SolarPriorityJobs
+     IL_0125: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_012a: callvirt 鍚岀被 ACR.AST.ASTSettings::get_WandererPriorityJobs
+     IL_012f: brfalse.s IL_0145
+     IL_0131: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0136: callvirt 鍚岀被 ACR.AST.ASTSettings::get_WandererPriorityJobs
+     IL_013b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::get_Count
+     IL_0140: brtrue IL_0204
+     IL_0145: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_014a: newobj System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::.ctor
+     IL_0150: ldc.i4.s 36
+     IL_0152: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0158: ldc.i4.s 42
+     IL_015a: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0160: ldc.i4.s 25
+     IL_0162: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0168: ldc.i4.s 35
+     IL_016a: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0170: ldc.i4.s 31
+     IL_0172: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0178: ldc.i4.s 27
+     IL_017a: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0180: ldc.i4.s 23
+     IL_0182: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0188: ldc.i4.s 38
+     IL_018a: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0190: ldc.i4.s 22
+     IL_0192: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0198: ldc.i4.s 41
+     IL_019a: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01a0: ldc.i4.s 20
+     IL_01a2: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01a8: ldc.i4.s 30
+     IL_01aa: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01b0: ldc.i4.s 34
+     IL_01b2: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01b8: ldc.i4.s 39
+     IL_01ba: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01c0: ldc.i4.s 32
+     IL_01c2: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01c8: ldc.i4.s 19
+     IL_01ca: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01d0: ldc.i4.s 37
+     IL_01d2: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01d8: ldc.i4.s 21
+     IL_01da: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01e0: ldc.i4.s 24
+     IL_01e2: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01e8: ldc.i4.s 40
+     IL_01ea: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01f0: ldc.i4.s 33
+     IL_01f2: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01f8: ldc.i4.s 28
+     IL_01fa: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_01ff: callvirt 鍚岀被 ACR.AST.ASTSettings::set_WandererPriorityJobs
+     IL_0206: newobj 鍚岀被 ACR.AST.ASTSettings::.ctor
+     IL_020b: call 鍚岀被 ACR.AST.ASTSettings::set_Instance
+     IL_0210: callvirt System.Object::ToString
+     IL_0215: call AEAssist.Helper.LogHelper::Error
+     IL_021c: ret
+  :: Dalamud.Game.ClientState.Objects.Types.IBattleChara GetPartyMemberByJob(AEAssist.CombatRoutine.Jobs job)
+     // locals: V1=member
+     IL_0000: call FrameCache::get_Party
+     IL_0005: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_000f: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_0016: brfalse.s IL_003d
+     IL_0019: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_001e: brfalse.s IL_003d
+     IL_0021: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_0026: brfalse.s IL_003d
+     IL_0029: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsDead
+     IL_002e: brtrue.s IL_003d
+     IL_0031: call AEAssist.Extension.GameObjectExtension::CurrentJob
+     IL_0036: ldarg.1
+     IL_0037: bne.un.s IL_003d
+     IL_003f: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_0044: brtrue.s IL_000d
+     IL_0050: callvirt System.IDisposable::Dispose
+     IL_0057: ret
+     IL_0059: ret
+  :: Dalamud.Game.ClientState.Objects.Types.IBattleChara GetFirstValidTarget(bool isSolar, uint actionid)
+     // locals: V0=priorityList, V1=allMembersHaveAura, V4=job, V5=target
+     IL_0000: ldarg.1
+     IL_0001: brtrue.s IL_000f
+     IL_0003: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0008: callvirt 鍚岀被 ACR.AST.ASTSettings::get_WandererPriorityJobs
+     IL_000f: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0014: callvirt 鍚岀被 ACR.AST.ASTSettings::get_SolarPriorityJobs
+     IL_001a: ldc.i4.1
+     IL_001c: call FrameCache::get_Party
+     IL_0021: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_002b: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_0030: ldsfld 鍚岀被 ACR.AST.ASTSettings::IDs
+     IL_0035: ldc.i4.0
+     IL_0036: call AEAssist.Extension.GameObjectExtension::HasAnyAura
+     IL_003b: brtrue.s IL_0041
+     IL_003d: ldc.i4.0
+     IL_0043: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_0048: brtrue.s IL_0029
+     IL_0054: callvirt System.IDisposable::Dispose
+     IL_005b: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::GetEnumerator
+     IL_0065: call Enumerator<AEAssist.CombatRoutine.Jobs>::get_Current
+     IL_006c: ldarg.0
+     IL_006f: call 鍚岀被 ACR.AST.ASTSettings::GetPartyMemberByJob
+     IL_0078: brfalse.s IL_00b7
+     IL_007c: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0081: brfalse.s IL_00b7
+     IL_0085: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_008a: brfalse.s IL_00b7
+     IL_008e: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsDead
+     IL_0093: brtrue.s IL_00b7
+     IL_0095: ldarg.2
+     IL_0098: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_009d: brfalse.s IL_00b7
+     IL_00a0: brtrue.s IL_00b1
+     IL_00a4: ldsfld 鍚岀被 ACR.AST.ASTSettings::IDs
+     IL_00a9: ldc.i4.0
+     IL_00aa: call AEAssist.Extension.GameObjectExtension::HasAnyAura
+     IL_00af: brtrue.s IL_00b7
+     IL_00b9: call Enumerator<AEAssist.CombatRoutine.Jobs>::MoveNext
+     IL_00be: brtrue.s IL_0063
+     IL_00ca: callvirt System.IDisposable::Dispose
+     IL_00d1: ret
+     IL_00d4: ret
+  :: void save()
+     IL_0000: ldsfld 鍚岀被 ACR.AST.ASTSettings::path
+     IL_0005: call System.IO.Path::GetDirectoryName
+     IL_000a: call System.IO.Directory::CreateDirectory
+     IL_0010: ldsfld 鍚岀被 ACR.AST.ASTSettings::path
+     IL_0015: ldarg.0
+     IL_0016: call AEAssist.IO.JsonHelper::ToJson
+     IL_001b: call System.IO.File::WriteAllText
+     IL_0020: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: ldc.i4.2
+     IL_0007: ldarg.0
+     IL_0008: newobj System.Collections.Generic.Dictionary`2<string,bool>::.ctor
+     IL_0012: ldarg.0
+     IL_0013: newobj System.Collections.Generic.List`1<string>::.ctor
+     IL_001d: ldarg.0
+     IL_001e: newobj System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::.ctor
+     IL_0024: ldc.i4.s 22
+     IL_0026: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_002c: ldc.i4.s 41
+     IL_002e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0034: ldc.i4.s 20
+     IL_0036: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_003c: ldc.i4.s 30
+     IL_003e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0044: ldc.i4.s 34
+     IL_0046: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_004c: ldc.i4.s 39
+     IL_004e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0054: ldc.i4.s 36
+     IL_0056: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_005c: ldc.i4.s 42
+     IL_005e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0064: ldc.i4.s 25
+     IL_0066: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_006c: ldc.i4.s 35
+     IL_006e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0074: ldc.i4.s 31
+     IL_0076: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_007c: ldc.i4.s 27
+     IL_007e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0084: ldc.i4.s 23
+     IL_0086: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_008c: ldc.i4.s 38
+     IL_008e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0094: ldc.i4.s 32
+     IL_0096: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_009c: ldc.i4.s 19
+     IL_009e: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00a4: ldc.i4.s 37
+     IL_00a6: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00ac: ldc.i4.s 21
+     IL_00ae: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00b4: ldc.i4.s 24
+     IL_00b6: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00bc: ldc.i4.s 40
+     IL_00be: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00c4: ldc.i4.s 33
+     IL_00c6: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00cc: ldc.i4.s 28
+     IL_00ce: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00d8: ldarg.0
+     IL_00d9: newobj System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::.ctor
+     IL_00df: ldc.i4.s 36
+     IL_00e1: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00e7: ldc.i4.s 42
+     IL_00e9: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00ef: ldc.i4.s 25
+     IL_00f1: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00f7: ldc.i4.s 35
+     IL_00f9: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_00ff: ldc.i4.s 31
+     IL_0101: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0107: ldc.i4.s 27
+     IL_0109: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_010f: ldc.i4.s 23
+     IL_0111: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0117: ldc.i4.s 38
+     IL_0119: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_011f: ldc.i4.s 22
+     IL_0121: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0127: ldc.i4.s 41
+     IL_0129: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_012f: ldc.i4.s 20
+     IL_0131: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0137: ldc.i4.s 30
+     IL_0139: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_013f: ldc.i4.s 34
+     IL_0141: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0147: ldc.i4.s 39
+     IL_0149: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_014f: ldc.i4.s 32
+     IL_0151: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0157: ldc.i4.s 19
+     IL_0159: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_015f: ldc.i4.s 37
+     IL_0161: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0167: ldc.i4.s 21
+     IL_0169: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_016f: ldc.i4.s 24
+     IL_0171: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0177: ldc.i4.s 40
+     IL_0179: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_017f: ldc.i4.s 33
+     IL_0181: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0187: ldc.i4.s 28
+     IL_0189: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Add
+     IL_0193: ldarg.0
+     IL_0194: ldstr "PM1"
+     IL_019e: ldarg.0
+     IL_019f: ldc.i4.1
+     IL_01a5: ldarg.0
+     IL_01a6: newobj AEAssist.CombatRoutine.View.JobView.JobViewSave::.ctor
+     IL_01ac: ldc.r4 0.65882355
+     IL_01b1: ldc.r4 0.078431375
+     IL_01b6: ldc.r4 0.078431375
+     IL_01bb: ldc.r4 0.8
+     IL_01c0: newobj FFXIVClientStructs.FFXIV.Common.Math.Vector4::.ctor
+     IL_01c5: call FFXIVClientStructs.FFXIV.Common.Math.Vector4::op_Implicit
+     IL_01d4: ldarg.0
+     IL_01d5: newobj System.Collections.Generic.Dictionary`2<string,object>::.ctor
+     IL_01df: ldarg.0
+     IL_01e0: ldc.i4.s 100
+     IL_01e7: ldarg.0
+     IL_01e8: ldc.i4.1
+     IL_01ee: ldarg.0
+     IL_01ef: ldc.r4 0.5
+     IL_01f9: ldarg.0
+     IL_01fa: ldc.i4.2
+     IL_0200: ldarg.0
+     IL_0201: ldc.r4 0.5
+     IL_020b: ldarg.0
+     IL_020c: ldc.i4.1
+     IL_0212: ldarg.0
+     IL_0213: ldc.i4.2
+     IL_0219: ldarg.0
+     IL_021a: ldc.r4 0.2
+     IL_0224: ldarg.0
+     IL_0225: call System.Object::.ctor
+     IL_022a: ret
+  :: static void .cctor()
+     IL_0000: newobj 鍚岀被 ACR.AST.ASTSettings::.ctor
+     IL_000a: newobj System.Collections.Generic.List`1<uint>::.ctor
+     IL_0010: ldc.i4.s 62
+     IL_0012: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0018: ldc.i4 215
+     IL_001d: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0023: ldc.i4 628
+     IL_0028: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_002e: ldc.i4 692
+     IL_0033: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0039: ldc.i4 696
+     IL_003e: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0044: ldc.i4 1016
+     IL_0049: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_004f: ldc.i4 1090
+     IL_0054: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_005a: ldc.i4 2092
+     IL_005f: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0065: ldc.i4 2404
+     IL_006a: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0070: ldc.i4 2522
+     IL_0075: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_007b: ldc.i4 2911
+     IL_0080: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0086: ldc.i4 3166
+     IL_008b: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_0091: ldc.i4 3304
+     IL_0096: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_009c: ldc.i4 3964
+     IL_00a1: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_00a7: ldc.i4.s 43
+     IL_00a9: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_00af: ldc.i4.s 44
+     IL_00b1: callvirt System.Collections.Generic.List`1<uint>::Add
+     IL_00bb: ret
+### 鍚岀被 ACR.AST.ASTSettingView
+  :: void Draw()
+     IL_0000: ldstr "自动先天设置"
+     IL_0005: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_000a: ldc.i4.0
+     IL_000b: call Dalamud.Bindings.ImGui.ImGui::CollapsingHeader
+     IL_0010: brfalse IL_00b8
+     IL_0015: call Dalamud.Bindings.ImGui.ImGui::Indent
+     IL_001a: ldstr "自动先天阈值"
+     IL_001f: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0024: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0029: ldflda 鍚岀被 ACR.AST.ASTSettings::EssentialDignity
+     IL_002e: ldc.r4 0
+     IL_0033: ldc.r4 0.99
+     IL_0041: ldc.i4.0
+     IL_0042: call Dalamud.Bindings.ImGui.ImGui::SliderFloat
+     IL_0047: brfalse.s IL_0053
+     IL_0049: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_004e: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_0053: ldstr "先天是否只选中坦克目标"
+     IL_0058: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_005d: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0062: ldflda 鍚岀被 ACR.AST.ASTSettings::EssentialDignityTank
+     IL_0067: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_006c: brfalse.s IL_0083
+     IL_006e: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0073: ldc.i4.0
+     IL_0079: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_007e: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_0083: ldstr "先天是否只选中人群"
+     IL_0088: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_008d: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0092: ldflda 鍚岀被 ACR.AST.ASTSettings::EssentialDignityNotTank
+     IL_0097: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_009c: brfalse.s IL_00b3
+     IL_009e: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00a3: ldc.i4.0
+     IL_00a9: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00ae: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_00b3: call Dalamud.Bindings.ImGui.ImGui::Unindent
+     IL_00b8: ldstr "自动GCD群奶设置"
+     IL_00bd: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00c2: ldc.i4.0
+     IL_00c3: call Dalamud.Bindings.ImGui.ImGui::CollapsingHeader
+     IL_00c8: brfalse IL_0166
+     IL_00cd: call Dalamud.Bindings.ImGui.ImGui::Indent
+     IL_00d2: ldstr "自动GCD群奶阈值"
+     IL_00d7: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00dc: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00e1: ldflda 鍚岀被 ACR.AST.ASTSettings::GCD群奶治疗阈值
+     IL_00e6: ldc.r4 0
+     IL_00eb: ldc.r4 0.99
+     IL_00f9: ldc.i4.0
+     IL_00fa: call Dalamud.Bindings.ImGui.ImGui::SliderFloat
+     IL_00ff: brfalse.s IL_010b
+     IL_0101: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0106: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_010b: ldstr "自动GCD群奶人数"
+     IL_0110: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0115: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_011a: ldflda 鍚岀被 ACR.AST.ASTSettings::GCD群奶治疗人数
+     IL_011f: ldc.i4.1
+     IL_0120: ldc.i4.8
+     IL_012a: ldc.i4.0
+     IL_012b: call Dalamud.Bindings.ImGui.ImGui::SliderInt
+     IL_0130: brfalse.s IL_013c
+     IL_0132: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0137: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_013c: ldstr "自动GCD群奶排除T"
+     IL_0141: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0146: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_014b: ldflda 鍚岀被 ACR.AST.ASTSettings::GCD群奶排除T目标
+     IL_0150: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_0155: brfalse.s IL_0161
+     IL_0157: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_015c: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_0161: call Dalamud.Bindings.ImGui.ImGui::Unindent
+     IL_0166: ldstr "自动天宫图二段设置"
+     IL_016b: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0170: ldc.i4.0
+     IL_0171: call Dalamud.Bindings.ImGui.ImGui::CollapsingHeader
+     IL_0176: brfalse IL_0214
+     IL_017b: call Dalamud.Bindings.ImGui.ImGui::Indent
+     IL_0180: ldstr "天宫图提前引爆阈值"
+     IL_0185: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_018a: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_018f: ldflda 鍚岀被 ACR.AST.ASTSettings::天宫图治疗阈值
+     IL_0194: ldc.r4 0
+     IL_0199: ldc.r4 0.99
+     IL_01a7: ldc.i4.0
+     IL_01a8: call Dalamud.Bindings.ImGui.ImGui::SliderFloat
+     IL_01ad: brfalse.s IL_01b9
+     IL_01af: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_01b4: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_01b9: ldstr "天宫图群奶人数"
+     IL_01be: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_01c3: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_01c8: ldflda 鍚岀被 ACR.AST.ASTSettings::天宫图提前群奶治疗人数
+     IL_01cd: ldc.i4.1
+     IL_01ce: ldc.i4.8
+     IL_01d8: ldc.i4.0
+     IL_01d9: call Dalamud.Bindings.ImGui.ImGui::SliderInt
+     IL_01de: brfalse.s IL_01ea
+     IL_01e0: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_01e5: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_01ea: ldstr "天宫图群奶是否排除T目标"
+     IL_01ef: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_01f4: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_01f9: ldflda 鍚岀被 ACR.AST.ASTSettings::天宫图排除T目标
+     IL_01fe: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_0203: brfalse.s IL_020f
+     IL_0205: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_020a: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_020f: call Dalamud.Bindings.ImGui.ImGui::Unindent
+     IL_0214: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: ldstr ""
+     IL_000b: ldarg.0
+     IL_000c: newobj 鍚岀被 ACR.AST.JobPriorityUI::.ctor
+     IL_0016: ldarg.0
+     IL_0017: call System.Object::.ctor
+     IL_001c: ret
+### 鍚岀被 ACR.AST.ASTSkill
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.JobTranslations
+  :: static string GetJobName(AEAssist.CombatRoutine.Jobs job)
+     // locals: V0=name
+     IL_0000: ldsfld 鍚岀被 ACR.AST.JobTranslations::JobToName
+     IL_0005: ldarg.0
+     IL_0008: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::TryGetValue
+     IL_000d: brtrue.s IL_0015
+     IL_000f: ldsfld System.String::Empty
+     IL_0014: ret
+     IL_0016: ret
+  :: static System.Nullable`1<AEAssist.CombatRoutine.Jobs> GetJobEnum(string jobName)
+     // locals: V0=job
+     IL_0000: ldsfld 鍚岀被 ACR.AST.JobTranslations::NameToJob
+     IL_0005: ldarg.0
+     IL_0008: callvirt System.Collections.Generic.Dictionary`2<string,AEAssist.CombatRoutine.Jobs>::TryGetValue
+     IL_000d: brtrue.s IL_0019
+     IL_0018: ret
+     IL_001a: newobj System.Nullable`1<AEAssist.CombatRoutine.Jobs>::.ctor
+     IL_001f: ret
+  :: static void .cctor()
+     IL_0000: newobj System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::.ctor
+     IL_0006: ldc.i4.s 33
+     IL_0008: ldstr "占星"
+     IL_000d: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0013: ldc.i4.s 34
+     IL_0015: ldstr "武士"
+     IL_001a: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0020: ldc.i4.s 27
+     IL_0022: ldstr "召唤"
+     IL_0027: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_002d: ldc.i4.s 23
+     IL_002f: ldstr "诗人"
+     IL_0034: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_003a: ldc.i4.s 38
+     IL_003c: ldstr "舞者"
+     IL_0041: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0047: ldc.i4.s 22
+     IL_0049: ldstr "龙骑"
+     IL_004e: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0054: ldc.i4.s 37
+     IL_0056: ldstr "枪刃"
+     IL_005b: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0061: ldc.i4.s 31
+     IL_0063: ldstr "机工"
+     IL_0068: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_006e: ldc.i4.s 20
+     IL_0070: ldstr "武僧"
+     IL_0075: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_007b: ldc.i4.s 30
+     IL_007d: ldstr "忍者"
+     IL_0082: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0088: ldc.i4.s 19
+     IL_008a: ldstr "骑士"
+     IL_008f: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0095: ldc.i4.s 39
+     IL_0097: ldstr "镰刀"
+     IL_009c: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00a2: ldc.i4.s 40
+     IL_00a4: ldstr "贤者"
+     IL_00a9: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00af: ldc.i4.s 28
+     IL_00b1: ldstr "学者"
+     IL_00b6: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00bc: ldc.i4.s 21
+     IL_00be: ldstr "战士"
+     IL_00c3: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00c9: ldc.i4.s 25
+     IL_00cb: ldstr "黑魔"
+     IL_00d0: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00d6: ldc.i4.s 32
+     IL_00d8: ldstr "黑骑"
+     IL_00dd: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00e3: ldc.i4.s 35
+     IL_00e5: ldstr "赤魔"
+     IL_00ea: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00f0: ldc.i4.s 24
+     IL_00f2: ldstr "白魔"
+     IL_00f7: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_00fd: ldc.i4.s 36
+     IL_00ff: ldstr "青魔"
+     IL_0104: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_010a: ldc.i4.s 41
+     IL_010c: ldstr "蝰蛇"
+     IL_0111: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0117: ldc.i4.s 42
+     IL_0119: ldstr "画家"
+     IL_011e: callvirt System.Collections.Generic.Dictionary`2<AEAssist.CombatRoutine.Jobs,string>::Add
+     IL_0128: ldsfld 鍚岀被 ACR.AST.JobTranslations::JobToName
+     IL_012d: ldsfld <>c::<>9
+     IL_0138: newobj System.Func`2<System.Collections.Generic.KeyValuePair`2<AEAssist.CombatRoutine.Jobs,string>,string>::.ctor
+     IL_013d: ldsfld <>c::<>9
+     IL_0148: newobj System.Func`2<System.Collections.Generic.KeyValuePair`2<AEAssist.CombatRoutine.Jobs,string>,AEAssist.CombatRoutine.Jobs>::.ctor
+     IL_014d: call System.Linq.Enumerable::ToDictionary<System.Collections.Generic.KeyValuePair`2<AEAssist.CombatRoutine.Jobs,string>,string,AEAssist.CombatRoutine.Jobs>
+     IL_0157: ret
+### 鍚岀被 ACR.AST.JobPriorityUI
+  :: void Draw()
+     IL_0000: ldstr "left_panel"
+     IL_0005: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_000a: call Dalamud.Bindings.ImGui.ImGui::GetWindowWidth
+     IL_000f: ldc.r4 0.48
+     IL_0014: mul
+     IL_0015: ldc.r4 0
+     IL_001a: newobj System.Numerics.Vector2::.ctor
+     IL_001f: ldc.i4.1
+     IL_0020: ldc.i4.0
+     IL_0021: call Dalamud.Bindings.ImGui.ImGui::BeginChild
+     IL_0027: ldarg.0
+     IL_0028: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_002d: callvirt 鍚岀被 ACR.AST.ASTSettings::get_SolarPriorityJobs
+     IL_0032: ldstr "SOLAR_JOB_ITEM"
+     IL_0037: ldstr "太阳神优先级"
+     IL_003c: ldarg.0
+     IL_003d: ldflda 鍚岀被 ACR.AST.JobPriorityUI::draggedSolarItem
+     IL_0042: call 鍚岀被 ACR.AST.JobPriorityUI::DrawPriorityList
+     IL_0047: call Dalamud.Bindings.ImGui.ImGui::EndChild
+     IL_004c: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_0051: ldstr "right_panel"
+     IL_0056: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_005b: call Dalamud.Bindings.ImGui.ImGui::GetWindowWidth
+     IL_0060: ldc.r4 0.48
+     IL_0065: mul
+     IL_0066: ldc.r4 0
+     IL_006b: newobj System.Numerics.Vector2::.ctor
+     IL_0070: ldc.i4.1
+     IL_0071: ldc.i4.0
+     IL_0072: call Dalamud.Bindings.ImGui.ImGui::BeginChild
+     IL_0078: ldarg.0
+     IL_0079: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_007e: callvirt 鍚岀被 ACR.AST.ASTSettings::get_WandererPriorityJobs
+     IL_0083: ldstr "WANDERER_JOB_ITEM"
+     IL_0088: ldstr "放浪神优先级"
+     IL_008d: ldarg.0
+     IL_008e: ldflda 鍚岀被 ACR.AST.JobPriorityUI::draggedWandererItem
+     IL_0093: call 鍚岀被 ACR.AST.JobPriorityUI::DrawPriorityList
+     IL_0098: call Dalamud.Bindings.ImGui.ImGui::EndChild
+     IL_009d: ret
+  :: void DrawPriorityList(System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs> jobList, string dragDropId, string title, ref int draggedItem)
+     // locals: V0=i, V1=jobName, V3=payload, V4=draggedJob
+     IL_0000: ldarg.3
+     IL_0001: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0006: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_000b: call Dalamud.Bindings.ImGui.ImGui::Separator
+     IL_0010: ldc.i4.0
+     IL_0019: ldc.i4.1
+     IL_001a: ldc.i4.2
+     IL_001b: call Dalamud.Bindings.ImGui.ImU8String::.ctor
+     IL_0022: ldarg.2
+     IL_0023: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<string>
+     IL_002a: ldstr "_"
+     IL_002f: call Dalamud.Bindings.ImGui.ImU8String::AppendLiteral
+     IL_0037: call Dalamud.Bindings.ImGui.ImU8String::AppendFormatted<int>
+     IL_003d: call Dalamud.Bindings.ImGui.ImGui::PushID
+     IL_0042: ldarg.1
+     IL_0044: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::get_Item
+     IL_0049: call 鍚岀被 ACR.AST.JobTranslations::GetJobName
+     IL_0050: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0055: call Dalamud.Bindings.ImGui.ImGui::GetContentRegionAvail
+     IL_005a: ldfld System.Numerics.Vector2::X
+     IL_005f: ldc.r4 0
+     IL_0064: newobj System.Numerics.Vector2::.ctor
+     IL_0069: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_006f: call Dalamud.Bindings.ImGui.ImGui::BeginDragDropSource
+     IL_0074: brfalse.s IL_009c
+     IL_0076: ldarg.s a4
+     IL_007a: ldarg.2
+     IL_007b: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0080: call System.ReadOnlySpan`1<byte>::get_Empty
+     IL_0085: ldc.i4.0
+     IL_0086: call Dalamud.Bindings.ImGui.ImGui::SetDragDropPayload
+     IL_008d: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0092: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_0097: call Dalamud.Bindings.ImGui.ImGui::EndDragDropSource
+     IL_009c: call Dalamud.Bindings.ImGui.ImGui::BeginDragDropTarget
+     IL_00a1: brfalse.s IL_00ef
+     IL_00a3: ldarg.2
+     IL_00a4: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00a9: ldc.i4.0
+     IL_00aa: call Dalamud.Bindings.ImGui.ImGui::AcceptDragDropPayload
+     IL_00b2: call Dalamud.Bindings.ImGui.ImGuiPayloadPtr::get_IsNull
+     IL_00b7: brtrue.s IL_00ea
+     IL_00b9: ldarg.s a4
+     IL_00bc: ldc.i4.m1
+     IL_00bd: beq.s IL_00ea
+     IL_00bf: ldarg.1
+     IL_00c0: ldarg.s a4
+     IL_00c3: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::get_Item
+     IL_00ca: ldarg.1
+     IL_00cb: ldarg.s a4
+     IL_00ce: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::RemoveAt
+     IL_00d3: ldarg.1
+     IL_00d7: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::Insert
+     IL_00dc: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00e1: callvirt 鍚岀被 ACR.AST.ASTSettings::save
+     IL_00e6: ldarg.s a4
+     IL_00e8: ldc.i4.m1
+     IL_00ea: call Dalamud.Bindings.ImGui.ImGui::EndDragDropTarget
+     IL_00ef: call Dalamud.Bindings.ImGui.ImGui::PopID
+     IL_00f5: ldc.i4.1
+     IL_00f6: add
+     IL_00f9: ldarg.1
+     IL_00fa: callvirt System.Collections.Generic.List`1<AEAssist.CombatRoutine.Jobs>::get_Count
+     IL_00ff: blt IL_0017
+     IL_0104: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: ldc.i4.m1
+     IL_0007: ldarg.0
+     IL_0008: ldc.i4.m1
+     IL_000e: ldarg.0
+     IL_000f: call System.Object::.ctor
+     IL_0014: ret
+### 鍚岀被 ACR.AST.Trigggers.AST_UsePotionCheck
+  :: bool Draw()
+     IL_0000: ldc.i4.1
+     IL_0001: ret
+  :: bool Handle(AEAssist.CombatRoutine.Trigger.ITriggerCondParams condParams)
+     IL_0000: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0005: ldfld 鍚岀被 ACR.AST.ASTSettings::UsePotion
+     IL_000a: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Trigggers.Lady_of_Crowns
+  :: bool Draw()
+     IL_0000: ldstr "无王冠之贵妇卡时插入即刻(会检测即刻CD，没好时自动跳过)"
+     IL_0005: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_000a: ldarg.0
+     IL_000b: ldflda 鍚岀被 ACR.AST.Trigggers.Lady_of_Crowns::SwiftCast
+     IL_0010: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_0016: ldc.i4.1
+     IL_0017: ret
+  :: bool Handle()
+     IL_0000: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0005: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_000a: ldc.i4 600
+     IL_000f: newobj AEAssist.CombatRoutine.Module.Slot::.ctor
+     IL_0014: callvirt AEAssist.CombatRoutine.Module.BattleData::set_NextSlot
+     IL_0019: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_001e: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_0023: ldc.i4.8
+     IL_0024: bne.un.s IL_0046
+     IL_0026: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_002b: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0030: ldc.i4 7445
+     IL_0035: call AEAssist.Core::get_Me
+     IL_003a: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_003f: callvirt AEAssist.CombatRoutine.Module.BattleData::AddSpell2NextSlot
+     IL_0044: ldc.i4.1
+     IL_0045: ret
+     IL_0046: ldarg.0
+     IL_0047: ldfld 鍚岀被 ACR.AST.Trigggers.Lady_of_Crowns::SwiftCast
+     IL_004c: brfalse.s IL_007d
+     IL_004e: ldc.i4 7561
+     IL_0053: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0058: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_005d: brfalse.s IL_007d
+     IL_005f: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0064: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0069: ldc.i4 7561
+     IL_006e: call AEAssist.Core::get_Me
+     IL_0073: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0078: callvirt AEAssist.CombatRoutine.Module.BattleData::AddSpell2NextSlot
+     IL_007d: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0082: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0087: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_008c: ldc.i4 3600
+     IL_0091: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_0096: call AEAssist.Core::get_Me
+     IL_009b: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_00a0: callvirt AEAssist.CombatRoutine.Module.BattleData::AddSpell2NextSlot
+     IL_00a5: ldc.i4.1
+     IL_00a6: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Trigggers.Play_I
+  :: bool Draw()
+     IL_0000: ldc.i4.1
+     IL_0001: ret
+  :: bool Handle()
+     IL_0000: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0005: callvirt 鍚岀被 ACR.AST.ASTSettings::get_SolarPriorityJobs
+     IL_000b: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0010: callvirt 鍚岀被 ACR.AST.ASTSettings::get_WandererPriorityJobs
+     IL_0016: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_001b: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0020: callvirt AEAssist.CombatRoutine.Module.BattleData::get_NextSlot
+     IL_0025: brtrue.s IL_0040
+     IL_0027: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_002c: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0031: ldc.i4 600
+     IL_0036: newobj AEAssist.CombatRoutine.Module.Slot::.ctor
+     IL_003b: callvirt AEAssist.CombatRoutine.Module.BattleData::set_NextSlot
+     IL_0040: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0045: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_004a: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_004f: ldc.i4.1
+     IL_0051: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_0056: brfalse.s IL_00cc
+     IL_0058: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_005d: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0062: callvirt AEAssist.CombatRoutine.Module.BattleData::get_NextSlot
+     IL_0067: ldc.i4 37023
+     IL_006c: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0071: ldc.i4.1
+     IL_0072: ldc.i4 37023
+     IL_0077: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_007c: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0081: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0087: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiChatMessage>
+     IL_008e: ldc.i4.6
+     IL_008f: ldc.i4.1
+     IL_0090: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::.ctor
+     IL_0097: ldstr "发了太阳神给"
+     IL_009c: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendLiteral
+     IL_00a3: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00a8: ldc.i4.1
+     IL_00a9: ldc.i4 37023
+     IL_00ae: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_00b3: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendFormatted<Dalamud.Game.ClientState.Objects.Types.IBattleChara>
+     IL_00ba: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::ToStringAndClear
+     IL_00bf: ldc.i4.2
+     IL_00c0: ldc.i4 3000
+     IL_00c5: callvirt AEAssist.MemoryApi.MemApiChatMessage::Toast2
+     IL_00ca: ldc.i4.1
+     IL_00cb: ret
+     IL_00cc: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_00d1: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_00d6: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_00db: ldc.i4.4
+     IL_00dd: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_00e2: brfalse.s IL_0158
+     IL_00e4: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_00e9: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_00ee: callvirt AEAssist.CombatRoutine.Module.BattleData::get_NextSlot
+     IL_00f3: ldc.i4 37026
+     IL_00f8: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00fd: ldc.i4.0
+     IL_00fe: ldc.i4 37026
+     IL_0103: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_0108: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_010d: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0113: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiChatMessage>
+     IL_011a: ldc.i4.6
+     IL_011b: ldc.i4.1
+     IL_011c: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::.ctor
+     IL_0123: ldstr "发了放浪神给"
+     IL_0128: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendLiteral
+     IL_012f: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0134: ldc.i4.0
+     IL_0135: ldc.i4 37026
+     IL_013a: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_013f: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::AppendFormatted<Dalamud.Game.ClientState.Objects.Types.IBattleChara>
+     IL_0146: call System.Runtime.CompilerServices.DefaultInterpolatedStringHandler::ToStringAndClear
+     IL_014b: ldc.i4.2
+     IL_014c: ldc.i4 3000
+     IL_0151: callvirt AEAssist.MemoryApi.MemApiChatMessage::Toast2
+     IL_0156: ldc.i4.1
+     IL_0157: ret
+     IL_0158: ldc.i4.1
+     IL_0159: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Triggers.AST_QT
+  :: void Check()
+     IL_0000: ret
+  :: bool Draw()
+     // locals: V0=qtArray
+     IL_0000: call 鍚岀被 ACR.AST.Qt::GetQtArray
+     IL_0006: ldarg.0
+     IL_0008: ldarg.0
+     IL_0009: call 鍚岀被 ACR.AST.Triggers.AST_QT::get_ValueName
+     IL_000e: call System.Array::IndexOf<string>
+     IL_0018: ldarg.0
+     IL_0019: ldfld 鍚岀被 ACR.AST.Triggers.AST_QT::当前combo
+     IL_001e: ldc.i4.m1
+     IL_001f: bne.un.s IL_0028
+     IL_0021: ldarg.0
+     IL_0022: ldc.i4.0
+     IL_0028: ldarg.0
+     IL_0029: ldarg.0
+     IL_002a: call 鍚岀被 ACR.AST.Triggers.AST_QT::get_Value
+     IL_002f: ldc.i4.0
+     IL_0030: ceq
+     IL_0037: ldstr "###TriggerTab"
+     IL_003c: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0041: ldc.i4.0
+     IL_0042: call Dalamud.Bindings.ImGui.ImGui::BeginTabBar
+     IL_0047: brfalse IL_0138
+     IL_004c: ldstr "AST"
+     IL_0051: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0056: ldc.i4.0
+     IL_0057: call Dalamud.Bindings.ImGui.ImGui::BeginTabItem
+     IL_005c: brfalse IL_0133
+     IL_0061: ldstr "###TriggerSage"
+     IL_0066: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_006b: ldc.r4 0
+     IL_0070: ldc.r4 0
+     IL_0075: newobj System.Numerics.Vector2::.ctor
+     IL_007a: ldc.i4.0
+     IL_007b: ldc.i4.0
+     IL_007c: call Dalamud.Bindings.ImGui.ImGui::BeginChild
+     IL_0082: ldstr "Qt"
+     IL_0087: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_008c: ldarg.0
+     IL_008d: ldflda 鍚岀被 ACR.AST.Triggers.AST_QT::radioType
+     IL_0092: ldc.i4.0
+     IL_0093: call Dalamud.Bindings.ImGui.ImGui::RadioButton<int>
+     IL_0099: call Dalamud.Bindings.ImGui.ImGui::NewLine
+     IL_009e: ldc.r4 0
+     IL_00a3: ldc.r4 40
+     IL_00a8: newobj System.Numerics.Vector2::.ctor
+     IL_00ad: call Dalamud.Bindings.ImGui.ImGui::SetCursorPos
+     IL_00b2: ldarg.0
+     IL_00b3: ldfld 鍚岀被 ACR.AST.Triggers.AST_QT::radioType
+     IL_00b8: brtrue.s IL_0129
+     IL_00ba: ldstr "Qt开关"
+     IL_00bf: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00c4: ldarg.0
+     IL_00c5: ldflda 鍚岀被 ACR.AST.Triggers.AST_QT::当前combo
+     IL_00cb: call System.ReadOnlySpan`1<string>::op_Implicit
+     IL_00d1: ldlen
+     IL_00d3: call Dalamud.Bindings.ImGui.ImGui::Combo
+     IL_00d9: ldarg.0
+     IL_00db: ldarg.0
+     IL_00dc: ldfld 鍚岀被 ACR.AST.Triggers.AST_QT::当前combo
+     IL_00e1: ldelem.ref
+     IL_00e2: call 鍚岀被 ACR.AST.Triggers.AST_QT::set_ValueName
+     IL_00e7: ldstr "开"
+     IL_00ec: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00f1: ldarg.0
+     IL_00f2: ldflda 鍚岀被 ACR.AST.Triggers.AST_QT::radioCheck
+     IL_00f7: ldc.i4.0
+     IL_00f8: call Dalamud.Bindings.ImGui.ImGui::RadioButton<int>
+     IL_00fe: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_0103: ldstr "关"
+     IL_0108: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_010d: ldarg.0
+     IL_010e: ldflda 鍚岀被 ACR.AST.Triggers.AST_QT::radioCheck
+     IL_0113: ldc.i4.1
+     IL_0114: call Dalamud.Bindings.ImGui.ImGui::RadioButton<int>
+     IL_011a: ldarg.0
+     IL_011b: ldarg.0
+     IL_011c: ldfld 鍚岀被 ACR.AST.Triggers.AST_QT::radioCheck
+     IL_0121: ldc.i4.0
+     IL_0122: ceq
+     IL_0124: call 鍚岀被 ACR.AST.Triggers.AST_QT::set_Value
+     IL_0129: call Dalamud.Bindings.ImGui.ImGui::EndChild
+     IL_012e: call Dalamud.Bindings.ImGui.ImGui::EndTabItem
+     IL_0133: call Dalamud.Bindings.ImGui.ImGui::EndTabBar
+     IL_0138: ldc.i4.1
+     IL_0139: ret
+  :: bool Handle()
+     IL_0000: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0005: ldarg.0
+     IL_0006: call 鍚岀被 ACR.AST.Triggers.AST_QT::get_ValueName
+     IL_000b: ldarg.0
+     IL_000c: call 鍚岀被 ACR.AST.Triggers.AST_QT::get_Value
+     IL_0011: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::SetQt
+     IL_0017: ldc.i4.1
+     IL_0018: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: ldstr ""
+     IL_0006: call System.MemoryExtensions::AsSpan
+     IL_000b: newobj System.String::.ctor
+     IL_0015: ldarg.0
+     IL_0016: call System.Object::.ctor
+     IL_001b: ret
+### 鍚岀被 ACR.AST.Triggers.NewQt
+  :: bool Draw()
+     // locals: V0=count, V1=toRemove, V4=qt, V5=isEnabled, V7=value, V9=kvp, V10=qt, V11=val, V12=color, V13=status, V15=qt, V16=key, V17=key
+     IL_0000: call Dalamud.Bindings.ImGui.ImGui::NewLine
+     IL_0005: call Dalamud.Bindings.ImGui.ImGui::Separator
+     IL_000a: ldstr "点击按钮在三种状态间切换：未添加 / 已关闭 / 已启用"
+     IL_000f: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0014: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_0019: call Dalamud.Bindings.ImGui.ImGui::NewLine
+     IL_001e: ldc.i4.0
+     IL_0020: ldarg.0
+     IL_0021: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtArray
+     IL_0026: brfalse IL_013a
+     IL_002b: ldarg.0
+     IL_002c: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtArray
+     IL_0032: ldc.i4.0
+     IL_003b: ldelem.ref
+     IL_0040: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0045: call Dalamud.Bindings.ImGui.ImGui::PushID
+     IL_004a: ldarg.0
+     IL_004b: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_0054: callvirt System.Collections.Generic.Dictionary`2<string,bool>::TryGetValue
+     IL_0059: brfalse.s IL_009b
+     IL_005b: ldc.i4.0
+     IL_005e: brtrue.s IL_007b
+     IL_0060: ldc.r4 1
+     IL_0065: ldc.r4 0.4
+     IL_006a: ldc.r4 0.7
+     IL_006f: ldc.r4 1
+     IL_0074: newobj System.Numerics.Vector4::.ctor
+     IL_007b: ldc.r4 0
+     IL_0080: ldc.r4 1
+     IL_0085: ldc.r4 0
+     IL_008a: ldc.r4 1
+     IL_008f: newobj System.Numerics.Vector4::.ctor
+     IL_0094: call Dalamud.Bindings.ImGui.ImGui::PushStyleColor
+     IL_009b: ldc.i4.0
+     IL_009c: ldc.r4 1
+     IL_00a1: ldc.r4 1
+     IL_00a6: ldc.r4 1
+     IL_00ab: ldc.r4 1
+     IL_00b0: newobj System.Numerics.Vector4::.ctor
+     IL_00b5: call Dalamud.Bindings.ImGui.ImGui::PushStyleColor
+     IL_00bc: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_00cb: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_00d0: brfalse.s IL_0115
+     IL_00d2: ldarg.0
+     IL_00d3: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_00dc: callvirt System.Collections.Generic.Dictionary`2<string,bool>::TryGetValue
+     IL_00e1: brtrue.s IL_00f3
+     IL_00e3: ldarg.0
+     IL_00e4: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_00eb: ldc.i4.0
+     IL_00ec: callvirt System.Collections.Generic.Dictionary`2<string,bool>::set_Item
+     IL_00f5: brtrue.s IL_0107
+     IL_00f7: ldarg.0
+     IL_00f8: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_00ff: ldc.i4.1
+     IL_0100: callvirt System.Collections.Generic.Dictionary`2<string,bool>::set_Item
+     IL_0107: ldarg.0
+     IL_0108: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_010f: callvirt System.Collections.Generic.Dictionary`2<string,bool>::Remove
+     IL_0115: call Dalamud.Bindings.ImGui.ImGui::PopStyleColor
+     IL_011a: call Dalamud.Bindings.ImGui.ImGui::PopID
+     IL_0120: ldc.i4.1
+     IL_0121: add
+     IL_0124: ldc.i4.5
+     IL_0125: rem
+     IL_0126: brfalse.s IL_012d
+     IL_0128: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_012e: ldc.i4.1
+     IL_012f: add
+     IL_0133: ldlen
+     IL_0135: blt IL_0039
+     IL_013a: call Dalamud.Bindings.ImGui.ImGui::NewLine
+     IL_013f: call Dalamud.Bindings.ImGui.ImGui::Separator
+     IL_0144: ldarg.0
+     IL_0145: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_014a: callvirt System.Collections.Generic.Dictionary`2<string,bool>::get_Count
+     IL_014f: brtrue.s IL_0153
+     IL_0151: ldc.i4.1
+     IL_0152: ret
+     IL_0153: newobj System.Collections.Generic.List`1<string>::.ctor
+     IL_0159: ldarg.0
+     IL_015a: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_015f: callvirt System.Collections.Generic.Dictionary`2<string,bool>::GetEnumerator
+     IL_016d: call Enumerator<string,bool>::get_Current
+     IL_0176: call System.Collections.Generic.KeyValuePair`2<string,bool>::get_Key
+     IL_017f: call System.Collections.Generic.KeyValuePair`2<string,bool>::get_Value
+     IL_0188: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_018d: call Dalamud.Bindings.ImGui.ImGui::PushID
+     IL_0192: ldstr " "
+     IL_0197: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_019e: call Dalamud.Bindings.ImGui.ImGui::Checkbox
+     IL_01a3: brfalse.s IL_01b4
+     IL_01a5: ldarg.0
+     IL_01a6: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_01af: callvirt System.Collections.Generic.Dictionary`2<string,bool>::set_Item
+     IL_01b4: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_01bb: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_01c0: call Dalamud.Bindings.ImGui.ImGui::Text
+     IL_01c5: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_01cc: brtrue.s IL_01e9
+     IL_01ce: ldc.r4 1
+     IL_01d3: ldc.r4 0
+     IL_01d8: ldc.r4 0
+     IL_01dd: ldc.r4 1
+     IL_01e2: newobj System.Numerics.Vector4::.ctor
+     IL_01e9: ldc.r4 0
+     IL_01ee: ldc.r4 1
+     IL_01f3: ldc.r4 0
+     IL_01f8: ldc.r4 1
+     IL_01fd: newobj System.Numerics.Vector4::.ctor
+     IL_0206: brtrue.s IL_020f
+     IL_0208: ldstr "（已关闭）"
+     IL_020f: ldstr "（已启用）"
+     IL_021a: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_021f: call Dalamud.Bindings.ImGui.ImGui::TextColored
+     IL_0224: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_0229: ldstr "删除"
+     IL_022e: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_023d: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_0242: brfalse.s IL_024c
+     IL_0247: callvirt System.Collections.Generic.List`1<string>::Add
+     IL_024c: call Dalamud.Bindings.ImGui.ImGui::PopID
+     IL_0253: call Enumerator<string,bool>::MoveNext
+     IL_0258: brtrue IL_016b
+     IL_0267: callvirt System.IDisposable::Dispose
+     IL_026e: callvirt System.Collections.Generic.List`1<string>::GetEnumerator
+     IL_0279: call Enumerator<string>::get_Current
+     IL_0280: ldarg.0
+     IL_0281: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_0288: callvirt System.Collections.Generic.Dictionary`2<string,bool>::Remove
+     IL_0290: call Enumerator<string>::MoveNext
+     IL_0295: brtrue.s IL_0277
+     IL_02a1: callvirt System.IDisposable::Dispose
+     IL_02a7: call Dalamud.Bindings.ImGui.ImGui::Separator
+     IL_02ac: ldstr "全部启用"
+     IL_02b1: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_02c0: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_02c5: brfalse.s IL_0310
+     IL_02c7: ldarg.0
+     IL_02c8: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_02cd: callvirt System.Collections.Generic.Dictionary`2<string,bool>::get_Keys
+     IL_02d2: newobj System.Collections.Generic.List`1<string>::.ctor
+     IL_02d7: call System.Collections.Generic.List`1<string>::GetEnumerator
+     IL_02e2: call Enumerator<string>::get_Current
+     IL_02e9: ldarg.0
+     IL_02ea: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_02f1: ldc.i4.1
+     IL_02f2: callvirt System.Collections.Generic.Dictionary`2<string,bool>::set_Item
+     IL_02f9: call Enumerator<string>::MoveNext
+     IL_02fe: brtrue.s IL_02e0
+     IL_030a: callvirt System.IDisposable::Dispose
+     IL_0310: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_0315: ldstr "全部关闭"
+     IL_031a: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0329: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_032e: brfalse.s IL_0379
+     IL_0330: ldarg.0
+     IL_0331: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_0336: callvirt System.Collections.Generic.Dictionary`2<string,bool>::get_Keys
+     IL_033b: newobj System.Collections.Generic.List`1<string>::.ctor
+     IL_0340: call System.Collections.Generic.List`1<string>::GetEnumerator
+     IL_034b: call Enumerator<string>::get_Current
+     IL_0352: ldarg.0
+     IL_0353: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_035a: ldc.i4.0
+     IL_035b: callvirt System.Collections.Generic.Dictionary`2<string,bool>::set_Item
+     IL_0362: call Enumerator<string>::MoveNext
+     IL_0367: brtrue.s IL_0349
+     IL_0373: callvirt System.IDisposable::Dispose
+     IL_0379: call Dalamud.Bindings.ImGui.ImGui::SameLine
+     IL_037e: ldstr "清除所有"
+     IL_0383: call Dalamud.Bindings.ImGui.ImU8String::op_Implicit
+     IL_0392: call Dalamud.Bindings.ImGui.ImGui::Button
+     IL_0397: brfalse.s IL_03a4
+     IL_0399: ldarg.0
+     IL_039a: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_039f: callvirt System.Collections.Generic.Dictionary`2<string,bool>::Clear
+     IL_03a4: ldc.i4.1
+     IL_03a5: ret
+  :: bool Handle()
+     // locals: V1=kvp
+     IL_0000: ldarg.0
+     IL_0001: ldfld 鍚岀被 ACR.AST.Triggers.NewQt::qtValues
+     IL_0006: callvirt System.Collections.Generic.Dictionary`2<string,bool>::GetEnumerator
+     IL_0010: call Enumerator<string,bool>::get_Current
+     IL_0016: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_001b: brfalse.s IL_0036
+     IL_001d: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0024: call System.Collections.Generic.KeyValuePair`2<string,bool>::get_Key
+     IL_002b: call System.Collections.Generic.KeyValuePair`2<string,bool>::get_Value
+     IL_0030: callvirt AEAssist.CombatRoutine.View.JobView.JobViewWindow::SetQt
+     IL_0038: call Enumerator<string,bool>::MoveNext
+     IL_003d: brtrue.s IL_000e
+     IL_0049: callvirt System.IDisposable::Dispose
+     IL_004f: ldc.i4.1
+     IL_0050: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: ldstr "AST/New QT"
+     IL_000b: ldarg.0
+     IL_000c: ldsfld System.String::Empty
+     IL_0016: ldarg.0
+     IL_0017: newobj System.Collections.Generic.Dictionary`2<string,bool>::.ctor
+     IL_0021: ldarg.0
+     IL_0022: ldsfld 鍚岀被 ACR.鍚岀被 ACRASTRotationEntry::JobViewWindow
+     IL_0028: brtrue.s IL_002e
+     IL_002e: call AEAssist.CombatRoutine.View.JobView.JobViewWindow::GetQtArray
+     IL_0038: ldarg.0
+     IL_0039: call System.Object::.ctor
+     IL_003e: ret
+### 鍚岀被 ACR.AST.GCD.AutoGCDHeal
+  :: int Check()
+     // locals: V0=符合阈值人数, V2=ally
+     IL_0000: call AEAssist.Core::get_Me
+     IL_0005: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_Level
+     IL_000a: ldc.i4.s 10
+     IL_000c: bge.s IL_0011
+     IL_000e: ldc.i4.s -99
+     IL_0010: ret
+     IL_0011: ldstr "自动GCD群奶"
+     IL_0016: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_001b: brtrue.s IL_0020
+     IL_001d: ldc.i4.s -3
+     IL_001f: ret
+     IL_0020: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiMove>
+     IL_0025: callvirt AEAssist.MemoryApi.MemApiMove::IsMoving
+     IL_002a: brfalse.s IL_0053
+     IL_002c: call AEAssist.Core::get_Me
+     IL_0031: ldc.i4 167
+     IL_0036: ldc.i4.0
+     IL_0037: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_003c: brtrue.s IL_0053
+     IL_003e: call AEAssist.Core::get_Me
+     IL_0043: ldc.i4 841
+     IL_0048: ldc.i4.0
+     IL_0049: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_004e: brtrue.s IL_0053
+     IL_0050: ldc.i4.s -20
+     IL_0052: ret
+     IL_0053: ldc.i4.0
+     IL_0055: call FrameCache::get_CastableAlliesWithin15
+     IL_005a: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_0064: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_006b: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentHp
+     IL_0070: ldc.i4.0
+     IL_0071: ble.un.s IL_009d
+     IL_0074: call AEAssist.Extension.GameObjectExtension::CurrentHpPercent
+     IL_0079: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_007e: ldfld 鍚岀被 ACR.AST.ASTSettings::GCD群奶治疗阈值
+     IL_0083: bgt.un.s IL_009d
+     IL_0085: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_008a: ldfld 鍚岀被 ACR.AST.ASTSettings::GCD群奶排除T目标
+     IL_008f: brfalse.s IL_0099
+     IL_0092: call AEAssist.Extension.GameObjectExtension::IsTank
+     IL_0097: brtrue.s IL_009d
+     IL_009a: ldc.i4.1
+     IL_009b: add
+     IL_009f: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_00a4: brtrue.s IL_0062
+     IL_00b0: callvirt System.IDisposable::Dispose
+     IL_00b7: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_00bc: ldfld 鍚岀被 ACR.AST.ASTSettings::GCD群奶治疗人数
+     IL_00c1: bge.s IL_00c6
+     IL_00c3: ldc.i4.s -4
+     IL_00c5: ret
+     IL_00c6: ldc.i4.0
+     IL_00c7: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldc.i4 67551
+     IL_0005: call FFXIVClientStructs.FFXIV.Client.Game.QuestManager::IsQuestComplete
+     IL_000a: brfalse.s IL_0050
+     IL_000c: call AEAssist.Core::get_Me
+     IL_0011: ldc.i4 836
+     IL_0016: ldc.i4.0
+     IL_0017: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_001c: brtrue.s IL_0030
+     IL_001e: call AEAssist.Core::get_Me
+     IL_0023: ldc.i4 3894
+     IL_0028: ldc.i4.0
+     IL_0029: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_002e: brfalse.s IL_005d
+     IL_0030: ldarg.0
+     IL_0031: call 鍚岀被 ACR.AST.GCD.AutoGCDHeal::get_阳星相位
+     IL_0036: ldc.i4 3000
+     IL_003b: call AEAssist.Helper.SpellHistoryHelper::RecentlyUsed
+     IL_0040: brtrue.s IL_005d
+     IL_0042: ldarg.1
+     IL_0043: ldarg.0
+     IL_0044: call 鍚岀被 ACR.AST.GCD.AutoGCDHeal::get_阳星相位
+     IL_0049: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_004f: ret
+     IL_0050: ldarg.1
+     IL_0051: ldarg.0
+     IL_0052: call 鍚岀被 ACR.AST.GCD.AutoGCDHeal::get_阳星
+     IL_0057: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_005d: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.GCD.Combust
+  :: int Check()
+     // locals: V0=target
+     IL_0000: call AEAssist.Core::get_Me
+     IL_0005: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_000b: ldstr "停输出"
+     IL_0010: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0015: brfalse.s IL_0019
+     IL_0017: ldc.i4.m1
+     IL_0018: ret
+     IL_0019: ldstr "DOT"
+     IL_001e: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0023: brtrue.s IL_0028
+     IL_0025: ldc.i4.s -2
+     IL_0027: ret
+     IL_0029: ldc.i4 838
+     IL_002e: ldc.i4 4000
+     IL_0033: call AEAssist.Extension.GameObjectExtension::HasMyAuraWithTimeleft
+     IL_0038: brtrue.s IL_004c
+     IL_003b: ldc.i4 1881
+     IL_0040: ldc.i4 4000
+     IL_0045: call AEAssist.Extension.GameObjectExtension::HasMyAuraWithTimeleft
+     IL_004a: brfalse.s IL_004f
+     IL_004c: ldc.i4.s -3
+     IL_004e: ret
+     IL_004f: ldc.i4 3599
+     IL_0055: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_005a: brtrue.s IL_005f
+     IL_005c: ldc.i4.s -99
+     IL_005e: ret
+     IL_005f: ldc.i4.0
+     IL_0060: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_0006: ldc.i4 3599
+     IL_000b: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_0010: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0015: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_001b: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.GCD.Esuna
+  :: int Check()
+     // locals: V0=hasDispelTarget
+     IL_0000: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::FindDispelTargetForward
+     IL_0005: brtrue.s IL_000a
+     IL_0007: ldc.i4.s -2
+     IL_0009: ret
+     IL_000a: ldc.i4 7568
+     IL_000f: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::FindDispelTargetForward
+     IL_0014: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_0019: brtrue.s IL_001e
+     IL_001b: ldc.i4.s -3
+     IL_001d: ret
+     IL_001e: ldc.i4.0
+     IL_0020: call FrameCache::get_CastableAlliesWithin30
+     IL_0025: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_002f: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_0034: call AEAssist.Extension.GameObjectExtension::HasCanDispel
+     IL_0039: brfalse.s IL_003f
+     IL_003b: ldc.i4.1
+     IL_0041: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_0046: brtrue.s IL_002d
+     IL_0052: callvirt System.IDisposable::Dispose
+     IL_0059: brfalse.s IL_0069
+     IL_005b: ldstr "康复"
+     IL_0060: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0065: brfalse.s IL_0069
+     IL_0067: ldc.i4.1
+     IL_0068: ret
+     IL_0069: ldc.i4.m1
+     IL_006a: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldc.i4 7568
+     IL_0006: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::FindDispelTarget
+     IL_000b: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0010: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0016: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.GCD.ExtraCombust
+  :: int Check()
+     // locals: V0=minHp, V1=count, V2=candidate, V4=enemyKvp, V5=enemy
+     IL_0000: ldstr "停输出"
+     IL_0005: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000a: brfalse.s IL_000e
+     IL_000c: ldc.i4.m1
+     IL_000d: ret
+     IL_000e: ldstr "双目标DOT"
+     IL_0013: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0018: brtrue.s IL_001c
+     IL_001a: ldc.i4.m1
+     IL_001b: ret
+     IL_001c: ldstr "DOT"
+     IL_0021: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0026: brtrue.s IL_002b
+     IL_0028: ldc.i4.s -2
+     IL_002a: ret
+     IL_002b: call AEAssist.Core::get_Me
+     IL_0030: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_MaxHp
+     IL_0035: ldc.i4.s 15
+     IL_0037: mul
+     IL_0039: ldc.i4.0
+     IL_003d: ldsfld AEAssist.CombatRoutine.Module.Target.TargetMgr::Instance
+     IL_0042: ldfld AEAssist.CombatRoutine.Module.Target.TargetMgr::Enemys
+     IL_0047: callvirt System.Collections.Generic.Dictionary`2<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_0054: call Enumerator<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_005d: call System.Collections.Generic.KeyValuePair`2<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Value
+     IL_0066: brfalse IL_00f1
+     IL_006d: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0072: brfalse.s IL_00f1
+     IL_0076: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_007b: brfalse.s IL_00f1
+     IL_007f: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_MaxHp
+     IL_0085: blt.un.s IL_00f1
+     IL_0089: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsDead
+     IL_008e: brtrue.s IL_00f1
+     IL_0092: ldsfld HSS.utils.HSSBuff::敌人无敌BUFF
+     IL_0097: ldc.i4.0
+     IL_0098: call AEAssist.Extension.GameObjectExtension::HasAnyAura
+     IL_009d: brtrue.s IL_00f1
+     IL_00a1: ldc.i4 680
+     IL_00a6: ldc.i4.0
+     IL_00a7: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_00ac: brtrue.s IL_00f1
+     IL_00b0: ldc.i4 942
+     IL_00b5: ldc.i4.0
+     IL_00b6: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_00bb: brtrue.s IL_00f1
+     IL_00bf: ldc.i4 3621
+     IL_00c4: ldc.i4.0
+     IL_00c5: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_00ca: brtrue.s IL_00f1
+     IL_00cc: ldc.i4 3599
+     IL_00d3: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_00d8: brfalse.s IL_00f1
+     IL_00db: brtrue.s IL_00e0
+     IL_00e1: ldc.i4.1
+     IL_00e2: add
+     IL_00e5: ldc.i4.3
+     IL_00e6: blt.s IL_00f1
+     IL_00e8: ldc.i4.s -2
+     IL_00f3: call Enumerator<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_00f8: brtrue IL_0052
+     IL_0107: callvirt System.IDisposable::Dispose
+     IL_010e: brfalse.s IL_0118
+     IL_0111: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0116: brtrue.s IL_011b
+     IL_0118: ldc.i4.s -7
+     IL_011a: ret
+     IL_011c: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_0121: brtrue.s IL_0126
+     IL_0123: ldc.i4.s -10
+     IL_0125: ret
+     IL_0127: ldc.i4 838
+     IL_012c: ldc.i4 4000
+     IL_0131: call AEAssist.Extension.GameObjectExtension::HasMyAuraWithTimeleft
+     IL_0136: brtrue.s IL_014a
+     IL_0139: ldc.i4 1881
+     IL_013e: ldc.i4 4000
+     IL_0143: call AEAssist.Extension.GameObjectExtension::HasMyAuraWithTimeleft
+     IL_0148: brfalse.s IL_014d
+     IL_014a: ldc.i4.s -3
+     IL_014c: ret
+     IL_014e: ldc.i4 680
+     IL_0153: ldc.i4.0
+     IL_0154: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_0159: brfalse.s IL_015e
+     IL_015b: ldc.i4.s -12
+     IL_015d: ret
+     IL_015f: ldsfld HSS.utils.HSSBuff::敌人无敌BUFF
+     IL_0164: ldc.i4.0
+     IL_0165: call AEAssist.Extension.GameObjectExtension::HasAnyAura
+     IL_016a: brfalse.s IL_016f
+     IL_016c: ldc.i4.s -13
+     IL_016e: ret
+     IL_0170: ldc.i4 942
+     IL_0175: ldc.i4.0
+     IL_0176: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_017b: brfalse.s IL_0180
+     IL_017d: ldc.i4.s -14
+     IL_017f: ret
+     IL_0181: ldc.i4 3621
+     IL_0186: ldc.i4.0
+     IL_0187: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_018c: brfalse.s IL_0191
+     IL_018e: ldc.i4.s -15
+     IL_0190: ret
+     IL_0191: ldc.i4 3599
+     IL_0197: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_019c: brtrue.s IL_01a1
+     IL_019e: ldc.i4.s -99
+     IL_01a0: ret
+     IL_01a1: ldc.i4.0
+     IL_01a2: ret
+     IL_01a5: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     // locals: V0=minHp, V1=unit, V3=enemyKvp, V4=enemy
+     IL_0000: call AEAssist.Core::get_Me
+     IL_0005: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_MaxHp
+     IL_000a: ldc.i4.s 15
+     IL_000c: mul
+     IL_0010: ldsfld AEAssist.CombatRoutine.Module.Target.TargetMgr::Instance
+     IL_0015: ldfld AEAssist.CombatRoutine.Module.Target.TargetMgr::Enemys
+     IL_001a: callvirt System.Collections.Generic.Dictionary`2<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_0027: call Enumerator<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_002f: call System.Collections.Generic.KeyValuePair`2<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Value
+     IL_0038: brfalse IL_00dd
+     IL_003f: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::IsValid
+     IL_0044: brfalse IL_00dd
+     IL_004b: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsTargetable
+     IL_0050: brfalse IL_00dd
+     IL_0057: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_MaxHp
+     IL_005d: blt.un.s IL_00dd
+     IL_0061: callvirt Dalamud.Game.ClientState.Objects.Types.IGameObject::get_IsDead
+     IL_0066: brtrue.s IL_00dd
+     IL_006a: ldsfld HSS.utils.HSSBuff::敌人无敌BUFF
+     IL_006f: ldc.i4.0
+     IL_0070: call AEAssist.Extension.GameObjectExtension::HasAnyAura
+     IL_0075: brtrue.s IL_00dd
+     IL_0079: ldc.i4 680
+     IL_007e: ldc.i4.0
+     IL_007f: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_0084: brtrue.s IL_00dd
+     IL_0088: ldc.i4 942
+     IL_008d: ldc.i4.0
+     IL_008e: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_0093: brtrue.s IL_00dd
+     IL_0097: ldc.i4 3621
+     IL_009c: ldc.i4.0
+     IL_009d: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_00a2: brtrue.s IL_00dd
+     IL_00a6: ldc.i4 838
+     IL_00ab: ldc.i4 4000
+     IL_00b0: call AEAssist.Extension.GameObjectExtension::HasMyAuraWithTimeleft
+     IL_00b5: brtrue.s IL_00dd
+     IL_00b9: ldc.i4 1881
+     IL_00be: ldc.i4 4000
+     IL_00c3: call AEAssist.Extension.GameObjectExtension::HasMyAuraWithTimeleft
+     IL_00c8: brtrue.s IL_00dd
+     IL_00ca: ldc.i4 3599
+     IL_00d1: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_00d6: brfalse.s IL_00dd
+     IL_00df: call Enumerator<uint,Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_00e4: brtrue IL_0025
+     IL_00f3: callvirt System.IDisposable::Dispose
+     IL_00f9: ldarg.1
+     IL_00fa: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_00ff: ldc.i4 3599
+     IL_0104: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_010a: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_010f: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0115: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.GCD.Gravity
+  :: int Check()
+     IL_0000: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiMove>
+     IL_0005: callvirt AEAssist.MemoryApi.MemApiMove::IsMoving
+     IL_000a: brfalse.s IL_0033
+     IL_000c: call AEAssist.Core::get_Me
+     IL_0011: ldc.i4 167
+     IL_0016: ldc.i4.0
+     IL_0017: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_001c: brtrue.s IL_0033
+     IL_001e: call AEAssist.Core::get_Me
+     IL_0023: ldc.i4 841
+     IL_0028: ldc.i4.0
+     IL_0029: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_002e: brtrue.s IL_0033
+     IL_0030: ldc.i4.s -20
+     IL_0032: ret
+     IL_0033: ldstr "AOE"
+     IL_0038: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_003d: brtrue.s IL_0041
+     IL_003f: ldc.i4.m1
+     IL_0040: ret
+     IL_0041: call AEAssist.Core::get_Me
+     IL_0046: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_004b: brtrue.s IL_0050
+     IL_004d: ldc.i4.s -2
+     IL_004f: ret
+     IL_0050: ldstr "智能AOE"
+     IL_0055: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_005a: brtrue.s IL_0076
+     IL_005c: call AEAssist.Core::get_Me
+     IL_0061: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_0066: ldc.r4 8
+     IL_006b: ldc.i4.1
+     IL_006c: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::GetNearbyEnemiesCount
+     IL_0071: ldc.i4.2
+     IL_0072: blt.s IL_0076
+     IL_0074: ldc.i4.1
+     IL_0075: ret
+     IL_0076: ldstr "智能AOE"
+     IL_007b: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0080: brfalse.s IL_00b2
+     IL_0082: ldc.i4.2
+     IL_0083: call AEAssist.Core::get_Me
+     IL_0088: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_008d: ldc.r4 25
+     IL_0092: ldc.r4 8
+     IL_0097: ldc.i4 25872
+     IL_009c: ldc.i4.1
+     IL_009d: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::SmartTargetCircleAOE
+     IL_00a2: ldc.r4 8
+     IL_00a7: ldc.i4.1
+     IL_00a8: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::GetNearbyEnemiesCount
+     IL_00ad: ldc.i4.2
+     IL_00ae: blt.s IL_00b2
+     IL_00b0: ldc.i4.2
+     IL_00b1: ret
+     IL_00b2: ldc.i4.s -99
+     IL_00b4: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldstr "智能AOE"
+     IL_0006: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000b: brtrue.s IL_0023
+     IL_000d: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_0012: ldc.i4 25872
+     IL_0017: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_001c: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0023: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_0028: ldc.i4 25872
+     IL_002d: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_0032: ldc.i4.2
+     IL_0033: call AEAssist.Core::get_Me
+     IL_0038: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_003d: ldc.r4 25
+     IL_0042: ldc.r4 8
+     IL_0047: ldc.i4 25872
+     IL_004c: ldc.i4.1
+     IL_004d: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::SmartTargetCircleAOE
+     IL_0052: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0057: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_005d: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.GCD.Malefic
+  :: int Check()
+     IL_0000: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiMove>
+     IL_0005: callvirt AEAssist.MemoryApi.MemApiMove::IsMoving
+     IL_000a: brfalse.s IL_0033
+     IL_000c: call AEAssist.Core::get_Me
+     IL_0011: ldc.i4 167
+     IL_0016: ldc.i4.0
+     IL_0017: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_001c: brtrue.s IL_0033
+     IL_001e: call AEAssist.Core::get_Me
+     IL_0023: ldc.i4 841
+     IL_0028: ldc.i4.0
+     IL_0029: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_002e: brtrue.s IL_0033
+     IL_0030: ldc.i4.s -20
+     IL_0032: ret
+     IL_0033: ldstr "停输出"
+     IL_0038: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_003d: brfalse.s IL_0041
+     IL_003f: ldc.i4.m1
+     IL_0040: ret
+     IL_0041: ldc.i4 3599
+     IL_0046: call AEAssist.Core::get_Me
+     IL_004b: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_0050: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_0055: brtrue.s IL_005a
+     IL_0057: ldc.i4.s -99
+     IL_0059: ret
+     IL_005a: ldc.i4.0
+     IL_005b: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_0006: ldc.i4 3596
+     IL_000b: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_0010: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0015: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_001b: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.Burst
+  :: int Check()
+     IL_0000: ldstr "120爆发"
+     IL_0005: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000a: brtrue.s IL_000f
+     IL_000c: ldc.i4.s -99
+     IL_000e: ret
+     IL_000f: ldc.i4 16552
+     IL_0014: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0019: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_001e: brtrue IL_00a3
+     IL_0023: call AEAssist.Core::get_Me
+     IL_0028: ldc.i4 1878
+     IL_002d: ldc.i4.0
+     IL_002e: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_0033: brtrue.s IL_004b
+     IL_0035: ldc.i4 16552
+     IL_003a: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_003f: ldc.i4 1000
+     IL_0044: call AEAssist.Helper.SpellHistoryHelper::RecentlyUsed
+     IL_0049: brfalse.s IL_00a5
+     IL_004b: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0050: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_0055: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_005a: ldc.i4.1
+     IL_005c: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_0061: brtrue.s IL_00a3
+     IL_0063: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0068: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_006d: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_0072: ldc.i4.4
+     IL_0074: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_0079: brtrue.s IL_00a3
+     IL_007b: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0080: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_0085: ldc.i4.7
+     IL_0086: beq.s IL_00a3
+     IL_0088: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_008d: ldc.i4 37017
+     IL_0092: callvirt AEAssist.MemoryApi.MemApiSpell::CheckActionChange
+     IL_0097: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_009c: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_00a1: brfalse.s IL_00a5
+     IL_00a3: ldc.i4.1
+     IL_00a4: ret
+     IL_00a5: ldc.i4.m1
+     IL_00a6: ret
+  :: AEAssist.CombatRoutine.Spell spell()
+     IL_0000: ldc.i4 16552
+     IL_0005: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_000a: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_000f: brfalse.s IL_001c
+     IL_0011: ldc.i4 16552
+     IL_0016: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_001b: ret
+     IL_001c: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0021: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_0026: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_002b: ldc.i4.1
+     IL_002d: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_0032: brfalse.s IL_004f
+     IL_0034: ldc.i4 37023
+     IL_0039: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_003e: ldc.i4.1
+     IL_003f: ldc.i4 37023
+     IL_0044: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_0049: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_004e: ret
+     IL_004f: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0054: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_0059: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_005e: ldc.i4.4
+     IL_0060: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_0065: brfalse.s IL_0082
+     IL_0067: ldc.i4 37026
+     IL_006c: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0071: ldc.i4.0
+     IL_0072: ldc.i4 37026
+     IL_0077: callvirt 鍚岀被 ACR.AST.ASTSettings::GetFirstValidTarget
+     IL_007c: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0081: ret
+     IL_0082: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0087: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_008c: ldc.i4.7
+     IL_008d: bne.un.s IL_009f
+     IL_008f: ldc.i4 7444
+     IL_0094: call AEAssist.Core::get_Me
+     IL_0099: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_009e: ret
+     IL_009f: ldc.i4 37017
+     IL_00a4: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_00a9: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_00ae: brfalse.s IL_00c0
+     IL_00b0: ldc.i4 37017
+     IL_00b5: call AEAssist.Core::get_Me
+     IL_00ba: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_00bf: ret
+     IL_00c0: ldc.i4 37018
+     IL_00c5: call AEAssist.Core::get_Me
+     IL_00ca: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_00cf: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldarg.0
+     IL_0002: call 鍚岀被 ACR.AST.Ability.Burst::spell
+     IL_0007: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_000d: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.Divination
+  :: int Check()
+     IL_0000: ldstr "停输出"
+     IL_0005: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000a: brfalse.s IL_000e
+     IL_000c: ldc.i4.m1
+     IL_000d: ret
+     IL_000e: ldstr "占卜"
+     IL_0013: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0018: brtrue.s IL_001d
+     IL_001a: ldc.i4.s -10
+     IL_001c: ret
+     IL_001d: ldsfld AEAssist.CombatRoutine.Module.AI::Instance
+     IL_0022: callvirt AEAssist.CombatRoutine.Module.AI::get_BattleData
+     IL_0027: callvirt AEAssist.CombatRoutine.Module.BattleData::get_CurrBattleTimeInMs
+     IL_002c: ldc.i4 3300
+     IL_0032: bgt.s IL_0037
+     IL_0034: ldc.i4.s -2
+     IL_0036: ret
+     IL_0037: call AEAssist.Helper.GCDHelper::GetGCDDuration
+     IL_003c: call AEAssist.Helper.GCDHelper::GetElapsedGCD
+     IL_0041: sub
+     IL_0042: ldc.i4 600
+     IL_0047: bge.s IL_004c
+     IL_0049: ldc.i4.s -3
+     IL_004b: ret
+     IL_004c: ldarg.0
+     IL_004d: call 鍚岀被 ACR.AST.Ability.Divination::GetSpell
+     IL_0052: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_0057: brtrue.s IL_005b
+     IL_0059: ldc.i4.m1
+     IL_005a: ret
+     IL_005b: ldc.i4.0
+     IL_005c: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldarg.0
+     IL_0002: call 鍚岀被 ACR.AST.Ability.Divination::GetSpell
+     IL_0007: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_000d: ret
+  :: AEAssist.CombatRoutine.Spell GetSpell()
+     IL_0000: ldc.i4 16552
+     IL_0005: call AEAssist.Core::get_Me
+     IL_000a: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_000f: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.GetCard
+  :: int Check()
+     IL_0000: ldstr "自动抽卡"
+     IL_0005: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000a: brtrue.s IL_000f
+     IL_000c: ldc.i4.s -99
+     IL_000e: ret
+     IL_000f: call AEAssist.Core::get_Me
+     IL_0014: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_Level
+     IL_0019: ldc.i4.s 30
+     IL_001b: bge.s IL_001f
+     IL_001d: ldc.i4.m1
+     IL_001e: ret
+     IL_001f: ldarg.0
+     IL_0020: call 鍚岀被 ACR.AST.Ability.GetCard::get_spellid
+     IL_0025: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_002a: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_002f: brtrue.s IL_0034
+     IL_0031: ldc.i4.s -10
+     IL_0033: ret
+     IL_0034: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0039: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_003e: ldc.i4.7
+     IL_003f: bne.un.s IL_0044
+     IL_0041: ldc.i4.s -2
+     IL_0043: ret
+     IL_0044: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0049: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCrownCard
+     IL_004e: ldc.i4.8
+     IL_004f: bne.un.s IL_0054
+     IL_0051: ldc.i4.s -3
+     IL_0053: ret
+     IL_0054: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0059: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_005e: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_0063: ldc.i4.1
+     IL_0065: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_006a: brfalse.s IL_006f
+     IL_006c: ldc.i4.s -4
+     IL_006e: ret
+     IL_006f: call AEAssist.Core::Resolve<AEAssist.JobApi.JobApi_Astrologian>
+     IL_0074: callvirt AEAssist.JobApi.JobApi_Astrologian::get_DrawnCards
+     IL_0079: call System.ReadOnlySpan`1<Dalamud.Game.ClientState.JobGauge.Enums.CardType>::op_Implicit
+     IL_007e: ldc.i4.4
+     IL_0080: call System.MemoryExtensions::Contains<Dalamud.Game.ClientState.JobGauge.Enums.CardType>
+     IL_0085: brfalse.s IL_008a
+     IL_0087: ldc.i4.s -4
+     IL_0089: ret
+     IL_008a: ldc.i4.0
+     IL_008b: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldarg.0
+     IL_0002: call 鍚岀被 ACR.AST.Ability.GetCard::get_spellid
+     IL_0007: call AEAssist.Core::get_Me
+     IL_000c: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0011: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0017: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.Horoscope
+  :: int Check()
+     // locals: V0=符合阈值人数, V2=ally
+     IL_0000: ldstr "天宫图二段"
+     IL_0005: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000a: brtrue.s IL_000f
+     IL_000c: ldc.i4.s -10
+     IL_000e: ret
+     IL_000f: ldarg.0
+     IL_0010: call 鍚岀被 ACR.AST.Ability.Horoscope::get_天宫图buff
+     IL_0015: brtrue.s IL_0019
+     IL_0017: ldc.i4.m1
+     IL_0018: ret
+     IL_0019: ldc.i4.0
+     IL_001b: call FrameCache::get_CastableAlliesWithin15
+     IL_0020: callvirt System.Collections.Generic.List`1<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::GetEnumerator
+     IL_002a: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::get_Current
+     IL_0031: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentHp
+     IL_0036: ldc.i4.0
+     IL_0037: ble.un.s IL_0063
+     IL_003a: call AEAssist.Extension.GameObjectExtension::CurrentHpPercent
+     IL_003f: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0044: ldfld 鍚岀被 ACR.AST.ASTSettings::天宫图治疗阈值
+     IL_0049: bgt.un.s IL_0063
+     IL_004b: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0050: ldfld 鍚岀被 ACR.AST.ASTSettings::天宫图排除T目标
+     IL_0055: brfalse.s IL_005f
+     IL_0058: call AEAssist.Extension.GameObjectExtension::IsTank
+     IL_005d: brtrue.s IL_0063
+     IL_0060: ldc.i4.1
+     IL_0061: add
+     IL_0065: call Enumerator<Dalamud.Game.ClientState.Objects.Types.IBattleChara>::MoveNext
+     IL_006a: brtrue.s IL_0028
+     IL_0076: callvirt System.IDisposable::Dispose
+     IL_007d: call 鍚岀被 ACR.AST.ASTSettings::get_Instance
+     IL_0082: ldfld 鍚岀被 ACR.AST.ASTSettings::天宫图提前群奶治疗人数
+     IL_0087: bge.s IL_008c
+     IL_0089: ldc.i4.s -4
+     IL_008b: ret
+     IL_008c: ldc.i4.0
+     IL_008d: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldarg.0
+     IL_0002: call 鍚岀被 ACR.AST.Ability.Horoscope::get_天宫图
+     IL_0007: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_000d: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.LightSpeed
+  :: int Check()
+     // locals: V0=divCD, V1=lightspeedTime
+     IL_0000: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiSpell>
+     IL_0005: ldc.i4 16552
+     IL_000a: callvirt AEAssist.MemoryApi.MemApiSpell::GetCooldown
+     IL_0012: call System.TimeSpan::get_TotalMilliseconds
+     IL_0018: call AEAssist.Core::Resolve<AEAssist.MemoryApi.MemApiBuff>
+     IL_001d: call AEAssist.Core::get_Me
+     IL_0022: ldc.i4 841
+     IL_0027: ldc.i4.1
+     IL_0028: callvirt AEAssist.MemoryApi.MemApiBuff::GetAuraTimeleft
+     IL_002f: ldstr "120爆发"
+     IL_0034: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_0039: brtrue.s IL_003e
+     IL_003b: ldc.i4.s -10
+     IL_003d: ret
+     IL_003e: ldc.i4 3606
+     IL_0043: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0048: callvirt AEAssist.CombatRoutine.Spell::get_Charges
+     IL_004d: ldc.r4 1
+     IL_0052: bge.un.s IL_0057
+     IL_0054: ldc.i4.s -99
+     IL_0056: ret
+     IL_0058: ldc.r8 3000
+     IL_0061: bge.un.s IL_0073
+     IL_0065: ldc.r8 5000
+     IL_006e: add
+     IL_006f: bge.un.s IL_0073
+     IL_0071: ldc.i4.0
+     IL_0072: ret
+     IL_0073: ldc.i4.m1
+     IL_0074: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldc.i4 3606
+     IL_0006: call AEAssist.Core::get_Me
+     IL_000b: newobj AEAssist.CombatRoutine.Spell::.ctor
+     IL_0010: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0016: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.Oracle
+  :: int Check()
+     IL_0000: ldstr "停输出"
+     IL_0005: call 鍚岀被 ACR.AST.Qt::GetQt
+     IL_000a: brfalse.s IL_000e
+     IL_000c: ldc.i4.m1
+     IL_000d: ret
+     IL_000e: ldc.i4 16552
+     IL_0013: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_0018: ldc.i4 1000
+     IL_001d: call AEAssist.Helper.SpellHistoryHelper::RecentlyUsed
+     IL_0022: brfalse.s IL_0027
+     IL_0024: ldc.i4.s -20
+     IL_0026: ret
+     IL_0027: ldc.i4 37029
+     IL_002c: call AEAssist.Core::get_Me
+     IL_0031: call AEAssist.Extension.GameObjectExtension::GetCurrTarget
+     IL_0036: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::IsTargetVisibleOrInRange
+     IL_003b: brtrue.s IL_0040
+     IL_003d: ldc.i4.s -99
+     IL_003f: ret
+     IL_0040: call AEAssist.Core::get_Me
+     IL_0045: ldc.i4 3893
+     IL_004a: ldc.i4.0
+     IL_004b: call AEAssist.Extension.GameObjectExtension::HasAura
+     IL_0050: brfalse.s IL_0054
+     IL_0052: ldc.i4.0
+     IL_0053: ret
+     IL_0054: ldc.i4.m1
+     IL_0055: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldc.i4 37029
+     IL_0006: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_000b: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0011: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### 鍚岀被 ACR.AST.Ability.Ast_LucidDreaming
+  :: int Check()
+     IL_0000: ldc.i4 7562
+     IL_0005: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_000a: call AEAssist.Helper.SpellExtension::IsReadyWithCanCast
+     IL_000f: brtrue.s IL_0013
+     IL_0011: ldc.i4.m1
+     IL_0012: ret
+     IL_0013: call AEAssist.Helper.GCDHelper::GetGCDCooldown
+     IL_0018: ldc.i4 600
+     IL_001d: bge.s IL_0022
+     IL_001f: ldc.i4.s -7
+     IL_0021: ret
+     IL_0022: call AEAssist.Core::get_Me
+     IL_0027: callvirt Dalamud.Game.ClientState.Objects.Types.ICharacter::get_CurrentMp
+     IL_002c: ldc.i4 8000
+     IL_0031: ble.un.s IL_0036
+     IL_0033: ldc.i4.s -2
+     IL_0035: ret
+     IL_0036: ldc.i4.0
+     IL_0037: ret
+  :: void Build(AEAssist.CombatRoutine.Module.Slot slot)
+     IL_0000: ldarg.1
+     IL_0001: ldc.i4 7562
+     IL_0006: call AEAssist.Helper.SpellHelper::GetSpell
+     IL_000b: callvirt AEAssist.CombatRoutine.Module.Slot::Add
+     IL_0011: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: ldc.i4.2
+     IL_0007: ldarg.0
+     IL_0008: call System.Object::.ctor
+     IL_000d: ret
+### 鍚岀被 ACR.AST.Ability.AST_Resurrect
+  :: static Dalamud.Game.ClientState.Objects.Types.IBattleChara Target()
+     IL_0000: call 鍚岀被 ACR3._0.鍚岀被 ACRTargetHelper::FindResurrectTargetForward
+     IL_0005: ret
+  :: void .ctor()
+     IL_0000: ldarg.0
+     IL_0001: call System.Object::.ctor
+     IL_0006: ret
+### Avarice.Data.ActionWatching
