@@ -242,7 +242,8 @@ public static class HealTargetHelper
     {
         try
         {
-            var 坦克们 = PartyHelper.CastableTanks?.Where(r => r != null && r.活着()).ToList();
+            // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679）
+            var 坦克们 = PartyHelper.CastableTanks?.Where(r => r != null && r.对象有效() && r.活着()).ToList();
             if (坦克们 == null || 坦克们.Count == 0) return null;
             if (坦克们.Count == 1) return 坦克们[0];      // 四人本：不用挑
     
@@ -854,7 +855,8 @@ public static class HealTargetHelper
             try
             {
                 foreach (var m in PartyHelper.CastableParty)
-                    if (m != null) 我方.Add(m.GameObjectId);
+                    // ★ 判 对象有效()：`GameObjectId` 也是读游戏对象的内存
+                    if (m != null && m.对象有效()) 我方.Add(m.GameObjectId);
             }
             catch { }
 

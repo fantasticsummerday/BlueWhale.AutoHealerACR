@@ -73,7 +73,8 @@ public class 死亡人数条件 : ITriggerCond
             var 躺着的 = 0;
             foreach (var r in PartyHelper.DeadAllies)
             {
-                if (r != null) 躺着的++;
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679）
+                if (r != null && r.对象有效()) 躺着的++;
             }
             return 躺着的 >= _人数;
         }

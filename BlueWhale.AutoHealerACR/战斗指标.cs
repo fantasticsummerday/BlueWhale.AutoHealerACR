@@ -267,7 +267,9 @@ public static class 战斗指标
             }
 
             计入(Core.Me);
-            foreach (var r in PartyHelper.CastableParty) 计入(r);
+            // ★ 判 对象有效()：`计入()` 会读游戏对象（血量），释放对象会崩
+            foreach (var r in PartyHelper.CastableParty)
+                if (r != null && r.对象有效()) 计入(r);
 
             return 总 > 0 ? (float)(缺 / 总) : -1f;
         }
