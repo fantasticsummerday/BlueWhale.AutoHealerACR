@@ -231,38 +231,92 @@ public class AiSettings
 
     private static AiSettings? _实例;
 
+    /// <summary>
+    /// **"正在读设置"的标记** —— 防自我递归（见 `Instance` 的说明）。
+    ///
+    /// [!] 为什么必须有它（**崩溃转储实证**）：
+    ///     `AppData\Local\CrashDumps\ffxiv_dx11.exe.*.dmp` 的托管栈：
+    ///         BlueWhale.dll!BlueWhale.AutoHealerACR.AiSettings.get_Instance() + 46
+    ///         （下面三个地址在**无限循环**，每轮 0x190 字节，一路压到栈耗尽）
+    ///     Windows 事件日志：**异常代码 `0xc00000fd`** = **STACK_OVERFLOW**
+    ///     （**不是**以前那种读已释放对象的访问违例 `0xc0000005`）。
+    ///     现象正是用户报的「开战闪退」，而更早几次是 AppHang（卡死）——
+    ///     与"递归越来越深、先卡后崩"完全吻合。
+    /// </summary>
+    private static bool _正在读;
+
     public static AiSettings Instance
     {
         get
         {
             if (_实例 != null) return _实例;
 
+            // ══════════════════════════════════════════════════════════════
+            //  ★★★ **重入保护** ★★★
+            //
+            //  [!] 为什么（转储实证：栈溢出，栈顶就是本方法）：
+            //      本方法内部要读设置文件、反序列化、打日志。
+            //      只要这些步骤里**任何一步**间接触发"再读一次 Instance"，
+            //      就会**无限递归** ⇒ 栈耗尽 ⇒ `0xc00000fd` ⇒ 进程直接没。
+            //      （**这类崩溃 `try/catch` 也兜不住** —— 栈溢出不可捕获。）
+            //
+            //  [!] 所以：**"正在读"期间再进来，直接返回默认值**，不递归。
+            //      降级成"这一次读到的是默认设置" —— 比整个游戏崩掉好得多。
+            //
+            //  [!] ⚠️ **不要**在 `读一次()` 里加任何会读 `Instance` 的东西
+            //      —— 那正是递归的来源。这条约束比"能少写几行"重要。
+            // ══════════════════════════════════════════════════════════════
+            if (_正在读) return new AiSettings();
+
             try
             {
-                var 路径 = 设置路径();
-                if (File.Exists(路径))
-                {
-                    var json = File.ReadAllText(路径);
-                    _实例 = JsonSerializer.Deserialize<AiSettings>(json, JsonOpts) ?? new AiSettings();
+                _正在读 = true;
+                return 读一次();
+            }
+            finally
+            {
+                // ★ **必须复位** —— 否则一次异常之后就永远读不到真实设置了
+                _正在读 = false;
+            }
+        }
+    }
 
-                    if (_实例.ApiKey?.Length > 0)
-                    {
-                        LogHelper.Info($"[BlueWhale.AI] 已读取设置，Key 长度 {_实例.ApiKey.Length}");
-                    }
-                }
-                else
+    /// <summary>
+    /// **真正读一次设置**（`Instance` 的实现体）。
+    ///
+    /// [!] 为什么单独抽成一个方法：`try/finally` **不能直接写在属性 getter 里**
+    ///     （`get { }` 里只能有 `try/catch`）。
+    ///     而复位 `_正在读` **必须**走 `finally`（异常路径也要复位）。
+    ///
+    /// [!] ⚠️ 本方法内**不许**读 `Instance`（会递归，见上面）。
+    /// </summary>
+    private static AiSettings 读一次()
+    {
+        try
+        {
+            var 路径 = 设置路径();
+            if (File.Exists(路径))
+            {
+                var json = File.ReadAllText(路径);
+                _实例 = JsonSerializer.Deserialize<AiSettings>(json, JsonOpts) ?? new AiSettings();
+
+                if (_实例.ApiKey?.Length > 0)
                 {
-                    _实例 = new AiSettings();
+                    LogHelper.Info($"[BlueWhale.AI] 已读取设置，Key 长度 {_实例.ApiKey.Length}");
                 }
             }
-            catch
+            else
             {
-                // 读不出来就用默认值，绝不因为设置文件坏了让 ACR 起不来
                 _实例 = new AiSettings();
             }
-
-            return _实例;
         }
+        catch
+        {
+            // 读不出来就用默认值，绝不因为设置文件坏了让 ACR 起不来
+            _实例 = new AiSettings();
+        }
+
+        return _实例!;
     }
 
     /// <summary>战斗中攒下的保存请求，脱战后补写</summary>
