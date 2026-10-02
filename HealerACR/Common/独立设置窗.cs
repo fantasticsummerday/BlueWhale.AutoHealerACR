@@ -140,6 +140,12 @@ public static class 独立设置窗
         return 0;
     }
 
+    /// <summary>
+    /// **当前绘制世代**（只读）—— 给调试窗那边的诊断用：
+    /// 它能把"这一份副本是第几代"写进窗口和诊断文件里，方便判断"是谁在画"。
+    /// </summary>
+    public static int 当前世代 => 读世代();
+
     private static void 写世代(int v)
     {
         try { AppDomain.CurrentDomain.SetData(世代键, v); } catch { }
