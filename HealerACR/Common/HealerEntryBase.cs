@@ -2108,7 +2108,7 @@ public abstract class HealerEntryBase : IRotationEntry
     /// </summary>
     private static Action? _画AI设置;
     private static Action? _画记忆库;
-    private static Action<bool>? _画调试窗;
+    private static Action<bool, bool>? _画调试窗;
 
     /// <summary>
     /// **画 AI 设置页**（反射调 `BlueWhale.AutoHealerACR.AiSettingPage.画`）。
@@ -2275,7 +2275,8 @@ public abstract class HealerEntryBase : IRotationEntry
 
         // [!] 这是**死代码**（全工程 0 处调用 `画AI层调试窗一次()`）——
         //     保留只是为了说明历史；开关一律由调用方读好传进来。
-        画AI层调试窗(调试窗全局开关.启用);
+        //     `ACR在用` 传 false：这条路本来就不该再用（真要走也得先判心跳）。
+        画AI层调试窗(调试窗全局开关.启用, false);
     }
 
     /// <summary>调试窗连续失败几次就自动关掉（防止每帧抛异常）</summary>
@@ -2515,47 +2516,39 @@ public abstract class HealerEntryBase : IRotationEntry
         // ══════════════════════════════════════════════════════════════════
         var 开关 = 调试窗全局开关.启用;   // ← 与设置窗 Checkbox 是【同一份】
 
-        // ★★★ **门 0：先告诉调试窗"ACR 正在被使用"** ★★★
+        // ══════════════════════════════════════════════════════════════════
+        //  ★★★ **"ACR 正在被使用"由【本侧】判定，结论作为参数传过去** ★★★
         //
         //  [!] 用户明确要求（2026-10-04）：
         //      「我要的是**只有 BlueWhale 被加载使用的时候**才出现这个调试窗口」
         //
-        //  本方法**只有真的加载了这个 ACR** 才会被调到
-        //  （`独立设置窗.每帧画()` → `入口还活着()` → 这里），
-        //  所以它就是"ACR 在用"的**天然判据**。
+        //  [!] ⚠️ 我第一版**做错了**，而且错得毫无声息（日志里一条线索都没有）：
+        //      我在 `调试窗`（BlueWhale 侧）放了个静态标志 `_ACR已加载`，
+        //      由本方法反射调 `标记已加载()` 去置 true。
+        //      但 `HealerACR.Common.*` 的静态字段**有两份**（两个程序集各一份）
+        //      ⇒ "置"的和"读"的如果不是同一份，就互不相干
+        //      ⇒ 窗口永远不画。
         //
-        //  [!] 调试窗侧 `画(启用)` 的第一道门就是 `_ACR已加载`：
-        //      没标记过 ⇒ 一个像素都不画 ⇒ AE 一启动不会再自己弹出来。
-        //  [!] 卸载时 `独立设置窗.卸载()` 会反射调 `ACR已卸载()` 复位。
-        try { 标记调试窗已加载(); } catch { }
-
-        画AI层调试窗(开关);
-    }
-
-    /// <summary>
-    /// 反射调 `BlueWhale.AutoHealerACR.调试窗.标记已加载()`（见 `画调试窗()` 的说明）。
-    /// </summary>
-    private static void 标记调试窗已加载()
-    {
+        //  [!] ✅ 所以：**不要跨程序集传"状态"，只传"结论"。**
+        //      · 本方法就是"ACR 在用"的**天然判据** ——
+        //        它只有真的加载了这个 ACR 才会被调到
+        //        （`独立设置窗.每帧画()` → `入口还活着()` → 这里）
+        //      · 用 `调试窗心跳` 打一个时间戳（**同侧读写**，不跨程序集）
+        //      · 把结论作为**参数**传给窗口侧 —— 参数不存在"两份"的问题
+        //
+        //  [!] 为什么用心跳而不是布尔：布尔一旦 true 就永远是 true（没人复位），
+        //      ACR 卸载后窗口还会画；心跳**自己过期**（2.5 秒），
+        //      卸载 / 切到别的 ACR 都会自动失效，**不需要卸载钩子**。
+        // ══════════════════════════════════════════════════════════════════
+        var ACR在用 = false;
         try
         {
-            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type? 类型 = null;
-                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
-                catch { }
-                if (类型 == null) continue;
-
-                var 方法 = 类型.GetMethod("标记已加载",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
-                    null, Type.EmptyTypes, null);
-                if (方法 == null) continue;
-
-                方法.Invoke(null, null);
-                return;
-            }
+            调试窗心跳.打戳();
+            ACR在用 = 调试窗心跳.在用;
         }
         catch { }
+
+        画AI层调试窗(开关, ACR在用);
     }
 
     /// <param name="启用">
@@ -2566,7 +2559,17 @@ public abstract class HealerEntryBase : IRotationEntry
     ///     如果这里自己读，读到的可能是**另一份**的值
     ///     ⇒ 现象就是"勾选框关不掉、窗口提前出现、内容判断用旧值"。
     /// </param>
-    private static void 画AI层调试窗(bool 启用)
+    /// <param name="ACR在用">
+    /// **这个 ACR 现在有没有在被使用** —— 同样由入口侧判好传进来。
+    ///
+    /// [!] ⚠️ 这一条也是"血的教训"（用户实测 2026-10-04）：
+    ///     我第一版在窗口侧放了个静态标志 `_ACR已加载`，入口侧反射去置它 ——
+    ///     **两条路各改各的那一份静态**（`HealerACR.Common.*` 有两份）
+    ///     ⇒ 窗口永远不画，而且**日志里一条线索都没有**。
+    ///     ==> **跨程序集只能传"结论"，不能传"状态"。**
+    ///     判据在入口侧：`调试窗心跳.在用`（同侧读写，不跨程序集）。
+    /// </param>
+    private static void 画AI层调试窗(bool 启用, bool ACR在用)
     {
         using var _深度 = HealerACR.Common.调用深度.进("画AI层调试窗");
         // ══════════════════════════════════════════════════════════════
@@ -2638,18 +2641,23 @@ public abstract class HealerEntryBase : IRotationEntry
                     catch { }
                     if (类型 == null) continue;
 
-                    // [!] **必须显式指定参数签名** —— `调试窗` 有 `画(bool)` 与 `画()` 两个重载，
+                    // [!] **必须显式指定参数签名** —— `调试窗` 有多个 `画` 重载，
                     //     `GetMethod("画", flags)` 在有重载时可能抛 AmbiguousMatchException
-                    //     或返回不确定的那个 ⇒ 用 `GetMethod(name, Type[])` 明确要 `画(bool)`。
+                    //     或返回不确定的那个 ⇒ 用 `GetMethod(name, Type[])` 明确要 `画(bool, bool)`。
+                    //
+                    //  [!] ⚠️ 0.6.5.1 → 0.6.5.2 时签名从 `画(bool)` 改成了 `画(bool, bool)`：
+                    //      第二个参数是"ACR 在用吗"，由**入口侧判好传进来**。
+                    //      为什么不再让窗口侧自己判 —— 见 `画AI层调试窗` 的 `<param name="ACR在用">`：
+                    //      跨程序集的静态状态**有两份**，两边各改各的 ⇒ 永远对不上。
                     var 方法 = 类型.GetMethod(
                         "画",
                         System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
                         null,
-                        new[] { typeof(bool) },
+                        new[] { typeof(bool), typeof(bool) },
                         null);
 
                     if (方法 == null) continue;
-                    _画调试窗 = (Action<bool>?)Delegate.CreateDelegate(typeof(Action<bool>), 方法, false);
+                    _画调试窗 = (Action<bool, bool>?)Delegate.CreateDelegate(typeof(Action<bool, bool>), 方法, false);
                     写诊断($"反射成功：方法={方法.DeclaringType?.FullName}.{方法.Name} 参数数={方法.GetParameters().Length} 返回={方法.ReturnType.Name}");
                     break;
                 }
@@ -2660,10 +2668,11 @@ public abstract class HealerEntryBase : IRotationEntry
             写诊断($"即将调用第{调用次数}次（委托={_画调试窗.Method.DeclaringType?.FullName}.{_画调试窗.Method.Name}）");
             try
             {
-                // [!] **把本程序集读到的开关值传进去** —— 两个 DLL 的 HealSettings.Instance 是两份，
-                //     不传的话画() 读的是它自己那份，可能永远是 false（这就是那个 bug）。
-                // ★ 用**调用方读好的**开关（不再自己读 —— 那是另一份静态字段）
-                _画调试窗(启用);
+                // [!] **两个结论都由调用方传进去**：
+                //     · `启用`   —— 来自 `调试窗全局开关`（与设置窗 Checkbox 同一份）
+                //     · `ACR在用` —— 来自 `调试窗心跳`（同侧读写）
+                //     窗口侧**不做任何跨程序集判断** —— 那是 0.6.5.1 失败的根因。
+                _画调试窗(启用, ACR在用);
                 写诊断($"调用返回正常（第{调用次数}次）");
             }
             catch (Exception 内层)

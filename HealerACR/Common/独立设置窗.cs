@@ -531,9 +531,11 @@ public static class 独立设置窗
         _已卸载 = true;          // ★ 第一件事：先把"还会画"这条路的闸门关掉
 
         // ★ **收起调试窗**（用户要求：只有 BlueWhale 在用的时候才该出现）
-        //   反射调 `BlueWhale.AutoHealerACR.调试窗.ACR已卸载()` ——
-        //   `_窗口开` / `_ACR已加载` 是 BlueWhale 那份 static，这里改不了。
-        try { 通知调试窗已卸载(); } catch { }
+        //   反射调 `BlueWhale.AutoHealerACR.调试窗.收起()` ——
+        //   `_窗口开` 是 BlueWhale 那份 static，这里改不了。
+        //   ⚠️ 心跳（`调试窗心跳`）会在 2.5 秒内**自动过期**，所以这一句
+        //      只是"立刻消失"的加速；即使它失败，窗口也会自己没。
+        try { 收起调试窗(); } catch { }
 
         try
         {
@@ -556,9 +558,9 @@ public static class 独立设置窗
     }
 
     /// <summary>
-    /// 反射调 `BlueWhale.AutoHealerACR.调试窗.ACR已卸载()`（见 `卸载()` 的说明）。
+    /// 反射调 `BlueWhale.AutoHealerACR.调试窗.收起()`（见 `卸载()` 的说明）。
     /// </summary>
-    private static void 通知调试窗已卸载()
+    private static void 收起调试窗()
     {
         try
         {
@@ -569,7 +571,7 @@ public static class 独立设置窗
                 catch { }
                 if (类型 == null) continue;
 
-                var 方法 = 类型.GetMethod("ACR已卸载",
+                var 方法 = 类型.GetMethod("收起",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
                     null, Type.EmptyTypes, null);
                 if (方法 == null) continue;
