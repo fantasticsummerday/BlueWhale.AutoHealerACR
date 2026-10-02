@@ -27,7 +27,8 @@ public static class 本地路标
     /// <summary>打开后**每条都打**（排查用，日志会迅速变大）。</summary>
     public static bool 详细模式 = false;
 
-    private static int _上次号 = -1;
+    private static int _上次号 = -1;
+    private static long _全局上次;   // 全局日志节流（2026-10-03）
     private static long _上次毫秒;
     private static long _累计;
 
@@ -51,6 +52,14 @@ public static class 本地路标
             // ══════════════════════════════════════════════════════════════
             if (!详细模式)
             {
+                // ★ **全局门**（2026-10-03 用户实测：「日志落痕占大量存储」）：
+                //   "每个号 1 秒 1 条"挡不住"一次绘制走十几个号"的情形 ——
+                //   实测仍有 **32,484 行 / 9 分钟（占日志 40%）** ✗
+                //   ⇒ 再加一道：不管号怎么变，整体最多每 150ms 一条。
+                //     "最后停在哪一号"这个关键信息照样看得到 ✓
+                if (现在 - _全局上次 < 150) return;
+                _全局上次 = 现在;
+
                 if (_各号上次.TryGetValue(号, out var 上次) && 现在 - 上次 < 1000) return;
                 _各号上次[号] = 现在;
             }
