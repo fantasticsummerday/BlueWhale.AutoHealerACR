@@ -207,11 +207,14 @@ public class AiSuggestionResolver : ISlotResolver
                 //        · 仍然 return -1（已经放过了，不必再采纳）—— 但语义完全不同
                 //  [!] 只有真的不是"刚放过"时，才走原来的拦截 ✗
                 // ══════════════════════════════════════════════════════════
-                try { HealerACR.Common.最近释放.确保订阅(); } catch { }
+                try { HealerACR.Common.最近释放.确保订阅(); } catch { }
+
                 if (HealerACR.Common.最近释放.刚刚放过(id))
                 {
-                    AiDecisionLayer.记与本地一致(id);
-                    Ai调试.日志($"建议 {id} 与本地一致（本地刚放过这个技能，此刻在 CD 里）—— 计入命中");
+                    // [!] 只有「真的记了一次」才打日志 —— 同一条建议每帧都会被复核，
+                    //     不去重就会刷屏（用户实测）。去重逻辑在 `记与本地一致` 里。
+                    if (AiDecisionLayer.记与本地一致(id))
+                        Ai调试.日志($"建议 {id} 与本地一致（本地刚放过这个技能，此刻在 CD 里）—— 计入命中");
                     return -1;
                 }
 
