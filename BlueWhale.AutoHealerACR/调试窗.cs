@@ -1467,7 +1467,7 @@ public static class 调试窗
                 {
                     ImGui.Text("各技能生效血线（已含 AI 偏移）：");
                     ImGui.TextDisabled("  " + 摘要);
-                    ImGui.TextDisabled("  ⚠️ 设置页那几个滑条是**大类兜底**，只对没单独登记的技能生效。");
+                    ImGui.TextDisabled("  设置页那几个滑条是**大类兜底**，只对没单独登记的技能生效。");
                 }
             }
             catch { }

@@ -1553,7 +1553,7 @@ public abstract class HealerEntryBase : IRotationEntry
             //     这是全项目唯一一个"打开会害死人"的开关，配得上红色。
             // ══════════════════════════════════════════════════════════
             ImGui.TextColored(new System.Numerics.Vector4(1f, 0.35f, 0.35f, 1f),
-                "═══ 完全采信 AI（高风险）═══");
+                "完全采信 AI（高风险）");
             ImGui.TextDisabled("  面板上勾选「完全采信AI」后，AI 的建议**不再过本地策略判断**：");
             ImGui.TextDisabled("    · DoT 剩余时间还够也会补");
             ImGui.TextDisabled("    · 有人在等治疗也会去打输出  ← 这条是保命的");
@@ -1562,8 +1562,8 @@ public abstract class HealerEntryBase : IRotationEntry
             //     （原因：候选**自带目标**，判不出目标说明这条不是候选层来的，
             //       猜一个目标比不放更糟 —— 它会占掉 GCD 还治错人。）
             ImGui.TextDisabled("    · 判不出该给谁的技能**一律不放**（不再猜一个目标）");
-            ImGui.TextDisabled("  ⚠️ AI 会超时、会幻觉、会建议错时机 —— 打开后**没有兜底**。");
-            ImGui.TextDisabled("  ⚠️ 只在你想拿 AI 做实验、并且清楚后果时打开。");
+            ImGui.TextDisabled("  AI 会超时、会幻觉、会建议错时机 —— 打开后**没有兜底**。");
+            ImGui.TextDisabled("  只在你想拿 AI 做实验、并且清楚后果时打开。");
             ImGui.TextDisabled("  （技能没解锁 / CD 中 / 打不到 / 判不出目标，这几条仍然会拦 ——"
                              + " 那是『放不放得出去』，不是策略）");
             ImGui.Separator();

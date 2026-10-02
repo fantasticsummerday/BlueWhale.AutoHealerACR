@@ -609,7 +609,7 @@ public class BlueWhaleWhiteMageEntry : WHMRotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 白魔";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管白魔的输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 让AI接管奶妈的输出和治疗策略";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -726,7 +726,7 @@ public class BlueWhaleScholarEntry : SCHRotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 学者";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管学者的输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 让AI接管奶妈的输出和治疗策略";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -851,7 +851,7 @@ public class BlueWhaleAstrologianEntry : ASTRotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 占星";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管占星的输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 让AI接管奶妈的输出和治疗策略";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -976,7 +976,7 @@ public class BlueWhaleSageEntry : SGERotationEntry
         AuthorName = "小鲸鱼统治世界";   // ⚠️ 不能带职业 —— AEAssist 拿它当设置目录名
     }
     public override string OverlayTitle => "小鲸鱼统治世界 · 贤者";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管贤者的输出决策";
+    public override string Description => "BlueWhale.AutoHealerACR — 让AI接管奶妈的输出和治疗策略";
 
     /// <summary>
     /// ★ 必须 override ★
@@ -1165,7 +1165,7 @@ public static class AiSettingPage
         var s = AiSettings.Instance;
 
         ImGui.Separator();
-        ImGui.TextDisabled("════ BlueWhale AI 决策层（可选，不填也完全可用）════");
+        ImGui.TextDisabled("BlueWhale AI 决策层（可选，不填降级为本地策略）");
 
         // ---- API Key ----
         var key = s.ApiKey ?? "";
@@ -1380,7 +1380,7 @@ public static class AiSettingPage
             var 倾向未知 = AiStrategyLayer.当前倾向 == AiStrategyLayer.倾向.未知;
             if (倾向未知)
                 ImGui.TextColored(new System.Numerics.Vector4(1f, 0.75f, 0.2f, 1f),
-                    "  ⚠ 策略还是『未知』—— 治疗阈值用的仍是本地默认值（等第一次策略刷新）");
+                    "  策略还是『未知』—— 治疗阈值用的仍是本地默认值（等第一次策略刷新）");
             else
                 ImGui.TextDisabled($"  当前倾向：{AiStrategyLayer.当前倾向}（{AiStrategyLayer.说明}）");
         }
@@ -1543,7 +1543,7 @@ public class BlueWhale幻术师Entry : HealerACR.Rotations.幻术师RotationEntr
     }
 
     public override string OverlayTitle => "小鲸鱼统治世界 · 幻术师";
-    public override string Description => "BlueWhale.AutoHealerACR — 实验性项目：让 AI 接管治疗输出决策（幻术师 1-50 级）";
+    public override string Description => "BlueWhale.AutoHealerACR — 让AI接管奶妈的输出和治疗策略";
 
     public override void OnDrawSetting()
     {
