@@ -254,7 +254,13 @@ public class AiSuggestionResolver : ISlotResolver
                     return -1;
                 }
             }
-            catch { }
+            catch
+            {
+                // ★ 审计 P0-4：**白名单必须 fail-closed** ——
+                //   验证过程出任何异常 ⇒ 拒绝这条建议，而不是放行 ✗→✓
+                拦截("预测性清单校验异常（安全起见拒绝这条建议）");
+                return -1;
+            }
 
             // 完全采信 AI 开关（见开关注册处的长注释）
             var 完全采信 = 读完全采信();

@@ -182,16 +182,16 @@ public static class Ai倾向
 
 
 
-            var 新输出 = 取枚举(回复!, "output", 输出向.均衡,
+            var 新输出 = 取枚举(回复!, "output", _输出,
 
                 ("AOE", 输出向.群攻), ("SINGLE", 输出向.单体), ("BALANCED", 输出向.均衡));
 
-            var 新减伤 = 取枚举(回复!, "mitigation", 减伤向.正常,
+            var 新减伤 = 取枚举(回复!, "mitigation", _减伤,
 
                 ("HOLD", 减伤向.保留), ("NORMAL", 减伤向.正常), ("SPEND", 减伤向.提前交));
 
             var 新资源 = 取枚举(回复!, "mp",
-                取枚举(回复!, "resource", 资源向.正常,
+                取枚举(回复!, "resource", _资源,
                     ("CONSERVE", 资源向.省着), ("NORMAL", 资源向.正常), ("SPEND", 资源向.多花)),
 
                 ("CONSERVE", 资源向.省着), ("NORMAL", 资源向.正常), ("SPEND", 资源向.多花));
@@ -408,6 +408,21 @@ public static class Ai倾向
         try
         {
             if (紧急) return 0;          // ★ 本地硬规则优先
+
+            // [!] 审计 P1-7：调用点传的是"候选的紧急等级"，而减伤候选的紧急等级恒为 0 ✗
+            //     ⇒ 这里**自己再问一次本地判据**：未来几秒是否要来大伤害。
+            //     任一为真就当"紧急" ⇒ 偏置归零 ⇒ HOLD 挡不住本地交减伤 ✓
+            try
+            {
+                if (HealerACR.Timeline.TimelineManager.未来有减伤(5f)) return 0;
+            }
+            catch { }
+            try
+            {
+                if (HealerACR.Common.伤害预测.要预铺(5f)) return 0;
+            }
+            catch { }
+
             if (是盾) return 0;          // ★ 第一版不动盾（文档第 7 节）
             if (!有效 || _减伤 == 减伤向.正常) return 0;
             return 限幅(_减伤 == 减伤向.保留 ? -8 : 10);
