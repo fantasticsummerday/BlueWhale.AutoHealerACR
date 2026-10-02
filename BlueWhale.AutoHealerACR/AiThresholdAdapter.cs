@@ -459,7 +459,7 @@ public static class AiThresholdAdapter
         }
 
         // ★ 只查**决策通道**（阈值适配是决策侧的东西，P1-11）★
-        if (DeepSeekClient.该停发(DeepSeekClient.通道.决策))
+        if (DeepSeekClient.该停发(DeepSeekClient.通道.策略))
         {
             return $"3) {DeepSeekClient.状态描述()}（冷却 {s.失败冷却秒} 秒）—— 期间走原版阈值";
         }
