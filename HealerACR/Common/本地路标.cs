@@ -27,8 +27,6 @@ public static class 本地路标
     /// <summary>打开后**每条都打**（排查用，日志会迅速变大）。</summary>
     public static bool 详细模式 = false;
 
-    private static int _上次号 = -1;
-    private static long _上次毫秒;
     private static long _累计;
 
     /// <summary>打一个本地路标。号变了立刻打；号没变最多 1 秒 1 条。</summary>
@@ -74,8 +72,9 @@ public static class 本地路标
     /// <summary>重置（换职业 / 重载时用）。</summary>
     public static void 重置()
     {
-        _上次号 = -1;
-        _上次毫秒 = 0;
+        // ⚠️ `_上次号` / `_上次毫秒` 原来在这里复位，但它们**从来没有被读过**
+        //    （限流用的是下面的 `_各号上次` 字典）=> 已删除，避免死字段。
+        try { _各号上次.Clear(); } catch { }
         _累计 = 0;
     }
 }

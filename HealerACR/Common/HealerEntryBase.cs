@@ -1713,11 +1713,6 @@ public abstract class HealerEntryBase : IRotationEntry
     //      不限流会把日志刷爆（本项目已经栽过两次：时间轴跳转 18 万次、
     //      时间轴索引 10 次）。定位完之后这段留着，开销可忽略。
     // ══════════════════════════════════════════════════════════════════
-    private static long _路标上次毫秒;
-
-    /// <summary>上次绘制设置面板的时间 —— **同一帧最多画一次**，见 `OnDrawSetting()` 的说明。</summary>
-    private static long _面板上次绘制毫秒;
-
     /// <summary>每个号上次打的时间 —— 见 `面板路标()` 里的说明。</summary>
     private static readonly System.Collections.Generic.Dictionary<int, long> _路标各号上次 = new();
     private static long _路标次数;
@@ -1999,10 +1994,8 @@ public abstract class HealerEntryBase : IRotationEntry
     ///      调试窗要跟手（拖动能跟、数据能刷新），所以按帧最自然。
     ///      用 8ms 作为"一帧"的保守估计（8ms ≈ 125FPS，不会漏帧）。
     /// </summary>
-    private static long _调试窗上次画;
     private static long _调试窗速率窗口;
     private static int _调试窗速率计数;
-    private static int _调试窗上次帧号 = -1;
     /// <summary>本统计周期内**真正画了**的次数（跨过帧号门之后的）</summary>
     private static int _调试窗绘制计数;
 
@@ -2607,6 +2600,27 @@ public abstract class HealerEntryBase : IRotationEntry
         if (!_已通知卸载)
         {
             _已通知卸载 = true;
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★ **先摘掉我们自己的绘制订阅** ★
+            //
+            //  [!] 为什么必须做（用户实测）：
+            //      「开着调试窗退出游戏 ⇒ 报错（AccessViolationException）」
+            //      栈：Dalamud…PresentDetour → UiBuilder.Draw → 独立设置窗.每帧画()
+            //            → 画调试窗() → 调试窗.绘制() → 对象有效() → get_GameObjectId()
+            //
+            //      成因：`独立设置窗` 挂上 `UiBuilder.Draw` 之后**从来没有摘过**，
+            //            `绘制者` 也是 static、卸载不清 ⇒ ACR 卸载后
+            //            这个回调还在渲染线程上跑，而游戏对象正在销毁
+            //            ⇒ 读已销毁对象的原生内存 ⇒ 进程直接死。
+            //
+            //  [!] 顺序：**必须在通知 AI 层之前** ——
+            //      `独立设置窗.卸载()` 只是摘订阅 + 清自己的 static，
+            //      它不碰 `卸载钩子`，所以不会和下面的"先断环"冲突。
+            //      （⚠️ 不要在 `独立设置窗.卸载()` 里调 `卸载钩子`：那会成环。）
+            // ══════════════════════════════════════════════════════════════
+            try { 独立设置窗.卸载(); } catch { }
+
             try { 卸载钩子.卸载 = null; } catch { }   // ★ 先断环 ★
             try { 卸载钩子.通知(); } catch { }
         }

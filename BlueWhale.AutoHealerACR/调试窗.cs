@@ -206,12 +206,15 @@ public static class 调试窗
         var 种类 = "";
         try
         {
+            // ⚠️ `DataId` 已被 Dalamud 改名为 `BaseId`（编译期 CS0618 警告）。
+            //    这里只用于**显示**，所以直接用新名字；旧名字在同版本上仍可用，
+            //    但留着会一直刷警告。
             if (o is Dalamud.Game.ClientState.Objects.Types.IGameObject g2)
-                种类 = g2.DataId.ToString();
+                种类 = g2.BaseId.ToString();
         }
         catch { 种类 = "读取失败"; }
 
-        return $"GameObjectId={对象} DataId={种类}";
+        return $"GameObjectId={对象} BaseId={种类}";
     }
 
     private static void 记诊断(string 内容)
@@ -695,10 +698,10 @@ public static class 调试窗
             //          返回的是 `!window->SkipItems`）
             //      · 所以**必须** End —— 但**交给 `finally` 去做**，
             //        自己**不要**再 End 一次。
-            //      · 用这个局部标志让 `finally` 知道"Begin 调过了"。
             // ══════════════════════════════════════════════════════════════
-            var 窗口在栈上 = true;
-
+            //  ⚠️ 原来这里有个 `var 窗口在栈上 = true;` 的局部标志，
+            //     但 `finally` 结构本身已经保证"必 End"，那个标志**从未被读过**
+            //     （CS0219）。已删除，避免留一个"看起来在控制流程"的死变量。
             var begin结果 = ImGui.Begin("小鲸鱼 · 实时数据（只读）", ref _窗口开,
                                         ImGuiWindowFlags.NoCollapse);
 
