@@ -413,35 +413,28 @@ public static class 调试窗
     public static void 画() => 画(开);
 
     /// <summary>
-    /// **游戏自己说在切图吗** —— 先问 AEAssist，问不到就问 Dalamud。
+    /// **游戏自己说在切图吗** —— 先问 **Dalamud**（宿主优先），读不到才问 AEAssist。
     ///
     /// ══════════════════════════════════════════════════════════════════
-    ///  [!] 为什么要兜底（2026-10-03 用户截图给出的真因）:
-    ///      窗口里印出来的挡住原因是：
-    ///        `外层条件读不到：ObjectDisposedException … LifetimeScope …
-    ///         has already been disposed`
-    ///      ⇒ AEAssist 的 `Core.Resolve` 走的是**它自己的 DI 容器**，
-    ///        而「关闭 AE 再启用」会把那份容器 **Dispose** 掉；
-    ///        我们这份已经加载的 ACR 副本还在跑 ⇒ 每次问都抛异常
-    ///        ⇒ 整窗永久只剩占位文本（"重载后就没内容"就是这么来的）。
+    ///  [!] 为什么改成"宿主优先"（两次实测逼出来的）:
+    ///      ① 第一次：窗口印出 `ObjectDisposedException … LifetimeScope` ——
+    ///         「关闭 AE 再启用」把 AEAssist 的容器 Dispose 掉了，
+    ///         它那份判据**整条路都不可用**。
+    ///      ② 第二次：窗口印出 `② 场景Id=0（不在任何场景，来源=AEAssist）` ——
+    ///         容器活着、但**给的值是 0**（AEAssist 的场景缓存没跟上）
+    ///         ⇒ 判据把"读不到"当成了"不在场景" ⇒ 整窗不画。
+    ///      ⇒ 结论：AEAssist 那两份数据**可能缺失、可能过时**；
+    ///        而 Dalamud 是宿主、不会被重载 ⇒ **以它为准**，
+    ///        AEAssist 只在宿主这条路真的读不到时才当兜底。
     ///
-    ///  [!] ✅ 兜底用 **Dalamud** 的判据：宿主**不会被重载**，
-    ///      所以永远读得到。（容器活着时仍优先用 AEAssist 的，保持判据一致。）
-    ///
-    ///  [!] 两路都读不到 ⇒ 返回 **false（不拦）** —— 理由见调用点：
-    ///      一次 AE 重载不该把窗口变成永久空壳。
+    ///  [!] 两路都读不到 ⇒ 返回 **false（不拦）** ——
+    ///      一次判据读失败不该把窗口变成永久空壳；真正的对象安全由
+    ///      `对象有效()` 的**地址判据先做** + 第③条队伍校验负责。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     private static bool 在切图吗(out string 来源)
     {
         来源 = "无";
-        try
-        {
-            来源 = "AEAssist";
-            return Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas();
-        }
-        catch { }
-
         try
         {
             来源 = "Dalamud";
@@ -450,36 +443,64 @@ public static class 调试窗
         }
         catch { }
 
+        try
+        {
+            来源 = "AEAssist";
+            return Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas();
+        }
+        catch { }
+
         来源 = "读不到（当作没在切图）";
         return false;
     }
 
     /// <summary>
-    /// **当前场景（地图）id** —— 先问 AEAssist，问不到就问 Dalamud。
+    /// **当前场景（地图）id** —— 取"两个来源里**说得通**的那个"。
     ///
-    /// [!] 兜底理由同 `在切图吗()`：AEAssist 的容器可能已经被 Dispose，
-    ///     而 Dalamud 的 `Svc.ClientState.TerritoryType` 走宿主，永远有效。
-    /// [!] 两路都读不到 ⇒ 返回 **1（非 0 ⇒ 不拦）** —— 理由同上。
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 判据（2026-10-03 用户截图逼出来的）:
+    ///      **`0` 不算有效值** —— 它是"读不到 / 缓存是空的"的表现，
+    ///      不是"玩家不在任何场景"的证据（用户实测：在室内时 AEAssist 报 0，
+    ///      窗口因此整窗不画）。
+    ///      ⇒ AEAssist 给 0 ⇒ **再问 Dalamud**；两边都 0/读不到才算"不在场景"。
+    ///
+    ///  [!] 为什么这条仍然 AEAssist 优先（而不是像 `在切图吗()` 那样宿主优先）：
+    ///      别处（`进本识别.cs` / 时间轴）用的是同一个来源，
+    ///      数值保持一致才不容易出现"两处判断不一样"的怪现象；
+    ///      只有在它**给不出有效值**时才换宿主那份。
+    /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     private static uint 场景Id(out string 来源)
     {
         来源 = "无";
-        try
+
+        var ae = 0u;
+        var ae可用 = false;
+        try { ae = HealerACR.Timeline.TimelineManager.实时副本Id(); ae可用 = true; }
+        catch { }
+
+        if (ae可用 && ae != 0)
         {
             来源 = "AEAssist";
-            return HealerACR.Timeline.TimelineManager.实时副本Id();
+            return ae;
         }
-        catch { }
 
         try
         {
-            来源 = "Dalamud";
-            return ECommons.DalamudServices.Svc.ClientState.TerritoryType;
+            var dl = (uint)ECommons.DalamudServices.Svc.ClientState.TerritoryType;
+            来源 = ae可用 ? "Dalamud（AEAssist 报 0）" : "Dalamud";
+            return dl;
         }
         catch { }
 
+        if (ae可用)
+        {
+            来源 = "AEAssist=0 且 Dalamud 读不到";
+            return 0;                       // 两边都拿不到有效值 ⇒ 真的当作不在场景
+        }
+
         来源 = "读不到（当作在场景里）";
-        return 1;
+        return 1;                           // 一路都读不到 ⇒ 不拦
     }
 
     /// <summary>
