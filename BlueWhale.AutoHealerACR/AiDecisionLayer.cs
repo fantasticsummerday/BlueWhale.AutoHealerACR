@@ -1441,11 +1441,30 @@ public static class AiDecisionLayer
     ///   Check 只看（Peek）→ 不动队列
     ///   Build 放成功后 → 调这个出队
     /// </summary>
-    public static void 消费()
+        /// <summary>消费错位的次数与最近一次说明（审计 P1-12 的观测口径）。</summary>
+    public static int 错位消费次数 { get; private set; }
+    public static string 最近错位说明 = "";
+
+public static void 消费(建议? expected = null)
     {
         try
         {
             清理过期();
+
+            // ★ 审计 P1-12：只有**队首仍然是同一条建议对象**时才出队 ——
+            //   否则会出现 Check=B、Consume=A 的错位消费 ✗
+            if (expected != null)
+            {
+                var 队首 = _队列.Count > 0 ? _队列.Peek() : null;
+                if (!ReferenceEquals(队首, expected))
+                {
+                    错位消费次数++;
+                    最近错位说明 = "Check=" + expected.技能Id + " 但队首=" + (队首 == null ? "空" : 队首.技能Id.ToString()) + " ⇒ 本次不消费";
+                    try { Ai调试.日志("消费错位（已跳过）：" + 最近错位说明); } catch { }
+                    return;
+                }
+            }
+
 
             // ⚠️ 出队本身已经是"空队列就什么都不做"，不需要先判空 ——
             //    判空再出队是**复合序列**，两步之间队列可能被改动。

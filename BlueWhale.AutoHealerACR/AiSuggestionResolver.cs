@@ -1200,7 +1200,7 @@ public class AiSuggestionResolver : ISlotResolver
             // ★★ **无条件消费** —— Spell 已经进 Slot，这条建议就是"已采纳" ★★
             //    [!] 这一行原来被上面的 `if (!对象有效()) return;` 挡掉了：
             //        目标刚好失效 => 不消费 => 下一帧重复建议。
-            AiDecisionLayer.消费();
+            AiDecisionLayer.消费(建议);   // ★ 审计 P1-12：绑定同一条建议对象
         }
         catch (Exception e)
         {
