@@ -2800,7 +2800,8 @@ public abstract class HealerEntryBase : IRotationEntry
                 return;
             }
             调用次数++;
-            调试窗调用链.记($"即将调用 第{调用次数}次 ｜ 开关={启用} ｜ ACR在用={ACR在用}");
+            调试窗调用链.记($"即将调用 第{调用次数}次 ｜ 开关={启用} ｜ ACR在用={ACR在用}" +
+                            $" ｜ 窗口侧入绘制={窗口侧入绘制次数}");
             写诊断($"即将调用第{调用次数}次（委托={_画调试窗.Method.DeclaringType?.FullName}.{_画调试窗.Method.Name}）");
             try
             {
