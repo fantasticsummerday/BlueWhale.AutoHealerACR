@@ -357,12 +357,28 @@ public static class 独立设置窗
     ///         它的字段/方法指向的是已经不存在的类型
     ///         ⇒ 读游戏对象 ⇒ `AccessViolationException`（退出时必崩）。
     ///
-    ///  [!] 判据（任意一条不满足就当作"没有入口"）：
-    ///      ① 引用还在（非 null）
-    ///      ② `独立设置窗.绘制中` 这个标记是**本类自己的**，不受两份程序集影响
-    ///      ③ ★ **它是不是"当前 ACR"的那个入口** ——
-    ///         走 `ACR身份.是当前()`（读 `currRotation.Description`），
-    ///         这是**唯一**能区分"这次的实例"和"上次残留的实例"的判据。
+    ///  [!] ★★★ 判据用**实例引用比对**，不要用 Description 前缀 ★★★
+    ///
+    ///      ⚠️ 我第一版写的是 `ACR身份.是当前()`（读 `currRotation.Description`
+    ///         判它是否以 `"BlueWhale.AutoHealerACR"` 开头）——
+    ///         **那是错的，会连活着的入口一起挡掉**（用户实测：
+    ///         「设置尚未就绪（入口还没构建完，或已卸载）」）。
+    ///
+    ///         原因：`ACR身份.是当前()` 是给 **AI 层挂载门**用的，
+    ///         而**本地入口的 `Description` 根本不以那个前缀开头**：
+    ///             ScholarACR.cs L666  => "日随用学者 ACR。以太优先…"
+    ///         ==> 永远返回 false ==> 门永远关着 ==> 设置页空白。
+    ///
+    ///      ✅ 正确的判据：**框架当前的 rotation 里，`RotationEntry`
+    ///         是不是就是这一个实例** ——
+    ///             `ReferenceEquals(Data.currRotation.RotationEntry, 入口)`
+    ///         · 这是**实例级**的，唯一能区分"这次的实例"和"上次残留的实例"
+    ///         · 不依赖任何字符串约定（Description 改一个字都不会破坏它）
+    ///         · 和 `OnDrawSetting()` 里那道身份门**同一个判据**（那边也是
+    ///           `ReferenceEquals(Data.currRotation, _本入口旋转)`）
+    ///
+    ///  [!] 读不到 `currRotation` 时返回 **null**（当作"没有入口"）——
+    ///      宁可这一次不画（下一帧就好了），也不要画一个死掉的实例。
     ///
     ///  [!] 卸载时 `卸载()` 会主动把 `绘制者` 置 null ——
     ///      这一层是**双保险**：万一卸载路径没走到（异常/框架直接换 ACR），
@@ -374,18 +390,22 @@ public static class 独立设置窗
         var 入口 = 绘制者;
         if (入口 == null) return null;
 
-        // 不是"当前 ACR" ⇒ 这是上次加载的残留 ⇒ 不画（并且顺手丢弃）
         try
         {
-            if (!ACR身份.是当前())
+            var 当前 = AEAssist.CombatRoutine.Data.currRotation;
+            if (当前 == null) return null;
+
+            // ★ 实例级比对 —— 当前 rotation 的入口就是这个实例吗
+            if (!ReferenceEquals(当前.RotationEntry, 入口))
             {
+                // 不是当前的 ⇒ 这是上次加载的残留 ⇒ 丢弃引用，之后不再问
                 绘制者 = null;
                 return null;
             }
         }
         catch
         {
-            // 判不出来（框架还没就绪 / 读不到 currRotation）⇒ 保守当作不画
+            // 判不出来（框架还没就绪）⇒ 这一次不画，下一帧会好
             return null;
         }
 
