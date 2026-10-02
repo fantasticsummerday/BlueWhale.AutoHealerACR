@@ -412,6 +412,159 @@ public static class 调试窗
     /// <summary>无参版（兼容旧调用点）—— 用本程序集读到的开关值。</summary>
     public static void 画() => 画(开);
 
+    /// <summary>
+    /// **游戏自己说在切图吗** —— 先问 AEAssist，问不到就问 Dalamud。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么要兜底（2026-10-03 用户截图给出的真因）:
+    ///      窗口里印出来的挡住原因是：
+    ///        `外层条件读不到：ObjectDisposedException … LifetimeScope …
+    ///         has already been disposed`
+    ///      ⇒ AEAssist 的 `Core.Resolve` 走的是**它自己的 DI 容器**，
+    ///        而「关闭 AE 再启用」会把那份容器 **Dispose** 掉；
+    ///        我们这份已经加载的 ACR 副本还在跑 ⇒ 每次问都抛异常
+    ///        ⇒ 整窗永久只剩占位文本（"重载后就没内容"就是这么来的）。
+    ///
+    ///  [!] ✅ 兜底用 **Dalamud** 的判据：宿主**不会被重载**，
+    ///      所以永远读得到。（容器活着时仍优先用 AEAssist 的，保持判据一致。）
+    ///
+    ///  [!] 两路都读不到 ⇒ 返回 **false（不拦）** —— 理由见调用点：
+    ///      一次 AE 重载不该把窗口变成永久空壳。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static bool 在切图吗(out string 来源)
+    {
+        来源 = "无";
+        try
+        {
+            来源 = "AEAssist";
+            return Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas();
+        }
+        catch { }
+
+        try
+        {
+            来源 = "Dalamud";
+            return ECommons.DalamudServices.Svc.Condition[
+                Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas];
+        }
+        catch { }
+
+        来源 = "读不到（当作没在切图）";
+        return false;
+    }
+
+    /// <summary>
+    /// **当前场景（地图）id** —— 先问 AEAssist，问不到就问 Dalamud。
+    ///
+    /// [!] 兜底理由同 `在切图吗()`：AEAssist 的容器可能已经被 Dispose，
+    ///     而 Dalamud 的 `Svc.ClientState.TerritoryType` 走宿主，永远有效。
+    /// [!] 两路都读不到 ⇒ 返回 **1（非 0 ⇒ 不拦）** —— 理由同上。
+    /// </summary>
+    private static uint 场景Id(out string 来源)
+    {
+        来源 = "无";
+        try
+        {
+            来源 = "AEAssist";
+            return HealerACR.Timeline.TimelineManager.实时副本Id();
+        }
+        catch { }
+
+        try
+        {
+            来源 = "Dalamud";
+            return ECommons.DalamudServices.Svc.ClientState.TerritoryType;
+        }
+        catch { }
+
+        来源 = "读不到（当作在场景里）";
+        return 1;
+    }
+
+    /// <summary>
+    /// **队伍整体可信吗**（第③条判据）—— 先问 AEAssist，问不到就问 Dalamud。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 这一条为什么必须存在（历史崩溃）：
+    ///      ①②都放行、但**队友对象已经失效**的那一小段窗口确实存在
+    ///      （进本/出本瞬间）。那一刻读 buff → `StatusList` 会踩空
+    ///      ⇒ `AccessViolationException` ⇒ **进程被杀**，而且 catch 兜不住。
+    ///      ⇒ 只能"读之前先判定不能读"。
+    ///
+    ///  [!] ⚠️ 2026-10-03 补的兜底（和 ①② 同一个病）：
+    ///      `PartyHelper.CastableAlliesWithin30` 也是 **AEAssist 的服务**，
+    ///      而"关闭 AE 再启用"会把 AEAssist 的容器 Dispose ⇒ 这一条同样会抛
+    ///      `ObjectDisposedException` ⇒ 整窗变空壳。
+    ///      ⇒ 兜底改用 **Dalamud 的队伍表**（宿主不会被重载）。
+    ///      ⇒ 两路都读不到时 **放行**（不拦）——理由同 ①② 的调用点注释：
+    ///        一次 AE 重载不该把窗口变成永久空壳；真正的对象安全由
+    ///        `对象有效()` 的**地址判据先做**（那一层修好了，见 `CharacterExt`）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static bool 队伍都可信(out string 原因)
+    {
+        原因 = "";
+        try
+        {
+            var 队 = PartyHelper.CastableAlliesWithin30;
+            if (队 == null)
+            {
+                原因 = "③ CastableAlliesWithin30 == null（来源=AEAssist）";
+                return false;
+            }
+
+            var 序号 = 0;
+            foreach (var r in 队)
+            {
+                序号++;
+                if (r == null)
+                {
+                    原因 = $"③ 队伍第{序号}个对象 == null（来源=AEAssist）";
+                    return false;
+                }
+                if (!r.对象有效())
+                {
+                    原因 = $"③ 队伍第{序号}个对象【对象有效()=false】（{Safe身份(r)}，来源=AEAssist）";
+                    return false;
+                }
+            }
+            return true;
+        }
+        catch { }
+
+        // ── 兜底：Dalamud 的对象表（宿主不会被重载 ⇒ AEAssist 容器挂了它还活着）──
+        //
+        //  [!] ⚠️ 兜底**故意比主判据弱**：只确认"自己"读得到且有效。
+        //      为什么不做"逐个队友"：
+        //        · Dalamud 的队伍类型在不同版本里名字/层级都变过
+        //          （这个版本里 `IPartyMember` 已经不派生 `IGameObject`；
+        //            对象表接口上也没有 `GetPlayerObjects`）—— 写死具体 API 会编译不过；
+        //        · 而这条兜底只在"AEAssist 容器已经 Dispose"的降级状态下才会走到，
+        //          那个状态下**各段的 AEAssist 读取本来就会抛托管异常并被各自 catch**，
+        //          不会像"读已释放原生内存"那样杀进程。
+        //      ⇒ 兜底只做最便宜、最稳的那一项：自己读得到吗。
+        try
+        {
+            var 我 = ECommons.DalamudServices.Svc.Objects.LocalPlayer;
+            if (我 == null)
+            {
+                原因 = "③ 读不到自己（来源=Dalamud）";
+                return false;
+            }
+            if (!我.对象有效())
+            {
+                原因 = "③ 自己【对象有效()=false】（来源=Dalamud）";
+                return false;
+            }
+            return true;
+        }
+        catch { }
+
+        原因 = "③ 队伍判据两路都读不到（已放行继续画）";
+        return true;
+    }
+
     /// <summary>真正的绘制（开关已由调用方决定）。</summary>
     private static void 绘制()
     {
@@ -450,27 +603,37 @@ public static class 调试窗
         try
         {
             // ① 游戏自己说在切图
-            if (Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas())
+            if (在切图吗(out var 切图来源))
             {
                 可以读游戏状态 = false;
-                挡住原因 = "① IsBetweenAreas()=true（游戏自己说在切图）";
+                挡住原因 = $"① IsBetweenAreas()=true（来源={切图来源}）";
             }
 
             // ② 不在任何场景
             // [!] 用仓库自己的包装（\进本识别.cs\ 同款），不要自造 API ——
             //     我上一版写的 \Data.CurrentTerritoryTypeId\ 在 AEAssist 里**不存在**。
-            if (可以读游戏状态 && HealerACR.Timeline.TimelineManager.实时副本Id() == 0)
+            if (可以读游戏状态)
             {
-                可以读游戏状态 = false;
-                挡住原因 = "② 实时副本Id()=0（不在任何场景）";
+                var 场景 = 场景Id(out var 场景来源);
+                if (场景 == 0)
+                {
+                    可以读游戏状态 = false;
+                    挡住原因 = $"② 场景Id=0（不在任何场景，来源={场景来源}）";
+                }
             }
-
         }
         catch (Exception e)
         {
-            // 读不到条件就**保守当作不能读** —— 崩一次比少显示几行严重得多
-            可以读游戏状态 = false;
-            挡住原因 = $"外层条件读不到：{e.GetType().Name} {e.Message}";
+            // [!] ⚠️ 2026-10-03：**这里不再"读不到就整窗不画"** ——
+            //     用户实测的真因就是它：`Core.Resolve` 走 AEAssist 自己的 DI 容器，
+            //     而"关闭 AE 再启用"会把那份容器 Dispose 掉
+            //     ⇒ 我们这份副本每次 Resolve 都抛 `ObjectDisposedException`
+            //     ⇒ 整窗永久只剩占位文本（用户截图里的"挡住原因"就是这一条）。
+            //     现在两个判据各自带**不依赖 AEAssist 容器**的兜底（见下面两个方法），
+            //     走到这里说明连兜底都抛了 —— 那就**当作可以读**（宁可少一层保险，
+            //     也不要让窗口变成永久空壳；真正的对象安全由 `对象有效()` 的
+            //     地址判据 + 下面的第③条队伍校验负责）。
+            挡住原因 = $"判据读不到（已放行继续画）：{e.GetType().Name} {e.Message}";
         }
 
         // ⚠️ 每秒最多报一次（这一页每帧都画，不能每帧写日志）
@@ -812,39 +975,10 @@ public static class 调试窗
             //      会让窗口**永久空白**，而现象只是"加载不出来"，无从下手。
             if (可以读游戏状态)
             {
-                try
-                {
-                    var 队 = PartyHelper.CastableAlliesWithin30;
-                    if (队 == null)
-                    {
-                        可以读游戏状态 = false;
-                        挡住原因 = "③ CastableAlliesWithin30 == null";
-                    }
-                    else
-                    {
-                        var 序号 = 0;
-                        foreach (var r in 队)
-                        {
-                            序号++;
-                            if (r == null)
-                            {
-                                可以读游戏状态 = false;
-                                挡住原因 = $"③ 队伍第{序号}个对象 == null";
-                                break;
-                            }
-                            if (!r.对象有效())
-                            {
-                                可以读游戏状态 = false;
-                                挡住原因 = $"③ 队伍第{序号}个对象【对象有效()=false】（{Safe身份(r)}）";
-                                break;
-                            }
-                        }
-                    }
-                }
-                catch (Exception e)
+                if (!队伍都可信(out var 队原因))
                 {
                     可以读游戏状态 = false;
-                    挡住原因 = $"③ 读队伍时抛异常：{e.GetType().Name} {e.Message}";
+                    挡住原因 = 队原因;
                 }
             }
 
