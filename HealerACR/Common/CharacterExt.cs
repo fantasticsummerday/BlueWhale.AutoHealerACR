@@ -991,31 +991,58 @@ public static class CharacterExt
 
 
 
-    public static bool 对象有效(this IGameObject? o)
+    /// <summary>
+    /// **对象有效吗** —— 并且**说出为什么无效**（2026-10-03 用户实测新增）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么要"说出原因"：
+    ///      调试窗里曾经只显示 `治疗=0（没有可治疗队友）`，
+    ///      而空表有 7 种成因 —— 其中"队伍第 N 个对象无效"最难查：
+    ///      不知道是**地址没了**、**哨兵地址**、还是 `IsValid()` 说不行。
+    ///      2026-10-03 就卡在这里。现在原因会一路传到窗口上。
+    ///
+    ///  [!] ⚠️ **判据顺序：先纯托管，后原生**（从存档版取回来的）：
+    ///      老写法第一句是 `_ = o.GameObjectId;` —— 那是**原生读取**。
+    ///      对象已释放时它可能抛（catch 吞掉 ⇒ 误判成"无效"），
+    ///      更糟的是可能**直接访问违例**：`AccessViolationException` 穿透 catch，
+    ///      **进程被杀**（就是用户报的"退游戏崩溃"那条栈）。
+    ///      ⇒ 先只读 `Address`（托管字段，绝不出事），像指针才继续碰 `IsValid()`。
+    ///
+    ///  [!] 这也正是**误判**的来源：一个活着的对象，若 `GameObjectId`
+    ///      这一次读抛了异常，老写法就把它判成"无效"
+    ///      ⇒ 单人局里"自己"被判无效 ⇒ 治疗候选整队为空。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static bool 对象有效(this IGameObject? o, out string 原因)
     {
-        if (o == null) return false;
+        原因 = "";
+        if (o == null) { 原因 = "对象为 null"; return false; }
 
         try
         {
-            _ = o.GameObjectId;
-            _ = o.IsValid();
-
+            // ── ① 地址判据（**纯托管**，先做）—— 不像指针就直接 false，一个原生属性都不碰 ──
             var 地址 = o.Address;
-            if (地址 == IntPtr.Zero) return false;
+            if (地址 == IntPtr.Zero) { 原因 = "地址=0"; return false; }
 
             var v = 地址.ToInt64();
-            if (v < 0x10000L) return false;                          // ① 空指针区
-            if (v == 0x12345679L) return false;                      // ② 哨兵（完整）
-            if ((v & 0xFFFFFFFFL) == 0x12345679L) return false;       // ② 哨兵（截断）
-            if (v > 0x7FFFFFFF_FFFFL) return false;                  // ③ 内核区
+            if (v < 0x10000L) { 原因 = $"地址太小（0x{v:X}）"; return false; }                 // ① 空指针区
+            if (v == 0x12345679L) { 原因 = "哨兵地址（0x12345679）"; return false; }            // ② 哨兵（完整）
+            if ((v & 0xFFFFFFFFL) == 0x12345679L) { 原因 = "哨兵地址（截断）"; return false; }  // ② 哨兵（截断）
+            if (v > 0x7FFFFFFF_FFFFL) { 原因 = $"地址在内核区（0x{v:X}）"; return false; }      // ③ 内核区
 
-            return o.IsValid();
+            // ── ② 地址可信了，才碰原生属性 ──
+            if (!o.IsValid()) { 原因 = $"IsValid()=false（地址=0x{v:X}）"; return false; }
+            return true;
         }
-        catch
+        catch (Exception e)
         {
+            原因 = "判有效性时抛异常：" + e.GetType().Name;
             return false;
         }
     }
+
+    /// <summary>只要「有效吗」、不要原因的调用点用这个（转发给上面那一个，判据只有一份）。</summary>
+    public static bool 对象有效(this IGameObject? o) => 对象有效(o, out _);
 
     /// <summary>
     /// 角色对象有效性 —— **纯转发**给 `对象有效(this IGameObject?)`。
