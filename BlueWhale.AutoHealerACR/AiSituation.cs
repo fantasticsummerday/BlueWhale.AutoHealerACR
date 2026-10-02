@@ -2227,7 +2227,12 @@ public static class AiSituation
                 //   站定填充/自身AOE」全列给了 AI ⇒ 那几拍 AI 又在点输出技能 ✗
                 //   与候选清单同口径：只列 治疗 / 减伤 ✓
                 if (类别.Contains("输出") || 类别.Contains("填充")
-                    || 类别.Contains("AOE") || 类别 == "DoT") return;
+                    || 类别.Contains("AOE") || 类别 == "DoT"
+                    // ★ 2026-10-03 实机：`166|以太为0，先开启以太超流…` 就是这么漏出去的 ✗
+                    //   资源 / 宠物 / 召唤类**不是"预测性预铺"** ⇒ 一并挡掉（本地自己会管）✓
+                    || 类别.Contains("以太") || 类别.Contains("召唤")
+                    || 类别.Contains("宠物") || 类别.Contains("小仙女")
+                    || 类别.Contains("资源")) return;
 
                 // ★ 等级/职业任务没到 → 不列进清单
                 if (!SpellUtil.已解锁(id))

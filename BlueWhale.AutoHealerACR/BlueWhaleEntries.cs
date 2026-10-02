@@ -1255,6 +1255,7 @@ public static class AiSettingPage
         //     已经关掉了 —— 开着思考时中位 2.6 秒，比 GCD 还长，那才是问题所在。
         //     => 现在不该再劝阻开阶段 B。
         ImGui.TextDisabled("  只出「预测性预铺」建议：提前给盾 / 铺罩（清单里只有治疗与减伤两类）。");
+            ImGui.TextDisabled("  候选为空时走兜底清单 —— 它同样是这个口径（不含输出/DoT/填充/资源/召唤）。");
             ImGui.TextDisabled("  输出循环、驱散、濒死救人在【本地逻辑】里算 —— AI 只对它们给倾向（保守/激进），不点技能。");
             ImGui.TextDisabled("  关思考后延迟已明显改善。");
 
