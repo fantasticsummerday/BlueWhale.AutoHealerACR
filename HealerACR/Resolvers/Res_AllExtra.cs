@@ -996,7 +996,14 @@ public class Res_InstantHealAbility : ISlotResolver
                 return 坦克;
 
             // 没坦克（或坦克满血）时别浪费 —— 但不给满血的人铺
-            var 目标 = HealTargetHelper.最低血量队友(预铺血线);
+            // ★ 审计 P1-11（2026-10-03）：不要再吃本文件里的硬编码 0.60 ——
+            //   原来这里用的是 `private const float 预铺血线 = 0.60f`（第二份硬编码 ✗），
+            //   导致 AI 调「预铺血线」时这个能力技完全不受影响。
+            //   ⇒ 统一走参数入口 `治疗阈值表.取(技能, 统一阈值)`：
+            //      它按【单技能偏移 + 类别(预铺)偏移 + 全局 AI 倾向】合成 ✓
+            //      那个常量只留作"表里没有这个技能时的基准值" ✓
+            var 目标 = HealTargetHelper.最低血量队友(
+                HealerACR.Common.治疗阈值表.取(技能, 预铺血线));
             if (目标 != null && !目标.有该技能的Buff(技能) && !目标.处于假死状态())
                 return 目标;
 
