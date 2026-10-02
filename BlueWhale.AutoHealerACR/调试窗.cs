@@ -186,32 +186,55 @@ public static class 调试窗
     ///      （`0xc0000005`，**直接穿透 C# 的 catch**），
     ///      而这里正是在"**怀疑对象已失效**"时去读它。
     ///
-    /// [!] 为什么用 `DataId` 而不是 `NameId`：
+    /// [!] ⚠️ **2026-10-02 补的一刀（退游戏崩溃）**：
+    ///      原来这里只靠 `try/catch` —— 而 AV **根本不能被 catch**
+    ///      （corrupted state exception），所以那两个 try 是**假保险**。
+    ///      现在**先做纯托管的地址判据**（`地址看着可信()`：只读指针的值，不 deref）：
+    ///      地址不像指针 ⇒ **一次原生属性都不读**，直接给一句安全的说明。
+    ///      崩溃栈里的 `对象有效()` 是同一个病因，那一处也已改成"地址先做"。
+    ///
+    /// [!] ⚠️ **2026-10-02 补的一刀（退游戏崩溃）**：
+    ///      原来这里只靠 `try/catch` —— 而 AV **根本不能被 catch**
+    ///      （corrupted state exception），所以那两个 try 是**假保险**。
+    ///      现在**先问 `对象有效()`**（它已经改成"地址判据先做"：
+    ///      地址不像指针就一次原生属性都不碰）：
+    ///        · 为 false ⇒ 不读 `GameObjectId` / `DataId`，只报纯托管的地址
+    ///        · 为 true  ⇒ 对象是活的，再读那两个属性才安全
+    ///      崩溃栈里的 `对象有效()` 是同一个病因，那一处也已一并改好。
+    ///
+    /// [!] 为什么用 `DataId`/`BaseId` 而不是 `NameId`：
     ///      `NameId` 在 `IBattleChara` 上（`AEAssist.Extension.IBattleChara`），
     ///      而本文件拿到的是 `IGameObject` —— 强转会引入额外依赖与失败点。
     ///      `DataId` 是 `IGameObject` 自带的，**够用**（它就是"哪一种怪/人"的 id）。
+    ///      ⚠️ 它已被 Dalamud 改名为 `BaseId`（旧名字会报 CS0618 过时警告），
+    ///         所以这里直接用新名字 `BaseId` —— 它只用于**显示**，语义完全一样。
     ///
     /// [!] ⚠️ **两个属性各自独立 try** —— 一个读失败不能影响另一个。
     /// </summary>
     private static string Safe身份(object? o)
     {
-        var 对象 = "";
-        try
+        if (o is not Dalamud.Game.ClientState.Objects.Types.IGameObject g)
+            return "（不是游戏对象）";
+
+        // ★ 第一道：**先问"对象有效吗"** —— 无效就一次原生属性都不读。
+        //  [!] 为什么不能只靠 try/catch：AV 是 corrupted state exception，
+        //      **catch 永远不会执行** ⇒ 那两个 try 是假保险（见 `对象有效()` 的说明）。
+        if (!g.对象有效())
         {
-            if (o is Dalamud.Game.ClientState.Objects.Types.IGameObject g)
-                对象 = g.GameObjectId.ToString();
+            var 地址文 = "读不到";
+            try { 地址文 = "0x" + g.Address.ToInt64().ToString("X"); } catch { }
+            return $"（对象已失效：地址={地址文} ⇒ 不读原生属性）";
         }
+
+        var 对象 = "";
+        try { 对象 = g.GameObjectId.ToString(); }
         catch { 对象 = "读取失败"; }
 
         var 种类 = "";
-        try
-        {
-            if (o is Dalamud.Game.ClientState.Objects.Types.IGameObject g2)
-                种类 = g2.DataId.ToString();
-        }
+        try { 种类 = g.BaseId.ToString(); }
         catch { 种类 = "读取失败"; }
 
-        return $"GameObjectId={对象} DataId={种类}";
+        return $"GameObjectId={对象} BaseId={种类}";
     }
 
     private static void 记诊断(string 内容)

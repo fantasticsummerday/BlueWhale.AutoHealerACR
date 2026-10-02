@@ -991,15 +991,63 @@ public static class CharacterExt
 
 
 
+    /// <summary>
+    /// **对象还可用吗** —— 判据顺序是**先纯托管、后原生**。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★★★ **判据顺序 —— 这是本项目最严重的崩溃点之一** ★★★
+    ///
+    ///  [!] 现场证据（用户截图，退游戏时崩溃）：
+    ///      栈自下往上：
+    ///          Dalamud…DxgiSwapChainPresentDetour          ← 渲染线程
+    ///            Dalamud.Interface.Internal…Draw
+    ///              HealerACR.Common.独立设置窗.每帧画()
+    ///                HealerACR.Common.HealerEntryBase.画调试窗()
+    ///                  BlueWhale.AutoHealerACR.调试窗.绘制()
+    ///                    HealerACR.Common.CharacterExt.对象有效(IGameObject)
+    ///                      Dalamud…Types.GameObject.get_GameObjectId()  ← ★ 崩在这
+    ///      异常：`System.AccessViolationException`（0xc0000005）⇒ 进程直接死。
+    ///
+    ///  [!] 原来的实现把 `o.GameObjectId` 放在**第一句**：
+    ///          try {
+    ///              _ = o.GameObjectId;      // ← 第一句就是它
+    ///              _ = o.IsValid();
+    ///              var 地址 = o.Address;    // ← 地址检查在【访问之后】才做
+    ///              ...
+    ///          } catch { return false; }
+    ///
+    ///      ==> 两个错：
+    ///        ① **地址判据来晚了** —— 先碰了内存，再问"这地址可信吗"
+    ///        ② ★★ **`try/catch` 根本兜不住它** ★★
+    ///           `GameObjectId` 读的是**原生内存**；对象已销毁时它抛的是
+    ///           `AccessViolationException` —— 这是 **corrupted state exception**，
+    ///           .NET 默认**不允许 catch** ⇒ **catch 块永远不执行** ⇒ 进程直接死。
+    ///           ==> 也就是说：这个"保护函数"**本身没有任何保护作用**。
+    ///
+    ///  [!] 所以现在的顺序：**先做纯托管判据，最后才碰原生属性**。
+    ///      `Address` 只是读一个字长指针的**值** —— 不 deref、不解引用，
+    ///      所以"这个值看着像不像合法指针"在**任何时刻**都问得安全。
+    ///      ==> 地址不像指针 ⇒ **一次原生属性访问都不做** ⇒ 不可能 AV。
+    ///      ==> 地址像指针   ⇒ 对象是活的，后续访问安全。
+    ///
+    ///  [!] 为什么不再单独调 `IsValid()`：
+    ///      它内部【也读原生内存】（会碰 `gameObject->EntityId`），
+    ///      在"对象正在销毁"的窗口里它自己就能 AV —— 而那个 AV 同样兜不住。
+    ///      ==> 多一句判据在**这个函数里**是纯风险，不是保险。
+    ///          （最后那句 `return o.IsValid()` 是**地址已验证之后**才走的。）
+    ///
+    ///  [!] ⚠️ **本函数是全工程唯一的"对象有效"实现**（`全量防护审计.py` 规则⑥ 会核对
+    ///      这三项判据是否都在这里）—— 别在别处另写一个弱化版本。
+    ///      `IBattleChara` 那个重载只是**纯转发**。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
     public static bool 对象有效(this IGameObject? o)
     {
         if (o == null) return false;
 
         try
         {
-            _ = o.GameObjectId;
-            _ = o.IsValid();
-
+            // ── ① 地址判据（纯托管，先做）——不像指针就直接 false，一个原生属性都不碰 ──
             var 地址 = o.Address;
             if (地址 == IntPtr.Zero) return false;
 
@@ -1009,6 +1057,7 @@ public static class CharacterExt
             if ((v & 0xFFFFFFFFL) == 0x12345679L) return false;       // ② 哨兵（截断）
             if (v > 0x7FFFFFFF_FFFFL) return false;                  // ③ 内核区
 
+            // ── ② 地址可信了，才碰原生属性 ──
             return o.IsValid();
         }
         catch
