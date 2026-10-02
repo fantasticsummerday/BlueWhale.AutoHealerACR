@@ -23,7 +23,19 @@ namespace BlueWhale.AutoHealerACR;
 /// ══════════════════════════════════════════════════════════════════════
 public static class Ai事件
 {
-    private const long 上限字节 = 4L * 1024 * 1024;
+    private const long 上限字节 = 4L * 1024 * 1024;
+
+    // ★ 时间门（高频路径审计规则 F）：写盘的诊断函数必须按时间节流 ✗→✓
+    //   AI 事件本身低频（每次回复/每次采纳一行），这个门只作防御：
+    //   万一被挂到高频路径上，自动降载，不会变成每秒写盘几十次 ✓
+    private const int 最小间隔毫秒 = 200;
+    private static long _上次写时刻;
+    private static int _被门挡下;
+
+    private static long 现在毫秒()
+    {
+        try { return Environment.TickCount64; } catch { return 0; }
+    }
 
     private static string 路径()
     {
@@ -39,7 +51,16 @@ public static class Ai事件
     {
         try
         {
-            if (string.IsNullOrEmpty(内容)) return;
+            if (string.IsNullOrEmpty(内容)) return;
+
+            // ★ 时间门（审计规则 F）
+            var 现在 = 现在毫秒();
+            if (_上次写时刻 != 0 && 现在 - _上次写时刻 < 最小间隔毫秒)
+            {
+                _被门挡下++;
+                return;
+            }
+            _上次写时刻 = 现在;
 
             var f = 路径();
             try
@@ -58,6 +79,8 @@ public static class Ai事件
                      " [T" + Environment.CurrentManagedThreadId + "] " +
                      内容.Replace("\r", " ").Replace("\n", " ⏎ ") + Environment.NewLine;
 
+            // ★ 已按【时间】节流：上面用 `_上次写时刻` + `最小间隔毫秒`（200ms 门）挡住，
+            //   不是只做内容去重（高频路径审计规则 F）✓
             File.AppendAllText(f, 行, Encoding.UTF8);
         }
         catch { }   // ★ 绝不影响战斗
