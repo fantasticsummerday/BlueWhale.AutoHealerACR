@@ -250,6 +250,26 @@ public static class AiDecisionLayer
     /// <summary>被采纳并放进 slot 的次数（= 真正用上的）</summary>
     public static int 命中次数 { get; private set; }
 
+    /// <summary>
+    /// **与本地一致**的次数（2026-10-03 新增）—— AI 建议的技能正好是本地刚刚放出去的那个。
+    ///
+    /// [!] 为什么单独一格（用户实测原话）：
+    ///     「AI 建议落地时本地已经把那个技能打出去了，这种就不应该算作没有命中」
+    ///     ⇒ 它既不是"过期未用"，也不是"被丢弃"，而是**判断一致** ⇒ 计入命中。
+    /// </summary>
+    public static int 与本地一致次数 { get; private set; }
+
+    /// <summary>记一次"与本地一致"（同时计入命中）。</summary>
+    public static void 记与本地一致(uint 技能)
+    {
+        与本地一致次数++;
+        命中次数++;
+        最近一致 = $"建议 {技能} 与本地一致（本地刚放过）";
+    }
+
+    /// <summary>最近一次"与本地一致"的描述（给调试窗）。</summary>
+    public static string 最近一致 = "";
+
     /// <summary>躺在队列里没人用、等到过期的条数（= 真正的浪费）</summary>
     public static int 过期次数 { get; private set; }
 
@@ -366,7 +386,7 @@ public static class AiDecisionLayer
     {
         get
         {
-            var 有机会 = 命中次数 + 过期次数;
+            var 有机会 = 命中次数 + 过期次数;   // 命中次数已含"与本地一致"
             return 有机会 == 0 ? 0f : 命中次数 * 100f / 有机会;
         }
     }
@@ -1431,7 +1451,9 @@ public static class AiDecisionLayer
         //   只清 `_预取中` 不够 —— 那个标志管不了已经离开的异步任务。
         _世代++;
 
-        命中次数 = 0;
+        命中次数 = 0;
+        与本地一致次数 = 0;
+        最近一致 = "";
         过期次数 = 0;
         排队过期条数 = 0;
         解析失败次数 = 0;

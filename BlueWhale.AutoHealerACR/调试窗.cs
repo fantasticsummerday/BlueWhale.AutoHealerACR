@@ -1590,7 +1590,18 @@ public static class 调试窗
             // ── 决策层 ──
             ImGui.Text($"  决策层：队列={AiDecisionLayer.队列长度}" +
                        $"｜预取中={AiDecisionLayer.预取中}" +
-                       $"｜命中={AiDecisionLayer.命中次数} 过期={AiDecisionLayer.过期次数}");
+                       $"｜命中={AiDecisionLayer.命中次数}" +
+                       $"（其中与本地一致={AiDecisionLayer.与本地一致次数}）" +
+                       $" 过期={AiDecisionLayer.过期次数}");
+            // ★ "与本地一致"单独说清楚（2026-10-03 用户要求）：
+            //   AI 建议的技能正好是本地刚放出去的那个 ⇒ 不算未命中，计入命中。
+            try
+            {
+                if (AiDecisionLayer.最近一致.Length > 0)
+                    ImGui.TextDisabled($"      最近一次与本地一致：{AiDecisionLayer.最近一致}");
+                ImGui.TextDisabled($"      本地最近释放：{HealerACR.Common.最近释放.描述()}");
+            }
+            catch { }
             ImGui.TextDisabled($"      预取 成功={AiDecisionLayer.预取成功次数}" +
                                $" 失败={AiDecisionLayer.预取失败次数}" +
                                $"｜解析失败={AiDecisionLayer.解析失败次数}" +
