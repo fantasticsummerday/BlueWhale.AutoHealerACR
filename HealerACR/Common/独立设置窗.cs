@@ -96,6 +96,9 @@ public static class 独立设置窗
     /// <summary>**已卸载** —— 卸载之后绝不再画（哪怕 `绘制者` 还是非 null）。</summary>
     private static bool _已卸载;
 
+    /// <summary>"拒绝残留入口"日志的节流时刻（30 秒最多一条）。</summary>
+    private static long _拒绝日志时刻;
+
     /// <summary>是否已经成功挂上 Dalamud 的绘制回调。</summary>
     public static bool 已挂载 => _已挂载;
 
@@ -357,32 +360,27 @@ public static class 独立设置窗
     ///         它的字段/方法指向的是已经不存在的类型
     ///         ⇒ 读游戏对象 ⇒ `AccessViolationException`（退出时必崩）。
     ///
-    ///  [!] ★★★ 判据用**实例引用比对**，不要用 Description 前缀 ★★★
+    ///  [!] ★★★ 判据交给入口自己（`HealerEntryBase.是当前入口()`）★★★
     ///
-    ///      ⚠️ 我第一版写的是 `ACR身份.是当前()`（读 `currRotation.Description`
-    ///         判它是否以 `"BlueWhale.AutoHealerACR"` 开头）——
-    ///         **那是错的，会连活着的入口一起挡掉**（用户实测：
-    ///         「设置尚未就绪（入口还没构建完，或已卸载）」）。
+    ///      我在这里**试错过两次**，两次都让设置页变成空白，记下来免得再犯：
     ///
-    ///         原因：`ACR身份.是当前()` 是给 **AI 层挂载门**用的，
-    ///         而**本地入口的 `Description` 根本不以那个前缀开头**：
-    ///             ScholarACR.cs L666  => "日随用学者 ACR。以太优先…"
-    ///         ==> 永远返回 false ==> 门永远关着 ==> 设置页空白。
+    ///      ⚠️ 错法 ①：用 `ACR身份.是当前()`（判 `currRotation.Description`
+    ///         前缀是否 `"BlueWhale.AutoHealerACR"`）。
+    ///         那个前缀是 **AI 层挂载门**用的；本地入口的 `Description`
+    ///         是"日随用学者 ACR。以太优先…" ⇒ **永远 false** ⇒ 设置页空白。
     ///
-    ///      ✅ 正确的判据：**框架当前的 rotation 里，`RotationEntry`
-    ///         是不是就是这一个实例** ——
-    ///             `ReferenceEquals(Data.currRotation.RotationEntry, 入口)`
-    ///         · 这是**实例级**的，唯一能区分"这次的实例"和"上次残留的实例"
-    ///         · 不依赖任何字符串约定（Description 改一个字都不会破坏它）
-    ///         · 和 `OnDrawSetting()` 里那道身份门**同一个判据**（那边也是
-    ///           `ReferenceEquals(Data.currRotation, _本入口旋转)`）
+    ///      ⚠️ 错法 ②：用 `ReferenceEquals(currRotation.RotationEntry, 入口)`
+    ///         并在 `currRotation == null` 时拒绝。
+    ///         但 `RotationManager.cs:184  Data.currRotation = P_0;`
+    ///         是**在 `Build()` 之后**才执行的，而本回调从一开始就在跑
+    ///         ⇒ 读到 null ⇒ 又被挡 ⇒ 还是空白。
     ///
-    ///  [!] 读不到 `currRotation` 时返回 **null**（当作"没有入口"）——
-    ///      宁可这一次不画（下一帧就好了），也不要画一个死掉的实例。
+    ///      ✅ 正确：比对我们**自己的**旋转对象 `_本入口旋转`
+    ///         （它在 `Build()` 里 rotation 构造完就赋值了，不依赖框架时机），
+    ///         且**读不到框架状态时接受**，只在"能读到、且明确不是我们"时拒绝。
     ///
-    ///  [!] 卸载时 `卸载()` 会主动把 `绘制者` 置 null ——
-    ///      这一层是**双保险**：万一卸载路径没走到（异常/框架直接换 ACR），
-    ///      这一层还能挡住"画一个死掉的入口"。
+    ///  [!] 真正防"残留实例"的是 `卸载()`（置 null + 摘订阅）；
+    ///      这里只是双保险 —— 万一卸载路径没走到（异常 / 框架直接换 ACR）。
     /// ══════════════════════════════════════════════════════════════════════
     /// </summary>
     private static HealerEntryBase? 入口还活着()
@@ -392,21 +390,27 @@ public static class 独立设置窗
 
         try
         {
-            var 当前 = AEAssist.CombatRoutine.Data.currRotation;
-            if (当前 == null) return null;
-
-            // ★ 实例级比对 —— 当前 rotation 的入口就是这个实例吗
-            if (!ReferenceEquals(当前.RotationEntry, 入口))
+            if (!入口.是当前入口())
             {
-                // 不是当前的 ⇒ 这是上次加载的残留 ⇒ 丢弃引用，之后不再问
+                // ⚠️ 打一条日志（30 秒最多一次）——
+                //    这个判据已经让我把设置页弄空白过两次，所以**不能静默失败**：
+                //    真出问题时必须能从日志直接看出"是哪一步挡的"。
+                var 现在 = Environment.TickCount64;
+                if (现在 - _拒绝日志时刻 >= 30000)
+                {
+                    _拒绝日志时刻 = 现在;
+                    LogHelper.Info("[HealerACR] 独立设置窗：拒绝了一个残留的入口实例" +
+                                   "（它不是当前 ACR 的那个）—— 设置页会显示「尚未就绪」。");
+                }
+
+                // 明确是上次加载的残留 ⇒ 丢弃引用，之后不再问
                 绘制者 = null;
                 return null;
             }
         }
         catch
         {
-            // 判不出来（框架还没就绪）⇒ 这一次不画，下一帧会好
-            return null;
+            // 判据自己异常 ⇒ 接受（宁可不误伤；残留由 `卸载()` 兜）
         }
 
         return 入口;
