@@ -2222,6 +2222,13 @@ public static class AiSituation
             {
                 if (id == 0) return;
 
+                // ★ B 层边界（2026-10-03 用户实测指出）：**兜底清单也只给预测性预铺** ——
+                //   候选为空时会走这份兜底清单，原来它把「基础输出/群体输出/DoT/移动填充/
+                //   站定填充/自身AOE」全列给了 AI ⇒ 那几拍 AI 又在点输出技能 ✗
+                //   与候选清单同口径：只列 治疗 / 减伤 ✓
+                if (类别.Contains("输出") || 类别.Contains("填充")
+                    || 类别.Contains("AOE") || 类别 == "DoT") return;
+
                 // ★ 等级/职业任务没到 → 不列进清单
                 if (!SpellUtil.已解锁(id))
                 {
