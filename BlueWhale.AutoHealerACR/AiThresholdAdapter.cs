@@ -260,13 +260,13 @@ public static class AiThresholdAdapter
             // ══════════════════════════════════════════════════════════════
             // ★ 把**算好的值**传进去 —— 不再让 `推类别` 自己调 `偏移()`（那是环的来源）
             推类别(HealerACR.Common.治疗阈值表.类别.单疗,
-                   值 + 安全取参数(HealerACR.Common.可调参数.单体治疗阈值));
+                   安全取参数(HealerACR.Common.可调参数.单体治疗阈值));
             推类别(HealerACR.Common.治疗阈值表.类别.群疗,
-                   值 + 安全取参数(HealerACR.Common.可调参数.群体治疗阈值));
+                   安全取参数(HealerACR.Common.可调参数.群体治疗阈值));
             推类别(HealerACR.Common.治疗阈值表.类别.大招,
-                   值 + 安全取参数(HealerACR.Common.可调参数.大招血线));
+                   安全取参数(HealerACR.Common.可调参数.大招血线));
             推类别(HealerACR.Common.治疗阈值表.类别.预铺,
-                   值 + 安全取参数(HealerACR.Common.可调参数.预铺血线));
+                   安全取参数(HealerACR.Common.可调参数.预铺血线));
         }
         catch { }
         return 值;
