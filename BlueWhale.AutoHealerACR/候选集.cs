@@ -373,13 +373,55 @@ public static class 候选集
     {
         try
         {
-            var c = 按编号_内部(编号);
-            if (c == null) return null;
-            if (c.类 == 类别.治疗 || c.类 == 类别.减伤) return c;
-            return null;   // ★ 被隐藏的候选不能被 AI 的编号命中
+            if (string.IsNullOrWhiteSpace(编号)) return null;
+            var 想要 = 编号!.Trim().ToUpperInvariant();
+            if (!想要.StartsWith("C")) return null;
+
+            // ★ 只在【AI 可见投影】里解析 —— 与 描述() 用的是同一份编号 ✓
+            foreach (var c in AI可见投影(this))
+                if (string.Equals(c.编号, 想要, System.StringComparison.OrdinalIgnoreCase))
+                    return c;
+
+            return null;   // 完整表上的编号（被隐藏类别的）一律不认 ✓
         }
         catch { return null; }
     }
+    /// <summary>
+    /// **AI 可见投影**（2026-10-03 实机 bug 修复）—— 过滤 → **连续重新编号** C1..Cn。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么必须做（实机实证，不是理论）：
+    ///      AI-事件.txt 里连续三条**技能与理由不匹配**：
+    ///        `188 = 野战治疗阵（…用能力技生命疗法先抬一口…）`
+    ///        `16537 = 仙光的低语（…先铺野战治疗阵减伤兜底…）`
+    ///        `186 = 士气高扬之策（…能力技瞬发…）`
+    ///      ⇒ 根因：编号是在**完整候选表**上分配的（含 输出/功能/紧急）✗
+    ///        描述时只显示 治疗/减伤 ⇒ AI 看到的编号**有洞**（C2/C3/C6…）
+    ///        回答 "C2" 时按完整表解析 ⇒ **落到另一个候选**上 ✗✗
+    ///      ⇒ 这也解释了用户最早报的「小怪罩子乱放」：
+    ///        AI 本意"补一口血"，落地成"野战治疗阵" ✗
+    ///
+    ///  [!] 做法（审计 P0-3 / 复审 P2-C 要求的顺序）：
+    ///        完整候选表 → 只留 治疗/减伤 → **重新编号 C1..Cn** → 描述与解析共用这一份 ✓
+    ///      关键：`描述()` 与 `按编号()` **必须都走这里**，只改一边比不改更糟 ✗
+    ///
+    ///  [!] 用 `with` 生成带新编号的副本，**不动原快照**（候选是不可变 record）✓
+    /// ══════════════════════════════════════════════════════════════════
+    public static System.Collections.Generic.List<候选> AI可见投影(快照 快)
+    {
+        var 出 = new System.Collections.Generic.List<候选>();
+        try
+        {
+            foreach (var c in AI可见投影(快))   // ★ 与 按编号() 共用同一份投影
+            {
+                if (c.类 != 类别.治疗 && c.类 != 类别.减伤) continue;
+                出.Add(c with { 编号 = "C" + (出.Count + 1) });
+            }
+        }
+        catch { }
+        return 出;
+    }
+
     private 候选? 按编号_内部(string? 编号)
         {
             if (string.IsNullOrWhiteSpace(编号)) return null;
