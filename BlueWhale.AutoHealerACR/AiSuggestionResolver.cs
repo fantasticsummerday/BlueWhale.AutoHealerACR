@@ -261,6 +261,26 @@ public class AiSuggestionResolver : ISlotResolver
 
                 if (!在预测性清单里)
                 {
+                    // ★ 0.6.6.0 实机修正：**快照换代导致的误拒** ★
+                    //   现象：医术(190) 被拒成「不属于预测性预铺类」✗
+                    //   根因：上面的检查只在**当前重新生成的快照**里查 id，
+                    //         而 AI 的回答基于它当时收到的那份快照 ⇒ 两拍之间换代
+                    //         ⇒ 查不到 ⇒ 误判成越权 ✗
+                    //   修法：补一条**与快照无关**的判据 —— 查技能表类别：
+                    //         单疗 / 群疗 / 大招 / 预铺 ⇒ 预测性预铺范畴 ⇒ 放行 ✓
+                    //         （输出类不在这四类 ⇒ 仍被挡 ✓ 边界不放松）
+                    try
+                    {
+                        var 类0 = HealerACR.Common.治疗阈值表.取类别(id);
+                        if ((类0 == HealerACR.Common.治疗阈值表.类别.单疗
+                          || 类0 == HealerACR.Common.治疗阈值表.类别.群疗
+                          || 类0 == HealerACR.Common.治疗阈值表.类别.大招
+                          || 类0 == HealerACR.Common.治疗阈值表.类别.预铺)
+                          && HealerACR.Common.HealQt.GetQt("奶人", true))
+                            return 100;   // = 正常采纳的分值（与本 resolver 的其它放行路径一致）
+                    }
+                    catch { }
+
                     拦截("不属于预测性预铺类（输出 / 驱散 / 濒死救人由本地逻辑算，AI 只给倾向）");
                     return -1;
                 }
