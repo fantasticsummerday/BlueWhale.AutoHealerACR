@@ -993,7 +993,7 @@ public static class AiDecisionLayer
             **只能建议这个等级学得会的技能**；而且**优先用【可选动作】里的编号**。
             你凭记忆写出的技能 ID，只要本等级拿不到，会被本地直接丢弃 —— 那一轮等于白问。
         2d. **另外用一行给出你希望本地评分往哪偏**（结构化倾向，可省略不写）：
-           output=AOE|SINGLE|BALANCED ; mitigation=HOLD|NORMAL|SPEND ; resource=CONSERVE|NORMAL|SPEND（写成这样一行即可，不用花括号）
+           output=AOE|SINGLE|BALANCED ; mitigation=HOLD|NORMAL|SPEND ; mp=CONSERVE|NORMAL|SPEND（写成这样一行即可，不用花括号）
            · 这只是"**倾向于**"，**不点技能、也不改技能**：本地评分会按它软偏移，
              所以**拿不准就别写**（缺字段 = 本轮不表达倾向，允许）。
            · 注意：`HOLD`（保留减伤）**挡不住**本地"预计伤害超阈值"时的硬规则。

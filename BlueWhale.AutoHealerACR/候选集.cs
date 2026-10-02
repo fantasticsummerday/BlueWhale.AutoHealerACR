@@ -848,7 +848,14 @@ public static class 候选集
             kv.Value.Sort((a, b) =>
             {
                 var c = b.紧急等级.CompareTo(a.紧急等级);
-                return c != 0 ? c : b.本地分.CompareTo(a.本地分);
+                if (c != 0) return c;
+            
+                // ★ AI 减伤倾向：**只参与排序**，不动 真实收益 / 减伤百分点 / 盾倍率 / 本地分
+                //   （审查文档第 5/8/19 节：AI 只表达「我现在更看重它多少」）
+                //   紧急时偏置恒为 0（本地硬规则优先）；盾第一版不加偏置。
+                var sa = a.本地分 + HealerACR.Common.Ai倾向.减伤偏置(a.是盾, a.紧急等级 > 0);
+                var sb = b.本地分 + HealerACR.Common.Ai倾向.减伤偏置(b.是盾, b.紧急等级 > 0);
+                return sb.CompareTo(sa);
             });
 
         // 每桶先取到自己的上限
