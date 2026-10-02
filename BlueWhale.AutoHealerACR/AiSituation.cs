@@ -2234,6 +2234,16 @@ public static class AiSituation
                     || 类别.Contains("宠物") || 类别.Contains("小仙女")
                     || 类别.Contains("资源")) return;
 
+                // ★ 2026-10-03 实机（拦截 26/26 都是这一类）：**兜底清单也要查可用性**
+                //   AI 反复推荐医术(190)，终审反复按「技能不可用（CD中/形态不对）」拒 ✗
+                //   医术是 GCD 技能、没有 CD ⇒ 它在本 ACR 里就是不可用状态 ⇒
+                //   列给 AI 只会每轮白跑 ✗ ⇒ 与候选清单同口径：**即将可用的才列** ✓
+                try
+                {
+                    if (!SpellUtil.即将可用(id, SpellUtil.建议视野秒())) return;
+                }
+                catch { }
+
                 // ★ 等级/职业任务没到 → 不列进清单
                 if (!SpellUtil.已解锁(id))
                 {

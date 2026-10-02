@@ -68,6 +68,34 @@ public static class 最近释放
 
     private static AEAssist.MemoryApi.MemApiSpellCastSuccess? _api;
 
+    /// <summary>
+    /// **最近若干次施放**（2026-10-03 新增）—— 只给"读条被取消"取证用。
+    /// 原来的 描述() 只能给"最近一次"，而定位极早取消需要看"取消前 1 秒内发过哪些动作"✗
+    /// 只在游戏线程读写（施法成功事件 + 探针都在游戏线程）✓ 不做跨线程共享 ✓
+    /// </summary>
+    private static readonly System.Collections.Generic.List<(uint 技能, long 时刻)> _近几次 = new();
+
+    /// <summary>最近 N 次施放的文字（新的在前，只在时间窗内），给读条取证用。</summary>
+    public static string 近期描述(int 毫秒窗口 = 1000, int 最多 = 6)
+    {
+        try
+        {
+            var 现在 = TimeHelper.Now();
+            var 出 = new System.Text.StringBuilder();
+            var 数 = 0;
+            for (var i = _近几次.Count - 1; i >= 0 && 数 < 最多; i--)
+            {
+                var 技能 = _近几次[i].技能;
+                var 差 = 现在 - _近几次[i].时刻;
+                if (差 > 毫秒窗口) break;
+                出.Append(技能).Append('(').Append(差).Append("ms前) ");
+                数++;
+            }
+            return 数 == 0 ? "（窗口内没有别的动作）" : 出.ToString().TrimEnd();
+        }
+        catch { return "（读不到）"; }
+    }
+
     private static bool _已订阅;
 
     private static bool _订阅试过;
@@ -148,6 +176,14 @@ public static class 最近释放
             _技能 = 技能;
 
             _时刻 = TimeHelper.Now();
+
+            // ★ 2026-10-03：同时进小环形缓冲（给"读条被取消"取证）✓
+            try
+            {
+                _近几次.Add((技能, _时刻));
+                while (_近几次.Count > 12) _近几次.RemoveAt(0);
+            }
+            catch { }
 
             // ★ 转发给「治疗间隔」：同一目标短时间内被照顾两次 ⇒ 记一行（2026-10-03）
             try
