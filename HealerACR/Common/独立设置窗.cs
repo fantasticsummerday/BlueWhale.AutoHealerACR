@@ -128,6 +128,47 @@ public static class 独立设置窗
                 return;
             }
 
+            // ══════════════════════════════════════════════════════════════════
+            //  ★ 每次加载都把调试窗开关**强制复位为"关"**（用户明确要求）
+            //
+            //  [!] 用户原话（2026-10-03）：
+            //      「我要达成的目的是：把逻辑改成**每次启动加载的时候**
+            //        调试窗开关改成**默认关**」
+            //
+            //  [!] 为什么放在这里（`尝试挂载` 只在**这次加载的第一次**跑到这里，
+            //      因为上面 `if (_已挂载) return;` 会挡住后续调用）：
+            //      这个位置 = "本次加载刚开始、还没画过任何东西"
+            //      ⇒ 无论之前发生过什么，调试窗都从"关"开始。
+            //
+            //  [!] 它和 `调试窗全局开关.启用` 的"默认 false"是**两道**保险：
+            //      默认值保证"没人动过就是关"，这一句保证"就算有人动过也被抹掉"。
+            // ══════════════════════════════════════════════════════════════════
+            调试窗全局开关.启用 = false;
+
+            // ══════════════════════════════════════════════════════════════════
+            //  ★★★ **摘掉"上一份副本"遗留的绘制订阅** ★★★
+            //
+            //  [!] 为什么必须做（这才是"一加载 AE 就冒出调试窗"的真正原因）：
+            //      ACR 重载**不会卸载旧程序集**（本项目反复实测过：一个游戏进程里
+            //      能堆 20~30 份副本）。旧副本里的 `独立设置窗` 把**它自己的**
+            //      `每帧画` 挂在 Dalamud 的 `UiBuilder.Draw` 上，而且**从来不摘**
+            //      （0.6.0.x 全工程没有一处 RemoveEventHandler）。
+            //      那些旧副本里，有的加载时读到的开关是 `true`
+            //      （`调试窗开关.json` 在 22:26 之前一直是 true）
+            //      ⇒ **它们会一直画那个窗口**，而我改的任何新代码都管不到旧副本
+            //      ⇒ 用户看到的就是"改了好几版还是一加载就冒出来"。
+            //
+            //  [!] 判据（只摘"自己人但是别的副本"）：
+            //        · `Method.Name == "每帧画"`
+            //        · `DeclaringType.FullName == "HealerACR.Common.独立设置窗"`
+            //        · `DeclaringType.Assembly != 本程序集`   ← 关键：绝不摘自己
+            //      ⇒ 摘不到、或 Dalamud 以后换成自定义事件（没有背后的字段）
+            //        都只是"什么都不做"，不影响本次挂载。
+            //
+            //  [!] ⚠️ 顺序：**先清旧的，再挂自己的** —— 反了的话可能把自己摘掉。
+            // ══════════════════════════════════════════════════════════════════
+            摘掉旧副本的订阅(事件, uiBuilder);
+
             事件.AddEventHandler(uiBuilder, new Action(每帧画));
             _已挂载 = true;
             LogHelper.Info("[HealerACR] 独立设置窗：已挂上 Dalamud 的绘制回调" +
@@ -137,6 +178,56 @@ public static class 独立设置窗
         {
             报一次("挂载异常：" + e.Message);
         }
+    }
+
+    /// <summary>
+    /// **摘掉"上一份/上几份程序集副本"留在 Dalamud 绘制事件上的回调**。
+    ///
+    /// [!] 见调用点那段说明：旧副本的 `每帧画` 从来不摘，而它们里的开关可能是
+    ///     `true`（当年 json 里存过 true）⇒ 它们会永远画那个调试窗。
+    ///     不重启游戏的话，**只有把它们从这个事件上摘下来**才能让窗口真的消失。
+    ///
+    /// [!] 只摘"类型全名相同、但属于**别的程序集**"的委托：
+    ///     · 名字对不上 ⇒ 不动（可能是 Dalamud 自己的或别的插件的）
+    ///     · 程序集相同 ⇒ 不动（那是**本次**加载挂的，摘了就没人画了）
+    ///
+    /// [!] 全程 try/catch：这是"顺手清理"，失败绝不能影响本次挂载。
+    /// </summary>
+    private static void 摘掉旧副本的订阅(EventInfo 事件, object uiBuilder)
+    {
+        try
+        {
+            var 本程序集 = typeof(独立设置窗).Assembly;
+
+            // 字段式事件的背后字段就叫事件名（Dalamud 的 UiBuilder 是 `public event Action Draw`）
+            var 字段 = uiBuilder.GetType().GetField(事件.Name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (字段?.GetValue(uiBuilder) is not Delegate 当前) return;
+
+            var 摘掉 = 0;
+            foreach (var d in 当前.GetInvocationList())
+            {
+                try
+                {
+                    var 声明类型 = d.Method.DeclaringType;
+                    if (声明类型 == null) continue;
+                    if (d.Method.Name != "每帧画") continue;
+                    if (声明类型.FullName != "HealerACR.Common.独立设置窗") continue;
+                    if (ReferenceEquals(声明类型.Assembly, 本程序集)) continue;   // ★ 别摘自己
+
+                    事件.RemoveEventHandler(uiBuilder, d);
+                    摘掉++;
+                }
+                catch { }
+            }
+
+            if (摘掉 > 0)
+            {
+                LogHelper.Info($"[HealerACR] 独立设置窗：已摘掉 {摘掉} 个【旧副本】遗留的绘制回调" +
+                               "（它们会一直画调试窗 —— 这是「重载而不重启」的后果）");
+            }
+        }
+        catch { }
     }
 
     private static void 报一次(string 原因)
