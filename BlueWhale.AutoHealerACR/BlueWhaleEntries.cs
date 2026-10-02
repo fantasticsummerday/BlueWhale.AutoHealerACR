@@ -1240,7 +1240,7 @@ public static class AiSettingPage
         ImGui.Separator();
         ImGui.TextDisabled("决策层开关");
 
-        if (ImGui.Checkbox("阶段 A：策略层（调阈值，低频）", ref s.启用策略层)) 保存并提示("阶段A开关");
+        if (ImGui.Checkbox("阶段 A：策略层（只调阈值，低频）", ref s.启用策略层)) 保存并提示("阶段A开关");
         // ⚠️ 这句原来只写"微调治疗阈值" —— 那是**大类**（单体/群体/大招/预铺）的说法。
         //    第 21 轮起 AI 还能**逐个技能**调（`技能:低语|+0.05`），所以两种粒度都要说清，
         //    否则用户会以为它只能整类整类地动。
@@ -1249,12 +1249,14 @@ public static class AiSettingPage
         ImGui.TextDisabled("    · 也可以**逐个技能**（例：只把「低语」调早，别的不动）");
         ImGui.TextDisabled("  幅度有上限，且随局面**平滑**生效，不会突变。");
 
-        if (ImGui.Checkbox("阶段 B：决策层（出技能建议，高频）", ref s.启用决策层)) 保存并提示("阶段B开关");
+        if (ImGui.Checkbox("阶段 B：决策层（只出预测性预铺建议，高频）", ref s.启用决策层)) 保存并提示("阶段B开关");
         // [!] 原来这里写"对延迟敏感（GCD 只有 2.5 秒），建议先只开阶段 A"。
         //     那句基于"延迟压不下来"，而延迟的根因（官方**默认开启思考 + effort=high**）
         //     已经关掉了 —— 开着思考时中位 2.6 秒，比 GCD 还长，那才是问题所在。
         //     => 现在不该再劝阻开阶段 B。
-        ImGui.TextDisabled("  出技能建议（预取队列备货）。关思考后延迟已明显改善");
+        ImGui.TextDisabled("  只出「预测性预铺」建议：提前给盾 / 铺罩（清单里只有治疗与减伤两类）。");
+            ImGui.TextDisabled("  输出循环、驱散、濒死救人在【本地逻辑】里算 —— AI 只对它们给倾向（保守/激进），不点技能。");
+            ImGui.TextDisabled("  关思考后延迟已明显改善。");
 
         ImGui.SetNextItemWidth(160);
         ImGui.SliderInt("策略刷新（秒）", ref s.策略刷新秒, 3, 60);
