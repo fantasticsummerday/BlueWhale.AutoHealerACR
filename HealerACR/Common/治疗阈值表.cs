@@ -335,14 +335,31 @@ public static class 治疗阈值表
     /// </summary>
     private static readonly Dictionary<uint, float> _单技能偏移 = new();
 
+    /// <summary>
+    /// **_单技能偏移 的同步锁**（审计 P1-9，2026-10-03）。
+    ///
+    /// [!] 为什么必须加：AI 那条链路是**后台线程**（`ConfigureAwait(false)`），
+    ///     它写 `_单技能偏移`；而游戏线程每帧通过 `取()` → `取单技能偏移()` 读它 ✗
+    ///     `Dictionary` 在扩容/删除时并发读会撕裂（读到半成品状态，甚至抛异常）。
+    ///     原来只靠 try/catch 兜底 ⇒ "这一帧的偏移被忽略"，属于**静默错误** ✗
+    ///
+    /// [!] 为什么用 lock 而不是 pending+Apply（审计的另一种方案）：
+    ///     读点频率极低（每次治疗决策一次，每秒个位数），无竞争时 lock 约 20ns，
+    ///     比"每帧 Apply 一遍字典"更简单也更省 ✓
+    /// </summary>
+    private static readonly object _锁 = new();
+
     /// <summary>给某个技能加一点偏移（AI 调参用）。</summary>
     public static void 设单技能偏移(uint 技能Id, float 偏移)
     {
         try
         {
             if (技能Id == 0) return;
-            if (偏移 == 0f) _单技能偏移.Remove(技能Id);
-            else _单技能偏移[技能Id] = Math.Clamp(偏移, -0.20f, 0.20f);   // 保险丝
+            lock (_锁)   // ★ 审计 P1-9：与游戏线程的读互斥
+            {
+                if (偏移 == 0f) _单技能偏移.Remove(技能Id);
+                else _单技能偏移[技能Id] = Math.Clamp(偏移, -0.20f, 0.20f);   // 保险丝
+            }
         }
         catch { }
     }
@@ -350,14 +367,20 @@ public static class 治疗阈值表
     /// <summary>读某个技能的单技能偏移（没设 = 0）。</summary>
     public static float 取单技能偏移(uint 技能Id)
     {
-        try { return _单技能偏移.TryGetValue(技能Id, out var v) ? v : 0f; }
+        try
+        {
+            lock (_锁)   // ★ 审计 P1-9：与后台线程的写互斥
+            {
+                return _单技能偏移.TryGetValue(技能Id, out var v) ? v : 0f;
+            }
+        }
         catch { return 0f; }
     }
 
     /// <summary>清掉所有单技能偏移（AI 关掉 / 换本时调）。</summary>
     public static void 清单技能偏移()
     {
-        try { _单技能偏移.Clear(); } catch { }
+        try { lock (_锁) { _单技能偏移.Clear(); } } catch { }   // ★ 审计 P1-9
     }
 
     /// <summary>
