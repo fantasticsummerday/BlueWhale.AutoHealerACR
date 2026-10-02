@@ -142,6 +142,43 @@ public static class 独立设置窗
     /// </summary>
     private static bool _本次加载已复位开关;
 
+    /// <summary>
+    /// **本副本的版本串**（形如 `0.6.1.7+构建戳`）—— 给日志和调试窗用。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么必须有（2026-10-03 用户实测）：重载不卸载 ⇒ 进程里同时活着
+    ///      好几份副本，而**外观完全一样**。排查时反复出现"这个现象到底是
+    ///      新副本还是旧副本产生的" —— 靠时间猜过好几次，猜错过。
+    ///      ⇒ 把版本串打出来：日志一行、调试窗一行 **（截图里就能看到）**。
+    ///
+    ///  [!] 构成：`AssemblyInformationalVersion`（csproj 的 `<Version>` +
+    ///      构建戳，形如 `0.6.1.7+abc1234`）。
+    ///      拿不到就退回程序集版本，再拿不到给 "(未知)" —— 绝不抛。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static string 本副本版本
+    {
+        get
+        {
+            if (_本副本版本 != null) return _本副本版本;
+            try
+            {
+                var 程序集 = typeof(独立设置窗).Assembly;
+                var 戳 = 程序集
+                    .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                    .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                    .FirstOrDefault()?.InformationalVersion;
+                _本副本版本 = string.IsNullOrEmpty(戳)
+                    ? (程序集.GetName().Version?.ToString() ?? "(未知)")
+                    : 戳;
+            }
+            catch { _本副本版本 = "(未知)"; }
+            return _本副本版本;
+        }
+    }
+
+    private static string? _本副本版本;
+
     private static int 读世代()
     {
         try { if (AppDomain.CurrentDomain.GetData(世代键) is int v) return v; } catch { }
@@ -273,7 +310,7 @@ public static class 独立设置窗
             //      —— 它应当等于用户最后一次勾选的值。
             // ══════════════════════════════════════════════════════════════════
             LogHelper.Info("[HealerACR] 独立设置窗：本次加载开始（调试窗开关默认=关，" +
-                           "世代=" + _我的世代 + "）");
+                           "世代=" + _我的世代 + "｜版本=" + 本副本版本 + "）");
 
             // ══════════════════════════════════════════════════════════════════
             //  ★★★ **摘掉"上一份副本"遗留的绘制订阅** ★★★
