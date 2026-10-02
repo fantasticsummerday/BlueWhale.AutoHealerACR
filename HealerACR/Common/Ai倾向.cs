@@ -285,7 +285,11 @@ public static class Ai倾向
             foreach (var 行 in 文本.Split('\n'))
             {
                 var 干净 = 行.Trim().TrimStart('*', '-', '`', ' ');
-                if (干净.StartsWith("TENDENCY", StringComparison.OrdinalIgnoreCase)) return 干净;
+                // [!] 复审第 7 条：`TENDENCY` 必须是**完整 token** ——
+                //     原来 `StartsWith("TENDENCY")` 会接受 `TENDENCY_FAKE...` ✗
+                //     ⇒ 现在只接受 `TENDENCY|…` 或整行只有 `TENDENCY` ✓
+                if (干净.Equals("TENDENCY", StringComparison.OrdinalIgnoreCase)) return 干净;
+                if (干净.StartsWith("TENDENCY|", StringComparison.OrdinalIgnoreCase)) return 干净;
             }
             return null;
         }
@@ -312,9 +316,21 @@ public static class Ai倾向
 
             var 段 = 文本.Substring(i, Math.Min(120, 文本.Length - i)).ToUpperInvariant();
 
-            foreach (var (值, 结果) in 表)
-
-                if (段.Contains(值)) return 结果;
+            // [!] 复审第 7 条：值必须**整段命中**，不能再 Contains ——
+            //     否则 output=AOE_xxx 这类也会被当成 AOE ✗
+            //     做法：按 | 切段 → 找 key=value 那一段 → 值整段比较 ✓
+            foreach (var 段2 in 段.Split('|'))
+            {
+                var 等号 = 段2.IndexOf('=');
+                if (等号 < 0) continue;
+                var 键2 = 段2.Substring(0, 等号).Trim().Trim('"', ' ', '{', '}');
+                if (!键2.Equals(键, StringComparison.OrdinalIgnoreCase)) continue;
+                var 值2 = 段2.Substring(等号 + 1).Trim().Trim('"', ' ', '{', '}', ',');
+                foreach (var (值, 结果) in 表)
+                    if (值2.Equals(值, StringComparison.OrdinalIgnoreCase)) return 结果;
+                return 兜底;   // 键对但值非法 ⇒ 只丢这个字段 ✓
+            }
+            return 兜底;
 
             return 兜底;
 
