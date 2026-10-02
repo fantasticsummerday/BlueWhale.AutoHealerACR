@@ -1444,6 +1444,8 @@ public static class AiDecisionLayer
     /// </summary>
         /// <summary>消费错位的次数与最近一次说明（审计 P1-12 的观测口径）。</summary>
     public static int 错位消费次数 { get; private set; }
+    private static uint 错位队首技能;
+
     public static string 最近错位说明 = "";
 
 public static void 消费(建议? expected = null)
@@ -1452,24 +1454,47 @@ public static void 消费(建议? expected = null)
         {
             清理过期();
 
-            // ★ 审计 P1-12：只有**队首仍然是同一条建议对象**时才出队 ——
-            //   否则会出现 Check=B、Consume=A 的错位消费 ✗
-            if (expected != null)
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 复审第 5 条（2026-10-03）：**检查 + 出队必须在同一个临界区** ★
+            //
+            //  [!] 之前的写法有两处问题：
+            //      ① 队首是在 `lock` **外面**读的（`_队列.Peek()` 直接调）✗
+            //      ② "检查 expected" 与 "出队" 是两次独立拿锁 ⇒ 中间存在窗口：
+            //         线程 A 检查到队首 = A ⇒ 释放锁 ⇒ 别人清空/重置队列
+            //         ⇒ 线程 A 再拿锁出队 ⇒ **消费了不该消费的东西** ✗
+            //      ⇒ 现在整段进同一把 `_队列锁`：检查与出队原子完成 ✓
+            //        （`清理过期()` 自己会拿锁，所以放在锁外先做，避免嵌套 ✓）
+            // ══════════════════════════════════════════════════════════════
+            var 错位 = false;
+            lock (_队列锁)
             {
-                var 队首 = _队列.Count > 0 ? _队列.Peek() : null;
-                if (!ReferenceEquals(队首, expected))
+                if (expected != null)
                 {
-                    错位消费次数++;
-                    最近错位说明 = "Check=" + expected.技能Id + " 但队首=" + (队首 == null ? "空" : 队首.技能Id.ToString()) + " ⇒ 本次不消费";
-                    try { Ai调试.日志("消费错位（已跳过）：" + 最近错位说明); } catch { }
-                    return;
+                    var 队首 = _队列.Count > 0 ? _队列.Peek() : null;
+                    if (!ReferenceEquals(队首, expected))
+                    {
+                        错位 = true;
+                        错位队首技能 = 队首?.技能Id ?? 0;
+                    }
+                    else
+                    {
+                        _队列.Dequeue();
+                    }
+                }
+                else
+                {
+                    if (_队列.Count > 0) _队列.Dequeue();
                 }
             }
 
+            if (错位)
+            {
+                错位消费次数++;
+                最近错位说明 = $"Check={expected!.技能Id} 但队首={错位队首技能} ⇒ 本次不消费";
+                try { Ai调试.日志("消费错位（已跳过）：" + 最近错位说明); } catch { }
+                return;
+            }
 
-            // ⚠️ 出队本身已经是"空队列就什么都不做"，不需要先判空 ——
-            //    判空再出队是**复合序列**，两步之间队列可能被改动。
-            出队();
             命中次数++;
         }
         catch { }
