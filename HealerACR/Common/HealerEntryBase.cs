@@ -1313,6 +1313,34 @@ public abstract class HealerEntryBase : IRotationEntry
         {
             ImGui.SameLine();
             ImGui.TextDisabled("  只读，可一直开着");
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★★★ **调用链自检（用户一眼能看到，不用查日志）** ★★★
+            //
+            //  [!] 为什么必须画在这里（用户实测 2026-10-04：反复"开关没用"）：
+            //      「开关勾着、窗口不出现」这种情况**有五种可能**，而每一种
+            //      以前都只能靠日志判断 —— 而日志这条路这一晚失败了三次：
+            //        ① 打在门之后 ⇒ 门一挡就看不到
+            //        ② 走 LogHelper ⇒ 宿主的日志过滤把它吞了
+            //        ③ `写诊断` 有 500 次上限 ⇒ 早就写满，后面的全丢
+            //      ==> 结论：**把判据画在用户眼前**。他截图就是证据。
+            //
+            //  [!] 这三行分别对应调用链的三个环节：
+            //      · 开关值    —— 复选框写进去的值，画的时候读到的
+            //      · 反射状态  —— 有没有找到 `调试窗.画(bool,bool)`
+            //      · 调用次数  —— 到窗口那一侧被调了几次
+            //      · 里面画了没 —— 通过了两道门、真的进了 `绘制()`
+            // ══════════════════════════════════════════════════════════════
+            try
+            {
+                ImGui.SameLine();
+                ImGui.TextDisabled(
+                    $"  ｜开关={调试窗全局开关.启用}" +
+                    $" 反射={(反射成功 ? "OK" : "无")}" +
+                    $" 调用={调用次数}" +
+                    $" 入绘制={窗口侧入绘制次数}");
+            }
+            catch { }
         }
         catch (Exception e) { 写诊断("说明文字异常：" + e.GetType().Name + " " + e.Message); }
         面板路标(3, "说明文字块 完成");
@@ -2176,6 +2204,40 @@ public abstract class HealerEntryBase : IRotationEntry
     private static Action? _画记忆库;
     private static Action<bool, bool>? _画调试窗;
 
+    /// <summary>反射找到了 `调试窗.画(bool,bool)` 吗（设置页自检用）。</summary>
+    private static bool 反射成功 => _画调试窗 != null;
+
+    /// <summary>
+    /// 窗口侧 `绘制()` 被进了几次（设置页自检用）。
+    ///
+    /// [!] 走反射读 BlueWhale 那份 static（`调试窗.入绘制计数`）——
+    ///     和 `复位调试窗位置` / `收起调试窗` 同一个模式。
+    ///     读不到返回 -1（区别于"读到了但确实是 0"）。
+    /// </summary>
+    private static int 窗口侧入绘制次数
+    {
+        get
+        {
+            try
+            {
+                foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    Type? 类型 = null;
+                    try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
+                    catch { }
+                    if (类型 == null) continue;
+
+                    var 属性 = 类型.GetProperty("入绘制计数",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    if (属性?.GetValue(null) is int v) return v;
+                    return -1;
+                }
+            }
+            catch { }
+            return -1;
+        }
+    }
+
     /// <summary>
     /// **画 AI 设置页**（反射调 `BlueWhale.AutoHealerACR.AiSettingPage.画`）。
     ///
@@ -2726,12 +2788,19 @@ public abstract class HealerEntryBase : IRotationEntry
                     if (方法 == null) continue;
                     _画调试窗 = (Action<bool, bool>?)Delegate.CreateDelegate(typeof(Action<bool, bool>), 方法, false);
                     写诊断($"反射成功：方法={方法.DeclaringType?.FullName}.{方法.Name} 参数数={方法.GetParameters().Length} 返回={方法.ReturnType.Name}");
+                    调试窗调用链.记($"反射成功：{方法.DeclaringType?.FullName}.{方法.Name} 参数数={方法.GetParameters().Length}");
                     break;
                 }
             }
 
-            if (_画调试窗 == null) { 写诊断("反射失败：找不到 调试窗.画"); return; }
+            if (_画调试窗 == null)
+            {
+                写诊断("反射失败：找不到 调试窗.画");
+                调试窗调用链.记($"反射失败：找不到 调试窗.画(bool,bool)｜找过={_找过调试窗}");
+                return;
+            }
             调用次数++;
+            调试窗调用链.记($"即将调用 第{调用次数}次 ｜ 开关={启用} ｜ ACR在用={ACR在用}");
             写诊断($"即将调用第{调用次数}次（委托={_画调试窗.Method.DeclaringType?.FullName}.{_画调试窗.Method.Name}）");
             try
             {
@@ -2741,10 +2810,12 @@ public abstract class HealerEntryBase : IRotationEntry
                 //     窗口侧**不做任何跨程序集判断** —— 那是 0.6.5.1 失败的根因。
                 _画调试窗(启用, ACR在用);
                 写诊断($"调用返回正常（第{调用次数}次）");
+                调试窗调用链.记($"调用返回正常 第{调用次数}次");
             }
             catch (Exception 内层)
             {
                 写诊断($"调用抛异常（第{调用次数}次）：{内层.GetType().Name} {内层.Message}");
+                调试窗调用链.记($"调用抛异常：{内层.GetType().Name} {内层.Message}");
                 throw;
             }
 
