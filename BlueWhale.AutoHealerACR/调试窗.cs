@@ -1629,6 +1629,27 @@ public static class 调试窗
                 var 快 = 候选集.生成();
                 ImGui.Text($"  候选快照 #{快.快照Id}（{快.候选表.Count} 个）");
 
+                // ══════════════════════════════════════════════════════════
+                //  ★ **技能服务坏掉时，候选必然全空** —— 把它写在最显眼处
+                //
+                //  [!] 2026-10-03 用户实测：重载 AE 之后候选从 3 个变成 0 个，
+                //      诊断只写"治疗：全被筛掉 / 输出：没有候选"，
+                //      真正的共因是 `id.GetSpell()` 抛异常 ⇒ **每个技能都不可用**
+                //      （见 `SpellUtil.Get` 的注释）。那一层以前是静默的。
+                // ══════════════════════════════════════════════════════════
+                try
+                {
+                    var 取技能失败 = HealerACR.Common.SpellUtil.最近取技能失败;
+                    if (!string.IsNullOrEmpty(取技能失败))
+                    {
+                        ImGui.TextColored(new Vector4(1f, 0.4f, 0.4f, 1f),
+                            "      技能服务读不到 ⇒ 所有技能都会被判成不可用（候选必然为空）");
+                        ImGui.TextDisabled("        " + 取技能失败);
+                        ImGui.TextDisabled("        （重载 AE / 重载 ACR 之后常见；重启游戏可恢复）");
+                    }
+                }
+                catch { }
+
                 if (快.候选表.Count == 0)
                 {
                     ImGui.TextColored(new Vector4(1f, 0.7f, 0.3f, 1f),

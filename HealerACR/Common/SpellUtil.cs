@@ -14,8 +14,28 @@ namespace HealerACR.Common;
 public static class SpellUtil
 {
     /// <summary>
-    /// 取技能实体。所有 xxx.GetSpell() 最终都走这里。
+    /// **最近一次"取不到技能实体"的原因** —— 给调试窗 / 日志用（2026-10-03 新增）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么必须有（用户实测「重载 AE 之后完全没有输出」）：
+    ///      调试窗里那一轮是 **候选=0，而诊断写着"治疗：列表里有对象但全被筛掉"、
+    ///      "输出：目标读到了但一个候选都没加"** —— 也就是**每个技能都被判成不可用**。
+    ///
+    ///      原因就在下面这个 `catch`：`id.GetSpell()` 一旦抛异常
+    ///      （典型场景：**重载 AE 之后我们这份副本读不到 AEAssist 的技能服务**），
+    ///      老写法**静默返回 null** ⇒ `可用()` 判 false ⇒ 所有技能被筛掉
+    ///      ⇒ 没有候选、没有 AI 请求、也没有任何线索 —— 只能靠猜。
+    ///
+    ///  [!] ✅ 现在：记一次原因（5 秒节流）+ 打一行日志 + 调试窗显示。
+    ///      看到它就意味着"这次加载的 AEAssist 技能服务是坏的"，
+    ///      重启游戏可以让它恢复正常（重载救不回来 —— 换的是另一份副本的状态）。
+    /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    public static string 最近取技能失败 = "";
+
+    private static long _上次记取技能失败;
+
+    /// <summary>取技能实体。所有 xxx.GetSpell() 最终都走这里。</summary>
     public static Spell? Get(uint id)
     {
         if (id == 0) return null;
@@ -23,8 +43,22 @@ public static class SpellUtil
         {
             return id.GetSpell();
         }
-        catch
+        catch (Exception e)
         {
+            // ★ 不再静默：这是"所有技能都不可用"的唯一真凶候选，必须留痕（5 秒最多一条）
+            try
+            {
+                var 现在 = Environment.TickCount64;
+                if (现在 - _上次记取技能失败 >= 5000)
+                {
+                    _上次记取技能失败 = 现在;
+                    最近取技能失败 = $"{e.GetType().Name} {e.Message}";
+                    LogHelper.Info($"[HealerACR] 取技能失败（技能 id={id}）—— " +
+                                   "这会让**所有技能都判成不可用**（候选全空 / 没有 AI 请求）：" +
+                                   最近取技能失败);
+                }
+            }
+            catch { }
             return null;
         }
     }
