@@ -1125,9 +1125,10 @@ public static class DeepSeekClient
             // ══════════════════════════════════════════════════════════════
             try { HealerACR.Common.Ai倾向.解析(文本); } catch { }
 
-            if (s.记录原始回复)
-            {
-                Ai调试.日志("原始回复：" + 文本.Trim());
+Ai事件.记("原始回复：" + 文本.Trim());
+            if (s.记录原始回复)
+            {
+                Ai调试.日志("原始回复：" + 文本.Trim());
             }
 
             return (文本.Trim(), false);

@@ -1207,7 +1207,7 @@ public class AiSuggestionResolver : ISlotResolver
             var 建议 = AiDecisionLayer.当前建议;
             if (建议 != null)
             {
-                Ai调试.日志($"采纳建议：{建议.技能Id} = {SpellIds.反查(建议.技能Id)}（{建议.理由}）" +
+                Ai事件.记($"采纳建议：{建议.技能Id} = {SpellIds.反查(建议.技能Id)}（{建议.理由}）" +
                              $"｜目标 {目标名}" +
                              $"｜出生排队第 {建议.出生时队列位置 + 1} 位 / 批次 {建议.批次}" +
                              $" / 等了 {建议.已等毫秒}ms");
