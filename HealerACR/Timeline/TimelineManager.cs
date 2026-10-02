@@ -627,8 +627,39 @@ public static class TimelineManager
     /// </summary>
     public static uint 实时副本Id()
     {
-        try { return Core.Resolve<MemApiZoneInfo>().GetCurrTerrId(); }
-        catch { return 0; }
+        // ── ① 先问 AEAssist（原来的唯一来源）──
+        try
+        {
+            var id = Core.Resolve<MemApiZoneInfo>().GetCurrTerrId();
+            if (id != 0) return id;
+        }
+        catch { }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  ★ 兜底：**AEAssist 报 0 ≠ "不在任何场景"**（2026-10-03 用户实测）
+        //
+        //  [!] 现场证据（调试窗"基础局面"那一段）：
+        //        所在地：未知 ｜ 地图 id=0 ｜ 在副本里=False
+        //      而玩家明明站在正常地图里 ⇒ AEAssist 的场景缓存**没跟上**
+        //      （室内 / 住宅区这类地方会读到 0），不是"没有场景"。
+        //
+        //  [!] 为什么必须在**本函数里**兜底（而不是在每个调用点各补一次）：
+        //      这个 0 会被所有调用方当成"读不到 ⇒ 什么都别做"：
+        //        · `进本识别`        → `if (地图 == 0) return;` ⇒ 连换图都识别不到
+        //        · `HealTargetHelper` → `if (副本 == 0) return 空列表;` ⇒ 不选目标
+        //        · `AiSituation`      → 发给 AI 的"所在地"是空的
+        //        · `调试窗`           → 显示"所在地：未知"
+        //      ⇒ 在源头修一次，上面这些一起好。
+        //
+        //  [!] ✅ 兜底用 **Dalamud** 的 `TerritoryType`：宿主不会被重载，
+        //      也不依赖 AEAssist 的 DI 容器（那个容器在"关闭 AE 再启用"之后
+        //      会被 Dispose —— 同一晚踩过的另一个坑）。
+        //      两边都读不到才返回 0（调用方仍按"读不到"处理）。
+        // ══════════════════════════════════════════════════════════════════
+        try { return ECommons.DalamudServices.Svc.ClientState.TerritoryType; }
+        catch { }
+
+        return 0;
     }
 
     /// <summary>这份时间轴一共记录了多少条机制（给 AI 一个"这个本多长"的体感）</summary>
