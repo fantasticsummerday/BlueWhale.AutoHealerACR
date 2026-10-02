@@ -700,10 +700,10 @@ public class Res_BaseDamage : ISlotResolver
                 {
                     // 专门把"命中数"单独报一条 —— 它是这次的嫌疑点
                     var 命中 = 近战 == null ? 0 : 有效威力(近战, 等级) / Math.Max(1, _t.当前威力(近战.Id, 等级));
-                    LogHelper.Info($"[填充技] {明细}｜近战命中数={命中}");
+                    LogHelper.Info($"[填充技] {明细}｜近战命中数={命中}"  + (SpellUtil.在移动() ? "｜移动状态=在移动（所以只会挑瞬发档）" : "｜移动状态=站定"));
                     LogHelper.Info($"[填充技·敌人明细] {HealTargetHelper.自身周围敌人明细(_t.自身AOE半径(近战?.Id ?? 0).半径)}");
                 }
-                else LogHelper.Info($"[填充技] {明细}");
+                else LogHelper.Info($"[填充技] {明细}"  + (SpellUtil.在移动() ? "｜移动状态=在移动（所以只会挑瞬发档）" : "｜移动状态=站定"));
             }
             catch { }
             
