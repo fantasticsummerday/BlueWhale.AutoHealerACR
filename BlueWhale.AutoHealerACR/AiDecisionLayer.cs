@@ -902,7 +902,11 @@ public static class AiDecisionLayer
     {
         try
         {
-            if (!HealerACR.Common.HealQt.GetQt("完全采信AI", false)) return 系统提示;
+            // ★ 把"上一轮被拦下的建议"作为反馈带进本次请求（2026-10-03）
+            //   没有 / 超过 60 秒 ⇒ 空串，不占提示词。
+            var 反馈 = AiSuggestionResolver.上次被拒反馈();
+
+            if (!HealerACR.Common.HealQt.GetQt("完全采信AI", false)) return 系统提示 + 反馈;
 
             return """
                 ═══ 本次为「完全采信 AI」模式（最高优先级，覆盖下面全部默认倾向）═══
@@ -914,7 +918,7 @@ public static class AiDecisionLayer
                   候选不够用时才写技能 ID，那时目标由本地按类别推断。
                 这不是让你更激进，是让你**更负责** —— 请比平时更谨慎。
 
-                """ + 系统提示;
+                """ + 系统提示 + 反馈;
         }
         catch
         {
@@ -939,6 +943,9 @@ public static class AiDecisionLayer
            · **不要自己编编号，也不要自己编技能 ID。**
            · 候选是本地**已经验证过合法**的动作（目标/缺口/过量/MP 都算好了）——
              比你从技能名推的更准，**优先用它**。
+        2b. 【等级】段写明当前**生效等级**（等级同步时会低于面板等级）：
+            **只能建议这个等级学得会的技能**；而且**优先用【可选动作】里的编号**。
+            你凭记忆写出的技能 ID，只要本等级拿不到，会被本地直接丢弃 —— 那一轮等于白问。
         3. 数据不足就输出：0|数据不足
         4. 理由必须对应【数据】里某一项。
         5. 禁止编造技能名或机制名。
