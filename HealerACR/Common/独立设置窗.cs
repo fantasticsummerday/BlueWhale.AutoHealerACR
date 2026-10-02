@@ -530,6 +530,11 @@ public static class 独立设置窗
     {
         _已卸载 = true;          // ★ 第一件事：先把"还会画"这条路的闸门关掉
 
+        // ★ **收起调试窗**（用户要求：只有 BlueWhale 在用的时候才该出现）
+        //   反射调 `BlueWhale.AutoHealerACR.调试窗.ACR已卸载()` ——
+        //   `_窗口开` / `_ACR已加载` 是 BlueWhale 那份 static，这里改不了。
+        try { 通知调试窗已卸载(); } catch { }
+
         try
         {
             var uiBuilder = _挂到的UiBuilder;
@@ -548,6 +553,32 @@ public static class 独立设置窗
         绘制者 = null;
         绘制中 = false;
         显示 = false;
+    }
+
+    /// <summary>
+    /// 反射调 `BlueWhale.AutoHealerACR.调试窗.ACR已卸载()`（见 `卸载()` 的说明）。
+    /// </summary>
+    private static void 通知调试窗已卸载()
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
+                catch { }
+                if (类型 == null) continue;
+
+                var 方法 = 类型.GetMethod("ACR已卸载",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                    null, Type.EmptyTypes, null);
+                if (方法 == null) continue;
+
+                方法.Invoke(null, null);
+                return;
+            }
+        }
+        catch { }
     }
 
     /// <summary>切换显示（QT 面板的「设置」页签调它）。</summary>

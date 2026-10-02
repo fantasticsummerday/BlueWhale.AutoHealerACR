@@ -2514,7 +2514,48 @@ public abstract class HealerEntryBase : IRotationEntry
         //      调试窗**不再自己读**。判断只有一处，就不可能不一致。
         // ══════════════════════════════════════════════════════════════════
         var 开关 = 调试窗全局开关.启用;   // ← 与设置窗 Checkbox 是【同一份】
+
+        // ★★★ **门 0：先告诉调试窗"ACR 正在被使用"** ★★★
+        //
+        //  [!] 用户明确要求（2026-10-04）：
+        //      「我要的是**只有 BlueWhale 被加载使用的时候**才出现这个调试窗口」
+        //
+        //  本方法**只有真的加载了这个 ACR** 才会被调到
+        //  （`独立设置窗.每帧画()` → `入口还活着()` → 这里），
+        //  所以它就是"ACR 在用"的**天然判据**。
+        //
+        //  [!] 调试窗侧 `画(启用)` 的第一道门就是 `_ACR已加载`：
+        //      没标记过 ⇒ 一个像素都不画 ⇒ AE 一启动不会再自己弹出来。
+        //  [!] 卸载时 `独立设置窗.卸载()` 会反射调 `ACR已卸载()` 复位。
+        try { 标记调试窗已加载(); } catch { }
+
         画AI层调试窗(开关);
+    }
+
+    /// <summary>
+    /// 反射调 `BlueWhale.AutoHealerACR.调试窗.标记已加载()`（见 `画调试窗()` 的说明）。
+    /// </summary>
+    private static void 标记调试窗已加载()
+    {
+        try
+        {
+            foreach (var 程序集 in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type? 类型 = null;
+                try { 类型 = 程序集.GetType("BlueWhale.AutoHealerACR.调试窗", false); }
+                catch { }
+                if (类型 == null) continue;
+
+                var 方法 = 类型.GetMethod("标记已加载",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+                    null, Type.EmptyTypes, null);
+                if (方法 == null) continue;
+
+                方法.Invoke(null, null);
+                return;
+            }
+        }
+        catch { }
     }
 
     /// <param name="启用">
