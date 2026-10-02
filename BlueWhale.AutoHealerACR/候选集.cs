@@ -1294,7 +1294,7 @@ public static class 候选集
         if (技能表 == null) { _诊断治疗 = "拿不到职业技能表"; return; }
 
         var 队 = HealTargetHelper.可治疗队友(30f);
-        if (队.Count == 0) { _诊断治疗 = "没有可治疗队友"; return; }
+        if (队.Count == 0) { _诊断治疗 = "没有可治疗队友（" + HealTargetHelper.最近空原因 + "）"; return; }
 
         var 进前 = _当前表.Count;
 
@@ -1603,7 +1603,7 @@ public static class 候选集
         if (技能表 == null) { _诊断输出 = "拿不到职业技能表"; return; }
 
         var 目标 = 输出目标.选();
-        if (目标 == null || !目标.活着()) { _诊断输出 = "没有可选敌人"; return; }
+        if (目标 == null || !目标.活着()) { _诊断输出 = "没有可选敌人（" + 输出目标.最近空原因 + "）"; return; }
 
         var 进前 = _当前表.Count;
 

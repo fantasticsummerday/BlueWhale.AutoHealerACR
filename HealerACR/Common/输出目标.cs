@@ -93,6 +93,9 @@ public static class 输出目标
     /// 拿不到合适的就返回 null，调用方应当退回"不放技能"
     /// （而不是硬打一个远处的怪）。
     /// </summary>
+    /// <summary>最近一次 选() 返回 null 的原因（给调试窗 / AI 诊断用，2026-10-03 排查新增）</summary>
+    public static string 最近空原因 = "还没调用过";
+
     public static IBattleChara? 选()
     {
         try
@@ -113,6 +116,7 @@ public static class 输出目标
             {
                 _粘住的目标 = 当前.GameObjectId;
                 _粘住的时间 = TimeHelper.Now();
+                最近空原因 = "";
                 return 当前;
             }
 
@@ -133,7 +137,7 @@ public static class 输出目标
             if (_粘住的目标 != 0 && TimeHelper.Now() - _粘住的时间 <= 粘滞毫秒)
             {
                 var 旧 = 找个(_粘住的目标);
-                if (旧 != null) return 旧;
+                if (旧 != null) { 最近空原因 = ""; return 旧; }
             }
 
             // ══════════════════════════════════════════════════════════
@@ -153,6 +157,11 @@ public static class 输出目标
             {
                 _粘住的目标 = 兜底.GameObjectId;
                 _粘住的时间 = TimeHelper.Now();
+                最近空原因 = "";
+            }
+            else
+            {
+                最近空原因 = "没有选中目标（或选中的是友方/已死/不可选中），200ms 粘滞也失效，兜底也没挑到有仇恨的";
             }
 
             return 兜底;

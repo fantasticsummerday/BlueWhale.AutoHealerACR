@@ -18,6 +18,27 @@ public static class HealTargetHelper
     /// ⚠️ 默认半径 30 米（单体治疗够用），但**群疗判断必须传技能真实半径** ——
     ///    见 <see cref="低于阈值人数(float, float)"/> 的说明。
     /// </summary>
+    /// <summary>
+    /// 最近一次「可治疗队友」**返回空表的原因** —— 给调试窗 / AI 诊断用。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  [!] 为什么需要它（2026-10-03 用户实测）：
+    ///      调试窗里只写 `治疗=0（没有可治疗队友）`，而"空表"有 **7 种完全不同的成因**：
+    ///        在切图 / 地图 id=0 / 队伍服务返回 null / 物化失败 /
+    ///        第 N 个对象无效 / 预检抛异常 / 外层异常
+    ///      —— 只看到"没有队友"就**分不清是哪一种**，只能猜（这次就卡在这里）。
+    ///      ⇒ 每个空返回都写明原因，窗口直接显示出来。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    public static string 最近空原因 = "还没调用过";
+
+    /// <summary>统一的"空表返回" —— 顺手把原因记进 `最近空原因`。</summary>
+    private static List<IBattleChara> 空(string 原因)
+    {
+        最近空原因 = 原因;
+        return new List<IBattleChara>();
+    }
+
     public static List<IBattleChara> 可治疗队友(float 半径 = 30f)
     {
         using var _深度 = HealerACR.Common.调用深度.进("可治疗队友");
@@ -93,7 +114,7 @@ public static class HealTargetHelper
                 var 在切图 = Core.Resolve<AEAssist.MemoryApi.MemApiCondition>().IsBetweenAreas();
                 本地路标.记详(3492, $"IsBetweenAreas 返回 {在切图}");
                 if (在切图)
-                    return new List<IBattleChara>();
+                    return 空("游戏说在切图（IsBetweenAreas）");
             }
             catch (Exception e) { LogHelper.Info("[HealerACR.路标] 3491 抛异常：" + e.GetType().Name); }
 
@@ -103,7 +124,7 @@ public static class HealTargetHelper
                 var 副本 = HealerACR.Timeline.TimelineManager.实时副本Id();
                 本地路标.记详(3494, $"实时副本Id 返回 {副本}");
                 if (副本 == 0)
-                    return new List<IBattleChara>();
+                    return 空("地图 id 读到 0（AEAssist 与 Dalamud 两路都没有）");
             }
             catch (Exception e) { LogHelper.Info("[HealerACR.路标] 3493 抛异常：" + e.GetType().Name); }
 
@@ -151,11 +172,11 @@ public static class HealTargetHelper
                 本地路标.记详(3495, "即将取 PartyHelper.CastableAlliesWithin30");
                 var 原始 = PartyHelper.CastableAlliesWithin30;
                 本地路标.记详(3496, $"队伍列表已取，{(原始 == null ? "null" : 原始.Count + " 个")}");
-                if (原始 == null) return new List<IBattleChara>();
+                if (原始 == null) return 空("AEAssist 的队伍列表为 null");
 
                 // ① 立刻物化 —— 之后**绝不再碰那个 getter**
                 try { 快照 = 原始.ToArray(); }
-                catch { return new List<IBattleChara>(); }
+                catch { return 空("队伍列表物化失败（ToArray 抛异常）"); }
                 本地路标.记详(3504, $"已物化 {快照.Length} 个");
 
                 // ② 预检：在**同一批**上验有效性（任何一个失效就整批放弃）
@@ -163,11 +184,11 @@ public static class HealTargetHelper
                 {
                     本地路标.记详(3497, $"正在验第 {i} 个");
                     var rr = 快照[i];
-                    if (rr == null || !rr.对象有效()) return new List<IBattleChara>();
+                    if (rr == null || !rr.对象有效()) return 空($"队伍第 {i + 1} / {快照.Length} 个对象无效（对象有效()=false）");
                 }
                 本地路标.记详(3498, $"全部 {快照.Length} 个都有效");
             }
-            catch { return new List<IBattleChara>(); }
+            catch { return 空("预检队伍时抛异常"); }
 
             // ══════════════════════════════════════════════════════════════
             //  ★★ **一次性物化 + 立即标量化 + 纯托管排序** ★★
@@ -257,7 +278,7 @@ public static class HealTargetHelper
         }
         catch
         {
-            return new List<IBattleChara>();
+            return 空("外层异常（可治疗队友整体 try 的 catch）");
         }
     }
 
