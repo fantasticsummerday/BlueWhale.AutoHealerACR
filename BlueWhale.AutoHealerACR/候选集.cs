@@ -760,6 +760,39 @@ public static class 候选集
                 if (c.缺口 > 0.01f) sb.Append(" 缺口").Append((int)(c.缺口 * 100f)).Append('%');
                 if (c.过量 > 0.04f) sb.Append(" 过量").Append((int)(c.过量 * 100f)).Append('%');
                 if (c.耗蓝 > 0) sb.Append(" MP").Append(c.耗蓝);
+
+                // ══════════════════════════════════════════════════════════
+                //  ★ **就绪状态**（2026-10-03 用户实测：「命中率太低了，
+                //     ai 每次给出建议都有可能技能在转」）
+                //
+                //  [!] 病根：这份清单原来只写技能名/目标/量/分，
+                //      **不写「这个候选此刻能不能放」** ⇒ AI 只能猜 ⇒
+                //      经常挑一个正在 CD 里的 ⇒ 终审 `SpellUtil.可用()` 丢弃 ⇒
+                //      命中率低、AI 像没在工作。
+                //      （候选是按「即将可用」备货的，本来就可能含 CD 中的技能 ——
+                //        这不是 bug，是「备货」的定义；但**必须让 AI 知道**。）
+                //
+                //  [!] 现在明写：` 就绪` = 现在就能放；` CDx.xs` = 还要等这么久；
+                //      ` 暂不可用` = 既没就绪也读不到 CD（形态/目标/资源等原因）。
+                //      配合系统提示里「优先挑就绪的」那条，命中率应该明显回升。
+                // ══════════════════════════════════════════════════════════
+                try
+                {
+                    if (HealerACR.Common.SpellUtil.可用(c.技能Id))
+                    {
+                        sb.Append(" 就绪");
+                    }
+                    else
+                    {
+                        var cd = System.TimeSpan.Zero;
+                        try { var sp = HealerACR.Common.SpellUtil.Get(c.技能Id); if (sp != null) cd = sp.Cooldown; } catch { }
+                        if (cd > System.TimeSpan.Zero)
+                            sb.Append(" CD").Append(cd.TotalSeconds.ToString("F1")).Append('s');
+                        else
+                            sb.Append(" 暂不可用");
+                    }
+                }
+                catch { }
                 
                 // [!] **本地真实分必须给**（H2，审计确认）——
                 //     本地真正用来选技能的 `治疗决策.打分()` 有 AI 完全看不到的维度：
