@@ -149,11 +149,11 @@ public static class Ai倾向
 
 
 
-    public static 输出向 输出 => _输出;
+    public static 输出向 输出 => 解输出(_打包);   // ★ 复审 §6/§7：与评分路径同源
 
-    public static 减伤向 减伤 => _减伤;
+    public static 减伤向 减伤 => 解减伤(_打包);   // ★ 复审 §6/§7
 
-    public static 资源向 资源 => _资源;
+    public static 资源向 资源 => 解资源(_打包);   // ★ 复审 §6/§7
 
 
 
@@ -535,7 +535,9 @@ public static class Ai倾向
 
             var 剩 = (有效期毫秒 - (TimeHelper.Now() - _生效时刻)) / 1000.0;
 
-            return $"输出={_输出}｜减伤={_减伤}｜资源={_资源}（还剩 {剩:F1}s）";
+            // ★ 复审 §6/§7：**一次读取 = 一份完整状态** —— 不再分别读三个字段 ✗
+            var 包 = _打包;
+            return $"输出={解输出(包)}｜减伤={解减伤(包)}｜资源={解资源(包)}（还剩 {剩:F1}s）";
 
         }
 
