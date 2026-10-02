@@ -30,13 +30,34 @@ public static class 调试窗调用链
     private static string _上次 = "";
     private static int _行数;
 
-    /// <summary>写一行（**只在内容变化时**真正落盘）。</summary>
+    /// <summary>上一次真正落盘的时刻（毫秒）—— **按时间节流**，见 `记()` 的说明。</summary>
+    private static long _上次落盘毫秒;
+
+    /// <summary>两条日志之间至少隔这么久（毫秒）。</summary>
+    /// <remarks>
+    /// [!] 为什么**内容去重之外还要时间节流**（审计规则 F 要求的）：
+    ///     去重只能挡住"内容一模一样"的重复；而调用链上有些值**每帧都在变**
+    ///     （比如"第 N 次调用"里的 N），去重就完全失效 ⇒ 变成每帧写盘。
+    ///     本项目 P0-5 那类错误（每帧 4 次文件操作）就是这么来的。
+    ///     ==> 两道一起用：**内容变了 **且** 距上次够久** 才写。
+    /// </remarks>
+    private const long 最小间隔毫秒 = 500;
+
+    /// <summary>写一行（**内容变化 且 距上次 ≥500ms** 才真正落盘）。</summary>
     public static void 记(string 内容)
     {
         try
         {
-            if (内容 == _上次) return;      // 去重 ⇒ 天然节流
+            var 现在 = Environment.TickCount64;
+
+            // ★ 两道闸：内容去重 + 时间节流
+            if (内容 == _上次) return;
+
+            // [!] 例外：**头几行必须写**（否则"从没被调"和"调了但被节流"分不清）
+            if (_行数 > 5 && 现在 - _上次落盘毫秒 < 最小间隔毫秒) return;
+
             _上次 = 内容;
+            _上次落盘毫秒 = 现在;
             _行数++;
 
             if (_流 == null)
