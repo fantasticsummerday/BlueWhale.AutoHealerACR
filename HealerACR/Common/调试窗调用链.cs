@@ -30,6 +30,37 @@ public static class 调试窗调用链
     private static string _上次 = "";
     private static int _行数;
 
+    /// <summary>
+    /// **本程序集副本的随机号** —— 用来证明"入口侧和窗口侧跑的是不是同一份"。
+    ///
+    /// ══════════════════════════════════════════════════════════════════════
+    ///  [!] 为什么需要它（2026-10-06 加，排查"调用成功但没执行"时想到的）：
+    ///
+    ///      这个 bug 的全部现象都指向"**有两份东西**"：
+    ///        · 入口侧记了 6807 条「即将调用」，窗口侧**一条都没有**
+    ///        · 设置页显示 `调用=6807` 但 `入绘制=1` —— 逻辑上不可能
+    ///      但"到底是不是两份、是哪两份"**一直没有直接证据**。
+    ///
+    ///  [!] 判据：本字段是 `static readonly`，**每个已加载的程序集副本各算一次**
+    ///      （本项目重载 ACR 时旧副本不会被卸载）。
+    ///      ⇒ 每一行诊断都带上它：
+    ///          · 所有行**同一个号**  ⇒ 只有一份，调用链是通的
+    ///          · 出现了**两个号**    ⇒ 进程里真有两份 ⇒ 直接钉死了病因
+    ///
+    ///  [!] 它是给排查用的**证据**，不是逻辑判据 —— 任何功能都不要依赖它。
+    /// ══════════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static readonly string _副本号 = 生成副本号();
+
+    /// <summary>本副本的短号（6 位十六进制；生成失败时是 `??????`）。</summary>
+    public static string 副本号 => _副本号;
+
+    private static string 生成副本号()
+    {
+        try { return Guid.NewGuid().ToString("N").Substring(0, 6); }
+        catch { return "??????"; }
+    }
+
     /// <summary>上一次真正落盘的时刻（毫秒）—— **按时间节流**，见 `记()` 的说明。</summary>
     private static long _上次落盘毫秒;
 
@@ -64,11 +95,30 @@ public static class 调试窗调用链
             {
                 var 文档 = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                 var 路径 = Path.Combine(文档, "BlueWhale-调试窗调用链.txt");
-                _流 = new StreamWriter(路径, append: true) { AutoFlush = true };
-                _流.WriteLine($"===== 会话开始 {DateTime.Now:MM-dd HH:mm:ss} =====");
+
+                // ══════════════════════════════════════════════════════════════
+                //  ★ **必须带 `FileShare.ReadWrite`** ★（2026-10-06 修正）
+                //
+                //  [!] 原来写的是 `new StreamWriter(路径, append: true)` ——
+                //      它内部用的是 `FileShare.Read`：**第二个写者打不开这个文件**。
+                //
+                //  [!] 后果（这就是"窗口侧 0 条"的成因之一）：
+                //      进程里只要还有**另一份**程序集副本（ACR 重载后旧副本没被卸载），
+                //      它那份 `_流` 就会**独占**这个文件 ⇒ 本副本的每一次 `记()`
+                //      都在 `new StreamWriter` 处抛 IOException ⇒ 被 `catch { }` 吞掉
+                //      ⇒ **文件里一行都没有，而且看不出任何异常**。
+                //
+                //  [!] ⇒ 允许共享读写：两个副本各写各的（每行都带 `副本=`，
+                //      一眼就能看出是两份）。诊断文件不是同步原语，共享是安全的。
+                // ══════════════════════════════════════════════════════════════
+                var 流 = new FileStream(路径, FileMode.Append, FileAccess.Write,
+                                        FileShare.ReadWrite);
+                _流 = new StreamWriter(流, new System.Text.UTF8Encoding(false)) { AutoFlush = true };
+                _流.WriteLine($"===== 会话开始 {DateTime.Now:MM-dd HH:mm:ss} " +
+                              $"｜副本={_副本号} =====");
             }
 
-            _流.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] #{_行数} {内容}");
+            _流.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] #{_行数} [副本 {_副本号}] {内容}");
         }
         catch { }
     }
