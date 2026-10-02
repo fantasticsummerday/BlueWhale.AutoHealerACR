@@ -180,6 +180,26 @@ public static class Ai倾向
 
             最近原文 = 回复!;
 
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 审计 ④ + ⑥（2026-10-03）：**只认协议行** ★
+            //
+            //  [!] 协议：单独一行，形如
+            //        TENDENCY|output=AOE|mitigation=NORMAL|mp=CONSERVE
+            //      可以只写其中几项；不写这一行 = **本轮不表态** ✓
+            //
+            //  [!] 为什么必须这样（两件事一次解决）：
+            //      ① 原来是从**自由文本**里模糊匹配 `output=` / `AOE` 这类词 ✗
+            //         模型在理由里写一句"这波不该 AOE"就可能被误提取 ✗
+            //      ② 原来对所有通道都解析 ⇒ 初始化/策略/记忆的回复也会碰到倾向 ✗
+            //         （已知只有决策层提示词要求这一行 ⇒ 只认协议行 = 等于只认决策层 ✓）
+            //
+            //  [!] 无效行/无协议行 ⇒ **一个字都不改**（不改状态、不刷日志）✓
+            // ══════════════════════════════════════════════════════════════
+            var 协议行 = 取协议行(回复!);
+            if (协议行 == null) return;
+            回复 = 协议行;   // 下面三个字段都从这一行里取
+
+
 
 
             var 新输出 = 取枚举(回复!, "output", _输出,
@@ -254,6 +274,23 @@ public static class Ai倾向
 
 
 
+    /// <summary>
+    /// **取出协议行** —— 逐行找以 `TENDENCY` 开头的那一行（大小写不敏感，允许前面有空格）。
+    /// 找不到返回 null（= 本轮不表态，倾向一个字都不改）。审计 ⑥。
+    /// </summary>
+    private static string? 取协议行(string 文本)
+    {
+        try
+        {
+            foreach (var 行 in 文本.Split('\n'))
+            {
+                var 干净 = 行.Trim().TrimStart('*', '-', '`', ' ');
+                if (干净.StartsWith("TENDENCY", StringComparison.OrdinalIgnoreCase)) return 干净;
+            }
+            return null;
+        }
+        catch { return null; }
+    }
     private static T 取枚举<T>(string 文本, string 键, T 兜底, params (string 值, T 结果)[] 表) where T : struct
 
     {
