@@ -1582,6 +1582,7 @@ public static class 调试窗
 
             // ── 策略层 ──
             ImGui.Text($"  策略层：倾向={AiStrategyLayer.当前倾向}" +
+                       $"｜结构化={HealerACR.Common.Ai倾向.描述()}" +
                        $"｜刷新中={AiStrategyLayer.刷新中}" +
                        $"｜成功={AiStrategyLayer.成功次数} 次");
             if (!string.IsNullOrWhiteSpace(AiStrategyLayer.说明))

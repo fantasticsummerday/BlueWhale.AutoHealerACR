@@ -1385,6 +1385,14 @@ public static class AiSettingPage
                     "  策略还是『未知』—— 治疗阈值用的仍是本地默认值（等第一次策略刷新）");
             else
                 ImGui.TextDisabled($"  当前倾向：{AiStrategyLayer.当前倾向}（{AiStrategyLayer.说明}）");
+            // ★ 结构化倾向（2026-10-03）：显示当前生效值 + 剩余时间（4 秒有效期）
+            try
+            {
+                ImGui.TextDisabled($"  结构化倾向：{HealerACR.Common.Ai倾向.描述()}");
+                ImGui.TextDisabled("    输出=AOE/SINGLE/BALANCED ｜ 减伤=HOLD/NORMAL/SPEND ｜ 资源=CONSERVE/NORMAL/SPEND");
+                ImGui.TextDisabled("    它只让本地评分**软偏移**（加减分，单维 ±15 / 总 ±20），不决定放什么技能。");
+            }
+            catch { }
         }
         ImGui.TextDisabled($"  上次结果：{AiStrategyLayer.上次结果}");
 

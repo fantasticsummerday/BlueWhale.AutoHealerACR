@@ -1119,6 +1119,11 @@ public static class DeepSeekClient
             if (s.记录原始回复)
             {
                 Ai调试.日志("原始回复：" + 文本.Trim());
+
+                // ★ 结构化倾向：所有回复都在这里过一遍解析（2026-10-03）
+                //   设计文档 V1：output / mitigation / resource 三个维度，
+                //   字段缺失 = 这轮没表态（不强制每轮都说）✓
+                try { HealerACR.Common.Ai倾向.解析(文本); } catch { }
             }
 
             return (文本.Trim(), false);

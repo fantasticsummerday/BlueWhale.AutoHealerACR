@@ -1,216 +1,439 @@
-using System;
-using System.Collections.Generic;
-using AEAssist.Helper;
-
-namespace HealerACR.Common;
-
-/// <summary>
-/// **结构化倾向**（AI → 本地评分的一层软修正）—— 按设计文档 V1 实现（2026-10-03）。
-///
-/// ══════════════════════════════════════════════════════════════════════
-///  [!] 原则（文档原话）：
-///      「AI 不直接决定技能，只表达当前希望本地评分系统往哪个方向偏。」
-///      「AI 负责『往哪个方向偏』，本地系统负责『能不能这么做』。」
-///
-///  [!] V1 只有三个维度（`risk` / `confidence` 按文档留到 V2）：
-///        output     : AOE | SINGLE | BALANCED
-///        mitigation : HOLD | NORMAL | SPEND
-///        resource   : CONSERVE | NORMAL | SPEND
-///
-///  [!] ⚠️ **一律用"加减分"，不用倍率**（文档第 6 节专门强调）：
-///      倍率会让 AI 倾向压过本地逻辑（治疗价值 / 紧急程度 / CD / 战斗阶段…），
-///      而 AI 只是"在都合理的候选之间改一下先后"。
-///
-///  [!] 限幅（文档第 7 节）：
-///        · 单维度：Clamp(±15)
-///        · 总    ：Clamp(±20)
-///
-///  [!] TTL（文档第 9 节）：倾向 **3~5 秒不抖** ——
-///      一次回复不立刻切换；同一个新值**连续出现两次**才认，或当前值已过期才认。
-///
-///  [!] 安全底线（文档第 3/4 节）：
-///        · `HOLD`（保留减伤）在"预计伤害 ≥ 紧急阈值"时**必须被无视** ——
-///          由调用方 `减伤加分(紧急: true)` 直接返回 0 实现 ✓
-///        · `CONSERVE`（省资源）不阻止"资源即将溢出"的本地强制处理 ✓
-/// ══════════════════════════════════════════════════════════════════════
-public static class Ai倾向
-{
-    public enum 输出向 { 均衡 = 0, 群攻 = 1, 单体 = 2 }
-    public enum 减伤向 { 正常 = 0, 保留 = 1, 提前交 = 2 }
-    public enum 资源向 { 正常 = 0, 省着 = 1, 多花 = 2 }
-
-    /// <summary>倾向有效期（毫秒）—— 文档建议 3~5 秒，取 4 秒。</summary>
-    public const int 有效期毫秒 = 4000;
-
-    /// <summary>单维度限幅（文档第 7 节）。</summary>
-    public const int 单维上限 = 15;
-
-    /// <summary>总限幅（文档第 7 节）。</summary>
-    public const int 总上限 = 20;
-
-    // ── 当前生效值（含 TTL）──
-    private static 输出向 _输出 = 输出向.均衡;
-    private static 减伤向 _减伤 = 减伤向.正常;
-    private static 资源向 _资源 = 资源向.正常;
-    private static long _生效时刻;
-
-    // ── "连续出现两次才切换"用 ──
-    private static 输出向 _待确认输出 = 输出向.均衡;
-    private static 减伤向 _待确认减伤 = 减伤向.正常;
-    private static 资源向 _待确认资源 = 资源向.正常;
-    private static bool _有待确认;
-
-    /// <summary>最近一次原始回复（给窗口/日志看）。</summary>
-    public static string 最近原文 = "";
-
-    public static 输出向 输出 => _输出;
-    public static 减伤向 减伤 => _减伤;
-    public static 资源向 资源 => _资源;
-
-    /// <summary>当前倾向是否还有效（超过 TTL 就当作"没表达"）。</summary>
-    public static bool 有效
-    {
-        get
-        {
-            try { return _生效时刻 != 0 && TimeHelper.Now() - _生效时刻 <= 有效期毫秒; }
-            catch { return false; }
-        }
-    }
-
-    /// <summary>
-    /// **解析 AI 回复里的倾向行**（形如 `{"output":"AOE","mitigation":"NORMAL","resource":"CONSERVE"}`）。
-    ///
-    /// [!] 宽容解析：字段缺失 ⇒ 当作"没表达"（文档第 8 节：不强制每轮都表态）✓
-    /// [!] 抖动抑制：新值**连续出现两次**才切换；或旧值已过期（超过 TTL）则立即接受 ✓
-    /// </summary>
-    public static void 解析(string? 回复)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(回复)) return;
-            最近原文 = 回复!;
-
-            var 新输出 = 取枚举(回复!, "output", 输出向.均衡,
-                ("AOE", 输出向.群攻), ("SINGLE", 输出向.单体), ("BALANCED", 输出向.均衡));
-            var 新减伤 = 取枚举(回复!, "mitigation", 减伤向.正常,
-                ("HOLD", 减伤向.保留), ("NORMAL", 减伤向.正常), ("SPEND", 减伤向.提前交));
-            var 新资源 = 取枚举(回复!, "resource", 资源向.正常,
-                ("CONSERVE", 资源向.省着), ("NORMAL", 资源向.正常), ("SPEND", 资源向.多花));
-
-            var 变了 = 新输出 != _输出 || 新减伤 != _减伤 || 新资源 != _资源;
-            if (!变了) { _生效时刻 = TimeHelper.Now(); return; }   // 和现在一样 ⇒ 续期
-
-            // 抖动抑制：连续两次相同才切；旧值过期则立即切
-            if (_有待确认 && 新输出 == _待确认输出 && 新减伤 == _待确认减伤 && 新资源 == _待确认资源)
-            {
-                _输出 = 新输出; _减伤 = 新减伤; _资源 = 新资源;
-                _生效时刻 = TimeHelper.Now();
-                _有待确认 = false;
-                LogHelper.Info($"[HealerACR] AI 倾向切换：输出={_输出}｜减伤={_减伤}｜资源={_资源}");
-                return;
-            }
-
-            _待确认输出 = 新输出; _待确认减伤 = 新减伤; _待确认资源 = 新资源;
-            _有待确认 = true;
-
-            if (!有效)
-            {
-                // 旧值已过期 ⇒ 不等第二次，直接采用（否则会一直停在旧倾向上）
-                _输出 = 新输出; _减伤 = 新减伤; _资源 = 新资源;
-                _生效时刻 = TimeHelper.Now();
-                _有待确认 = false;
-                LogHelper.Info($"[HealerACR] AI 倾向（旧值已过期，直接采用）：输出={_输出}｜减伤={_减伤}｜资源={_资源}");
-            }
-        }
-        catch { }
-    }
-
-    private static T 取枚举<T>(string 文本, string 键, T 兜底, params (string 值, T 结果)[] 表) where T : struct
-    {
-        try
-        {
-            var i = 文本.IndexOf('"' + 键 + '"', StringComparison.OrdinalIgnoreCase);
-            if (i < 0) return 兜底;                        // 没这个字段 ⇒ 当作没表达
-            var 段 = 文本.Substring(i, Math.Min(120, 文本.Length - i)).ToUpperInvariant();
-            foreach (var (值, 结果) in 表)
-                if (段.Contains(值)) return 结果;
-            return 兜底;
-        }
-        catch { return 兜底; }
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    //  ↓↓↓ 下面三个就是"喂给本地评分"的加减分入口（文档第 2/3/4 节的数值）
-    // ══════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// **输出倾向的加分**（文档：AOE ⇒ 群攻 +12 / 单体 -4；SINGLE ⇒ 反之；BALANCED ⇒ 0）。
-    /// [!] 用加减分而不是倍率 —— 见类注释。
-    /// </summary>
-    public static int 输出加分(bool 是群攻)
-    {
-        try
-        {
-            if (!有效 || _输出 == 输出向.均衡) return 0;
-            var 值 = 是群攻
-                ? (_输出 == 输出向.群攻 ? 12 : -4)
-                : (_输出 == 输出向.单体 ? 12 : -4);
-            return 限幅(值);
-        }
-        catch { return 0; }
-    }
-
-    /// <summary>
-    /// **减伤倾向的加分**（文档：HOLD -8 / NORMAL 0 / SPEND +10）。
-    /// [!] ⚠️ **安全底线**：`预计伤害 ≥ 紧急阈值` 时调用方必须传 `紧急: true`
-    ///     ⇒ 这里直接返回 0（无视 HOLD）—— AI 倾向不能覆盖本地安全规则 ✓
-    /// </summary>
-    public static int 减伤加分(bool 紧急 = false)
-    {
-        try
-        {
-            if (紧急) return 0;                    // ★ 硬安全例外（文档第 3 节）
-            if (!有效 || _减伤 == 减伤向.正常) return 0;
-            return 限幅(_减伤 == 减伤向.保留 ? -8 : 10);
-        }
-        catch { return 0; }
-    }
-
-    /// <summary>
-    /// **资源倾向的加分**（文档：CONSERVE -8 / NORMAL 0 / SPEND -4）。
-    /// [!] 这里给的是"资源成本惩罚的修正"：负数 = 更在意资源 ⇒ 成本显得更贵 ✓
-    /// [!] 资源即将溢出时本地仍可强制处理（AI 的 CONSERVE 拦不住）✓
-    /// </summary>
-    public static int 资源加分()
-    {
-        try
-        {
-            if (!有效 || _资源 == 资源向.正常) return 0;
-            return 限幅(_资源 == 资源向.省着 ? -8 : -4);
-        }
-        catch { return 0; }
-    }
-
-    /// <summary>把三个维度的总影响限幅到 ±20（文档第 7 节）。</summary>
-    public static int 总限幅(int 合计)
-    {
-        try { return Math.Clamp(合计, -总上限, 总上限); } catch { return 0; }
-    }
-
-    private static int 限幅(int v)
-    {
-        try { return Math.Clamp(v, -单维上限, 单维上限); } catch { return 0; }
-    }
-
-    /// <summary>给设置页 / 调试窗显示的一句话。</summary>
-    public static string 描述()
-    {
-        try
-        {
-            if (!有效) return "（没有生效中的倾向）";
-            var 剩 = (有效期毫秒 - (TimeHelper.Now() - _生效时刻)) / 1000.0;
-            return $"输出={_输出}｜减伤={_减伤}｜资源={_资源}（还剩 {剩:F1}s）";
-        }
-        catch { return "（读不到）"; }
-    }
-}
+using System;
+
+using System.Collections.Generic;
+
+using AEAssist.Helper;
+
+
+
+namespace HealerACR.Common;
+
+
+
+/// <summary>
+
+/// **结构化倾向**（AI → 本地评分的一层软修正）—— 按设计文档 V1 实现（2026-10-03）。
+
+///
+
+/// ══════════════════════════════════════════════════════════════════════
+
+///  [!] 原则（文档原话）：
+
+///      「AI 不直接决定技能，只表达当前希望本地评分系统往哪个方向偏。」
+
+///      「AI 负责『往哪个方向偏』，本地系统负责『能不能这么做』。」
+
+///
+
+///  [!] V1 只有三个维度（`risk` / `confidence` 按文档留到 V2）：
+
+///        output     : AOE | SINGLE | BALANCED
+
+///        mitigation : HOLD | NORMAL | SPEND
+
+///        resource   : CONSERVE | NORMAL | SPEND
+
+///
+
+///  [!] ⚠️ **一律用"加减分"，不用倍率**（文档第 6 节专门强调）：
+
+///      倍率会让 AI 倾向压过本地逻辑（治疗价值 / 紧急程度 / CD / 战斗阶段…），
+
+///      而 AI 只是"在都合理的候选之间改一下先后"。
+
+///
+
+///  [!] 限幅（文档第 7 节）：
+
+///        · 单维度：Clamp(±15)
+
+///        · 总    ：Clamp(±20)
+
+///
+
+///  [!] TTL（文档第 9 节）：倾向 **3~5 秒不抖** ——
+
+///      一次回复不立刻切换；同一个新值**连续出现两次**才认，或当前值已过期才认。
+
+///
+
+///  [!] 安全底线（文档第 3/4 节）：
+
+///        · `HOLD`（保留减伤）在"预计伤害 ≥ 紧急阈值"时**必须被无视** ——
+
+///          由调用方 `减伤加分(紧急: true)` 直接返回 0 实现 ✓
+
+///        · `CONSERVE`（省资源）不阻止"资源即将溢出"的本地强制处理 ✓
+
+/// ══════════════════════════════════════════════════════════════════════
+
+public static class Ai倾向
+
+{
+
+    public enum 输出向 { 均衡 = 0, 群攻 = 1, 单体 = 2 }
+
+    public enum 减伤向 { 正常 = 0, 保留 = 1, 提前交 = 2 }
+
+    public enum 资源向 { 正常 = 0, 省着 = 1, 多花 = 2 }
+
+
+
+    /// <summary>倾向有效期（毫秒）—— 文档建议 3~5 秒，取 4 秒。</summary>
+
+    public const int 有效期毫秒 = 4000;
+
+
+
+    /// <summary>单维度限幅（文档第 7 节）。</summary>
+
+    public const int 单维上限 = 15;
+
+
+
+    /// <summary>总限幅（文档第 7 节）。</summary>
+
+    public const int 总上限 = 20;
+
+
+
+    // ── 当前生效值（含 TTL）──
+
+    private static 输出向 _输出 = 输出向.均衡;
+
+    private static 减伤向 _减伤 = 减伤向.正常;
+
+    private static 资源向 _资源 = 资源向.正常;
+
+    private static long _生效时刻;
+
+
+
+    // ── "连续出现两次才切换"用 ──
+
+    private static 输出向 _待确认输出 = 输出向.均衡;
+
+    private static 减伤向 _待确认减伤 = 减伤向.正常;
+
+    private static 资源向 _待确认资源 = 资源向.正常;
+
+    private static bool _有待确认;
+
+
+
+    /// <summary>最近一次原始回复（给窗口/日志看）。</summary>
+
+    public static string 最近原文 = "";
+
+
+
+    public static 输出向 输出 => _输出;
+
+    public static 减伤向 减伤 => _减伤;
+
+    public static 资源向 资源 => _资源;
+
+
+
+    /// <summary>当前倾向是否还有效（超过 TTL 就当作"没表达"）。</summary>
+
+    public static bool 有效
+
+    {
+
+        get
+
+        {
+
+            try { return _生效时刻 != 0 && TimeHelper.Now() - _生效时刻 <= 有效期毫秒; }
+
+            catch { return false; }
+
+        }
+
+    }
+
+
+
+    /// <summary>
+
+    /// **解析 AI 回复里的倾向行**（形如 `{"output":"AOE","mitigation":"NORMAL","resource":"CONSERVE"}`）。
+
+    ///
+
+    /// [!] 宽容解析：字段缺失 ⇒ 当作"没表达"（文档第 8 节：不强制每轮都表态）✓
+
+    /// [!] 抖动抑制：新值**连续出现两次**才切换；或旧值已过期（超过 TTL）则立即接受 ✓
+
+    /// </summary>
+
+    public static void 解析(string? 回复)
+
+    {
+
+        try
+
+        {
+
+            if (string.IsNullOrEmpty(回复)) return;
+
+            最近原文 = 回复!;
+
+
+
+            var 新输出 = 取枚举(回复!, "output", 输出向.均衡,
+
+                ("AOE", 输出向.群攻), ("SINGLE", 输出向.单体), ("BALANCED", 输出向.均衡));
+
+            var 新减伤 = 取枚举(回复!, "mitigation", 减伤向.正常,
+
+                ("HOLD", 减伤向.保留), ("NORMAL", 减伤向.正常), ("SPEND", 减伤向.提前交));
+
+            var 新资源 = 取枚举(回复!, "resource", 资源向.正常,
+
+                ("CONSERVE", 资源向.省着), ("NORMAL", 资源向.正常), ("SPEND", 资源向.多花));
+
+
+
+            var 变了 = 新输出 != _输出 || 新减伤 != _减伤 || 新资源 != _资源;
+
+            if (!变了) { _生效时刻 = TimeHelper.Now(); return; }   // 和现在一样 ⇒ 续期
+
+
+
+            // 抖动抑制：连续两次相同才切；旧值过期则立即切
+
+            if (_有待确认 && 新输出 == _待确认输出 && 新减伤 == _待确认减伤 && 新资源 == _待确认资源)
+
+            {
+
+                _输出 = 新输出; _减伤 = 新减伤; _资源 = 新资源;
+
+                _生效时刻 = TimeHelper.Now();
+
+                _有待确认 = false;
+
+                LogHelper.Info($"[HealerACR] AI 倾向切换：输出={_输出}｜减伤={_减伤}｜资源={_资源}");
+
+                return;
+
+            }
+
+
+
+            _待确认输出 = 新输出; _待确认减伤 = 新减伤; _待确认资源 = 新资源;
+
+            _有待确认 = true;
+
+
+
+            if (!有效)
+
+            {
+
+                // 旧值已过期 ⇒ 不等第二次，直接采用（否则会一直停在旧倾向上）
+
+                _输出 = 新输出; _减伤 = 新减伤; _资源 = 新资源;
+
+                _生效时刻 = TimeHelper.Now();
+
+                _有待确认 = false;
+
+                LogHelper.Info($"[HealerACR] AI 倾向（旧值已过期，直接采用）：输出={_输出}｜减伤={_减伤}｜资源={_资源}");
+
+            }
+
+        }
+
+        catch { }
+
+    }
+
+
+
+    private static T 取枚举<T>(string 文本, string 键, T 兜底, params (string 值, T 结果)[] 表) where T : struct
+
+    {
+
+        try
+
+        {
+
+            // 兼容两种写法：JSON 的 "key":"值"，以及 key=值
+            //  [!] 为什么：提示词跑在内插原始字符串里，`{` 会被当成插值 ⇒ 提示里用的是
+            //      `output=AOE|SINGLE|BALANCED` 这种不含花括号的写法 ✓
+            var i = 文本.IndexOf('"' + 键 + '"', StringComparison.OrdinalIgnoreCase);
+
+            if (i < 0) i = 文本.IndexOf('"' + 键 + '=', StringComparison.OrdinalIgnoreCase);
+
+            if (i < 0) i = 文本.IndexOf(键 + "=", StringComparison.OrdinalIgnoreCase);
+
+            if (i < 0) return 兜底;                        // 没这个字段 ⇒ 当作没表达
+
+            var 段 = 文本.Substring(i, Math.Min(120, 文本.Length - i)).ToUpperInvariant();
+
+            foreach (var (值, 结果) in 表)
+
+                if (段.Contains(值)) return 结果;
+
+            return 兜底;
+
+        }
+
+        catch { return 兜底; }
+
+    }
+
+
+
+    // ══════════════════════════════════════════════════════════════════
+
+    //  ↓↓↓ 下面三个就是"喂给本地评分"的加减分入口（文档第 2/3/4 节的数值）
+
+    // ══════════════════════════════════════════════════════════════════
+
+
+
+    /// <summary>
+
+    /// **输出倾向的加分**（文档：AOE ⇒ 群攻 +12 / 单体 -4；SINGLE ⇒ 反之；BALANCED ⇒ 0）。
+
+    /// [!] 用加减分而不是倍率 —— 见类注释。
+
+    /// </summary>
+
+    public static int 输出加分(bool 是群攻)
+
+    {
+
+        try
+
+        {
+
+            if (!有效 || _输出 == 输出向.均衡) return 0;
+
+            var 值 = 是群攻
+
+                ? (_输出 == 输出向.群攻 ? 12 : -4)
+
+                : (_输出 == 输出向.单体 ? 12 : -4);
+
+            return 限幅(值);
+
+        }
+
+        catch { return 0; }
+
+    }
+
+
+
+    /// <summary>
+
+    /// **减伤倾向的加分**（文档：HOLD -8 / NORMAL 0 / SPEND +10）。
+
+    /// [!] ⚠️ **安全底线**：`预计伤害 ≥ 紧急阈值` 时调用方必须传 `紧急: true`
+
+    ///     ⇒ 这里直接返回 0（无视 HOLD）—— AI 倾向不能覆盖本地安全规则 ✓
+
+    /// </summary>
+
+    public static int 减伤加分(bool 紧急 = false)
+
+    {
+
+        try
+
+        {
+
+            if (紧急) return 0;                    // ★ 硬安全例外（文档第 3 节）
+
+            if (!有效 || _减伤 == 减伤向.正常) return 0;
+
+            return 限幅(_减伤 == 减伤向.保留 ? -8 : 10);
+
+        }
+
+        catch { return 0; }
+
+    }
+
+
+
+    /// <summary>
+
+    /// **资源倾向的加分**（文档：CONSERVE -8 / NORMAL 0 / SPEND -4）。
+
+    /// [!] 这里给的是"资源成本惩罚的修正"：负数 = 更在意资源 ⇒ 成本显得更贵 ✓
+
+    /// [!] 资源即将溢出时本地仍可强制处理（AI 的 CONSERVE 拦不住）✓
+
+    /// </summary>
+
+    public static int 资源加分()
+
+    {
+
+        try
+
+        {
+
+            if (!有效 || _资源 == 资源向.正常) return 0;
+
+            return 限幅(_资源 == 资源向.省着 ? -8 : -4);
+
+        }
+
+        catch { return 0; }
+
+    }
+
+
+
+    /// <summary>把三个维度的总影响限幅到 ±20（文档第 7 节）。</summary>
+
+    public static int 总限幅(int 合计)
+
+    {
+
+        try { return Math.Clamp(合计, -总上限, 总上限); } catch { return 0; }
+
+    }
+
+
+
+    private static int 限幅(int v)
+
+    {
+
+        try { return Math.Clamp(v, -单维上限, 单维上限); } catch { return 0; }
+
+    }
+
+
+
+    /// <summary>给设置页 / 调试窗显示的一句话。</summary>
+
+    public static string 描述()
+
+    {
+
+        try
+
+        {
+
+            if (!有效) return "（没有生效中的倾向）";
+
+            var 剩 = (有效期毫秒 - (TimeHelper.Now() - _生效时刻)) / 1000.0;
+
+            return $"输出={_输出}｜减伤={_减伤}｜资源={_资源}（还剩 {剩:F1}s）";
+
+        }
+
+        catch { return "（读不到）"; }
+
+    }
+
+}
+
