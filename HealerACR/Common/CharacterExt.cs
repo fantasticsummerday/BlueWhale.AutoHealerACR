@@ -866,13 +866,43 @@ public static class CharacterExt
     /// <summary>我当前选中的目标 —— `Core.Me` 为 null 时给 null。</summary>
     public static IBattleChara? 我的目标()
     {
+        // ── ① 先问 AEAssist（原来的唯一来源）──
         try
         {
             var 我 = AEAssist.Core.Me;
-            if (我 == null) return null;
-            return 我.GetCurrTarget();
+            if (我 != null)
+            {
+                var t = 我.GetCurrTarget();
+                if (t != null) return t;
+            }
         }
-        catch { return null; }
+        catch { }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  ★ 兜底：**宿主里"玩家当前选中的目标"**（2026-10-03 用户实测）
+        //
+        //  [!] 现象：重载 ACR 之后候选快照**从 3 个变成 0 个**，
+        //      诊断写「没有选中目标（…200ms 粘滞也失效，兜底也没挑到有仇恨的）」——
+        //      而玩家明明正对着木人在打。
+        //      ⇒ AEAssist 那份"当前目标"重载后是空的（它的状态没跟过来），
+        //        而我们**只信它** ⇒ 输出候选全没了。
+        //
+        //  [!] ✅ 兜底改用 **Dalamud 的 `Svc.Targets.Target`**：
+        //      那是**游戏里真正选中的目标**，宿主不会被重载搞坏。
+        //      ⚠️ 只"读"，**不自己挑怪** —— 项目约定是不抢方向盘、不硬打远处的怪
+        //         （见 `输出目标.cs` 的说明）；这里读的是已经选中的那个。
+        //
+        //  [!] 调用方（`输出目标.当前选中的()`）仍会照旧验证：
+        //      活着 / 是敌人 / 可选中 —— 所以返回来的不一定被采用。
+        // ══════════════════════════════════════════════════════════════════
+        try
+        {
+            var t = ECommons.DalamudServices.Svc.Targets.Target;
+            if (t is IBattleChara c) return c;
+        }
+        catch { }
+
+        return null;
     }
 
     /// <summary>我自己的 ObjectId —— 拿不到给 0（不会和任何真人撞上）。</summary>
