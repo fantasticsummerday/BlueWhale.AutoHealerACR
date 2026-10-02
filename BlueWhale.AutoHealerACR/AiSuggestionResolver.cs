@@ -245,7 +245,18 @@ public class AiSuggestionResolver : ISlotResolver
                 foreach (var c in 快照.候选表)
                 {
                     if (c.技能Id != id) continue;
-                    if (c.类 == 候选集.类别.治疗 || c.类 == 候选集.类别.减伤) { 在预测性清单里 = true; break; }
+                    if (c.类 != 候选集.类别.治疗 && c.类 != 候选集.类别.减伤) continue;
+
+                    // ★ 再过一道**硬闸**（审计 P0-5）：用户关掉的功能，AI 也不能推
+                    //   —— 「完全采信 AI」同样不能覆盖用户主动关闭的开关 ✓
+                    if (!AiHardGate.允许(c, out var 闸原因))
+                    {
+                        拦截(闸原因);
+                        return -1;
+                    }
+
+                    在预测性清单里 = true;
+                    break;
                 }
 
                 if (!在预测性清单里)
