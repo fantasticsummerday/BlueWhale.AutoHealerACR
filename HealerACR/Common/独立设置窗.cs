@@ -399,8 +399,25 @@ public static class 独立设置窗
                 if (现在 - _拒绝日志时刻 >= 30000)
                 {
                     _拒绝日志时刻 = 现在;
-                    LogHelper.Info("[HealerACR] 独立设置窗：拒绝了一个残留的入口实例" +
-                                   "（它不是当前 ACR 的那个）—— 设置页会显示「尚未就绪」。");
+
+                    // ★ 诊断串要**够详细** —— 这个门已经让我把设置页弄空白三次，
+                    //   所以拒绝时必须一次就把"为什么"写清楚，别再靠猜。
+                    var 详情 = "";
+                    try
+                    {
+                        var 框架的 = AEAssist.CombatRoutine.Data.currRotation;
+                        详情 = 框架的 == null
+                            ? "｜框架 currRotation=null"
+                            : $"｜框架 currRotation hash={框架的.GetHashCode()}" +
+                              $" desc=『{(框架的.Description ?? "").Substring(0, Math.Min(24, (框架的.Description ?? "").Length))}』" +
+                              $"｜入口类型={入口.GetType().Name}" +
+                              $"｜本入口旋转 hash={入口.本入口旋转诊断()}";
+                    }
+                    catch { 详情 = "｜(诊断串读取失败)"; }
+
+                    LogHelper.Info("[HealerACR] 独立设置窗：拒绝了一个入口实例" +
+                                   "（框架当前的 ACR 不在我们造过的 rotation 集合里）—— " +
+                                   "设置页会显示「尚未就绪」" + 详情);
                 }
 
                 // 明确是上次加载的残留 ⇒ 丢弃引用，之后不再问

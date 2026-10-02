@@ -182,6 +182,11 @@ public abstract class HealerEntryBase : IRotationEntry
         // ══════════════════════════════════════════════════════════════
         _本入口旋转 = rotation;
 
+        // ★ 同时把"我们造过的 rotation"记进集合 —— 见 `是当前入口()` 的说明：
+        //   框架选中的**不一定**是 `_本入口旋转` 那一个（它走注册表查表），
+        //   所以判"当前是不是我们"必须看**集合**，不能看单一引用。
+        try { 记一次旋转(rotation); } catch { }
+
         var rot = rotation
             .SetRotationEventHandler(new HealRotationEventHandler())
             // 日随用的"起手"其实只会做开怪倒计时预铺，序列是空的
@@ -1786,16 +1791,27 @@ public abstract class HealerEntryBase : IRotationEntry
     ///         ⇒ 又被挡掉 ⇒ 设置页还是空白。
     ///         （日志实证：`当前 ACR 不是小鲸鱼 -> 跳过 AI 层挂载｜currRotation=null`）
     ///
-    ///  [!] ✅ 所以正确写法是：**比对我们自己的旋转对象**（`_本入口旋转`），
-    ///      它在 `Build()` 里 rotation 构造完就赋值了（L183），
-    ///      **不依赖框架的注册时机**。读不到框架状态时**接受**，
-    ///      只有在"能读到、且明确不是我们"时才判定为残留。
+    ///  [!] ⚠️ 坑 ③（0.6.2.0 实测踩到）：只比 `_本入口旋转` **一个引用**还是不行。
+    ///      框架选 ACR 走的是**注册表查表**：
+    ///          // RotationManager.cs L176
+    ///          value.Find(v => v.AuthorName == authorName)
+    ///      所以它选中的那个 rotation **不一定**是 `_本入口旋转` 指向的那一个
+    ///      （`Build()` 可能被调多次，或查表命中同职业的另一个 rotation）。
+    ///      日志实证（0.6.2.0，用户实测）：
+    ///          「独立设置窗：拒绝了一个残留的入口实例」+「currRotation=null」
+    ///      ==> 两个引用**都存在但不相等** ==> 单一引用比对必然误判。
+    ///
+    ///  [!] ✅ 所以用**集合**：把"我们造过的所有 rotation"记下来，
+    ///      判据是"框架当前那个**在不在集合里**"。
     ///
     ///  [!] 判据（只有第 ② 条是拒绝条件）：
-    ///      ① 本入口还没构建完（`_本入口旋转 == null`）⇒ 接受
-    ///         （此时 `绘制者` 根本不该被登记；真登记了也画不出东西）
-    ///      ② 框架已注册**且不是**我们 ⇒ **明确是上次的残留** ⇒ 拒绝
+    ///      ① 集合为空（还没构建过）⇒ 接受
+    ///      ② 框架已注册**且不在集合里** ⇒ **明确是别人的 / 上次的残留** ⇒ 拒绝
     ///      ③ 框架状态读不到 / 还是 null ⇒ **接受**（临时状态，下一帧会好）
+    ///
+    ///  [!] 为什么集合能区分残留：上次加载留下的集合里
+    ///      **不可能**含有这次的 rotation 对象（不同次加载 = 不同实例）
+    ///      ⇒ 旧入口必然被拒。
     ///
     ///  [!] 真正防"残留"的是 `独立设置窗.卸载()`：
     ///      它在 ACR 卸载时把 `绘制者` 置 null、摘掉绘制订阅。
@@ -1806,18 +1822,60 @@ public abstract class HealerEntryBase : IRotationEntry
     {
         try
         {
-            var 我的 = _本入口旋转;
-            if (我的 == null) return true;          // ① 还没构建完 ⇒ 接受
+            if (_造过的旋转.Count == 0) return true;     // ① 还没构建过 ⇒ 接受
 
             var 框架的 = AEAssist.CombatRoutine.Data.currRotation;
-            if (框架的 == null) return true;        // ③ 框架还没注册 ⇒ 接受
+            if (框架的 == null) return true;             // ③ 框架还没注册 ⇒ 接受
 
-            return ReferenceEquals(框架的, 我的);    // ② 明确不是 ⇒ 拒绝
+            return _造过的旋转.Contains(框架的);          // ② 不在集合里 ⇒ 拒绝
         }
         catch
         {
-            return true;                            // 读不到 ⇒ 接受（宁可不误伤）
+            return true;                                 // 读不到 ⇒ 接受（宁可不误伤）
         }
+    }
+
+    /// <summary>
+    /// **本入口造过的所有 rotation** —— 给 `是当前入口()` 判"当前是不是我们"。
+    ///
+    /// [!] 为什么是 static 集合、且是所有入口共用：
+    ///      设置窗的 `绘制者` 可能是 5 个职业入口里的**任意一个**，
+    ///      而"当前 ACR 是不是小鲸鱼"是**整套 ACR** 层面的问题，不是某个入口的。
+    ///
+    /// [!] 为什么用 `HashSet` + 上限 64：`Build()` 可能被框架调多次
+    ///      （重载 / 切换时重新构建）⇒ 不去重会无限增长；
+    ///      正常一次加载最多 5 个（5 个职业入口），64 足够宽松。
+    ///
+    /// [!] 为什么加锁：`Build()` 与渲染线程的 `每帧画` 可能并发碰它。
+    /// </summary>
+    private static readonly System.Collections.Generic.HashSet<Rotation> _造过的旋转 = new();
+    private static readonly object _造过的旋转锁 = new();
+
+    /// <summary>记录一个我们造出来的 rotation（`Build()` 里调，见上方说明）。</summary>
+    private static void 记一次旋转(Rotation r)
+    {
+        try
+        {
+            lock (_造过的旋转锁)
+            {
+                if (_造过的旋转.Count >= 64) return;   // 上限保护，防无限增长
+                _造过的旋转.Add(r);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>诊断用：本入口造过的 rotation 数量 + `_本入口旋转` 的 hash（一行）。</summary>
+    internal string 本入口旋转诊断()
+    {
+        try
+        {
+            var 我 = _本入口旋转 == null ? "null" : _本入口旋转.GetHashCode().ToString();
+            int n;
+            lock (_造过的旋转锁) { n = _造过的旋转.Count; }
+            return $"我={我} 集合={n}";
+        }
+        catch { return "(读不到)"; }
     }
 
     /// <summary>独立设置窗的诊断节流（每秒最多一条日志）。</summary>
