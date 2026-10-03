@@ -515,9 +515,10 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             //  [!] 两个 resolver 的守卫都是完整的（移动中可用 / 值得上Dot / Dot补判 /
             //      黑名单 / AOE 门槛），提前不会造成"移动中卡住"那类问题。
             // ══════════════════════════════════════════════════════════════
+            // ★ 2026-10-04：苦难之心提到 DoT 之前（对照实现槽 25 < 双DOT 26 < DOT 27）
+            new SlotResolverData(new WHM_AfflatusMisery(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
-            new SlotResolverData(new WHM_AfflatusMisery(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_GlareIV(), SlotMode.Gcd),   // 神速期间打闪飒
             // ⚠️ 位置很重要：必须在 `Res_MoveGcd`（移动填充）**之前** ——
             //   药尾声补刀最该生效的场景就是**移动中**（读条放不出来），
