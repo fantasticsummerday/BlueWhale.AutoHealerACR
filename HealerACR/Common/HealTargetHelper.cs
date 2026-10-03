@@ -1491,6 +1491,9 @@ public static class HealTargetHelper
     {
         var t = 目标;
 
+        // ★ 参数是游戏对象 ⇒ 必须先判有效性（本项目崩溃防护约定：12 次崩溃全是这一类）
+        if (!t.对象有效()) return false;
+
         // 没目标就别拦着（让输出逻辑自己处理）
         if (t == null) return false;
 
