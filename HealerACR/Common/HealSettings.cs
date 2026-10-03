@@ -448,7 +448,7 @@ public class HealSettings
     /// 哪些牌算"近战卡"（给近战 DPS）。
     /// 按 CardType 的运行时名字匹配，不在这份名单里的视为远程卡。
     /// </summary>
-    public string 近战卡关键词 = "Balance,Bole,Arrow,太阳,世界树,箭";
+    public string 近战卡关键词 = "Balance,太阳";   // ★ 2026-10-04 修：只有太阳神之衡是近战卡（战争神之枪是远程卡）；Bole/Arrow 是世界树/放浪神之箭，不属近战 ✗;
 
     // ================== ID 覆盖（自动解析失败时手工填） ==================
 

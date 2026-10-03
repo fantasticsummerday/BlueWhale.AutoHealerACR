@@ -424,7 +424,7 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
 /// <summary>
 /// 占星的卡牌状态。
 ///
-/// 为什么需要它：JobApi 的 DrawnCards 在实机上读不到，所以"手上有几张牌"
+/// 为什么需要它：JobApi 的 DrawnCards 读不到（★ 2026-10-04 更正：这句**被两套参考同时证伪** ✗——shiyuvi 直接读 `JobApi_Astrologian.DrawnCards`，youshu 把它当兜底；我们当年因为这句退化成了下面的「等待出卡」二值状态），所以"手上有几张牌"
 /// 只能自己记账 —— 抽一次记一笔，出一次销一笔。这样即使技能可用性判断
 /// 失灵（比如 AEAssist 不检查手牌条件），也不会出现"抽个不停"。
 /// </summary>
