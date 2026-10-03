@@ -1247,7 +1247,22 @@ public static class HealTargetHelper
                 {
                     if (敌人.CurrentHp <= 0) continue;
                     if (当前 != null && 敌人.GameObjectId == 当前.GameObjectId) continue;
-                    if (!有仇恨(敌人)) continue;              // ★ 本次修的核心
+                    if (!有仇恨(敌人)) continue;
+
+                      // ★ 2026-10-04 用户实测：「他一直给仇恨没拉稳的怪上 DoT」
+                      //   `有仇恨()` 只看"这怪在打我方任何人（含我自己）" ⇒ 正在打奶妈的怪照样合格 ✗
+                      //   参考精神：输出目标跟坦克锁定的目标 ✓ ⇒ 有坦克时，跳过"正在打我"的怪 ✓
+                      //   ⚠️ 单人/无坦克时不改行为（那时怪我本来就是对的 ✓）
+                      try
+                      {
+                          var 坦克0 = 主坦();
+                          if (坦克0 != null && 坦克0.对象有效())
+                          {
+                              var 我的Id0 = Core.Me?.GameObjectId ?? 0;
+                              if (我的Id0 != 0 && 敌人.TargetObjectId == 我的Id0) continue;
+                          }
+                      }
+                      catch { }              // ★ 本次修的核心
                     if (有我的Dot(敌人)) continue;
 
                     var 距离 = Vector3.Distance(我, 敌人.Position);
