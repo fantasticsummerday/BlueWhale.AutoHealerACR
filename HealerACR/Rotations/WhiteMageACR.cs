@@ -541,6 +541,9 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_PresenceOfMind(), SlotMode.OffGcd),
             new SlotResolverData(new Res_FreeCast(_spells), SlotMode.OffGcd),        // 无中生有
             new SlotResolverData(new Res_HealBooster(_spells), SlotMode.OffGcd),
+            // ★ 2026-10-04：神爱抚(37011) 原来**只是候选集里的一条、没有任何 resolver** ✗
+            //    ⇒ 满级那层「群盾 400 + HoT 200×15s」永远交不出去 ✗（对照实现里它是独立解析器，紧邻节制）
+            new SlotResolverData(new WHM_Serenity(), SlotMode.OffGcd),
             new SlotResolverData(new Res_GroupHoT(_spells), SlotMode.OffGcd),        // 庇护所
             new SlotResolverData(new Res_PlacedHeal(_spells), SlotMode.OffGcd),      // 礼仪之铃
             new SlotResolverData(new Res_BigAoEHeal(_spells), SlotMode.OffGcd),      // 全大赦
@@ -830,5 +833,46 @@ public class WHM_GlareIV : ISlotResolver
     {
         var spell = SpellUtil.当前形态(技能);
         if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// 白魔「神爱抚」(37011, Lv100) —— **群体盾 + HoT**。
+///
+/// ★ 2026-10-04 新增：原来它只在 `治疗候选` 表里登记了一条，**没有任何 resolver** ✗
+///   ⇒ 满级那层（群盾 400 + HoT 200/15s）实际上永远交不出去 ✗
+///   （对照实现里它是独立解析器，优先级仅次于节制 ✓）
+///
+/// 判据（保守版）：
+///   · 20 米内低于「群奶阈值」的人数 ≥ 群奶人数 ⇒ 交 ✓
+///   · 或者"大伤害要来"（时间轴 / 读条预判）⇒ 交 ✓
+///   · 木桩模式让路 ✓
+/// </summary>
+public class WHM_Serenity : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("神爱抚");
+
+    public int Check()
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+        if (!HealQt.GetQt("奶人")) return -100;
+        if (!HealQt.GetQt("群奶")) return -101;
+        if (技能 == 0) return -102;
+        if (!SpellUtil.已解锁(技能)) return -2;
+
+        var 血线 = 治疗阈值表.取(技能, HealSettings.Instance.群体治疗阈值);
+        var 人够多 = HealTargetHelper.低于阈值人数(血线, 20f)
+                     >= HealTargetHelper.群奶人数要求(HealSettings.Instance.群奶最少人数);
+        var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
+
+        if (!人够多 && !要来) return -1;
+
+        return SpellUtil.可用(技能) ? 12 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        var spell = SpellUtil.当前形态(技能);
+        if (spell != null) slot.Add(spell);   // 以自身为中心，不需要目标/坐标
     }
 }
