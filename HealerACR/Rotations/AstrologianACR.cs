@@ -656,7 +656,7 @@ public class AST_CrownPlay : ISlotResolver
         // 贵妇是治疗卡：没人缺血就先留着。
         // 领主**不要**检查目标 —— 它是"对自身周围敌人"的范围攻击，选中与否都能打。
         if (卡.Id == 贵妇 &&
-            HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值) == null)
+            HealTargetHelper.最低血量队友(治疗阈值表.取(卡.Id, HealSettings.Instance.单体治疗阈值)) == null)
         {
             return -1;
         }
@@ -672,7 +672,7 @@ public class AST_CrownPlay : ISlotResolver
 
         if (卡.Id == 贵妇)
         {
-            var 缺血 = HealTargetHelper.最低血量队友(HealSettings.Instance.单体治疗阈值);
+            var 缺血 = HealTargetHelper.最低血量队友(治疗阈值表.取(卡.Id, HealSettings.Instance.单体治疗阈值));
             if (缺血 == null) return;
             slot.Add(new Spell(卡.Id, 缺血));
             return;

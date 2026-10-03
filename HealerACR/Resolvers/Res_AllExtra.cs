@@ -536,13 +536,36 @@ public class Res_SingleMitigation : ISlotResolver
 /// <summary>群体减伤：占星 命运之轮 / 学者 疾风怒涛之计 / 贤者 坚角清汁（已有，这里只补前两个）。</summary>
 public class Res_GroupMitigationExtra : ISlotResolver
 {
+
+    /// <summary>
+    /// 占星团减选哪一发。
+    ///
+    /// ★ 2026-10-04 修：原来用「取已解锁(太阳星座, 命运之轮)」。
+    ///   太阳星座(37031) 必须在中间学派期间（身上有「太阳星座预备」3895）才能放，
+    ///   无条件比较可用性 ⇒ 满级恒选太阳星座 ⇒ 中间学派没开时选出一个按不出去的技能。
+    ///   现在：有 3895 才用太阳星座，否则用命运之轮（对照实现里命运之轮才是主团减）。
+    /// </summary>
+    private static uint 占星团减()
+    {
+        try
+        {
+            var 太阳 = SpellIds.取("太阳星座");
+            if (太阳 != 0 && CharacterExt.我有光环(3895)) return 太阳;   // 3895 = 太阳星座预备
+
+            var 命运 = SpellIds.取("命运之轮");
+            if (命运 != 0) return 命运;
+            return 太阳;
+        }
+        catch { return 0; }
+    }
+
     private readonly JobSpellTable _t;
 
     public Res_GroupMitigationExtra(JobSpellTable t) => _t = t;
 
     private uint 技能 => 技能选取.取(_t.Job,
         学者: SpellIds.取("疾风怒涛之计"),
-        占星: SpellUtil.取已解锁(SpellIds.取("太阳星座"), SpellIds.取("命运之轮")));
+        占星: 占星团减());
 
     public int Check()
     {
