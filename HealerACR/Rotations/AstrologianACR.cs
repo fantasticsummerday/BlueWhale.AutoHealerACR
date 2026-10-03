@@ -240,10 +240,18 @@ public class ASTSpellTable : JobSpellTable
     public override uint 瞬发单奶能力技 => SpellIds.取("先天禀赋");
 
     /// <summary>
-    /// 先天禀赋的血线：它是"血量越低效果越强"的急救型，
-    /// 所以给 **45%**（和学者的活性法同档），别拉到 75% 浪费。
+    /// 先天禀赋的血线**兜底值** = **0.30**。
+    ///
+    /// [!] 它是"血量越低效果越强"的急救型（30% 及以下才吃满 900 恢复力），
+    ///     所以血线本来就该低。
+    ///
+    /// [!] ⚠️ 这个值**只在 `治疗阈值表` 里查不到先天禀赋时**才用得上 ——
+    ///     表里登记的是 0.30（和参考的 `先天阈值` 默认 30 一致）。
+    ///     原来这里写 0.45，和表里的 0.30 **不一致**：
+    ///     一旦表被重置 / 查不到，先天会从 0.30 跳到 0.45（更晚才交），
+    ///     也就是"该救命的时候它不交"。两处必须同源。
     /// </summary>
-    public override float 瞬发单奶血线 => 0.45f;
+    public override float 瞬发单奶血线 => 0.30f;
     public override uint 群体治疗能力技 => SpellIds.取("天星冲日");
     public override uint 团队减伤 => SpellIds.取("中间学派");
 public override uint 个人减伤 => 0;   // ★ 2026-10-04：擢升改由 AST_AllyMitigation 负责（含自己血低时给自己）
@@ -254,6 +262,15 @@ public override uint 个人减伤 => 0;   // ★ 2026-10-04：擢升改由 AST_A
 
     // 需求 4：脱战先抽张牌，开战就能出
     public override uint[] 脱战准备技能 => new[] { SpellIds.取("星极抽卡") };
+
+    /// <summary>
+    /// 起手预铺地面技 = **地星**（放下 10 秒后才长大成满档，
+    /// 倒数 10 秒铺下去，开怪瞬间正好满档 —— 见 `预铺起手` 的说明）。
+    /// </summary>
+    public override uint 起手预铺地面技 => SpellIds.取("地星");
+
+    /// <summary>起手预读 = 落陷凶星（倒数 1.5 秒开始读，开怪那一下正好读完）</summary>
+    public override uint 预读填充技 => 基础输出;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -854,46 +871,124 @@ public class AST_CrownPlay : ISlotResolver
     }
 }
 
-/// <summary>地星：放下去 10 秒后炸，所以时间轴预报到伤害就提前铺。</summary>
+/// <summary>
+/// 地星：放下去 10 秒后炸，所以时间轴预报到伤害就提前铺。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 完整的自检 / 开场门 / 敌人与 AOE 判据（原来只有"时间轴 + 血线"两条）★
+///
+///  [!] 缺了自检的后果：**场上已经有一颗地星时还会再放** ✗ ——
+///      地星是**唯一性**的（`地星主宰` 1224 / `巨星主宰` 1248 在身就说明已铺），
+///      再放一次是纯浪费 60 秒 CD（而且第二颗会顶掉第一颗）。
+///
+///  [!] 开场门两条：
+///       · **1 秒内**不铺（除非在倾泻资源）—— 开场那一拍留给占卜
+///       · **非 Boss 且战斗不足 15 秒**也不铺 —— 道中小怪用不上地星
+///
+///  [!] 触发源三条（按收益排序）：
+///       ① boss **10 秒内要放 AOE**：有人低于 80% 就给 25，否则给 35（提前铺满）
+///       ② 有人低于「地星阈值」⇒ 60（常规治疗用途，优先级最高）
+///       ③ 都不满足 ⇒ 不铺
+///
+///  [!] 全场没有敌人（`CountEnemiesInRange(25) == 0`）时不铺 ——
+///      地星是伤害 + 治疗双用途，没敌人时那 720 威力白扔。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
 public class AST_EarthlyStar : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("地星");
 
+    /// <summary>开场闸门（毫秒）—— 开场那一拍留给占卜</summary>
+    private const long 开场闸门毫秒 = 1000;
+
+    /// <summary>道中不开地星的战斗时长门槛（毫秒）</summary>
+    private const long 道中门槛毫秒 = 15000;
+
+    /// <summary>boss 要放 AOE 的预判窗口（毫秒）</summary>
+    private const int AOE预判毫秒 = 10000;
+
+    /// <summary>地星的作用半径（米）</summary>
+    private const float 地星半径 = 20f;
+
     public int Check()
     {
-        if (!HealQt.GetQt("奶人")) return -100;
+        if (!HealQt.GetQt("奶人", true)) return -100;
         if (!HealQt.GetQt("地星", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // 木桩：直接放（练循环用）。
-        // 原来这里一句 return -300 把木桩整个拦掉了，
-        // 所以木桩上永远看不到地星。
-        if (HealTargetHelper.木桩模式) return SpellUtil.可用(技能) ? 6 : -1;
+        // ── ① 自检：场上已经有一颗地星 ⇒ 不再铺 ──
+        if (占星卡目标.地星在场()) return -1;
 
-        // 有时间轴：提前铺（地星 10 秒后才炸）
-        if (TimelineManager.未来有减伤(HealSettings.Instance.地星提前秒, 2.0))
+        if (!SpellUtil.可用(技能)) return -200;
+        if (!CharacterExt.可以插能力技()) return -4;
+
+        // ── ② 开场门 ──
+        long 战斗时间;
+        try { 战斗时间 = AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0; }
+        catch { 战斗时间 = 0; }
+
+        if (战斗时间 < 开场闸门毫秒) return -50;
+
+        // ── ③ 木桩：直接放（练循环用）──
+        //    原来这里一句 return -300 把木桩整个拦掉了，所以木桩上永远看不到地星。
+        if (HealTargetHelper.木桩模式) return 6;
+
+        // ── ④ 非 Boss 且战斗太短 ⇒ 道中用不上 ──
+        if (!是Boss目标() && 战斗时间 < 道中门槛毫秒) return -4;
+
+        // ── ⑤ 全场没敌人（25 米内）⇒ 伤害那部分白扔 ──
+        if (HealTargetHelper.周围敌人数量(8f, 25f) <= 0) return -5;
+
+        // ── ⑥ 战斗中 ──
+        try
         {
-            return SpellUtil.可用(技能) ? 6 : -1;
+            if (Core.Me == null || !Core.Me.InCombat()) return -1;
+        }
+        catch { }
+
+        // ── ⑦ boss 10 秒内要放 AOE ──
+        if (减伤Helper.即将来大伤害(AOE预判毫秒))
+        {
+            if (HealTargetHelper.低于阈值人数(0.80f, 地星半径) < 2) return 25;
+            return 35;
         }
 
-        // 没时间轴兜底：多人掉血就直接放
+        // ── ⑧ 常规：有人低于「地星阈值」──
         var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= HealTargetHelper.群疗能力技人数要求(s.群奶最少人数))
-        {
-            return SpellUtil.可用(技能) ? 6 : -1;
-        }
+        var 阈值 = 治疗阈值表.取(技能, s.群体治疗阈值);
+        if (HealTargetHelper.低于阈值人数(阈值, 地星半径) >= HealTargetHelper.群疗能力技人数要求(s.群奶最少人数))
+            return 60;
+
+        // ── ⑨ 时间轴预报（我们比参考多这一条）──
+        if (TimelineManager.未来有减伤(s.地星提前秒, 2.0)) return 30;
 
         return -1;
+    }
+
+    /// <summary>当前目标是不是 Boss（拿不到就返回 false，走道中那条门）</summary>
+    private static bool 是Boss目标()
+    {
+        try
+        {
+            var 目标 = HealTargetHelper.当前目标();
+            if (目标 == null || !目标.对象有效()) return false;
+            return 减伤Helper.是Boss(目标);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public void Build(Slot slot)
     {
         var spell = SpellUtil.当前形态(技能);
         if (spell == null) return;
-            // 地面技能选位：敌人站得稳就放它脚下，否则放自己脚下
-            // （参考同类 ACR 的敌人移动检测）
-            var 落点 = 敌人移动检测.地面技能位置();
-            slot.Add(new Spell(spell.Id, 落点));
+
+        // 地面技能选位：敌人站得稳就放它脚下，否则放自己脚下
+        // （参考同类 ACR 的敌人移动检测）
+        var 落点 = 敌人移动检测.地面技能位置(输出目标.选());
+        slot.Add(new Spell(spell.Id, 落点));
     }
 }
 

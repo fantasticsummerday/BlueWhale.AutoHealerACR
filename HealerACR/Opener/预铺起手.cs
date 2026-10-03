@@ -114,6 +114,52 @@ public class 预铺起手 : IOpener
             });
         }
 
+        // ---- 起手地面预铺（目前只有占星的地星用）----
+        //
+        //  [!] 为什么要它：地星放下 10 秒后才长大成满档（星体爆炸 720），
+        //      而**开怪后才发现要铺就已经晚了** —— 10 秒的空窗里它是半档。
+        //      8 人本打 `/countdown` 时，倒数 10 秒正好把这一发铺下去，
+        //      开怪瞬间它已经长大、正好吃第一波伤害。
+        //
+        //  [!] 落点用同一套"敌人站得稳就放它脚下"的选位（`地面技能位置`）——
+        //      倒数阶段怪还没被拉，会退回自己脚下，这是可接受的
+        //      （总比不放好；而且地星是圆形 20 米，站自己脚下也覆盖得到近战位）。
+        //
+        //  [!] 只有表里登记了才注册 —— 白魔/学者/贤者没有这个技能，什么都不做。
+        if (_t.起手预铺地面技 != 0)
+        {
+            var 地面技 = _t.起手预铺地面技;
+            countDownHandler.AddAction(10000, () =>
+            {
+                try
+                {
+                    if (!SpellUtil.已解锁(地面技)) return;
+                    if (!SpellUtil.可用(地面技)) return;
+
+                    var 落点 = 敌人移动检测.地面技能位置();
+                    AI.Instance.BattleData.AddSpell2NextSlot(new Spell(地面技, 落点));
+                }
+                catch { }
+            });
+        }
+
+        // ---- 1.5 秒：预读一个读条填充（开怪那一下正好读完）----
+        if (_t.预读填充技 != 0)
+        {
+            var 填充 = _t.预读填充技;
+            countDownHandler.AddAction(1500, () =>
+            {
+                try
+                {
+                    if (!SpellUtil.已解锁(填充)) return;
+                    if (!SpellUtil.可用(填充)) return;
+
+                    AI.Instance.BattleData.AddSpell2NextSlot(new Spell(填充, Core.Me));
+                }
+                catch { }
+            });
+        }
+
         // 爆发药已经在上面注册了（AddPotionAction(2000)）
     }
 }
