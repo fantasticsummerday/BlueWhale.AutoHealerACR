@@ -731,11 +731,18 @@ public class SCHSpellTable : JobSpellTable
             //                        11 Dot · 13 AOE · 14 BaseGCD
             //      ==> **输出垫底**：先保证治疗把 GCD 拿走，没人需要治才打输出。
             //
-            //  [!] 我们原来把输出**插在治疗之前**（本文件里 `Res_Dot` 排在第 10 位，
+            //  [!] 我们原来把输出**插在治疗之前**（本文件里 `Res_Dot` 当年排在第 10 位，
             //      而 `Res_HealAoEGcd` / `Res_HealSingleGcd` / `Res_HealShield` /
-            //      `Res_SpreadShield` 在第 6~9 位）==>
+            //      `Res_SpreadShield` 在它前面）==>
             //      "到该补 DoT 的时候、同时有人掉到群疗线以下" 时**我们先补毒、参考先群疗**。
             //      第 38 轮按参考把整段搬到治疗之后。
+            //
+            //  [!] ⚠️ **序号会随队列增删而变** —— 那几个数字只是"当时"的位置。
+            //      现在（0.7.3.x）的真实次序是：
+            //        `Res_HealAoEGcd` → `Res_HealSingleGcd` → `Res_HealShield`
+            //        → `Res_SpreadShield` → … → `Res_MultiDot` → `Res_Dot`
+            //      判据是**相对次序（输出在治疗之后）**，不是那些绝对数字 ——
+            //      改队列时别去"对齐数字"，要对齐这条次序。
             //
             //  [!] ⚠️ **不要再把任何输出项往上搬** —— 那会重现上面那个差异。
             //      （`Res_MoveGcd` 也在这个段里，它是输出的兜底填充，不是治疗。）
