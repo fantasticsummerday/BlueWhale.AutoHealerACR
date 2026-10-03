@@ -391,6 +391,10 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             // 占卜必须最先 —— 它是 120 秒团辅，后面的出卡/伤害都要吃它的增益。
             new SlotResolverData(new AST_Divination(), SlotMode.OffGcd),
             new SlotResolverData(new AST_Lightspeed(), SlotMode.OffGcd),
+            // ★ 走位专用：光速攒满 + 真在走位 + 25 米内有敌人才开（排在"按节奏开"之后）
+            new SlotResolverData(new AST_光速走位(), SlotMode.OffGcd),
+            // ★ 中间学派：oGCD 自身增益；学派在身且盾快没了时改走**阳星合相补盾**（GCD）
+            new SlotResolverData(new AST_NeutralSect(), SlotMode.OffGcd),
             new SlotResolverData(new AST_CrownPlay(), SlotMode.OffGcd),
             new SlotResolverData(new AST_Play(), SlotMode.OffGcd),
             new SlotResolverData(new AST_MinorArcana(), SlotMode.OffGcd),
@@ -419,6 +423,7 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
         加职业开关("占卜", true);
         加职业开关("抽卡", true);
         加职业开关("地星", true);
+        加职业开关("中间学派", true);
     }
 }
 
@@ -1028,6 +1033,221 @@ public class AST_Lightspeed : ISlotResolver
     {
         var spell = SpellUtil.Get(技能);
         if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// **光速走位** —— 正在走位、且光速攒满了才开。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  [!] 为什么和 AST_Lightspeed 分开：
+///      那个是"看治疗/团辅节奏"开光速，这个是"**正在走位**"的专用通道 ——
+///      走位是光速最该用的场合（读条全被挡住），但光速一开就是 10 秒，
+///      所以要求**充能已经攒满**，否则走两步就把该留到爆发的那一层花掉了。
+///
+///  ── 闸门 ──
+///    ① QT「光速」开着、技能可用、15 秒去重（和上面那条共用同一个窗口）
+///    ② **充能必须满 2 层**（不足直接放过）
+///    ③ 战斗中；身上没有「即刻」(167)、没有「光速」(841)
+///    ④ **正在移动**（没移动 → -10）
+///    ⑤ **走位满「移动延迟」**（刚起步那几帧不算）
+///    ⑥ **25 米内至少要有 1 个敌人**（没敌人时开光速毫无意义）
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class AST_光速走位 : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("光速");
+
+    private const int 去重毫秒 = 15000;
+
+    /// <summary>光速攒满才算"值得为走位开"</summary>
+    private const float 要求充能 = 2f;
+
+    /// <summary>25 米内没有敌人就不值得开</summary>
+    private const float 敌人半径 = 25f;
+
+    public int Check()
+    {
+        if (!HealQt.GetQt("光速", true)) return -101;
+        if (!SpellUtil.已解锁(技能)) return -2;
+
+        var 当前 = SpellUtil.当前形态(技能);
+        if (当前 == null || !当前.IsReadyWithCanCast()) return -2;
+
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 去重毫秒)) return -3;
+        }
+        catch { }
+
+        if (!CharacterExt.可以插能力技()) return -4;
+
+        // ② 充能满 2 层（不足一律不让开 —— 留给爆发 / 急救）
+        var 充能 = CharacterExt.充能数(技能);
+        if (充能 >= 0 && 充能 < 要求充能) return -7;
+
+        try
+        {
+            if (Core.Me == null || !Core.Me.InCombat()) return -6;
+        }
+        catch { }
+
+        // ③ 即刻 / 光速 已在身上
+        if (AuraIds.即刻 != 0 && CharacterExt.我有光环(AuraIds.即刻)) return -4;
+        if (AuraIds.光速 != 0 && CharacterExt.我有光环(AuraIds.光速)) return -5;
+
+        // ④ 必须真的在移动
+        if (!SpellUtil.在移动()) return -10;
+
+        // ⑤ 且走位满「移动延迟」
+        if (SpellUtil.移动时长毫秒() < SpellUtil.移动延迟毫秒) return -200;
+
+        // ⑥ 25 米内要有敌人
+        if (HealTargetHelper.周围敌人数量(8f, 敌人半径) <= 0) return -13;
+
+        return 40;
+    }
+
+    public void Build(Slot slot)
+    {
+        var spell = SpellUtil.Get(技能);
+        if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// **中间学派**：自身增益 oGCD，期间吉星相位 / 阳星相位变成**带盾**的版本。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 它还有第二个分支：**阳星合相补盾** ★
+///
+///  [!] 问题（原来完全没有这条路）：
+///      中间学派期间阳星/阳星相位才带盾，而**后进范围的人、刚复活的人**
+///      在学派生效时才进入 20 米 —— 他们的盾从没被补上 ✗
+///      现象就是"学派开了、但总有人没盾"。
+///
+///  [!] 所以学派**已经在身上**、且剩余时间不多时，
+///      用**阳星合相（37030，GCD 群盾）**补一轮 ——
+///      它是 GCD，所以 `slot.Add` 时**不能**带 `DontUseGcd`。
+///
+///  ── 开学派的两个触发 ──
+///    ① boss 5 秒内要放 AOE（且没有更该先用的团减）⇒ 有人就开
+///    ② 有人低于「群体治疗阈值」的人数够 ⇒ 开
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class AST_NeutralSect : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("中间学派");
+    private static uint 阳星合相 => SpellIds.取("阳星合相");
+    private static uint 命运之轮 => SpellIds.取("命运之轮");
+
+    /// <summary>中间学派**已生效**的 buff = 1892</summary>
+    private const uint 学派中 = 1892;
+
+    /// <summary>中间学派自己的前置 buff 3895 / 3896（防重叠）</summary>
+    private const uint 前置一 = 3895;
+    private const uint 前置二 = 3896;
+
+    /// <summary>学派剩余少于此值就该补盾（毫秒）</summary>
+    private const int 补盾剩余毫秒 = 3000;
+
+    /// <summary>这个 GCD 走"阳星合相补盾"分支吗（给 Build 用，避免判 A 放 B）</summary>
+    private static bool 本帧走补盾;
+
+    public int Check()
+    {
+        本帧走补盾 = false;
+
+        if (HealTargetHelper.木桩模式) return -300;
+        if (!HealQt.GetQt("奶人")) return -1;
+        if (!HealQt.GetQt("减伤", true)) return -1;
+        if (!HealQt.GetQt("中间学派", true)) return -101;
+        if (!SpellUtil.已解锁(技能)) return -2;
+        if (!CharacterExt.可以插能力技()) return -4;
+
+        try
+        {
+            if (Core.Me == null || !Core.Me.InCombat()) return -5;
+        }
+        catch { }
+
+        // 学派前置 buff 已在身上 ⇒ 不重叠
+        if (CharacterExt.我有光环(前置一) || CharacterExt.我有光环(前置二)) return -2;
+
+        // 大宇宙刚放过（5 秒内）⇒ 不重叠
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("大宇宙"), 5000)) return -2;
+        }
+        catch { }
+
+        if (!SpellUtil.可用(技能)) return -3;
+
+        // ── ① boss 要放 AOE ──
+        if (减伤Helper.即将来大伤害(5000))
+        {
+            // 有更该先用的团减（命运之轮在手上 / 学派 buff 已在身）⇒ 让路
+            if (命运之轮 != 0 && SpellUtil.可用(命运之轮)) return -4;
+            if (CharacterExt.我有光环(学派中)) return -4;
+
+            // 20 米内至少 2 个人才值得铺群体减伤
+            if (HealTargetHelper.低于阈值人数(1.0f, 20f) >= 2) return 50;
+        }
+
+        // ── ② 掉血人数够 ──
+        var s = HealSettings.Instance;
+        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 15f) >= HealTargetHelper.群疗能力技人数要求(s.群奶最少人数))
+            return 30;
+
+        // ── ③ 补盾分支：学派在身上、剩余不多、有人缺盾 ──
+        if (CharacterExt.我有光环(学派中))
+        {
+            var 剩余 = (int)CharacterExt.我的Buff剩余毫秒安全(学派中);
+            if (剩余 > 0 && 剩余 <= 补盾剩余毫秒)
+            {
+                var 要补 = HealTargetHelper.是八人本() ? 4 : 2;
+                if (缺盾人数() >= 要补 && 阳星合相 != 0 && SpellUtil.可用(阳星合相))
+                {
+                    本帧走补盾 = true;
+                    return 10;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        if (本帧走补盾)
+        {
+            // ⚠️ 阳星合相是 **GCD**，不能带 `DontUseGcd`（带了就排不出去）
+            var gcd = SpellUtil.当前形态(阳星合相);
+            if (gcd != null) slot.Add(gcd);
+            return;
+        }
+
+        var spell = SpellUtil.当前形态(技能);
+        if (spell != null) slot.Add(spell);
+    }
+
+    /// <summary>20 米内、能接受治疗、且**没有中间学派盾**的人有几个</summary>
+    private static int 缺盾人数()
+    {
+        var 数 = 0;
+        try
+        {
+            foreach (var 成员 in PartyHelper.CastableAlliesWithin20)
+            {
+                if (成员 == null || !成员.对象有效()) continue;
+                if (!成员.可以治()) continue;
+                if (成员.HasAura(学派中)) continue;
+                数++;
+            }
+        }
+        catch { }
+
+        return 数;
     }
 }
 
