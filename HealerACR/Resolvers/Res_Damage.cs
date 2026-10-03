@@ -37,8 +37,8 @@ public class Res_Dot : ISlotResolver
         if (!HealQt.GetQt("DOT", true)) return -100;
         if (!HealQt.GetQt("输出", true)) return -101;
         if (蓝量.低蓝停手()) return -9;   // 蓝留给治疗
-        if (_t.Dot技能 == 0) return -102;
-        if (!SpellUtil.已解锁(_t.Dot技能)) return -2;
+        if (_t.Dot技能 == 0) { 记DoT闸门("Dot技能==0（这套职业技能表里没配 DoT）"); return -102; }
+        if (!SpellUtil.已解锁(_t.Dot技能)) { 记DoT闸门("未解锁（等级不够）"); return -2; }
 
         // ⚠️ 用我们自己的目标选择器（带粘滞 + 只挑有仇恨的）
         var target = 输出目标.选();
@@ -48,7 +48,7 @@ public class Res_Dot : ISlotResolver
         //    不检查的话会一直"选中了技能但打不出去"，表现为输出卡住。
         //    （兜底偏向放行，见 技能数据.打得到 的说明）
         // [!] **必须传技能真实射程** —— 自身中心 AOE（破阵法 5 米）按默认 25 米判会「离怪老远也判打得到」（用户实测）
-        if (!技能数据.打得到(target, 技能数据.取有效射程(_t.Dot技能) is var 射程 && 射程 > 0 ? 射程 : 25f)) return -6;
+        if (!技能数据.打得到(target, 技能数据.取有效射程(_t.Dot技能) is var 射程0 && 射程0 > 0 ? 射程0 : 25f)) { 记DoT闸门("打不到（超出射程/没有视线）"); return -6; }
 
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
 
@@ -117,6 +117,24 @@ public class Res_Dot : ISlotResolver
     ///  确认结论后，把本方法和 `_已诊断` 一起删掉。
     /// ══════════════════════════════════════════════════════════════════
     /// </summary>
+    // ★ DoT 闸门诊断（2026-10-04）：实机一整局 `[DoT诊断]` 只出现 1 次 ✗
+    //   ⇒ 这条 DoT 路径几乎每次都在**三道早退闸门**返回，却没有任何记录 ✗
+    //   ⇒ 把"卡在哪一道"打出来（同一原因 5 秒最多一条，按时间节流）✓
+    private static long _上次DoT闸门;
+    private static string _上次DoT闸门原因 = "";
+
+    private static void 记DoT闸门(string 原因)
+    {
+        try
+        {
+            var 现在 = TimeHelper.Now();
+            if (原因 == _上次DoT闸门原因 && 现在 - _上次DoT闸门 < 5000) return;
+            _上次DoT闸门 = 现在;
+            _上次DoT闸门原因 = 原因;
+            LogHelper.Info($"[HealerACR][DoT闸门] 补 DoT 被挡在这里：{原因}");
+        }
+        catch { }
+    }
     private void 诊断剩余时间(IBattleChara target)
     {
         try
