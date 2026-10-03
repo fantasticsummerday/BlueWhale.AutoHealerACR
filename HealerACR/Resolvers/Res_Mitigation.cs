@@ -23,6 +23,9 @@ public class Res_TeamMitigation : ISlotResolver
     public int Check()
     {
 
+// ★ 2026-10-04：已有减伤就不再叠（对照实现的 CurrentMitigation 快照）
+if (团减快照.已有减伤()) return -1;
+
         // ★ 2026-10-04：**刚有人消耗过豆子 ⇒ 这一拍别再消耗** ✓
         //   本项目采用「一次消耗后全局抑制」的口径（以太层数下降后 7 秒）——
         //   避免同一拍把豆子连打光、也避免两个能力技互相抢（两套对照实现都有等价物）
@@ -411,5 +414,41 @@ public class Res_GroupShield : ISlotResolver
         var 盾 = SpellUtil.当前形态(_t.群体盾);
         if (盾 == null) return;
         slot.Add(new Spell(盾.Id, SpellTargetType.Self));
+    }
+}
+
+/// <summary>
+/// 团减快照 —— 「现在身上已经有减伤了吗」。
+///
+/// ★ 2026-10-04 新增：对照实现的 CurrentMitigation() 会在放团减前先查一层快照，
+///   任一已有 ⇒ 整体放弃；我们的 5 个团减/群疗各自为战 ⇒
+///   同一帧可能连出 2~3 个大 CD（坚角清汁 + 泛输血 + 整体论）。
+///
+/// 快照内容（照对照实现的 IL）：
+///   · 2613 泛输血 / 2643 泛血印
+///   · 3033 暗血   / 3365 整体盾（整体论的盾）
+///   · 2618 坚角清汁
+/// </summary>
+public static class 团减快照
+{
+    private static readonly uint[] 已有减伤Ids = { 2613, 2643, 3033, 3365, 2618 };
+
+    /// <summary>自己身上已经有这些减伤之一 ⇒ 不要再叠。</summary>
+    public static bool 已有减伤()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null || !我.对象有效()) return false;
+
+            foreach (var id in 已有减伤Ids)
+                if (我.HasAura(id)) return true;
+
+            return false;
+        }
+        catch
+        {
+            return false;   // 读失败 → 不拦（宁可放，也别把团减全堵死）
+        }
     }
 }

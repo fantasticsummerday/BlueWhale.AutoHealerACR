@@ -600,6 +600,9 @@ public class Res_GroupShieldAbility : ISlotResolver
 
     public int Check()
     {
+
+        // ★ 2026-10-04：已有减伤就不再叠（对照实现的 CurrentMitigation 快照）
+        if (团减快照.已有减伤()) return -1;
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群盾", true)) return -101;
@@ -738,6 +741,9 @@ public class Res_BigAoEHeal : ISlotResolver
 
     public int Check()
     {
+
+        // ★ 2026-10-04：已有减伤就不再叠（对照实现的 CurrentMitigation 快照）
+        if (团减快照.已有减伤()) return -1;
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群奶")) return -101;
