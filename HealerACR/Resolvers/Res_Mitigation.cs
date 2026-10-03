@@ -327,6 +327,17 @@ public class Res_SelfMitigation : ISlotResolver
         var 自己血少 = !CharacterExt.我有效()
             || (AEAssist.Core.Me?.有效血量比例() ?? 1f) <= 0.6f;
 
+        // ★ 2026-10-04 补（#51）：**血线触发** —— 表里给罩子登记了 0.35，但原先没有任何读取点（死登记）✗
+        //   对照实现的罩子按「20 米内低于阈值的人数」交 ✓
+        try
+        {
+            var 罩子线 = 治疗阈值表.取(_t.团队减伤, HealSettings.Instance.群体治疗阈值);
+            if (HealTargetHelper.低于阈值人数(罩子线, 20f)
+                >= HealTargetHelper.群奶人数要求(HealSettings.Instance.群奶最少人数)
+                && SpellUtil.可用(_t.团队减伤)) return 9;
+        }
+        catch { }
+
         if (!时间轴要求 && !自己血少 && !减伤Helper.即将来大伤害()) return -1;
 
         return SpellUtil.可用(_t.个人减伤) ? 8 : -1;
