@@ -540,6 +540,18 @@ public class AST_MinorArcana : ISlotResolver
 
     public int Check()
     {
+
+        // ★ 2026-10-04：**三 id 去重** —— 对照实现在放小奥秘卡前查
+        //   `RecentlyUsed(37022 | 7444 | 7445, 5000)`，我们原来一次都没查 ✗
+        //   ⇒ 同一次王冠卡可能被连放（小奥秘卡本体 / 领主 / 贵妇 三条路各放一次）✗
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(37022, 5000)
+                || AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("王冠之领主"), 5000)
+                || AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("王冠之贵妇"), 5000))
+                return -6;
+        }
+        catch { }
         if (!HealQt.GetQt("抽卡", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
@@ -626,6 +638,18 @@ public class AST_CrownPlay : ISlotResolver
 
     public int Check()
     {
+
+        // ★ 2026-10-04：**三 id 去重** —— 对照实现在放小奥秘卡前查
+        //   `RecentlyUsed(37022 | 7444 | 7445, 5000)`，我们原来一次都没查 ✗
+        //   ⇒ 同一次王冠卡可能被连放（小奥秘卡本体 / 领主 / 贵妇 三条路各放一次）✗
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(37022, 5000)
+                || AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("王冠之领主"), 5000)
+                || AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("王冠之贵妇"), 5000))
+                return -6;
+        }
+        catch { }
         快照("王冠");
 
         if (!HealQt.GetQt("抽卡", true)) return -101;
