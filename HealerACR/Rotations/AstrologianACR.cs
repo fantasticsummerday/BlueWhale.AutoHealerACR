@@ -334,6 +334,9 @@ public override uint 个人减伤 => 0;   // ★ 2026-10-04：擢升改由 AST_A
             //      不是一移动就烧 60 秒 CD —— 详见 Res_移动开即刻 的注释。
             // ══════════════════════════════════════════════════════════════
             new SlotResolverData(new Res_移动开即刻(_spells), SlotMode.Gcd),
+            // ★ 紧跟着：即刻已经在身上时，把这一发打在**最高档的输出 GCD** 上
+            //   （奶妈的输出 GCD 全是读条的，不放这条移动中就一个都打不出来）。
+            new SlotResolverData(new Res_MoveInstantOutput(_spells), SlotMode.Gcd),
 new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
             // ══════════════════════════════════════════════════════════════
@@ -363,16 +366,18 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             //  [!] 两个 resolver 的守卫都是完整的（移动中可用 / 值得上Dot / Dot补判 /
             //      黑名单 / AOE 门槛），提前不会造成"移动中卡住"那类问题。
             // ══════════════════════════════════════════════════════════════
+            // ★ 多目标 DoT：**排在单体 DoT 之前**（对齐对照实现的槽序 `双DOT(31)` → `DOT(32)`）★
+            //   [!] 为什么顺序不能反：两根 resolver 现在**共用 `Dot补判` 那根保险丝** ——
+            //       谁先跑谁补，另一根会被丝挡住。放在前面意味着多目标时
+            //       优先铺上"还没毒的那只"，而不是先给主目标续一次、副目标永远排不上。
+            //   [!] 它自己会判"候选够不够 2 个"，单体场景直接跳过 ⇒ 不会抢单体毒。
+            new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
             // ⚠️ 位置很重要：必须在 `Res_MoveGcd`（移动填充）**之前** ——
             //   药尾声补刀最该生效的场景就是**移动中**（读条放不出来），
             //   排在移动填充后面等于**永远选不到**。
             new SlotResolverData(new Res_PotionTailDamage(_spells), SlotMode.Gcd),
-            // ★ 多目标 DoT：主目标 DoT 还在时，把 DoT 扩散到**其他被拉到的怪** ★
-            //   ⚠️ 必须在 Res_MoveGcd 之前（否则永远抢不到这个 GCD）
-            //   ⚠️ 必须在 Res_Dot 之后（主目标的 DoT 优先级更高）
-            new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             // 基础输出：**必须排在 Res_MoveGcd 之前**。
             // 破阵法（近战填充技）也是瞬发，该由它优先选；
             // 排在移动填充之后会把 GCD 抢成毁坏（实测过的问题）。

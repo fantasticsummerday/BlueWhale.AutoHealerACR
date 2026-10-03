@@ -2876,6 +2876,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         //    不清的话下一场开场会以为"刚抽过"，前几秒不抽卡。
         try { HealerACR.Rotations.AST卡牌状态.重置(); } catch { }
         try { 占星卡目标.重置(); } catch { }
+        try { SpellUtil.重置移动状态(); } catch { }
 
         // ══════════════════════════════════════════════════════════
         //  ★ **技能表自检**（2026-10-03）—— 每次加载打一次日志
@@ -2963,6 +2964,11 @@ public class HealRotationEventHandler : IRotationEventHandler
     public void OnBattleUpdate(int currTimeInMs)
     {
         TimelineManager.更新(currTimeInMs);
+
+        // 移动时长采样：走位满 300ms 才算"真在走位"（给即刻/DoT 让路用）。
+        // ⚠️ 必须每帧采 —— 只靠 resolver 里懒刷新的话，
+        //    那一拍没人问它就漏一次上升沿，移动时长会从头算。
+        SpellUtil.刷新移动状态();
 
         // 死亡追踪：记录"谁躺下了、躺了多久"（复活时判断该不该等）
         死亡追踪.每帧更新();
@@ -3164,6 +3170,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 效果确认.重置(); } catch { }   // 同上：换本也要清
         try { 技能诊断.重置(); } catch { }
         try { 占星卡目标.重置(); } catch { }   // 换本也要清（和 OnResetBattle 成对）
+        try { SpellUtil.重置移动状态(); } catch { }
         try { Dot补判.重置(); } catch { }
         try { 记录模式.重置();
 

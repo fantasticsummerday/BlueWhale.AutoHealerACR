@@ -82,6 +82,22 @@ public class Res_Dot : ISlotResolver
         var spell = SpellUtil.当前形态(_t.Dot技能);
         if (spell == null) return -1;
 
+        // ══════════════════════════════════════════════════════════
+        //  ★ 走位时**给输出让路** ★
+        //
+        //  [!] 为什么让路：DoT 是**低伤害**的一发（占星焚灼 70、白魔天辉 60），
+        //      而即刻类 buff 是 60 秒 CD 的一次性资源。
+        //      移动中把即刻花在 DoT 上，等于用"一个瞬发窗口"换了最低的那一档伤害 ✗
+        //
+        //  [!] 让给谁：`Res_MoveInstantOutput`（即刻 + 落陷凶星/中重力）——
+        //      它排在 DoT 之前？**不**，它排在 DoT 之后。
+        //      所以这里必须**主动放弃**（`return -20`），否则它永远轮不到。
+        //
+        //  [!] 只在"真在走位"时让路（连续移动满 300ms）——
+        //      原地蹭一步就把 DoT 推掉是错的。
+        // ══════════════════════════════════════════════════════════
+        if (SpellUtil.真在走位() && 有瞬发窗口()) return -20;
+
         // ⚠️ **移动守卫**：DoT 多数是读条的（天辉 / 焚灼…）。
         //
         //    ⚠️ 但这条要小心 —— 挡住之后会出现"移动时没有自动补 DoT"。
@@ -92,6 +108,26 @@ public class Res_Dot : ISlotResolver
         if (!SpellUtil.移动中可用(spell.Id)) return -7;
 
         return spell.IsReadyWithCanCast() ? 6 : -1;
+    }
+
+    /// <summary>
+    /// 身上有没有"让读条变瞬发"的 buff（即刻 / 光速 / 连续咏唱 / 炽天附体）。
+    ///
+    /// [!] 走这个列表而不是只查即刻 —— 占星走位靠的是**光速(841)**，
+    ///     只查即刻的话占星永远不让路。
+    /// </summary>
+    private static bool 有瞬发窗口()
+    {
+        try
+        {
+            foreach (var id in AuraIds.瞬发豁免)
+            {
+                if (id != 0 && CharacterExt.我有光环(id)) return true;
+            }
+        }
+        catch { }
+
+        return false;
     }
 
     /// <summary>
@@ -860,7 +896,23 @@ public class Res_MultiDot : ISlotResolver
 
         // ★ 2026-10-04：不再要求主目标身上已有我的 DoT ✗（主目标的毒一掉，这条路整段失效）
         //   本项目口径：候选够 2 个、且活跃毒未到上限才铺（上限在 选目标() 里判）✓
-        if (HealTargetHelper.可补Dot的敌人(_t.所有DotBuff, 25f, 3).Count < 2) return -1;
+        var 候选 = HealTargetHelper.可补Dot的敌人(_t.所有DotBuff, 25f, 3);
+        if (候选.Count < 2) return -1;
+
+        // ══════════════════════════════════════════════════════════
+        //  ★ 必须走**同一根保险丝**（`Dot补判`）★
+        //
+        //  [!] 原来这条 resolver **完全没查保险丝** ✗ ——
+        //      而 `Res_Dot` 查了。后果是同一拍里：
+        //        Res_Dot 判"该补" → 补主目标；
+        //        Res_MultiDot 也判"该补"（它只看候选数）→ **再补一个副目标**
+        //      ⇒ 一个 GCD 铺两个毒，主目标的那个还容易被顶掉。
+        //
+        //  [!] 保险丝是**按目标**记的（`记一次施放(目标)`），
+        //      但 `该补(目标=null)` 查的是"全局最近一次补毒" ——
+        //      这里就是要那个全局口径：**两根 resolver 共用一根丝**。
+        // ══════════════════════════════════════════════════════════
+        if (!Dot补判.该补(null, _t.所有DotBuff, HealSettings.Instance.Dot持续时间 - 3f)) return -4;
 
         var spell = SpellUtil.当前形态(技);
         if (spell == null) return -1;
@@ -883,6 +935,11 @@ public class Res_MultiDot : ISlotResolver
         if (spell == null) return;
 
         slot.Add(new Spell(spell.Id, 目标));
+
+        // 和 `Res_Dot.Build` 一样要记账 —— 两根 resolver 共用一根保险丝，
+        // 只记一边的话另一边的丝永远是松的（等于没装）。
+        Dot补判.记一次施放(目标);
+        Dot黑名单.记按下(目标, _t.所有DotBuff);
     }
 
     /// <summary>
