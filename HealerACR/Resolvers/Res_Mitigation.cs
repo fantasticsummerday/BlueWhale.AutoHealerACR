@@ -280,6 +280,16 @@ public class Res_TeamMitigation : ISlotResolver
             }
             catch { }
 
+            // ★ 2026-10-04 修（补深度发现）：**非地面技能不要给坐标** ✗
+            //   占星的「中间学派」(16559) 是**自身增益 oGCD**（CastType=1、Range=0），
+            //   给它一个地面坐标很可能**整条按不出去** ⇒ 团减线整个失效 ✗
+            if (!技能数据.是地面技能(_t.团队减伤))
+            {
+                var 非地面 = SpellUtil.Get(_t.团队减伤);
+                if (非地面 != null) slot.Add(非地面);
+                return;
+            }
+
             slot.AddDelaySpell(450, new Spell(_t.团队减伤, 落点));
         }
         catch (Exception e)
