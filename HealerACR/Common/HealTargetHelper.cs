@@ -644,11 +644,105 @@ public static class HealTargetHelper
             .FirstOrDefault();
     }
 
-    /// <summary>需要驱散的队友（麻痹 / 中毒 / 减速…）</summary>
+    /// <summary>
+    /// 需要驱散的队友（麻痹 / 中毒 / 减速…）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ H1 / H2 各自的扫描方向 + 可选中过滤 ★
+    ///
+    ///  [!] 为什么要有方向（参考实现的 `SelectByPriority(isH1, …)`）：
+    ///      八人本双奶时，**两个奶都去驱散同一个人**是纯浪费 ——
+    ///      而队伍的排布是固定的（H1 在前、H2 在后），
+    ///      所以让 H1 **从队首往后**扫、H2 **从队尾往前**扫，
+    ///      两人自然分开覆盖，撞车概率最低。
+    ///
+    ///  [!] 为什么要有"可选中"过滤（参考实现的 `IsValidEsunaTarget`）：
+    ///      转场 / 无敌演出期间目标 `IsTargetable == false`，
+    ///      这时候按康复**放不出去**，还白占一个 GCD。
+    ///      参考同时排除 `不可选中合集` 里的状态。
+    ///
+    ///  [!] 拿不到自己是不是 H1 时按 **H1**（从前往后扫）——
+    ///      那是最常见的单奶场景，也是四人本唯一的行为。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
     public static IBattleChara? 需要驱散队友()
     {
-        return PartyHelper.CastableAlliesWithin30
-            .FirstOrDefault(r => r.活着() && r.HasCanDispel());
+        try
+        {
+            var 队友 = PartyHelper.CastableAlliesWithin30;
+            if (队友 == null || 队友.Count == 0) return null;
+
+            var 是H1 = 我是H1();
+
+            for (var i = 0; i < 队友.Count; i++)
+            {
+                // H2 从队尾往前扫（H1 从队首往后扫）
+                var 成员 = 队友[是H1 ? i : 队友.Count - 1 - i];
+
+                if (!可驱散目标(成员)) continue;
+                if (!成员.HasCanDispel()) continue;
+
+                return 成员;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 这个队友**现在能不能被选中驱散**（参考实现的 `IsValidEsunaTarget`）：
+    /// 有效 + 活着 + 在 30 米内 + **可选择** + 不在"不可选中合集"里。
+    /// </summary>
+    private static bool 可驱散目标(IBattleChara? c)
+    {
+        if (c == null || !c.对象有效()) return false;
+
+        try
+        {
+            if (!c.活着()) return false;
+
+            // ★ 可选中：转场 / 演出期间 `IsTargetable` 会短暂为 false，
+            //   这时候按康复放不出去，白占一个 GCD。
+            if (!c.IsTargetable) return false;
+
+            // 30 米（和 `CastableAlliesWithin30` 同一个口径，双保险）
+            if (c.Distance(Core.Me!) > 30f) return false;
+        }
+        catch { }
+
+        return true;
+    }
+
+    /// <summary>
+    /// **我是 H1 吗**（八人本双奶的排位）。
+    ///
+    /// [!] 判据：队伍里所有**治疗**按队伍顺序排，第一个就是 H1。
+    ///     游戏里 H1/H2 的排位是固定的（H1 在队首那半），
+    ///     所以"我是不是治疗里的第一个"就是 H1 判据。
+    ///
+    /// [!] 只有一个治疗（四人本 / 单人）⇒ **恒 true**，
+    ///     也就是"从前往后扫"—— 与原来行为一致。
+    /// </summary>
+    public static bool 我是H1()
+    {
+        try
+        {
+            var 我 = Core.Me;
+            if (我 == null) return true;
+
+            var 治疗们 = PartyHelper.Party
+                .Where(r => r != null && r.对象有效() && r.IsHealer())
+                .ToList();
+
+            if (治疗们.Count <= 1) return true;
+
+            return 治疗们[0].EntityId == 我.EntityId;
+        }
+        catch
+        {
+            return true;   // 拿不到 ⇒ 按 H1（最常见的情形）
+        }
     }
 
     // ==================== 队伍规模 ====================

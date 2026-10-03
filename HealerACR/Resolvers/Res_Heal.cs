@@ -706,12 +706,15 @@ public class Res_HealAoEGcd : ISlotResolver
             if (HealTargetHelper.低于阈值人数(回退血线, 20f)
                 < HealTargetHelper.群奶人数要求(s0.群奶最少人数)) return -1;
 
+            if (!技能MP表.蓝够(_t.群体治疗GCD)) return -9;
             if (!SpellUtil.移动中可用(_t.群体治疗GCD)) return -7;
             return SpellUtil.可用(_t.群体治疗GCD) ? 12 : -1;
         }
 
         // ⚠️ `决定()` 返回非 null 就说明它已确认"放得出来"（含移动判定），
         //    这里再确认一次是为了防"两次调用之间状态变了"。
+        // ★ 按技能分档的 MP 门（参考口径）：医治/愈疗 700 / 医养 800 …
+        if (!技能MP表.蓝够(技.Id)) return -9;
         return SpellUtil.可用(技.Id) && SpellUtil.移动中可用(技.Id) ? 12 : -1;
     }
 
@@ -816,9 +819,14 @@ public class Res_HealSingleGcd : ISlotResolver
         //     这里再确认一次是为了防"两次调用之间状态变了"。
         // ══════════════════════════════════════════════════════════════
         if (技 != null)
+        {
+            // ★ 按技能分档的 MP 门（参考口径）：再生 400 / 救疗 1400 …
+            if (!技能MP表.蓝够(技.Id)) return -9;
             return SpellUtil.可用(技.Id) && SpellUtil.移动中可用(技.Id) ? 10 : -1;
+        }
 
         // 候选集挑不出 → 退回旧槽位（行为与接入前完全一致）
+        if (!技能MP表.蓝够(_t.单体治疗GCD)) return -9;
         if (!SpellUtil.移动中可用(_t.单体治疗GCD)) return -7;
 
         return SpellUtil.可用(_t.单体治疗GCD) ? 10 : -1;
