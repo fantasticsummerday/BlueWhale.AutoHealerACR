@@ -415,6 +415,38 @@ public class Res_BaseDamage : ISlotResolver
     }
 
     /// <summary>
+    /// **自身 AOE 的硬闸门**（表 #100 地图黑名单 / #101 低蓝豁免状态）——
+    /// 命中即"这个技能整个不能用"。
+    ///
+    /// [!] 白魔/学者/占星的表不覆写 `自身AOE硬闸门()` ⇒ 恒 false ⇒ 行为不变。
+    /// [!] 判据本身在**职业技能表**上（`SGESpellTable` 覆写），这里只做统一调用 ——
+    ///     这样"选填充技 / Res_AoEDamage"两条路看的是同一份数据。
+    /// </summary>
+    private bool 自身AOE被硬闸门挡住()
+    {
+        try
+        {
+            return _t.自身AOE硬闸门();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>诊断：同一原因只打一条</summary>
+    private static bool _已记闸门;
+
+    internal static void 记自身AOE闸门一次()
+    {
+        if (_已记闸门) return;
+        _已记闸门 = true;
+
+        try { LogHelper.Info("[HealerACR][填充技] 自身 AOE 被硬闸门挡住（地图黑名单 / 低蓝豁免状态）—— 这一拍改用单体"); }
+        catch { }
+    }
+
+    /// <summary>
     /// **挑这一发打什么** —— 近距离时用「近战填充技」，否则用基础输出。
     ///
     /// ══════════════════════════════════════════════════════════════════
@@ -595,11 +627,21 @@ public class Res_BaseDamage : ISlotResolver
             // ══════════════════════════════════════════════════════════
             Spell? 近战 = null;
             var 近战半径 = 0f;
-            foreach (var id in _t.自身AOE候选)
+            if (!自身AOE被硬闸门挡住())
             {
-                if (id == 0 || !SpellUtil.已解锁(id)) continue;
-                近战 = SpellUtil.当前形态(id);
-                if (近战 != null) { 近战半径 = _t.自身AOE半径(近战.Id).半径; break; }
+                foreach (var id in _t.自身AOE候选)
+                {
+                    if (id == 0 || !SpellUtil.已解锁(id)) continue;
+                    近战 = SpellUtil.当前形态(id);
+                    if (近战 != null) { 近战半径 = _t.自身AOE半径(近战.Id).半径; break; }
+                }
+            }
+            else
+            {
+                // ★ 硬闸门命中 ⇒ 自身 AOE **整个不进候选**（表 #100 / #101）★
+                //   注意是"不进候选"而不是"进了再否决" —— 后者会让字典序
+                //   拿它跟单体比出个错误结论（它威力虚高但根本放不出来）。
+                Res_BaseDamage.记自身AOE闸门一次();
             }
 
             var 移动 = _t.移动填充技 != 0 ? SpellUtil.当前形态(_t.移动填充技) : null;
@@ -646,6 +688,23 @@ public class Res_BaseDamage : ISlotResolver
             var 近战距离 = 近战半径 > 0 ? 近战半径 : _t.近战填充距离;
             var 近战可用 = 近战 != null && 目标 != null
                            && 够得到目标圈(目标, 近战距离);
+
+            // ★ **走位期的特例**（表 #102，参考的 `失衡走位` 默认开）★
+            //   [!] 自身 AOE（贤者失衡 / 学者破阵法）是**瞬发**的，
+            //       而基础输出是读条的 ⇒ 移动中它本来就是"能放的那个"。
+            //       可是"够得到目标圈"在道士/走位时经常不成立（人还没贴上去），
+            //       于是它被排除、移动填充（也是瞬发但没有额外收益）顶上。
+            //   [!] 参考口径：移动中**不看目标圈距离**，只要 5 米内有敌人就用它。
+            //       所以这里额外放行一条：`自身AOE可走位() && 真在走位() && 近处有敌人`。
+            if (!近战可用 && 近战 != null && _t.自身AOE可走位 && SpellUtil.真在走位())
+            {
+                try
+                {
+                    var 命中 = HealTargetHelper.自身周围敌人数量(近战距离 > 0 ? 近战距离 : 5f);
+                    if (命中 > 0) 近战可用 = true;
+                }
+                catch { }
+            }
 
             var 近战威力 = 近战可用 ? 有效威力(近战!, 等级) : 0;
             var 移动威力 = 移动 != null ? 有效威力(移动, 等级) : 0;
