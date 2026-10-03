@@ -555,7 +555,7 @@ public class SGE_Kardia : ISlotResolver
         //     心关是打敌人顺带治 MT的机制，**钉错人整场少一大块治疗**。
         //     而 `血量最低的坦克()` 是跟着谁掉血跑的 ==> 八人本 ST 掉血时会跑到 ST 上。
         //     用户原话：「t应该看的是**主仇恨的 mt**，八人本直接就区分 mtst」。
-        var tank = HealTargetHelper.主坦();
+        var tank = 贤者心关.目标();
         if (tank == null) return -1;
         if (AuraIds.有心关(tank)) return -3;
 
@@ -564,7 +564,7 @@ public class SGE_Kardia : ISlotResolver
 
     public void Build(Slot slot)
     {
-        var tank = HealTargetHelper.主坦();
+        var tank = 贤者心关.目标();
         if (tank == null) return;
         slot.Add(new Spell(技能, tank));
     }
@@ -595,5 +595,78 @@ public class SGE_Rhizomata : ISlotResolver
     {
         var spell = SpellUtil.Get(技能);
         if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// 贤者心关目标选择的**五级阶梯**。
+///
+/// ★ 2026-10-04 新增：原来只取 `主坦()`，为空直接放弃 ⇒ 无 T 场景永远挂不上心关 ✗
+///   阶梯（与对照实现一致）：
+///     ① 有效血量低于 75% 的坦克（最该被照顾的 T）
+///     ② 当前敌人目标正在打的坦克（target-of-target，接怪那一下最准）
+///     ③ 血量最低的坦克
+///     ④ 没有坦克 ⇒ 有效血量低于 50% 的最低的**非坦克**队友
+///     ⑤ 都没有 ⇒ 自己（保证"关心"这条回血机制至少挂在自己身上）
+///   另外：5 秒内刚按过心关就不再换（对齐对照实现的 RecentlyUsed(24285, 5000)）✓
+/// </summary>
+public static class 贤者心关
+{
+    private const uint 心关技能 = 24285;
+
+    public static IBattleChara? 目标()
+    {
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(心关技能, 5000)) return null;
+
+            var 坦克池 = PartyHelper.CastableTanks;
+            if (坦克池 != null && 坦克池.Count > 0)
+            {
+                IBattleChara? 低血 = null; var 低血比 = 0.75f;
+                IBattleChara? 最低 = null; var 最低比 = float.MaxValue;
+
+                foreach (var t in 坦克池)
+                {
+                    if (t == null || !t.对象有效() || !t.活着()) continue;
+                    var 比 = t.有效血量比例();
+                    if (比 < 低血比) { 低血比 = 比; 低血 = t; }
+                    if (比 < 最低比) { 最低比 = 比; 最低 = t; }
+                }
+
+                if (低血 != null) return 低血;
+
+                // ② 当前敌人目标的 target-of-target
+                var 敌人目标 = HealTargetHelper.当前目标()?.GetCurrTarget();
+                if (敌人目标 != null)
+                {
+                    foreach (var t in 坦克池)
+                    {
+                        if (t == null || !t.对象有效()) continue;
+                        if (t.GameObjectId == 敌人目标.GameObjectId && t.活着()) return t;
+                    }
+                }
+
+                if (最低 != null) return 最低;
+            }
+
+            // ④ 没有坦克 ⇒ 最低的非坦克（<50%）
+            foreach (var a in HealTargetHelper.可治疗队友(30f))
+            {
+                try
+                {
+                    if (a == null || !a.对象有效() || !a.活着()) continue;
+                    if (a.GameObjectId == (AEAssist.Core.Me?.GameObjectId ?? 0)) continue;
+                    if (a.有效血量比例() <= 0.5f) return a;
+                }
+                catch { }
+            }
+
+            // ⑤ 自己
+            var 我 = AEAssist.Core.Me;
+            if (我 != null && 我.对象有效() && 我.活着()) return 我;
+        }
+        catch { }
+        return null;
     }
 }

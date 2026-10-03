@@ -1225,6 +1225,36 @@ public class Res_HealLink : ISlotResolver
 /// <summary>心关强化：贤者 拯救（短时间内心关治疗量提升）。</summary>
 public class Res_KardiaBoost : ISlotResolver
 {
+
+      /// <summary>
+      /// 拯救的目标：身上有**我挂的**关心(2605)、没有拯救 buff(2610)、
+      /// 有效血量比例不超过本技能登记阈值（0.70）的**最低**者。
+      /// </summary>
+      private IBattleChara? 拯救目标
+      {
+          get
+          {
+              try
+              {
+                  var 阈值 = 治疗阈值表.取(技能, 0.70f);
+                  IBattleChara? 最好 = null; var 最低 = float.MaxValue;
+
+                  foreach (var a in HealTargetHelper.可治疗队友(30f))
+                  {
+                      if (a == null || !a.对象有效() || !a.活着()) continue;
+                      if (!AuraIds.有心关(a)) continue;
+                      if (a.HasAura(2610)) continue;
+
+                      var 比 = a.有效血量比例();
+                      if (比 > 阈值) continue;
+                      if (比 < 最低) { 最低 = 比; 最好 = a; }
+                  }
+
+                  return 最好;
+              }
+              catch { return null; }
+          }
+      }
     private readonly JobSpellTable _t;
 
     public Res_KardiaBoost(JobSpellTable t) => _t = t;
@@ -1240,7 +1270,9 @@ public class Res_KardiaBoost : ISlotResolver
         if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
         // 有人明显掉血的时候开
-        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.单体治疗阈值) == 0) return -1;
+        // ★ 2026-10-04：**必须选区** —— 拯救的收益全在「关心真的在回血」上 ✗
+        //   原来无目标施放 + 只看「全局有人低于阈值」⇒ 关心在自己身上时完全无收益 ✗
+        if (拯救目标 == null) return -1;
 
         return SpellUtil.可用(技能) ? 7 : -1;
     }
@@ -1248,7 +1280,7 @@ public class Res_KardiaBoost : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(spell);
+        if (拯救目标 != null) slot.Add(new Spell(spell.Id, 拯救目标));
     }
 }
 
