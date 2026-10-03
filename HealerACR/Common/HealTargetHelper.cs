@@ -926,6 +926,9 @@ public static class HealTargetHelper
                 // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
                 if (敌人 == null || !敌人.对象有效()) continue;
                 if (敌人.CurrentHp <= 0) continue;
+                // ★ 2026-10-04：**攻击无效的怪不计入 AOE 命中数** ✓
+                //   （对照实现的 AOE 计数同样查攻击无效状态；漏了它会把「打不动的怪」算成命中 ⇒ 白放 AOE）
+                if (敌人状态.攻击无效(敌人)) continue;
 
                 try
                 {
