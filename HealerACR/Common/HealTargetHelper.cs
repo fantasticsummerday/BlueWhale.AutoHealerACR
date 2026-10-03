@@ -1477,8 +1477,19 @@ public static class HealTargetHelper
         try { return CharacterExt.我的最大血量(); } catch { return 0f; }
     }
 
-    public static bool 目标快死了(float 血线 = 0.25f, int ttk秒 = 12)    {
-        var t = 当前目标();
+    public static bool 目标快死了(float 血线 = 0.25f, int ttk秒 = 12)
+        => 目标快死了(当前目标(), 血线, ttk秒);   // ★ 转调新重载（行为不变）
+
+    /// <summary>
+    /// **按指定目标**判断"快死了"—— 与调用方选出的目标同源。
+    ///
+    /// [!] 2026-10-04：原来只有无参版本，它内部读 `当前目标()`（玩家选中）✗
+    ///     而调用方（DoT 路径）判的是 `输出目标.选()` ⇒ 玩家选中另一只怪时
+    ///     **判 A 放 B**（拿 B 的血量/TTK 去决定要不要给 A 上毒）✗
+    /// </summary>
+    public static bool 目标快死了(IBattleChara? 目标, float 血线 = 0.25f, int ttk秒 = 12)
+    {
+        var t = 目标;
 
         // 没目标就别拦着（让输出逻辑自己处理）
         if (t == null) return false;

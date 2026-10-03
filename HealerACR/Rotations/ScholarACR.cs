@@ -767,7 +767,7 @@ public class SCHSpellTable : JobSpellTable
             //      提前不会造成"移动中卡住 DoT"那类问题 —— 它自己会让位。
             // ══════════════════════════════════════════════════════════════
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
-            new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new SCH_BanefulImpaction(), SlotMode.Gcd),   // 埋伏之毒（需预备 buff）
             // ⚠️ 位置很重要：必须在 `Res_MoveGcd`（移动填充）**之前** ——
             //   药尾声补刀最该生效的场景就是**移动中**（读条放不出来），
@@ -776,7 +776,7 @@ public class SCHSpellTable : JobSpellTable
             // ★ 多目标 DoT：主目标 DoT 还在时，把 DoT 扩散到**其他被拉到的怪** ★
             //   ⚠️ 必须在 Res_MoveGcd 之前（否则永远抢不到这个 GCD）
             //   ⚠️ 必须在 Res_Dot 之后（主目标的 DoT 优先级更高）
-            new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
             // 基础输出：**必须排在 Res_MoveGcd 之前**。
             // 破阵法（近战填充技）也是瞬发，该由它优先选；
             // 排在移动填充之后会把 GCD 抢成毁坏（实测过的问题）。

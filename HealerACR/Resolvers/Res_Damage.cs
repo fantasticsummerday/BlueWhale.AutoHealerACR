@@ -50,7 +50,7 @@ public class Res_Dot : ISlotResolver
         // [!] **必须传技能真实射程** —— 自身中心 AOE（破阵法 5 米）按默认 25 米判会「离怪老远也判打得到」（用户实测）
         if (!技能数据.打得到(target, 技能数据.取有效射程(_t.Dot技能) is var 射程0 && 射程0 > 0 ? 射程0 : 25f)) { 记DoT闸门("打不到（超出射程/没有视线）"); return -6; }
 
-        if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
+        if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了(target)) return -3;   // ★ 传已选出的目标，避免判 A 放 B
 
         // ══════════════════════════════════════════════════════════
         //  ★ **这个怪值不值得上 DoT**（与对照实现一致的 ShouldSkipDotByHp）★
@@ -890,10 +890,34 @@ public class Res_MultiDot : ISlotResolver
     /// 「有仇恨 + 没有我的 DoT + 排除当前目标」的全部过滤。
     /// 这里只再加两道本地约束（黑名单、贴脸不打）。
     /// </summary>
+    /// <summary>统计"当前已经带着我的 DoT 的敌人"有几个（多目标 DoT 封顶用）。</summary>
+    private int 已铺毒的目标数()
+    {
+        var 数 = 0;
+        try
+        {
+            foreach (var e in Data.AllHostileTargets)
+            {
+                if (e == null || !e.对象有效()) continue;
+                if (e.CurrentHp <= 0) continue;
+                foreach (var b in _t.所有DotBuff)
+                    if (b != 0 && e.HasLocalPlayerAura(b)) { 数++; break; }
+            }
+        }
+        catch { }
+        return 数;
+    }
+
     private IBattleChara? 选目标()
     {
         try
         {
+            // ★ 2026-10-04：**先看已经铺了几个毒**，到上限就不再铺 ✓
+            //   [!] 原来 `副目标上限` 只当作候选列表长度（`Take(上限+2)`）✗
+            //      ⇒ 小怪群里会一路把毒铺满，每个毒只跳几下 ⇒ 纯亏 GCD ✗
+            //   [!] 对照实现里两套都是"同时维持 2 个"（一套数 activeDot，一套数大怪数量）✓
+            if (已铺毒的目标数() >= 副目标上限) return null;
+
             var 候选 = HealTargetHelper.可补Dot的敌人(_t.所有DotBuff, 25f, 副目标上限 + 2);
 
             foreach (var c in 候选)
