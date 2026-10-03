@@ -796,6 +796,9 @@ public class WHM_GlareIV : ISlotResolver
     /// <summary>诊断节流：5 秒最多打一条，避免刷爆日志</summary>
     private static long 上次诊断;
 
+    /// <summary>Check 里选好的落点目标，给 Build 用（避免判 A 放 B）</summary>
+    private static IBattleChara? 本帧目标;
+
     /// <summary>神速给的「闪飒预备」proc 在不在身上</summary>
     private static bool 有闪飒预备()
     {
@@ -805,6 +808,8 @@ public class WHM_GlareIV : ISlotResolver
 
     public int Check()
     {
+        本帧目标 = null;
+
         if (!HealQt.GetQt("输出")) return -100;
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
@@ -812,11 +817,54 @@ public class WHM_GlareIV : ISlotResolver
         // 没 proc 就完全不是这个技能的场合
         if (!有闪飒预备()) return -1;
 
+        // ★ **proc 快过期就别读条了**（表 #43）★
+        //   [!] 闪飒是**瞬发**的，而基础输出（闪灼/闪灼III）是 **1.5 秒读条** ——
+        //       如果 proc 只剩不到一个读条的时间，先读闪灼的话，
+        //       读完 proc 已经过期 ⇒ 闪飒**永远打不出去了** ✗
+        //   [!] 判据：`proc剩余 >= 读条 × 2000 + 1500ms`
+        //       （参考口径；乘 2 是给服务器延迟/动画锁留的余量）。
+        //       proc 读不到（<= 0）时**不拦** —— 保守方向取"放行"，
+        //       否则一个 API 抽风就把整个神速窗口的输出吞掉。
+        try
+        {
+            var 剩余 = (int)CharacterExt.我的Buff剩余毫秒安全(AuraIds.闪飒预备);
+            if (剩余 <= 0) 剩余 = (int)CharacterExt.我的Buff剩余毫秒安全(AuraIds.闪飒预备2);
+
+            if (剩余 > 0)
+            {
+                var 读条毫秒 = (int)(SpellUtil.读条时间秒(SpellIds.取("闪灼")) * 1000f);
+                if (读条毫秒 <= 0) 读条毫秒 = 1500;
+
+                if (剩余 < 读条毫秒 * 2 + 1500)
+                {
+                    // proc 撑不过"先读一发基础输出"⇒ 让它**现在就用掉**
+                    return 12;
+                }
+            }
+        }
+        catch { }
+
         // 闪飒要目标（Range=25）
         if (HealTargetHelper.当前目标() == null) return -1;
 
+        // ★ 闪飒是 **AOE**（数据：CastType=2 / Range=25 / **EffectRange=5**）★
+        //   [!] 原来固定只打"当前目标" ⇒ 站在怪堆边上时只打到 1 只 ✗
+        //   [!] 现在先问一次"以谁为落点能覆盖最多"（半径用它自己的 5 米），
+        //       问到就换过去；问不到就退回当前目标（**不因此放弃这一发**）——
+        //       闪飒是 proc 限时技能，宁可打 1 只也不能不打。
+        var 最优 = 智能选目标.圆形最优(5f, 至少几个: 2);
+        if (最优 != null && 最优.对象有效() && 技能数据.打得到(最优, 技能数据.取有效射程(技能)))
+        {
+            本帧目标 = 最优;
+        }
+        else
+        {
+            本帧目标 = HealTargetHelper.当前目标();
+        }
+        if (本帧目标 == null) return -1;
+
         // 视线/射程（和别的输出技同一套判断）
-        if (!技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(技能))) return -6;
+        if (!技能数据.打得到(本帧目标, 技能数据.取有效射程(技能))) return -6;
 
         // 二次确认：按 开发约定 E 节，不拿没吃透的 API 当**唯一**依据，
         // 但也不让它把已经确定该放的技能挡掉 —— 挡掉时留下证据。
@@ -837,7 +885,12 @@ public class WHM_GlareIV : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(spell);
+        if (spell == null) return;
+
+        var 目标 = 本帧目标;
+        if (目标 == null || !目标.对象有效()) return;
+
+        slot.Add(new Spell(spell.Id, 目标));
     }
 }
 
