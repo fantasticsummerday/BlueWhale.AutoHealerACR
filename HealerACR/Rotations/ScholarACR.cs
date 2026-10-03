@@ -1086,7 +1086,11 @@ public class SCH_Seraph : ISlotResolver
         if (!HealQt.GetQt("小仙女", true)) return -103;
         if (!HealQt.GetQt("炽天使", true)) return -104;
         if (!SpellUtil.已解锁(技能)) return -2;
-        if (JobApiHelper.炽天使剩余 > 0) return -3;
+        // ★ 2026-10-04：**没有小仙女就不可能召唤炽天使** —— 补上 ✓（原来缺这条 ⇒ 空转 ✗）
+        //   转化期间小仙女被牺牲，同样不能召 ✓（两套对照实现都拒）
+        if (!JobApiHelper.有小仙女) return -3;
+        if (CharacterExt.我有光环(AuraIds.转化中)) return -3;
+                if (JobApiHelper.炽天使剩余 > 0) return -3;
 
         // ★ 用这个技能自己的阈值 ★  参考：shiyuvi SummonSeraph 0.55
         var 本技血线 = 治疗阈值表.取(技能, HealSettings.Instance.大招血线);
