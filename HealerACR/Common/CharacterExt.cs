@@ -1141,7 +1141,18 @@ public static class CharacterExt
 
         // ⚠️ `catch` 保留（它能挡住 `HasAnyAura` 内部的**托管**异常，比如字典查不到），
         //    但**不要以为它能挡住崩溃** —— 见上面的说明。
-        try { return !c.HasAnyAura(AuraIds.假死不治, 3000); }
+        try
+            {
+                // ★ 2026-10-04：**811「死而不僵」必须条件放行** ✗
+                //   它原来被 假死不治 无条件排除，而 必须奶满 也明确排除它
+                //   ⇒ 暗骑开死而不僵之后**两条路都不管** ⇒ 他必死 ✗
+                //   对照实现：CanReceiveHeal 对 811 **条件放行**
+                //     （是坦克 + 有效血量 < 80% + 状态剩余 < 5 秒 ⇒ 必须救）
+                if (c.HasAura(811))
+                    return c.有效血量比例() <= 0.8f;   // 该救的那段窗口，放行
+
+                return !c.HasAnyAura(AuraIds.假死不治, 3000);
+            }
         catch { return false; }
     }
 
