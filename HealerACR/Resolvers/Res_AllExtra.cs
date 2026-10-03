@@ -602,7 +602,7 @@ public class Res_GroupShieldAbility : ISlotResolver
     {
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
-        if (!HealQt.GetQt("群盾", false)) return -101;
+        if (!HealQt.GetQt("群盾", true)) return -101;
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
@@ -884,7 +884,7 @@ public class Res_SpreadShield : ISlotResolver
     {
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
-        if (!HealQt.GetQt("群盾", false)) return -101;
+        if (!HealQt.GetQt("群盾", true)) return -101;
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 

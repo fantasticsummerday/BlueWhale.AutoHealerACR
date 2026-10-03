@@ -347,7 +347,7 @@ public class Res_GroupShield : ISlotResolver
     {
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
-        if (!HealQt.GetQt("群盾", false)) return -101;
+        if (!HealQt.GetQt("群盾", true)) return -101;
         if (_t.群体盾 == 0) return -102;
         if (!SpellUtil.已解锁(_t.群体盾)) return -2;
 
