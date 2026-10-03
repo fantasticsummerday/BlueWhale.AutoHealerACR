@@ -899,6 +899,12 @@ public class Res_MultiDot : ISlotResolver
         var 候选 = HealTargetHelper.可补Dot的敌人(_t.所有DotBuff, 25f, 3);
         if (候选.Count < 2) return -1;
 
+        // ★ **候选多到 3 个以上 ⇒ 让路**（参考实现的 DoT 候选枚举阶段 `count >= 3 → -2`）
+        //   [!] 为什么：能上毒的怪一多，说明是**群怪场合** ——
+        //       这时候该打 AOE（一发覆盖全部），而不是一个个挂 DoT。
+        //       逐个挂毒要 N 个 GCD，收益远低于同数量的 AOE。
+        if (候选.Count >= 3) return -2;
+
         // ══════════════════════════════════════════════════════════
         //  ★ 必须走**同一根保险丝**（`Dot补判`）★
         //

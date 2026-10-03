@@ -1276,6 +1276,13 @@ public static class HealTargetHelper
                 if (敌人 == null || !敌人.对象有效()) continue;
                 // ★ 2026-10-04：攻击无效（无敌/魔法反射/伤害无效）的怪别上毒 ✓
                 if (敌人状态.攻击无效(敌人)) continue;
+                // ★ 2026-10-04 补：**招架(680)** 也是"打上去没伤害"的一类 ——
+                //   参考实现的 DoT 候选枚举把 680 和两个魔法攻击无效化一起排除 ✓
+                if (敌人状态.招架中(敌人)) continue;
+                // ★ **不可选中**的怪别上毒 ——
+                //   转场 / 无敌演出期间 `IsTargetable` 会短暂为 false，
+                //   这时候按下去技能放不出来，还白占一个 GCD。
+                try { if (!敌人.IsTargetable) continue; } catch { }
 
                 try
                 {
@@ -1933,4 +1940,31 @@ public static class 敌人状态
             return false;   // 读失败 → 不拦（宁可打，也别把输出全堵死）
         }
     }
+
+    /// <summary>
+    /// **招架（680）** —— 受到特定方位的攻击时发动率提高，等于"这个方向打过去没伤害"。
+    ///
+    /// [!] 为什么单独一个方法：它和 <see cref="攻击无效"/> 是**两类**不同的东西 ——
+    ///     攻击无效是"完全打不动"，招架是"某个方位打过去没用"。
+    ///     上 DoT 属于"打一下"，同样吃招架，所以 DoT 候选枚举也该排除它。
+    ///     （参考实现的 DoT 候选枚举把 680 和两个魔法攻击无效化并列排除。）
+    ///
+    /// [!] 不做方位判断：招架状态期间奶妈没法保证自己打在非招架面，
+    ///     **宁可换个目标**，也不要在招架面上白费一个 GCD。
+    /// </summary>
+    public static bool 招架中(IBattleChara 敌人)
+    {
+        try
+        {
+            if (敌人 == null || !敌人.对象有效()) return true;
+            return 敌人.HasAura(招架BuffId);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>招架 = 680</summary>
+    public const uint 招架BuffId = 680;
 }

@@ -1553,9 +1553,18 @@ public class AiSuggestionResolver : ISlotResolver
                 if (找到 != null) return 找到;
             }
     
-            // 老格式（AI 直接报技能 ID）没有候选 -> 退回玩家选中的
-            var 当前 = HealTargetHelper.当前目标();
-            if (当前 != null && 当前.IsEnemy()) return 当前;
+            // 老格式（AI 直接报技能 ID）没有候选 -> 退回**我们自己的输出目标选择器**
+            //
+            // [!] 为什么不能退回玩家选中的那个（`HealTargetHelper.当前目标()`）：
+            //     奶妈的常态是**选中坦克**，而 `当前目标()` 对友方目标也会返回
+            //     ⇒ 拿它当"这条输出建议要打谁"，等于把**坦克**当成了敌人 ✗
+            //     而 `Build` 实际打的是 `输出目标.选()` 挑出来的敌人 ——
+            //     判 A 放 B（开发约定 F③）。
+            //
+            // [!] `输出目标.选()` 与 `Build` 完全同源：它只挑"拉稳的敌人"，
+            //     没敌人时返回 null ⇒ 这条建议直接放弃（比放错目标好）。
+            var 我方 = 输出目标.选();
+            if (我方 != null) return 我方;
         }
         catch { }
         return null;
