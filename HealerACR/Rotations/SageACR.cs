@@ -580,7 +580,7 @@ public class SGE_Rhizomata : ISlotResolver
         // 木桩也要补蛇胆 —— 补了才有得花，属于资源循环
         if (!HealQt.GetQt("根素", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
-        if (JobApiHelper.蛇胆 >= 1) return -3;
+        if (JobApiHelper.蛇胆 >= 2) return -3;   // ★ 2026-10-04：对照实现是「≤1 颗就补」，原来 >=1 ⇒ 只在 0 颗时补，平均少一颗 ✗
 
         // ★ 低蓝时不补蛇胆（和学者的补豆同一个道理）★
         //   补资源是为了花出去换治疗/输出，低蓝时该省蓝。

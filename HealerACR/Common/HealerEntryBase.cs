@@ -307,7 +307,7 @@ public abstract class HealerEntryBase : IRotationEntry
         加开关("AOE", s.AOE);
         加开关("DOT", s.挂Dot);
         加开关("减伤", true);
-        加开关("群盾", false);
+        加开关("群盾", true);   // ★ 2026-10-04：对照实现默认开；我们原来 false ⇒ 均衡预后群盾与泛输血永不触发 ✗
         加开关("时间轴", true);
         加开关("能量吸收", true);    // 允许卸豆换输出
         // ⚠️ 「小怪卸豆」开关**已删除**（1.29.0）：
