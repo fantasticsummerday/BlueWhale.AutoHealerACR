@@ -1203,7 +1203,12 @@ public class SCH_ChainStratagem : ISlotResolver
     {
         if (!HealQt.GetQt("链式策略", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
-        if (HealTargetHelper.当前目标() == null) return -1;
+        var 团辅目标 = HealTargetHelper.当前目标();
+            if (团辅目标 == null) return -1;
+
+            // ★ 2026-10-04：目标身上已经有连环计就别再交 ✓（两套对照实现都查这条）
+            //   否则双学者 / 时间轴重复交会白费一次 120 秒 CD ✗
+            try { if (团辅目标.HasAura(1221)) return -4; } catch { }
         if (!CharacterExt.可以插能力技()) return -6;
 
         if (!HealTargetHelper.木桩模式)

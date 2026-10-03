@@ -1342,8 +1342,8 @@ public static class HealTargetHelper
     ///     剩下 25 秒的伤害全浪费，还占了一个本该打直接伤害的 GCD。
     ///     ⇒ **小怪无论血线多少都不该上 DoT。**
     ///
-    ///  ⚠️ 分母用「队伍最大血量」而不是「我的」——
-    ///     参考实现用的是我的，但我的 MaxHp 随等级变化极大
+    ///  ⚠️ 2026-10-04 起**分母改成「我的血量上限」** —— 原来用队伍最大血量（坦克血），
+    ///     8 人本里会把门槛抬高一截、导致漏上 DoT；现在基准就是自己（照对照实现的口径）。
     ///     （Lv50 学者约 1.5 万 / Lv90 约 6 万），而怪的 MaxHp 也随等级变，
     ///     两边不同步 → 按对照实现会在低等级把绝大多数怪判成"不值得"（等于关掉 DoT）。
     ///     详见 `HealSettings.Dot血量倍数` 的说明。
@@ -1441,7 +1441,9 @@ public static class HealTargetHelper
             catch { 倍数 = 12f; }
             if (倍数 <= 0f) return true;
 
-            var 基准 = 队伍最大血量();
+            // ★ 2026-10-04：基准改成我自己的血量上限
+            //   原来用队伍最大血量（坦克血）⇒ 8 人本门槛被抬高 ⇒ 漏上 DoT ✗
+            var 基准 = 我的血量上限();
             if (基准 <= 0f) return true;      // 拿不到 → 放行
 
             return 目标.MaxHp > 基准 * 倍数;
@@ -1459,6 +1461,18 @@ public static class HealTargetHelper
     ///     用它当基准更稳定（不会因为切了个脆皮职业就变）。
     ///     拿不到就退回我自己。
     /// </summary>
+    /// <summary>我自己的血量上限（DoT 价值判据的基准）。</summary>
+    public static float 我的血量上限()
+    {
+        try
+        {
+            var me = Core.Me;
+            if (me != null && me.对象有效()) return me.MaxHp;
+        }
+        catch { }
+        return 队伍最大血量();
+    }
+
     private static float 队伍最大血量()
     {
         try

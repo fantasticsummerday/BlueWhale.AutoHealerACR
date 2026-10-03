@@ -823,7 +823,9 @@ public class Res_Emergency : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var s = HealSettings.Instance;
-        if (HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
+        // ★ 2026-10-04：改读本技能阈值（表里 0.35），原来读大类 0.62 ✗
+        if (HealTargetHelper.低于阈值人数(治疗阈值表.取(技能, s.群体治疗阈值), 20f)
+            < HealTargetHelper.群奶人数要求(s.群奶最少人数)) return -1;
 
         return SpellUtil.可用(技能) ? 10 : -1;
     }
@@ -993,7 +995,12 @@ public class Res_InstantHealAbility : ISlotResolver
         {
             var 坦克 = HealTargetHelper.主坦();
             if (坦克 != null && !坦克.有该技能的Buff(技能) && !坦克.处于假死状态())
-                return 坦克;
+            {
+                // ★ 2026-10-04：坦克也要过血线 —— 原来只要没这个 buff 就无条件返回
+                //   ⇒ 坦克满血也吃（白费一次 60 秒 CD）
+                var 坦克线 = 治疗阈值表.取(技能, 0.60f);   // 0.60 = 本文件原来那份预铺血线的基准值（保留原语义，同时接上本技能偏移）
+                if (坦克.有效血量比例() <= 坦克线) return 坦克;
+            }
 
             // 没坦克（或坦克满血）时别浪费 —— 但不给满血的人铺
             // ★ 审计 P1-11（2026-10-03）：不要再吃本文件里的硬编码 0.60 ——

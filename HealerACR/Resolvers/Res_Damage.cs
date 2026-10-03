@@ -858,7 +858,9 @@ public class Res_MultiDot : ISlotResolver
         }
         catch { }
 
-        if (!当前有) return -1;   // 主目标还没上 → 让 Res_Dot 管
+        // ★ 2026-10-04：不再要求主目标身上已有我的 DoT ✗（主目标的毒一掉，这条路整段失效）
+        //   本项目口径：候选够 2 个、且活跃毒未到上限才铺（上限在 选目标() 里判）✓
+        if (HealTargetHelper.可补Dot的敌人(_t.所有DotBuff, 25f, 3).Count < 2) return -1;
 
         var spell = SpellUtil.当前形态(技);
         if (spell == null) return -1;
