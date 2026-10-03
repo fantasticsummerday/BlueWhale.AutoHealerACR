@@ -392,6 +392,8 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new AST_Draw(), SlotMode.OffGcd),
             new SlotResolverData(new AST_Horoscope(), SlotMode.OffGcd),
             new SlotResolverData(new AST_EarthlyStar(), SlotMode.OffGcd),
+            // ★ 2026-10-04：紧随其后 —— 地星放下后由它引爆 ✓
+            new SlotResolverData(new AST_StarDetonation(), SlotMode.OffGcd),
             new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
@@ -813,6 +815,44 @@ public class AST_Divination : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.当前形态(技能);
+        if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// 星体爆轰（8324）—— **地星的引爆**。
+///
+/// ★ 2026-10-04 新增：原来**完全没有这个 resolver** ✗
+///   地星（7439）放下去之后没有任何东西会引爆它 ⇒ **地星的实际价值 ≈ 0** ✗
+///   （对照实现里 地星 与 星体爆轰 是两个独立 resolver ✓）
+///
+/// 判据（保守版，只做"能炸就炸"）：
+///   · 可用(8324) 本身就编码了"地星已放下 + 满足引爆条件" ✓
+///   · 2.5 秒内刚炸过就不再炸（防连按，与对照实现的 RecentlyUsed(8324,2500) 一致）✓
+///   · 木桩模式让路 ✓
+/// </summary>
+public class AST_StarDetonation : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("星体爆轰");
+
+    public int Check()
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+        if (技能 == 0) return -102;
+        if (!SpellUtil.已解锁(技能)) return -2;
+
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 2500)) return -7;
+        }
+        catch { }
+
+        return SpellUtil.可用(技能) ? 8 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        var spell = SpellUtil.Get(技能);
         if (spell != null) slot.Add(spell);
     }
 }
