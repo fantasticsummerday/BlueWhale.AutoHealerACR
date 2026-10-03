@@ -444,6 +444,15 @@ public static class AST卡牌状态
     /// <summary>超过这个时间没出掉就放弃等待（防止卡死再也不抽）</summary>
     public const long 等待超时 = 20000;
 
+    /// <summary>
+    /// 两次"排抽卡"之间的最小间隔。
+    ///
+    /// [!] 主闸门是**技能可用性**（抽卡共享 55 秒 CD），这一条只是
+    ///     "同一拍被排两次"的保险丝 —— 所以取一个接近 GCD 的小值（1200ms），
+    ///     取大了会让星极/灵极的轮换节奏跟不上。
+    /// </summary>
+    public const long 排卡间隔 = 1200;
+
     /// <summary>战斗重置 / 换本 / 切职业时清 —— 有状态就得清（开发约定 F①）</summary>
     public static void 重置()
     {
@@ -487,11 +496,17 @@ public class AST_Draw : ISlotResolver
         // ⚠️ 而且必须用"当前形态"：星极抽卡（37017）和灵极抽卡会被游戏互相替换
         //    （共享 55 秒 CD）。死认 37017 的话，形态已经是灵极了我还在点星极，
         //    游戏一律拒绝，看起来就是"一直在点这个技能"。
-        var 当前 = SpellUtil.当前形态(技能);
+        //
+        // ★ 2026-10-04：**兜底形态补上** —— 万一 `CheckActionChange` 不认这个替换，
+        //   退回 `JobApi.ActiveDraw` 自己选 37017 / 37018（对照实现就是这么兜的）。
+        //   两条路都不通时 `当前 == null` ⇒ 放过这一拍，等下一帧。
+        var 当前 = SpellUtil.当前形态(技能) ?? JobApiHelper.抽卡形态();
         if (当前 == null || !当前.IsReadyWithCanCast()) return -1;
 
-        // 限流：万一可用性判断失灵，也不至于每帧刷
-        if (Environment.TickCount64 - AST卡牌状态.上次抽卡 < 3000) return -6;
+        // ★ 排卡间隔 **1200ms**（原来 3000ms，偏慢）：
+        //   抽卡本身有 55 秒 CD，可用性判断才是主闸门；
+        //   这里只是防"同一拍被排两次"的保险丝，所以取一个接近 GCD 的小值。
+        if (Environment.TickCount64 - AST卡牌状态.上次抽卡 < AST卡牌状态.排卡间隔) return -6;
 
         return 3;
     }
@@ -916,10 +931,38 @@ public class AST_Lightspeed : ISlotResolver
     }
 }
 
-/// <summary>占卜：团辅。木桩卡 CD 放。</summary>
+/// <summary>
+/// 占卜：团辅。木桩卡 CD 放。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 抽卡 ↔ 占卜的**对齐状态机** ★
+///
+///  [!] 问题：占卜是 120 秒的团辅，它的收益要靠**手上攒够牌**才打得出来。
+///      而抽卡是 55 秒一次 —— 如果占卜在"刚抽完卡、手上空着"的时候落地，
+///      整个团辅窗口就只有占卜自己那一点加成，牌要等下一轮。
+///
+///  [!] 所以占卜要看**距上次抽卡过了多久**（`RecentlyUsed(37017/37018)`）：
+///
+///        距上次抽卡          空闲判定        做法
+///        < 55 秒             不在窗口内       不管（抽卡还在 CD 里，对齐也无从谈起）
+///        55 ~ 56 秒          刚进 55 秒窗口   **不放**（再等一拍，让抽卡先转好）
+///        56 ~ 67 秒          窗口内           **放**（抽卡已转好，可以立刻抽了接上）
+///        > 67 秒             窗口已经过了     **放**（再等就纯亏团辅 CD）
+///
+///      即：56 秒那条线是"可以开始等"，67 秒那条线是"不能再等了"。
+///      中间这 11 秒是一整个抽卡 CD 的长度 —— 等到抽卡转好再开占卜，
+///      手上的牌就能整轮吃满团辅。
+/// ══════════════════════════════════════════════════════════════════════
+/// </summary>
 public class AST_Divination : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("占卜");
+
+    /// <summary>抽卡 CD（也是"对齐窗口"的长度）</summary>
+    private const int 抽卡CD毫秒 = 55000;
+
+    /// <summary>窗口上界：超过它就不等了（再等纯亏占卜自己的 120 秒 CD）</summary>
+    private const int 对齐窗口上界毫秒 = 67000;
 
     public int Check()
     {
@@ -951,9 +994,61 @@ public class AST_Divination : ISlotResolver
         {
             if (HealTargetHelper.目标快死了()) return -4;
             if (HealSettings.Instance.时间轴攒资源 && TimelineManager.未来有减伤(8.0)) return -5;
+
+            // ★ 抽卡↔占卜对齐（只在等级够、抽卡解锁时才有意义）
+            if (HealSettings.Instance.占卜对齐抽卡 && SpellUtil.已解锁(SpellIds.取("星极抽卡")))
+            {
+                var 距抽卡 = 距上次抽卡毫秒();
+                if (距抽卡 >= 0)
+                {
+                    if (距抽卡 <= 抽卡CD毫秒)
+                    {
+                        // 还在抽卡 CD 里 —— 这时候开占卜，牌来不及攒
+                        return -12;
+                    }
+
+                    if (距抽卡 <= 对齐窗口上界毫秒)
+                    {
+                        // 窗口内：抽卡已经转好，开完占卜立刻抽，牌能整轮吃满团辅
+                        return 2;
+                    }
+
+                    // 超过 67 秒：不等了
+                }
+            }
         }
 
         return 2;
+    }
+
+    /// <summary>
+    /// 距上次抽卡过了多少毫秒；没抽过 / 两个形态都查不到返回 -1（= 不管对齐）。
+    /// </summary>
+    private static int 距上次抽卡毫秒()
+    {
+        try
+        {
+            var 星极 = SpellIds.取("星极抽卡");
+            var 灵极 = SpellIds.取("灵极抽卡");
+
+            // `RecentlyUsed(id, N)` 是"最近 N 毫秒内用过吗" ⇒ 用两个 CD 长度反查区间：
+            //   最近 55 秒内用过   ⇒ 还在 CD 里
+            //   55~67 秒之间用过   ⇒ 刚好落在对齐窗口
+            //   更早 / 从没用过     ⇒ 窗口已过，放开
+            var 在CD内 = AEAssist.Helper.SpellExtension.RecentlyUsed(星极, 抽卡CD毫秒)
+                         || (灵极 != 0 && AEAssist.Helper.SpellExtension.RecentlyUsed(灵极, 抽卡CD毫秒));
+            if (在CD内) return 抽卡CD毫秒;   // 落在"< 55 秒"那一档，Check 里会拦住
+
+            var 在窗口内 = AEAssist.Helper.SpellExtension.RecentlyUsed(星极, 对齐窗口上界毫秒)
+                           || (灵极 != 0 && AEAssist.Helper.SpellExtension.RecentlyUsed(灵极, 对齐窗口上界毫秒));
+            if (在窗口内) return 60000;      // 55~67 秒之间 ⇒ 落在"窗口内"那一档
+
+            return -1;                       // 更早 ⇒ 不管
+        }
+        catch
+        {
+            return -1;
+        }
     }
 
     public void Build(Slot slot)

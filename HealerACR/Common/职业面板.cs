@@ -138,6 +138,7 @@ public static class 职业面板
         ImGui.Separator();
         ImGui.Checkbox("出卡优先给近战", ref s.出卡优先近战);
         ImGui.Checkbox("同一张卡不叠发", ref s.卡牌去重);
+        ImGui.Checkbox("占卜等抽卡", ref s.占卜对齐抽卡);
         ImGui.TextDisabled("近战卡只有太阳神之衡与战争神之枪，其余都按远程发（卡面直接判，不看名字）");
 
         ImGui.Separator();

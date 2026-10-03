@@ -1547,6 +1547,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.TextDisabled("占星");
             ImGui.Checkbox("出卡优先近战", ref s.出卡优先近战);
             ImGui.Checkbox("同一张卡不叠发", ref s.卡牌去重);
+            ImGui.Checkbox("占卜等抽卡", ref s.占卜对齐抽卡);
             ImGui.SliderFloat("地星提前秒", ref s.地星提前秒, 0f, 10f, "%.1f 秒");
         }
 

@@ -208,4 +208,41 @@ public static class JobApiHelper
             return false;
         }
     }
+
+    /// <summary>
+    /// 现在是"灵极"状态吗（`JobApi.ActiveDraw`）。
+    ///
+    /// [!] 它是枚举 `DrawType`：`Astral = 0`（星极）/ `Umbral = 1`（灵极）。
+    ///     参考实现把它当布尔用（非 0 就是灵极），这里照做 ——
+    ///     作用只是"抽卡该按哪一张"，**不参与任何资源判断**。
+    ///
+    /// [!] 用途：抽卡会在**星极抽卡(37017)** 与 **灵极抽卡(37018)** 之间轮换，
+    ///     共享 55 秒 CD。正常情况下 `CheckActionChange` 会把技能换成当前那一档，
+    ///     万一查不到，就靠它自己选出该按哪一个（见 <see cref="抽卡形态"/>）。
+    /// </summary>
+    public static bool 灵极中
+    {
+        get
+        {
+            try { return (int)Core.Resolve<JobApi_Astrologian>().ActiveDraw != 0; }
+            catch { return false; }
+        }
+    }
+
+    /// <summary>
+    /// 该按哪一张抽卡（`CheckActionChange` 失灵时的兜底形态）。
+    /// 拿不到技能返回 null —— 调用方据此放过这一拍，**不要瞎猜一个 id**。
+    /// </summary>
+    public static Spell? 抽卡形态()
+    {
+        try
+        {
+            var id = 灵极中 ? SpellIds.取("灵极抽卡") : SpellIds.取("星极抽卡");
+            return id == 0 ? null : SpellUtil.Get(id);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

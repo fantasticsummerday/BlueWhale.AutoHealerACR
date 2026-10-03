@@ -465,6 +465,14 @@ public class HealSettings
     /// </summary>
     public bool 卡牌去重 = true;
 
+    /// <summary>
+    /// 占卜等抽卡：抽卡还在 CD 里时先不开占卜，等抽卡转好再开，让手上的牌吃满团辅。
+    ///
+    /// [!] 只在 55~67 秒这个窗口里等（见 `AST_Divination` 的说明）——
+    ///     超过 67 秒就不等了，否则会为了等牌把占卜自己的 120 秒 CD 拖住。
+    /// </summary>
+    public bool 占卜对齐抽卡 = true;
+
     // ================== ID 覆盖（自动解析失败时手工填） ==================
 
     /// <summary>
