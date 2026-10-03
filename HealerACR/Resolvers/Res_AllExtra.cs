@@ -472,15 +472,35 @@ public class Res_SingleMitigation : ISlotResolver
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // 给坦克；时间轴预报到伤害时满血也给
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 选区：**坦克优先，其次非坦**（参考实现的 `AquaVeilTarget`）★
+        //
+        //  [!] 原来只认 `主坦()` 一个 ✗ —— 后果是
+        //      "主坦满血、而某个 DPS 掉到 30%" 时，这个减伤**谁也不给** ✗
+        //
+        //  [!] 参考的判据（IL 直读 `AquaVeilTarget`）：
+        //      在**所有可治队友**里找血量最低的那个，但**阈值分两档** ——
+        //        坦克   → 阈值 - 10
+        //        非坦克 → 阈值
+        //      也就是"坦克门更宽"：坦克没掉那么多也值得给，
+        //      而给非坦要掉得更狠才值得（把这一发留给坦克的意图）。
+        //
+        //  [!] 用 `有效血量比例()`（血量 + 盾）而不是裸血量 ——
+        //      和参考的 `CurrentHpPercent + ShieldPercentage/100` 同口径。
+        // ══════════════════════════════════════════════════════════════
+        var 基准阈值 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
+        var 坦克阈值 = Math.Clamp(基准阈值 - 0.10f, 0f, 1f);
+        var 非坦阈值 = Math.Clamp(基准阈值, 0f, 1f);
+
+        // 伤害要来吗（时间轴 / 危险读条）—— 上面选区之前就要算好
         var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
-        var 坦克 = HealTargetHelper.主坦();
-        if (坦克 == null) return -1;
-        if (坦克.有该技能的Buff(技能)) return -3;
+
+        var 该给谁 = 选单体减伤目标(技能, 坦克阈值, 非坦阈值);
+        if (该给谁 == null) return -1;
 
         // ⚠️ 假死状态不给减伤（参考同类 ACR 的罩子 Check 里的 409/811/810）
         //    坦克开死斗/行尸走肉时那几秒本来就不会死，减伤纯浪费。
-        if (坦克.处于假死状态()) return -4;
+        if (该给谁.处于假死状态()) return -4;
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 血线判据（原来**没有**）—— 参考实现里这是它唯一的触发条件 ★
@@ -498,12 +518,8 @@ public class Res_SingleMitigation : ISlotResolver
         //
         //  [!] 所以改成"两个条件之一成立就值得考虑"：
         //        ① 有伤害要来（原来的路：时间轴 / 读条）
-        //        ② **坦克血线已经到该交的程度**（参考实现的路）
+        //        ② **目标血线已经到该交的程度**（参考实现的路）
         //      两条都不成立才放弃。
-        //
-        //  [!] 为什么用 `有效血量比例()` 而不是 `血量比例()`：
-        //      参考实现的单奶判据是 `CurrentHpPercent + ShieldPercentage/100 <= 阈值`，
-        //      同一个口径（我们的 `有效血量比例()` 就是这个和）。
         //
         //  [!] 阈值走 `治疗阈值表`（按技能查），查不到回落 `单体治疗阈值` ——
         //      这样表为空/没登记时行为退回原样。
@@ -511,8 +527,8 @@ public class Res_SingleMitigation : ISlotResolver
         var 血线该交 = false;
         try
         {
-            var 阈值 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
-            if (阈值 > 0f && 坦克.有效血量比例() <= 阈值) 血线该交 = true;
+            var 该目标阈值 = 该给谁.IsTank() ? 坦克阈值 : 非坦阈值;
+            if (该目标阈值 > 0f && 该给谁.有效血量比例() <= 该目标阈值) 血线该交 = true;
         }
         catch { }
 
@@ -521,15 +537,61 @@ public class Res_SingleMitigation : ISlotResolver
         return SpellUtil.可用(技能) ? 14 : -1;
     }
 
+    /// <summary>
+    /// 挑这一发单体减伤给谁：**坦克可以更早给**（阈值 -0.10），
+    /// 在所有可治队友里取"相对自己那档阈值掉得最多"的那个。
+    ///
+    /// [!] 不分两轮（先找坦克、再找非坦）—— 参考实现是**一趟遍历选最低血**，
+    ///     只有阈值不同。分两轮会让"坦克 95%、DPS 20%"这种局面仍然给坦克。
+    /// </summary>
+    private static IBattleChara? 选单体减伤目标(uint 技能, float 坦克阈值, float 非坦阈值)
+    {
+        IBattleChara? 最优 = null;
+        var 最优剩余 = float.MaxValue;   // "离自己的阈值还差多少"，越小越该给
+
+        try
+        {
+            foreach (var 成员 in PartyHelper.CastableAlliesWithin30)
+            {
+                if (成员 == null || !成员.对象有效()) continue;
+                if (!成员.活着() || !成员.可以治()) continue;
+
+                // 已经有这个 buff ⇒ 不重复给
+                if (成员.有该技能的Buff(技能)) continue;
+
+                var 是坦克 = 成员.IsTank();
+                var 阈值 = 是坦克 ? 坦克阈值 : 非坦阈值;
+                if (阈值 <= 0f) continue;
+
+                var 有效 = 成员.有效血量比例();
+                var 剩余 = 有效 - 阈值;       // 正数 = 还没到该给的程度
+                if (剩余 > 0f) continue;      // 没到阈值，跳过
+
+                if (剩余 < 最优剩余)
+                {
+                    最优剩余 = 剩余;
+                    最优 = 成员;
+                }
+            }
+        }
+        catch { }
+
+        return 最优;
+    }
+
     public void Build(Slot slot)
     {
-        // ⚠️ 这里原来有一行 `var 要来 = ...`，**赋值后从未被读** —— 纯遗留死代码，已删。
-        //    （`Check` 里那一份已经在 Round 3 修好并真的用上了；`Build` 只负责放技能。）
-        var 坦克 = HealTargetHelper.主坦();
-        if (坦克 == null) return;
+        // ⚠️ 必须和 Check 同源（开发约定 F③）：同一个选区方法 + 同一组阈值。
+        var 基准阈值 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
+        var 坦克阈值 = Math.Clamp(基准阈值 - 0.10f, 0f, 1f);
+        var 非坦阈值 = Math.Clamp(基准阈值, 0f, 1f);
+
+        var 目标 = 选单体减伤目标(技能, 坦克阈值, 非坦阈值);
+        if (目标 == null) return;
+        if (目标.处于假死状态()) return;
 
         var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(new Spell(spell.Id, 坦克));
+        if (spell != null) slot.Add(new Spell(spell.Id, 目标));
     }
 }
 
@@ -1131,6 +1193,13 @@ public class Res_InstantHealAbility : ISlotResolver
             if (目标 != null && !目标.处于假死状态() && 必须奶满.找目标() == null)
             {
                 if (是先天禀赋(瞬发) && 同目标冷却中(目标)) return -200;
+
+                // ★ 通用"按目标去重"（表 #63）：
+                //   同一发单体能力技对**同一个人**连放两发 ⇒ 第二发几乎全过量。
+                //   ⚠️ 键是 **(技能, 目标)** 而不是只按技能 ——
+                //      只按技能会把"另一个人的那一发"也挡掉（那是真 bug）。
+                if (本地施放记录.刚放过目标(瞬发, (uint)目标.GameObjectId)) return -201;
+
                 return 24;
             }
         }
@@ -1256,12 +1325,16 @@ public class Res_InstantHealAbility : ISlotResolver
                 if (目标 != null && !目标.处于假死状态())
                 {
                     if (是先天禀赋(瞬发) && 同目标冷却中(目标)) return;
+                    if (本地施放记录.刚放过目标(瞬发, (uint)目标.GameObjectId)) return;
 
                     var s = SpellUtil.当前形态(瞬发);
                     if (s != null)
                     {
                         slot.Add(new Spell(s.Id, 目标));
                         if (是先天禀赋(瞬发)) 记先天((uint)目标.GameObjectId);
+
+                        // ★ 按目标记账（和 Check 同源）
+                        try { 本地施放记录.记目标(瞬发, (uint)目标.GameObjectId); } catch { }
                     }
                 }
             }
