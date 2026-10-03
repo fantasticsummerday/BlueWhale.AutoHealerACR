@@ -786,7 +786,13 @@ public class Res_PlacedHeal : ISlotResolver
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        if (!TimelineManager.未来有减伤(5.0) && !减伤Helper.即将来大伤害()) return -1;
+        // ★ 2026-10-04：补**血线触发** —— 原来只判"伤害要来" ✗
+        //   对照实现的判据是「20 米内低于群奶阈值的人数 >= 群奶人数」✓
+        var 铃铛血线 = 治疗阈值表.取(技能, HealSettings.Instance.群体治疗阈值);
+        var 人够多 = HealTargetHelper.低于阈值人数(铃铛血线, 20f)
+                     >= HealTargetHelper.群奶人数要求(HealSettings.Instance.群奶最少人数);
+
+        if (!TimelineManager.未来有减伤(5.0) && !减伤Helper.即将来大伤害() && !人够多) return -1;
 
         return SpellUtil.可用(技能) ? 11 : -1;
     }

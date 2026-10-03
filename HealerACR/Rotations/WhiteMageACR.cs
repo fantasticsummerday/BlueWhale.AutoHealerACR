@@ -592,7 +592,10 @@ public class WHM_AfflatusSolace : ISlotResolver
                    ?? AEAssist.Core.Me;
         }
 
-        var 血线 = Math.Min(HealSettings.Instance.单体治疗阈值, HealSettings.Instance.百合使用血线);
+        // ★ 2026-10-04：**先读本技能登记值**（表里是 0.40），读不到才用 min 兜底 ✓
+        //   原来直接用 min(单体 0.52, 百合 0.50) = 0.50 ⇒ 40%~50% 区间就提前把百合花掉了 ✗
+        var 血线 = 治疗阈值表.取(SpellIds.取("安慰之心"),
+                     Math.Min(HealSettings.Instance.单体治疗阈值, HealSettings.Instance.百合使用血线));
 
         // ⚠️ **非溢出分支不能写 `?? Core.Me`** —— 审计发现的真 bug。
         //
@@ -664,7 +667,11 @@ public class WHM_AfflatusRapture : ISlotResolver
         }
 
         var s = HealSettings.Instance;
-        var 需要群奶 = HealTargetHelper.低于阈值人数(s.群体治疗阈值, 20f) >= s.群奶最少人数;
+        // ★ 2026-10-04：读本技能登记值（表里 0.75，原来吃大类 0.62 ⇒ 交得太早）✗
+        //   半径也从 20 改 30 —— 对照实现按 30 米数人，20 米会漏算 20~30 米的人 ✗
+        var 需要群奶 = HealTargetHelper.低于阈值人数(
+                           治疗阈值表.取(SpellIds.取("狂喜之心"), s.群体治疗阈值), 30f)
+                       >= s.群奶最少人数;
 
         // 百合满 3 颗 + 有两个以上人不在满血 → 顺手用群奶花掉（覆盖更划算）
         var 溢出可用 = JobApiHelper.百合 >= 3
