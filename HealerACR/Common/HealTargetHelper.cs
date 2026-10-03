@@ -1139,6 +1139,13 @@ public static class HealTargetHelper
     /// <summary>清掉盯人记录（换本 / 换目标时用）。</summary>
     public static void 清盯人记录() => _盯人记录.Clear();
     
+    /// <summary>队伍里现在有没有坦克（决定是否启用「稳定仇恨」守卫）。</summary>
+    public static bool 有坦克时()
+    {
+        try { return 队伍里的坦克() != null; }
+        catch { return false; }
+    }
+
     public static bool 有仇恨(IBattleChara 敌人)
     {
         // ★ 入口判有效性：参数是游戏对象，读它的属性会因【已释放对象】而
@@ -1232,7 +1239,7 @@ public static class HealTargetHelper
                 try
                 {
                     foreach (var b in 我的DotBuffs)
-                        if (b != 0 && c.HasAura(b)) return true;
+                        if (b != 0 && c.HasLocalPlayerAura(b)) return true;   // ★ 只算我挂的（原来 HasAura 会把别人挂的同名 DoT 算成我的 ✗）
                 }
                 catch { }
                 return false;
@@ -1247,7 +1254,9 @@ public static class HealTargetHelper
                 {
                     if (敌人.CurrentHp <= 0) continue;
                     if (当前 != null && 敌人.GameObjectId == 当前.GameObjectId) continue;
-                    if (!有仇恨(敌人)) continue;
+                    // ★ 2026-10-04：改用**稳定**仇恨（原来用瞬时的 `有仇恨`，它把「正在打我自己」也算合格 ✗）
+                      //   无坦克时退回瞬时判据（单人场景没有「拉稳」可言 ✓）
+                      if (!(有坦克时() ? 稳定仇恨(敌人) : 有仇恨(敌人))) continue;
 
                       // ★ 2026-10-04 用户实测：「他一直给仇恨没拉稳的怪上 DoT」
                       //   `有仇恨()` 只看"这怪在打我方任何人（含我自己）" ⇒ 正在打奶妈的怪照样合格 ✗
