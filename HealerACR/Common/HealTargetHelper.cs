@@ -390,6 +390,17 @@ public static class HealTargetHelper
     /// <summary>血量最低、且低于阈值的队友；没有就是 null</summary>
     public static IBattleChara? 最低血量队友(float 阈值, float 半径 = 30f)
     {
+        // ★ 2026-10-04：**811「死而不僵」坦克最优先** —— 它生效后必须被奶满才解除，
+        //   否则时间到即死。对照实现在四条选人路径里都把它排在最前 ✓
+        try
+        {
+            foreach (var t in PartyHelper.CastableTanks)
+                if (t != null && t.对象有效() && t.活着()
+                    && t.HasAura(AuraIds.死而不僵) && t.有效血量比例() <= 0.8f)
+                    return t;
+        }
+        catch { }
+
         using var _深度 = HealerACR.Common.调用深度.进("最低血量队友");
         return 可治疗队友(半径).FirstOrDefault(r => r.有效血量比例() <= 阈值);
     }
@@ -424,6 +435,17 @@ public static class HealTargetHelper
     /// <summary>队伍里血量最低的人（不看阈值，给大加用）</summary>
     public static IBattleChara? 最危险队友()
     {
+        // ★ 2026-10-04：**811「死而不僵」坦克最优先** —— 它生效后必须被奶满才解除，
+        //   否则时间到即死。对照实现在四条选人路径里都把它排在最前 ✓
+        try
+        {
+            foreach (var t in PartyHelper.CastableTanks)
+                if (t != null && t.对象有效() && t.活着()
+                    && t.HasAura(AuraIds.死而不僵) && t.有效血量比例() <= 0.8f)
+                    return t;
+        }
+        catch { }
+
         return 可治疗队友().FirstOrDefault();
     }
 
