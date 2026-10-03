@@ -34,8 +34,51 @@ public class 预铺起手 : IOpener
     public int StopCheck(int index) => 1;
 
     /// <summary>
+    /// 起手门（参考实现的 `DailyOpenerStartCheck`）：
+    ///   ① 停手 QT 开着 ⇒ 不起手
+    ///   ② 已经进战 ⇒ 不起手
+    ///   ③ **队伍不足 8 人、且当前目标不是木桩 ⇒ 不起手**（日随不走起手序列）
+    ///
+    /// [!] 第三条正是"日随不起手"的实现 —— 四人本和野外都不走，
+    ///     只有八人本 / 木桩才走。关掉 `起手门` 设置则不判这条。
+    /// </summary>
+    private static bool 起手门通过()
+    {
+        try
+        {
+            if (HealQt.GetQt("停手")) return false;
+            if (CharacterExt.我在战斗()) return false;
+
+            if (!HealSettings.Instance.起手门) return true;
+
+            var 队伍人数 = PartyHelper.CastableParty?.Count ?? 0;
+
+            var 木桩 = false;
+            try
+            {
+                var t = HealTargetHelper.当前目标();
+                if (t != null && t.对象有效()) 木桩 = t.IsDummy();
+            }
+            catch { }
+
+            // 八人本 或 木桩 ⇒ 放行
+            return 队伍人数 >= 8 || 木桩;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// **倒计时预读时间**（毫秒）—— 开怪前这么久读第一个填充技。
+    /// 它同时是爆发药的时间基准（参考口径：吃药 = 预读时间 - 100ms）。
+    /// </summary>
+    private static int 预读时间() => Math.Clamp(HealSettings.Instance.预读时间, 500, 5000);
+
+    /// <summary>
     /// 倒计时预铺。CountDownHandler 的 AddAction(剩余毫秒, Action) 是现成 API。
-    /// 时间点从远到近排：15 秒铺盾，3 秒读一个治疗/DoT。
+    /// 时间点从远到近排：15 秒铺盾 → 再生 → 预读 → 爆发药。
     /// </summary>
     public void InitCountDown(CountDownHandler countDownHandler)
     {
@@ -44,7 +87,16 @@ public class 预铺起手 : IOpener
         // 8 人本打 /countdown 时才会看到 —— 有它就能确认链路是通的。
         LogHelper.Info("[HealerACR] 倒计时开始：注册预铺 + 爆发药");
 
-        // ---- 爆发药：开怪前 2 秒 ----
+        // ---- 起手门（日随不走起手序列）----
+        if (!起手门通过())
+        {
+            LogHelper.Info("[HealerACR] 倒计时：起手门未通过（停手 / 已进战 / 非八人本且非木桩），跳过全部预铺");
+            return;
+        }
+
+        var 预读 = 预读时间();
+
+        // ---- 爆发药：开怪前 预读时间-100ms ----
         // 之前这行被注释掉了。现在打开 —— CountDownHandler 是实例方法，
         // 由 AEAssist 在倒计时时传进来，这才是吃药的正确入口。
         //
@@ -57,8 +109,8 @@ public class 预铺起手 : IOpener
         {
             if (HealQt.GetQt("爆发药", false))
             {
-                countDownHandler.AddPotionAction(2000);
-                LogHelper.Info("[HealerACR] 倒计时：已注册爆发药（开怪前 2 秒）");
+                countDownHandler.AddPotionAction(Math.Max(500, 预读 - 100));
+                LogHelper.Info($"[HealerACR] 倒计时：已注册爆发药（开怪前 {Math.Max(500, 预读 - 100)}ms）");
             }
             else
             {
@@ -98,6 +150,31 @@ public class 预铺起手 : IOpener
                 }
 
                 AI.Instance.BattleData.AddSpell2NextSlot(new Spell(_t.单体盾, 主坦));
+            });
+        }
+
+        // ---- 倒计时再生：给坦克预铺 HoT（开怪瞬间正好在跳）----
+        //
+        //  [!] 为什么值得单独一条：再生是 **18 秒 HoT**，它的价值全在"提前量"上 ——
+        //      开怪后才铺，前两跳落在没掉血的时候；提前铺，开怪那一下正好在跳。
+        //
+        //  [!] 选人（参考 `SelectCountdownRegenTarget`）：
+        //      先找**带盾姿的坦克**，没有就退到队伍第 1 位；
+        //      那个人**已经有再生**就换第 2 位；还是没合适的就不铺。
+        if (_t.单体HoT != 0 && HealSettings.Instance.倒计时再生)
+        {
+            countDownHandler.AddAction(Math.Clamp(HealSettings.Instance.倒计时再生延迟, 1000, 15000), () =>
+            {
+                try
+                {
+                    var 目标 = 倒计时再生目标();
+                    if (目标 == null) return;
+                    if (!SpellUtil.已解锁(_t.单体HoT)) return;
+                    if (!SpellUtil.可用(_t.单体HoT)) return;
+
+                    AI.Instance.BattleData.AddSpell2NextSlot(new Spell(_t.单体HoT, 目标));
+                }
+                catch { }
             });
         }
 
@@ -143,11 +220,11 @@ public class 预铺起手 : IOpener
             });
         }
 
-        // ---- 1.5 秒：预读一个读条填充（开怪那一下正好读完）----
+        // ---- 预读：开怪前 `预读时间` 开始读一个填充技（开怪那一下正好读完）----
         if (_t.预读填充技 != 0)
         {
             var 填充 = _t.预读填充技;
-            countDownHandler.AddAction(1500, () =>
+            countDownHandler.AddAction(预读, () =>
             {
                 try
                 {
@@ -159,7 +236,53 @@ public class 预铺起手 : IOpener
                 catch { }
             });
         }
+    }
 
-        // 爆发药已经在上面注册了（AddPotionAction(2000)）
+    /// <summary>
+    /// 倒计时再生给谁（参考实现的 `SelectCountdownRegenTarget`）：
+    ///   ① 带盾姿的坦克
+    ///   ② 没有 ⇒ 队伍第 1 位
+    ///   ③ 那个人**已经有再生** ⇒ 换第 2 位
+    ///   ④ 第 2 位也有 / 取不到 ⇒ 不铺（返回 null）
+    ///
+    /// [!] 为什么要"已经有就换人"：倒计时那条路可能被触发两次
+    ///     （重排 / 改倒计时），第二次再铺同一个人是**纯覆盖**。
+    /// </summary>
+    private static IBattleChara? 倒计时再生目标(uint 技能Id = 0)
+    {
+        try
+        {
+            var 有病 = false;
+
+            bool 已有(IBattleChara? c)
+            {
+                if (c == null || !c.对象有效()) return false;
+                try { return c.有该技能的Buff(137); } catch { return false; }   // 137 = 再生
+            }
+
+            var 目标 = PartyHelper.CastableTanks.FirstOrDefault();
+
+            if (目标 == null)
+            {
+                var 队 = PartyHelper.CastableParty;
+                if (队 == null || 队.Count == 0) return null;
+                目标 = 队[0];
+            }
+
+            有病 = 已有(目标);
+            if (有病)
+            {
+                var 队 = PartyHelper.CastableParty;
+                if (队 == null || 队.Count < 2) return null;
+                目标 = 队[1];
+            }
+
+            if (已有(目标)) return null;
+            return 目标;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

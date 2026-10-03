@@ -1549,6 +1549,12 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Checkbox("同一张卡不叠发", ref s.卡牌去重);
             ImGui.Checkbox("占卜等抽卡", ref s.占卜对齐抽卡);
             ImGui.SliderInt("保留先天数量", ref s.保留先天数量, 0, 3);
+            ImGui.Separator();
+            ImGui.TextDisabled("起手（打 /countdown 时）");
+            ImGui.SliderInt("预读时间", ref s.预读时间, 500, 5000);
+            ImGui.Checkbox("倒计时给坦克铺再生", ref s.倒计时再生);
+            ImGui.SliderInt("再生提前量", ref s.倒计时再生延迟, 1000, 15000);
+            ImGui.Checkbox("起手门（只在八人本/木桩起手）", ref s.起手门);
             ImGui.SliderFloat("地星提前秒", ref s.地星提前秒, 0f, 10f, "%.1f 秒");
         }
 
