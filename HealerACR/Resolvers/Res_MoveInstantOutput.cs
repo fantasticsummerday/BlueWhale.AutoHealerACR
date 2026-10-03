@@ -76,6 +76,11 @@ public class Res_MoveInstantOutput : ISlotResolver
             // ④ MP 门（低蓝优先留给治疗）
             if (蓝量.低蓝停手()) return -9;
 
+            // ★ 按技能分档的 MP 门：走位即刻重力要求 **1000** 蓝
+            //   （它自己只要 400，但那是一次性瞬发资源换来的输出，
+            //    参考口径是"手里得留够蓝才肯用"）。
+            if (!技能MP表.蓝够(技能.Id)) return -9;
+
             if (!技能.IsReadyWithCanCast()) return -8;
 
             本帧技能 = 技能;

@@ -16,6 +16,15 @@ public class Res_TeamMitigation : ISlotResolver
 {
         private static long _上次诊断;
         private static int _上次敌人数量;
+
+    /// <summary>
+    /// boss AOE 的**预读窗口**（毫秒）。
+    ///
+    /// [!] 参考实现（贤者自动减伤）直读的是 `HasBossCastingAoeWithin(10000)` ——
+    ///     10 秒。持续型团减要提前铺，2.5 秒那个默认窗口太短。
+    /// </summary>
+    private const int AOE预读毫秒 = 10000;
+
     private readonly JobSpellTable _t;
 
     public Res_TeamMitigation(JobSpellTable table) => _t = table;
@@ -60,6 +69,42 @@ if (团减快照.已有减伤()) return -1;
         var 时间轴要求 = HealQt.GetQt("时间轴", true) && TimelineManager.该铺减伤();
         var 读条要求 = 减伤Helper.即将来大伤害();
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ **boss 即将 AOE**（5~10 秒预读）—— 团减最该用的触发源 ★
+        //
+        //  [!] 为什么原来的判据不够：
+        //      `读条要求` 用的是 `减伤Helper.即将来大伤害()`，默认提前量只有 **2.5 秒** ——
+        //      而罩子这类**持续型团减**要提前铺（铺完才轮到伤害落地）。
+        //      2.5 秒那个窗口更多是"救命"，不是"预铺"。
+        //
+        //  [!] 参考实现的口径（IL 直读，贤者的自动减伤）：
+        //        `HasBossCastingAoeWithin(10000)` —— **10 秒**的预读窗口，
+        //        再配一个"群减人数"门槛。占星的团减也是同一套。
+        //      ⇒ 这里补一条独立的**长窗口** boss AOE 预读。
+        //
+        //  [!] 为什么不能只靠"敌人够多"（原来那条）：
+        //      那个值对占星算的是 `AOE伤害范围 = 8`（重力落点范围）而非团减范围，
+        //      纯 boss 战里 25 米内经常只有 1 个敌人 ⇒ **永远不触发** ✗
+        //      所以 boss 读条这条才是纯 boss 战的主判据。
+        // ══════════════════════════════════════════════════════════════
+        var bossAoE要求 = false;
+        try
+        {
+            bossAoE要求 = 减伤Helper.即将来大伤害(AOE预读毫秒);
+        }
+        catch { }
+
+        // 团减的"人数门槛"：boss 要 AOE 时至少要有这么多人一起挨
+        // （参考实现的 `群减人数` 默认 2，我们复用同一套设置与队伍规模修正）
+        var 人数要求 = HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数);
+        var 挨打人数 = 0;
+        try { 挨打人数 = HealTargetHelper.低于阈值人数(1.0f, 30f); } catch { }
+
+        if (bossAoE要求 && 挨打人数 >= 人数要求)
+        {
+            // 强判据：直接当"伤害马上来"处理，跳过下面那两道"移动中先别铺"的弱判据
+            读条要求 = true;
+        }
 
             // ══════════════════════════════════════════════════════════
             //  ⚠️ 新增第三个触发条件：敌人够多时下罩子
@@ -91,8 +136,9 @@ if (团减快照.已有减伤()) return -1;
                 {
                     _上次诊断 = 现在;
                     LogHelper.Info(
-                        $"[HealerACR.团减] 时间轴={时间轴要求} 读条={读条要求} 敌人够多={敌人够多}" +
-                        $"（{_上次敌人数量}个）" +
+                        $"[HealerACR.团减] 时间轴={时间轴要求} 读条={读条要求} bossAoE={bossAoE要求}" +
+                        $"（{挨打人数}人挨打，门槛{人数要求}）" +
+                        $" 敌人够多={敌人够多}（{_上次敌人数量}个）" +
                         $" | 可用={SpellUtil.可用(_t.团队减伤)}");
                 }
             }
@@ -333,7 +379,7 @@ public class Res_SelfMitigation : ISlotResolver
         {
             var 罩子线 = 治疗阈值表.取(_t.团队减伤, HealSettings.Instance.群体治疗阈值);
             if (HealTargetHelper.低于阈值人数(罩子线, 20f)
-                >= HealTargetHelper.群奶人数要求(HealSettings.Instance.群奶最少人数)
+                >= HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数)
                 && SpellUtil.可用(_t.团队减伤)) return 9;
         }
         catch { }
