@@ -188,7 +188,7 @@ public class SGESpellTable : JobSpellTable
             //    ⚠️ 审计发现：它在 `群体治疗能力技` 槽位，但**不在候选集**。
             //       数据里的 `450 + 350` 是"打敌人 + 给带心关的人回血"，
             //       对队伍而言的有效治疗量取 **350**（心关部分）。
-            c.加(new 治疗技能 { Id = SpellIds.取("消化"), 名 = "消化", 等级 = 58,
+            c.加(new 治疗技能 { Id = SpellIds.取("消化"), 名 = "消化（盾转治疗）", 等级 = 58,
                 恢复力 = 350, MP = 0, 咏唱 = 0f, 冷却 = 1f, 群体 = true, 资源消耗 = 1 });
 
             // ── 魂灵风息（Lv90，`600 + 170/130`）──
@@ -246,7 +246,11 @@ public class SGESpellTable : JobSpellTable
 
     /// <summary>蛇胆系瞬发治疗的阈值 45%（和学者活性法同档）。</summary>
     public override float 瞬发单奶血线 => 0.45f;
-    public override uint 群体治疗能力技 => SpellIds.取("消化");
+    // ★ 2026-10-04 修：原来填的是「消化」(24301) ✗
+        //   消化是「**解除自己挂的均衡诊断/均衡预后**换治疗」的转换技，
+        //   不是群疗 ⇒ 放进这个槽位会在群盾刚铺上时**把盾吃掉** ✗
+        //   贤者的群疗走「寄生清汁(Res_Emergency)」与「整体论(Res_BigAoEHeal)」两条路 ✓
+        public override uint 群体治疗能力技 => 0;
 
     // ⚠️ 写"诊断/预后"而不是"均衡诊断/均衡预后"：
     //    后者是前者在均衡状态下的 action change 形态，硬放会被游戏拒绝。
@@ -254,7 +258,11 @@ public class SGESpellTable : JobSpellTable
     public override uint 单体盾 => SpellIds.取("诊断");
     public override uint 群体盾 => SpellIds.取("预后");
     public override uint 护盾前置 => SpellIds.取("均衡");
-    public override uint 团队减伤 => SpellIds.取("坚角清汁");
+    // ★ 2026-10-04 补：贤者的**失衡是瞬发**（注药是 1.5 秒读条）✗
+        //   原来没填「移动填充技」⇒ 移动中一条输出填充都没有 ✗
+        public override uint 移动填充技 => SpellIds.取("失衡");
+
+        public override uint 团队减伤 => SpellIds.取("坚角清汁");
 
     /// <summary>
     /// 均衡状态下"注药"会被游戏替换成"均衡注药"。

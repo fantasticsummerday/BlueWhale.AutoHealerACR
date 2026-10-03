@@ -279,21 +279,30 @@ public static class AuraIds
     /// <summary>均衡（贤者）= 2606</summary>
     public static uint 均衡 => 取("均衡", 2606);
 
-    /// <summary>心关（贤者）= 2604</summary>
+    /// <summary>心关（贤者给**自己**的 buff）= 2604</summary>
     public static uint 心关 => 取("心关", 2604);
 
-    /// <summary>心关的另一个 id = 2871（同一 buff 的另一档，防御版本差异）</summary>
-    public static uint 心关2 => 取("心关2", 2871);
+    /// <summary>关心（Kardion，贤者给**目标**的 buff）= 2605</summary>
+    public static uint 关心 => 取("关心", 2605);
 
-    /// <summary>身上有没有心关（两个 id 都查）</summary>
+    /// <summary>
+    /// 目标身上有没有**我挂的**关心。
+    ///
+    /// [!] 2026-10-04 修：原来查的是 `心关`(2604) —— **那是给自己上的 buff**，
+    ///     挂在目标身上的叫「关心」(2605) ⇒ 原条件**永假** ⇒ 心关每帧重按 ✗
+    ///     而且队里永远没人有 2605 ⇒ 拯救(Res_KardiaBoost) 永远不交 ✗
+    /// </summary>
     public static bool 有心关(IBattleChara 目标)
     {
-        if (目标 == null) return false;
-        if (心关 != 0 && 目标.HasLocalPlayerAura(心关)) return true;
-        if (心关2 != 0 && 目标.HasLocalPlayerAura(心关2)) return true;
-        return false;
+        try
+        {
+            if (目标 == null || !目标.对象有效()) return false;
+            var id = 关心;
+            if (id == 0) return false;
+            return 目标.HasLocalPlayerAura(id);   // fromMe ⇒ 只认我挂的那一份
+        }
+        catch { return false; }
     }
-
     // ---------------- DoT 状态（按等级段） ----------------
 
     /// <summary>白魔 DoT 满级（天辉）= 1871</summary>

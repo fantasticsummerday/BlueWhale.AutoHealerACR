@@ -189,7 +189,7 @@ public class HealSettings
     public bool 驱散 = true;
 
     public bool 醒梦 = true;
-    public int 醒梦蓝量阈值 = 6000;
+    public int 醒梦蓝量阈值 = 8000;
 
     // ================== 输出 ==================
 

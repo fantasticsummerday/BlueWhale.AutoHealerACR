@@ -721,6 +721,8 @@ public static class 治疗阈值表
         设(SpellIds.取("灵橡清汁"), 0.50f);   // youshu 灵橡阈值 50
         设(SpellIds.取("魂灵风息"), 0.60f);   // youshu 魂灵风息阈值 60
         设(SpellIds.取("拯救"),     0.70f);   // youshu `Ability.拯救` 硬编码 70.0f
+        设(SpellIds.取("整体论"),   0.62f);   // ★ 2026-10-04 补：有显示名/分类但没数值 ⇒ 会静默吃大类
+        设(SpellIds.取("混合"),     0.40f);   // ★ 补：对照实现在目标 ≤40% 时配单奶用（Krasis）
     }
 
     /// <summary>
