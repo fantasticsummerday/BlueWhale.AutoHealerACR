@@ -2870,6 +2870,10 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 伤害预测.重置(); } catch { }
         try { 技能诊断.重置(); } catch { }   // 诊断节流记录
 
+        // ⚠️ 占星抽卡节流也要清 —— 它记着"上一次抽卡的时间"，
+        //    不清的话下一场开场会以为"刚抽过"，前几秒不抽卡。
+        try { HealerACR.Rotations.AST卡牌状态.重置(); } catch { }
+
         // ══════════════════════════════════════════════════════════
         //  ★ **技能表自检**（2026-10-03）—— 每次加载打一次日志
         //

@@ -108,52 +108,73 @@ public static class JobApiHelper
 
     // ---------------- 占星 ----------------
 
-    public static int 手牌数
-    {
-        get
-        {
-            try
-            {
-                var cards = Core.Resolve<JobApi_Astrologian>().DrawnCards;
-                return cards?.Length ?? 0;
-            }
-            catch (Exception e)
-            {
-                if (已报异常.Add("手牌"))
-                {
-                    LogHelper.Error($"[HealerACR] 读不到职业资源「手牌」：{e.GetType().Name} {e.Message}");
-                }
-
-                return 0;
-            }
-        }
-    }
-
-    /// <summary>手上每张牌的名字（CardType 的运行时名字）</summary>
-    public static string[] 手牌名字()
+    /// <summary>
+    /// 手上的牌（卡面数组）。
+    ///
+    /// [!] **读得到，而且一直是权威数据源** —— 原来那句"JobApi 的 DrawnCards
+    ///     读不到"是错的（两套参考都在直接读它）：手上的牌没有任何技能 id 可查，
+    ///     唯一能拿到卡面的地方就是这里。
+    ///     `CheckActionChange` 只能告诉你"某个槽位上现在挂着哪张卡"，
+    ///     拿不到"总共有几张、分别是什么"，所以它只能当兜底、当不了主判断。
+    ///
+    /// [!] 读不到时返回**空数组**（= 没牌），与"真的是 0 张"同形 ——
+    ///     所以调用方不要用它做"要不要抽卡"的唯一依据，
+    ///     还要留一条"抽了还没出"的时间保险丝（见 `AST卡牌状态`）。
+    /// </summary>
+    public static CardType[] 手牌()
     {
         try
         {
-            var cards = Core.Resolve<JobApi_Astrologian>().DrawnCards;
-            if (cards == null) return Array.Empty<string>();
-
-            var 结果 = new string[cards.Length];
-            for (var i = 0; i < cards.Length; i++)
+            return Core.Resolve<JobApi_Astrologian>().DrawnCards ?? Array.Empty<CardType>();
+        }
+        catch (Exception e)
+        {
+            if (已报异常.Add("手牌"))
             {
-                结果[i] = cards[i].ToString();
+                LogHelper.Error($"[HealerACR] 读不到职业资源「手牌」：{e.GetType().Name} {e.Message}");
             }
 
-            return 结果;
-        }
-        catch
-        {
-            return Array.Empty<string>();
+            return Array.Empty<CardType>();
         }
     }
 
-    /// <summary>手上有没有近战卡（关键词可在设置里改）</summary>
+    /// <summary>手上有几张牌</summary>
+    public static int 手牌数 => 手牌().Length;
+
+    /// <summary>手上每张牌的名字（CardType 的运行时名字，给日志/诊断看）</summary>
+    public static string[] 手牌名字()
+    {
+        var 卡 = 手牌();
+        if (卡.Length == 0) return Array.Empty<string>();
+
+        var 结果 = new string[卡.Length];
+        for (var i = 0; i < 卡.Length; i++)
+        {
+            结果[i] = 卡[i].ToString();
+        }
+
+        return 结果;
+    }
+
+    /// <summary>
+    /// 手上有没有近战卡。
+    ///
+    /// [!] 判据是**卡面本身**（`CardType.Balance` / `CardType.Spear`），
+    ///     不是字符串匹配 —— 卡面是枚举，直接比数值最可靠。
+    ///     设置里的关键词只是**备用**判据：一旦哪天卡面读不到，
+    ///     还能靠运行时名字兜一层，不至于直接当成"没有近战卡"。
+    /// </summary>
     public static bool 有近战卡()
     {
+        var 卡 = 手牌();
+        foreach (var c in 卡)
+        {
+            if (占星卡.是近战卡(c)) return true;
+        }
+
+        // 卡面读不到（空数组）时，才退回关键词匹配
+        if (卡.Length > 0) return false;
+
         var 名单 = HealSettings.Instance.近战卡关键词;
         if (string.IsNullOrWhiteSpace(名单)) return false;
 

@@ -422,25 +422,37 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
 // ============================================================================
 
 /// <summary>
-/// 占星的卡牌状态。
+/// 占星的抽卡节流状态。
 ///
-/// 为什么需要它：JobApi 的 DrawnCards 读不到（★ 2026-10-04 更正：这句**被两套参考同时证伪** ✗——shiyuvi 直接读 `JobApi_Astrologian.DrawnCards`，youshu 把它当兜底；我们当年因为这句退化成了下面的「等待出卡」二值状态），所以"手上有几张牌"
-/// 只能自己记账 —— 抽一次记一笔，出一次销一笔。这样即使技能可用性判断
-/// 失灵（比如 AEAssist 不检查手牌条件），也不会出现"抽个不停"。
+/// [!] 它**不再是"有没有牌"的替代品** —— 手上有没有牌一律读
+///     <see cref="JobApiHelper.手牌"/>（`JobApi_Astrologian.DrawnCards`，
+///     两套参考都直接读它）。这里只剩两件"卡面读不到时兜底"的事：
+///       · 刚抽过就不会立刻再抽（`等待出卡` + <see cref="等待超时"/>）
+///       · 抽卡之间的最小间隔（`上次抽卡`，见 `AST_Draw` 的限流）
+///
+/// [!] 为什么兜底还要留：万一哪天 `DrawnCards` 又读不到，
+///     没有时间保险丝就会变成"一直抽、永远不出" —— 比少抽几张严重得多。
 /// </summary>
 public static class AST卡牌状态
 {
     /// <summary>上一次抽卡的时间戳</summary>
     public static long 上次抽卡;
 
-    /// <summary>抽了但还没出 —— 这时候不该再抽</summary>
+    /// <summary>抽了但还没出 —— 这时候不该再抽（卡面读得到时以卡面为准）</summary>
     public static bool 等待出卡;
 
     /// <summary>超过这个时间没出掉就放弃等待（防止卡死再也不抽）</summary>
     public const long 等待超时 = 20000;
+
+    /// <summary>战斗重置 / 换本 / 切职业时清 —— 有状态就得清（开发约定 F①）</summary>
+    public static void 重置()
+    {
+        上次抽卡 = 0;
+        等待出卡 = false;
+    }
 }
 
-/// <summary>抽卡。</summary>
+/// <summary>抽卡：手上没牌才抽。</summary>
 public class AST_Draw : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("星极抽卡");
@@ -450,15 +462,28 @@ public class AST_Draw : ISlotResolver
         if (!HealQt.GetQt("抽卡", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // 抽了还没出就别再抽（等出卡，超时自动放弃）
-        if (AST卡牌状态.等待出卡 && TimeHelper.Now() - AST卡牌状态.上次抽卡 < AST卡牌状态.等待超时)
+        // ★ 主判断：**手上还有牌就别抽**（卡面读得到时完全按卡面走）。
+        //   抽卡是 55 秒 CD 的充能技，抽了不出等于白等一轮；
+        //   原来的"抽了还没出"二值状态做不到这一点 —— 它不知道手上到底几张。
+        var 手上有牌 = JobApiHelper.手牌数 > 0;
+
+        if (手上有牌)
         {
-            return -7;
+            // 手牌还在 ⇒ 保险丝立刻松开，等出卡把它放出去
+            AST卡牌状态.等待出卡 = false;
+        }
+        else
+        {
+            // ★ 兜底（卡面读不到时才有意义）：刚抽过还在等出卡就别再抽。
+            //   ⚠️ 用 `Environment.TickCount64` 而不是 `TimeHelper.Now()` ——
+            //      它和下面的限流同一个时基，混用两个时基会算错间隔。
+            if (AST卡牌状态.等待出卡
+                && Environment.TickCount64 - AST卡牌状态.上次抽卡 < AST卡牌状态.等待超时)
+            {
+                return -7;
+            }
         }
 
-        // 不依赖 JobApi 的手牌数 —— 实机测试发现它一直返回空，
-        // 结果就是"抽卡停不下来、出卡永远不出"。
-        //
         // ⚠️ 而且必须用"当前形态"：星极抽卡（37017）和灵极抽卡会被游戏互相替换
         //    （共享 55 秒 CD）。死认 37017 的话，形态已经是灵极了我还在点星极，
         //    游戏一律拒绝，看起来就是"一直在点这个技能"。
@@ -477,26 +502,31 @@ public class AST_Draw : ISlotResolver
         if (spell == null) return;
 
         slot.Add(spell);
-        AST卡牌状态.上次抽卡 = TimeHelper.Now();
+        AST卡牌状态.上次抽卡 = Environment.TickCount64;
         AST卡牌状态.等待出卡 = true;
     }
 }
 
-/// <summary>出卡：近战卡给近战，其余给远程。</summary>
+/// <summary>
+/// 出卡：**按卡面选槽**，近战卡给近战，其余给远程。
+///
+/// [!] 槽位由卡面决定，不能死认一个槽（原来恒取「出卡 III」✗）：
+///     手上有牌时 `CheckActionChange` 会把对应的槽换成那张卡，
+///     其余槽保持槽位本身 ⇒ "形态 ≠ 槽位 id"就说明这个槽里有卡。
+/// </summary>
 public class AST_Play : ISlotResolver
 {
-    private static uint 技能 => SpellUtil.取已解锁(
-        SpellIds.取("出卡III"), SpellIds.取("出卡II"), SpellIds.取("出卡I"));
-
     public int Check()
     {
         if (!HealQt.GetQt("抽卡", true)) return -101;
-        if (技能 == 0) return -2;
 
-        // 同上：没牌时 Play 会被游戏禁用，"可用"就等于"手上确实有牌"。
-        // 而且出卡 I/II/III 在有牌后会变成 战争神之枪 / 世界树之干 / 河流神之瓶，
-        // 所以必须走"当前形态"，不能死认出卡I/II/III 的 id。
-        var 当前 = SpellUtil.当前形态(占星出卡.按卡面选槽(技能));   // ★ 2026-10-04：按卡面选槽（原来是恒取出卡III ✗）
+        var 槽 = 占星卡.按卡面选槽();
+        if (槽 == 0) return -1;
+
+        // 走"当前形态"：出卡 I/II/III 在有牌后会变成
+        // 太阳神之衡 / 战争神之枪 / 世界树之干 …，
+        // 所以必须顺着槽位取形态，不能死认出卡 I/II/III 的 id。
+        var 当前 = SpellUtil.当前形态(槽);
         if (当前 == null || !当前.IsReadyWithCanCast()) return -1;
 
         if (出卡目标() == null) return -1;
@@ -509,12 +539,15 @@ public class AST_Play : ISlotResolver
         var 目标 = 出卡目标();
         if (目标 == null) return;
 
-        var spell = SpellUtil.当前形态(占星出卡.按卡面选槽(技能));
+        var 槽 = 占星卡.按卡面选槽();
+        if (槽 == 0) return;
+
+        var spell = SpellUtil.当前形态(槽);
         if (spell == null) return;
 
         slot.Add(new Spell(spell.Id, 目标));
 
-        // 出掉了，销账 —— 下次可以继续抽
+        // 出掉了 ⇒ 保险丝松开（卡面数据回来前也允许下一轮抽卡）
         AST卡牌状态.等待出卡 = false;
     }
 
@@ -946,49 +979,5 @@ public class AST_AllyMitigation : ISlotResolver
 
         var spell = SpellUtil.当前形态(技能);
         if (spell != null) slot.Add(new Spell(spell.Id, 目标));
-    }
-}
-
-/// <summary>
-/// 占星「出卡」的**卡面 → 槽位**映射。
-///
-/// ★ 2026-10-04 新增（补深度发现 #74）：
-///   原来 `技能 = 取已解锁(出卡III, 出卡II, 出卡I)` ⇒ 30 级后恒取 **出卡III** ✗
-///   而手上有牌时该按哪个槽是由**卡面**决定的（对照实现按 `DrawnCard(0/1/2)` 选槽）：
-///     太阳神之衡 37023 / 战争神之枪 37026 → **出卡 I**
-///     放浪神之箭 37024 / 世界树之干 37027 → **出卡 II**
-///     建筑神之塔 37025 / 河流神之瓶 37028 → **出卡 III**
-///   拿不到形态就退回原来的 `取已解锁` 逻辑（不改变低等级行为）✓
-/// </summary>
-public static class 占星出卡
-{
-    public static uint 按卡面选槽(uint 兜底)
-    {
-        try
-        {
-            var 一 = SpellIds.取("出卡I");
-            if (一 != 0)
-            {
-                var 形 = SpellUtil.当前形态(一);
-                if (形 != null && (形.Id == 37023 || 形.Id == 37026)) return 一;
-            }
-
-            var 二 = SpellIds.取("出卡II");
-            if (二 != 0)
-            {
-                var 形 = SpellUtil.当前形态(二);
-                if (形 != null && (形.Id == 37024 || 形.Id == 37027)) return 二;
-            }
-
-            var 三 = SpellIds.取("出卡III");
-            if (三 != 0)
-            {
-                var 形 = SpellUtil.当前形态(三);
-                if (形 != null && (形.Id == 37025 || 形.Id == 37028)) return 三;
-            }
-        }
-        catch { }
-
-        return 兜底;
     }
 }

@@ -11,6 +11,7 @@
 //   AEAssist.CombatRoutine                 → IRotationEntry / Rotation / Spell / Jobs / AcrType
 
 global using Dalamud.Game.ClientState.Objects.Types;
+global using Dalamud.Game.ClientState.JobGauge.Enums;
 global using Dalamud.Bindings.ImGui;
 
 global using AEAssist;
