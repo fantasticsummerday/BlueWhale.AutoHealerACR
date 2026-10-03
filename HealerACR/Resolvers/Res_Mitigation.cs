@@ -22,6 +22,11 @@ public class Res_TeamMitigation : ISlotResolver
 
     public int Check()
     {
+
+        // ★ 2026-10-04：**刚有人消耗过豆子 ⇒ 这一拍别再消耗** ✓
+        //   本项目采用「一次消耗后全局抑制」的口径（以太层数下降后 7 秒）——
+        //   避免同一拍把豆子连打光、也避免两个能力技互相抢（两套对照实现都有等价物）
+        if (以太管理.抑制中) return -3;
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("减伤", true)) return -100;
         if (!HealSettings.Instance.自动减伤) return -101;
