@@ -496,7 +496,7 @@ public class AST_Play : ISlotResolver
         // 同上：没牌时 Play 会被游戏禁用，"可用"就等于"手上确实有牌"。
         // 而且出卡 I/II/III 在有牌后会变成 战争神之枪 / 世界树之干 / 河流神之瓶，
         // 所以必须走"当前形态"，不能死认出卡I/II/III 的 id。
-        var 当前 = SpellUtil.当前形态(技能);
+        var 当前 = SpellUtil.当前形态(占星出卡.按卡面选槽(技能));   // ★ 2026-10-04：按卡面选槽（原来是恒取出卡III ✗）
         if (当前 == null || !当前.IsReadyWithCanCast()) return -1;
 
         if (出卡目标() == null) return -1;
@@ -509,7 +509,7 @@ public class AST_Play : ISlotResolver
         var 目标 = 出卡目标();
         if (目标 == null) return;
 
-        var spell = SpellUtil.当前形态(技能);
+        var spell = SpellUtil.当前形态(占星出卡.按卡面选槽(技能));
         if (spell == null) return;
 
         slot.Add(new Spell(spell.Id, 目标));
@@ -946,5 +946,49 @@ public class AST_AllyMitigation : ISlotResolver
 
         var spell = SpellUtil.当前形态(技能);
         if (spell != null) slot.Add(new Spell(spell.Id, 目标));
+    }
+}
+
+/// <summary>
+/// 占星「出卡」的**卡面 → 槽位**映射。
+///
+/// ★ 2026-10-04 新增（补深度发现 #74）：
+///   原来 `技能 = 取已解锁(出卡III, 出卡II, 出卡I)` ⇒ 30 级后恒取 **出卡III** ✗
+///   而手上有牌时该按哪个槽是由**卡面**决定的（对照实现按 `DrawnCard(0/1/2)` 选槽）：
+///     太阳神之衡 37023 / 战争神之枪 37026 → **出卡 I**
+///     放浪神之箭 37024 / 世界树之干 37027 → **出卡 II**
+///     建筑神之塔 37025 / 河流神之瓶 37028 → **出卡 III**
+///   拿不到形态就退回原来的 `取已解锁` 逻辑（不改变低等级行为）✓
+/// </summary>
+public static class 占星出卡
+{
+    public static uint 按卡面选槽(uint 兜底)
+    {
+        try
+        {
+            var 一 = SpellIds.取("出卡I");
+            if (一 != 0)
+            {
+                var 形 = SpellUtil.当前形态(一);
+                if (形 != null && (形.Id == 37023 || 形.Id == 37026)) return 一;
+            }
+
+            var 二 = SpellIds.取("出卡II");
+            if (二 != 0)
+            {
+                var 形 = SpellUtil.当前形态(二);
+                if (形 != null && (形.Id == 37024 || 形.Id == 37027)) return 二;
+            }
+
+            var 三 = SpellIds.取("出卡III");
+            if (三 != 0)
+            {
+                var 形 = SpellUtil.当前形态(三);
+                if (形 != null && (形.Id == 37025 || 形.Id == 37028)) return 三;
+            }
+        }
+        catch { }
+
+        return 兜底;
     }
 }
