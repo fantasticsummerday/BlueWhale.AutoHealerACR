@@ -246,7 +246,7 @@ public class ASTSpellTable : JobSpellTable
     public override float 瞬发单奶血线 => 0.45f;
     public override uint 群体治疗能力技 => SpellIds.取("天星冲日");
     public override uint 团队减伤 => SpellIds.取("中间学派");
-    public override uint 个人减伤 => SpellIds.取("擢升");
+public override uint 个人减伤 => 0;   // ★ 2026-10-04：擢升改由 AST_AllyMitigation 负责（含自己血低时给自己）
 
     public override uint 复活 => SpellIds.取("生辰");
     public override uint 驱散 => SpellsDefine.Esuna;
@@ -395,6 +395,8 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             // ★ 2026-10-04：紧随其后 —— 地星放下后由它引爆 ✓
             new SlotResolverData(new AST_StarDetonation(), SlotMode.OffGcd),
             new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
+            // ★ 2026-10-04：擢升是**给队友**的减伤（原来只在个人减伤槽里 ⇒ 永远给不到坦克 ✗）
+            new SlotResolverData(new AST_AllyMitigation(), SlotMode.OffGcd),
             new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealLink(_spells), SlotMode.OffGcd),             // 星位合图
@@ -854,5 +856,64 @@ public class AST_StarDetonation : ISlotResolver
     {
         var spell = SpellUtil.Get(技能);
         if (spell != null) slot.Add(spell);
+    }
+}
+
+/// <summary>
+/// 占星「擢升」(25873) —— **给队友**的单体减伤。
+///
+/// ★ 2026-10-04 新增：原来它被塞在 `个人减伤` 槽位里 ✗
+///   由 Res_SelfMitigation 消费 ⇒ **只用在自己身上** ⇒ 永远给不到坦克 ✗
+///   （对照实现里它是坦克死刑预判 / 双阈值选人 / 自己血低才给自己的独立解析器 ✓）
+///
+/// 判据：
+///   · 坦克优先：队伍里有效血量比例最低、且低于「擢升」登记阈值（0.75）的坦克 ✓
+///   · 没有这样的坦克时，**自己**低于同一阈值才给自己 ✓
+///   · 都没有 ⇒ 不交（不浪费 60 秒 CD）✓
+/// </summary>
+public class AST_AllyMitigation : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("擢升");
+
+    /// <summary>选目标：坦克优先，其次自己（都要过阈值）。</summary>
+    private static IBattleChara? 选目标()
+    {
+        try
+        {
+            var 阈值 = 治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值);
+
+            var 坦克 = HealTargetHelper.血量最低的坦克(阈值);
+            if (坦克 != null && 坦克.对象有效() && 坦克.活着() && !坦克.处于假死状态())
+                return 坦克;
+
+            // 没有该治的坦克 ⇒ 自己血低才给自己
+            var 我 = AEAssist.Core.Me;
+            if (我 != null && 我.对象有效() && 我.活着() && 我.有效血量比例() <= 阈值)
+                return 我;
+        }
+        catch { }
+        return null;
+    }
+
+    public int Check()
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+        if (!HealQt.GetQt("减伤", true)) return -100;
+        if (!HealSettings.Instance.自动减伤) return -101;
+        if (技能 == 0) return -102;
+        if (!SpellUtil.已解锁(技能)) return -2;
+
+        if (选目标() == null) return -1;
+
+        return SpellUtil.可用(技能) ? 14 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        var 目标 = 选目标();
+        if (目标 == null) return;
+
+        var spell = SpellUtil.当前形态(技能);
+        if (spell != null) slot.Add(new Spell(spell.Id, 目标));
     }
 }
