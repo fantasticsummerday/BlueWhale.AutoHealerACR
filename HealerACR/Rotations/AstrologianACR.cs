@@ -892,41 +892,136 @@ public class AST_EarthlyStar : ISlotResolver
     }
 }
 
-/// <summary>光速：瞬发窗口。</summary>
+/// <summary>
+/// 光速：瞬发窗口。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 完整的闸门网（原来只有 841 + 一个限流）★
+///
+///  [!] 光速是** 2 层充能、60 秒一层**的团队级瞬发窗口，
+///      它决定整轮循环能不能在走位里保持输出 / 治疗。乱交就是"要走位时没得用"。
+///
+///  ── 闸门（顺序即优先级）──
+///    ① QT「光速」开着
+///    ② **15 秒去重**：刚交过就不再排（原来只按充能做了个 0.5/2.5 秒的粗限流）✗
+///    ③ **身上已有「即刻」(167) 就不交** —— 两个瞬发窗口叠着毫无意义
+///    ④ 身上已有「光速」(841) 就不交
+///    ⑤ 在战斗中 / 能插能力技 / 技能可用
+///    ⑥ **开场 3500ms 门**：开场那几拍留给占卜和抽卡
+///    ⑦ **和占卜对齐**：占卜 CD < 1500ms 时直接交（马上要开团辅，先把瞬发窗口打开）
+///    ⑧ **攒爆发时只花溢出层**：充能 > 1 才交，否则留着（爆发期要连着用）
+///    ⑨ 都不是 ⇒ 只在"有人真的掉血"时交（原来那条判据保留）
+///
+///  [!] 木桩模式跳过 ⑦⑧⑨ —— 练循环就该卡 CD 放。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
 public class AST_Lightspeed : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("光速");
 
-    /// <summary>上次按光速的时间（它有 2 层充能，要防连按）</summary>
-    private static long 上次光速;
+    /// <summary>去重窗口（毫秒）—— 15 秒内刚放过就不再排</summary>
+    private const int 去重毫秒 = 15000;
+
+    /// <summary>开场闸门（毫秒）</summary>
+    private const long 开场闸门毫秒 = 3500;
+
+    /// <summary>占卜还剩这么久就开光速（对齐团辅）</summary>
+    private const double 占卜对齐毫秒 = 1500;
 
     public int Check()
     {
         if (!HealQt.GetQt("光速", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        // ⚠️ 光速有 **2 层充能**，所以 buff 检查必须在所有分支之前。
-        //    之前木桩分支写在它前面，导致木桩上"可用就放"，两次充能一口气全交。
-        if (AuraIds.光速 != 0 && CharacterExt.我有光环(AuraIds.光速)) return -3;
-
-        // 充能判断（参考同类 ACR 的 GetCharges）：
-        //   光速是 2 层充能技，**满层时不用就浪费**，所以满层时缩短限流尽快交掉；
-        //   只剩 1 层时保持较长限流，留给真正需要的场合。读不到充能就退回原来的 2.5 秒。
-        var 充能 = CharacterExt.充能数(技能);
-        var 限流 = 充能 >= 2 ? 500 : 2500;
-        if (TimeHelper.Now() - 上次光速 < 限流) return -7;
-
-        // 木桩也要放（练循环用）
-        if (HealTargetHelper.木桩模式)
+        // ② 15 秒去重
+        try
         {
-            上次光速 = TimeHelper.Now();
-            return SpellUtil.可用(技能) ? 2 : -1;
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 去重毫秒)) return -3;
         }
+        catch { }
 
+        // ③ 已经有「即刻」了 —— 两个瞬发窗口叠着没意义（而且即刻是通用的，光速是占星专属）
+        if (AuraIds.即刻 != 0 && CharacterExt.我有光环(AuraIds.即刻)) return -4;
+
+        // ④ 光速 buff 已经在身上（它持续 10 秒，别重叠）
+        if (AuraIds.光速 != 0 && CharacterExt.我有光环(AuraIds.光速)) return -5;
+
+        // ⑤ 战斗中 + 能插能力技
+        try
+        {
+            if (Core.Me == null || !Core.Me.InCombat()) return -6;
+        }
+        catch { }
+        if (!CharacterExt.可以插能力技()) return -8;
+
+        var 当前 = SpellUtil.当前形态(技能);
+        if (当前 == null || !当前.IsReadyWithCanCast()) return -1;
+
+        // ⑥ 开场闸门
+        try
+        {
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? long.MaxValue) < 开场闸门毫秒) return -200;
+        }
+        catch { }
+
+        // ── 木桩：卡 CD 放（练循环用）──
+        if (HealTargetHelper.木桩模式) return 2;
+
+        // ⑦ 和占卜对齐：占卜马上就好 ⇒ 先把瞬发窗口打开
+        if (HealSettings.Instance.占卜对齐抽卡 && 占卜即将就绪()) return 2;
+
+        var 充能 = CharacterExt.充能数(技能);
+
+        // ⑧ 攒爆发：只花溢出层（充能 > 1）
+        if (占卜临近()) return 充能 > 1 ? 2 : -50;
+
+        // ⑨ 兜底：有人掉血才交（原判据）
         if (HealTargetHelper.低于阈值人数(HealSettings.Instance.单体治疗阈值) == 0) return -1;
 
-        上次光速 = TimeHelper.Now();
-        return SpellUtil.可用(技能) ? 2 : -1;
+        return 2;
+    }
+
+    /// <summary>占卜的 CD 已经小于 1.5 秒（马上就开）</summary>
+    private static bool 占卜即将就绪()
+    {
+        try
+        {
+            var 占卜 = SpellIds.取("占卜");
+            if (占卜 == 0) return false;
+
+            var s = SpellUtil.Get(占卜);
+            if (s == null) return false;
+
+            return s.Cooldown.TotalMilliseconds < 占卜对齐毫秒;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 占卜是不是"临近"（8 秒内）—— 攒爆发窗口。
+    ///
+    /// [!] 我们不做 QT「攒爆发」那套职业级开关，改用**占卜 CD** 当判据：
+    ///     它本来就是占星唯一的 120 秒团辅，爆发窗口就是围着它转的。
+    /// </summary>
+    private static bool 占卜临近()
+    {
+        try
+        {
+            var 占卜 = SpellIds.取("占卜");
+            if (占卜 == 0) return false;
+
+            var s = SpellUtil.Get(占卜);
+            if (s == null) return false;
+
+            return s.Cooldown.TotalMilliseconds < 8000;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public void Build(Slot slot)

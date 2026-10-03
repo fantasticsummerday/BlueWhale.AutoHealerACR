@@ -1107,12 +1107,107 @@ public class Res_InstantHealAbility : ISlotResolver
             //   [!] 但**这只是第一步**：真正的结构差异是「参考按技能选区，我们先选区再选技能」，
             //       那个改动更大，留到单独一轮（见 `复刻边界-参考实现与AI层.md`）。
             var 单奶血线 = 治疗阈值表.取(瞬发, _t.瞬发单奶血线);
+
+            // ══════════════════════════════════════════════════════════
+            //  ★ 充能保留 / 溢出放宽 / 同目标去重（占星「先天禀赋」）★
+            //
+            //  [!] 三条都是**只有占星能对上号**的（它登记成 `瞬发单奶能力技`），
+            //      所以按 id 判定，白魔/学者的同名槽位不受影响。
+            //
+            //   ① **保留充能**：先天禀赋 40 秒 CD、**2 层**。
+            //      只有 1 层就交掉 ⇒ 真到死刑 / 血崩时手里一张牌都没有。
+            //      默认保留 1 层。
+            //   ② **充能 > 2 时阈值 +0.10**：层数溢出就是浪费，这时候放宽血线早花掉。
+            //   ③ **同一目标 1000ms 内不重复交**：第二发几乎全过量。
+            // ══════════════════════════════════════════════════════════
+            if (是先天禀赋(瞬发))
+            {
+                if (!充能够花(瞬发)) return -5;
+                if (充能过剩(瞬发)) 单奶血线 += 0.10f;
+            }
+
             var 目标 = HealTargetHelper.最低血量队友(单奶血线);
             if (目标 != null && !目标.处于假死状态() && 必须奶满.找目标() == null)
+            {
+                if (是先天禀赋(瞬发) && 同目标冷却中(目标)) return -200;
                 return 24;
+            }
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// 这个"瞬发单奶能力技"是不是占星的**先天禀赋**（只有它吃充能那套规则）。
+    /// </summary>
+    private static bool 是先天禀赋(uint id) => id != 0 && id == SpellIds.取("先天禀赋");
+
+    /// <summary>
+    /// 充能够花吗 —— 花掉一发之后还剩 `保留先天数量` 层以上。
+    ///
+    /// [!] 读不到充能（返回 -1）时**放行**：宁可偶尔多花一层，
+    ///     也不要因为接口抽风让救命技能整个失效（保守方向取"放行"）。
+    /// </summary>
+    private static bool 充能够花(uint id)
+    {
+        try
+        {
+            var 现有 = CharacterExt.充能数(id);
+            if (现有 < 0) return true;
+
+            var 保留 = Math.Clamp(HealSettings.Instance.保留先天数量, 0, 3);
+            return 现有 > 保留;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>充能超过 2 层 ⇒ 再不用就要溢出，阈值放宽 0.10</summary>
+    private static bool 充能过剩(uint id)
+    {
+        try { return CharacterExt.充能数(id) > 2; }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// 同一目标 1000 毫秒内刚交过先天禀赋吗。
+    ///
+    /// [!] **必须按目标记**（不能只记"最近一次"）——
+    ///     两个人都掉血时，只记全局会把另一个人的那一发也一起挡掉。
+    /// </summary>
+    private static bool 同目标冷却中(IBattleChara 目标)
+    {
+        // ★ 入口判有效性：读游戏对象属性会因【已释放对象】触发原生访问违例（穿 catch）
+        if (目标 == null || !目标.对象有效()) return false;
+
+        try
+        {
+            return _先天上次目标 == (uint)目标.GameObjectId
+                   && TimeHelper.Now() - _先天上次时刻 < 1000;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>先天禀赋的"上次交给谁、什么时候"</summary>
+    private static uint _先天上次目标;
+    private static long _先天上次时刻;
+
+    private static void 记先天(uint id)
+    {
+        _先天上次目标 = id;
+        _先天上次时刻 = TimeHelper.Now();
+    }
+
+    /// <summary>战斗重置 / 换本时清（有状态就得清）</summary>
+    public static void 重置先天记录()
+    {
+        _先天上次目标 = 0;
+        _先天上次时刻 = 0;
     }
 
     public void Build(Slot slot)
@@ -1147,11 +1242,26 @@ public class Res_InstantHealAbility : ISlotResolver
                 //   [!] 但**这只是第一步**：真正的结构差异是「参考按技能选区，我们先选区再选技能」，
                 //       那个改动更大，留到单独一轮（见 `复刻边界-参考实现与AI层.md`）。
                 var 单奶血线 = 治疗阈值表.取(瞬发, _t.瞬发单奶血线);
+
+                // ⚠️ **必须和 Check 用同一条血线**（含充能过剩的 +0.10 与保留判定），
+                //    否则 Check 过了 Build 找不到目标 —— 就是"判 A 放 B"。
+                if (是先天禀赋(瞬发))
+                {
+                    if (!充能够花(瞬发)) return;
+                    if (充能过剩(瞬发)) 单奶血线 += 0.10f;
+                }
+
                 var 目标 = HealTargetHelper.最低血量队友(单奶血线);
                 if (目标 != null && !目标.处于假死状态())
                 {
+                    if (是先天禀赋(瞬发) && 同目标冷却中(目标)) return;
+
                     var s = SpellUtil.当前形态(瞬发);
-                    if (s != null) slot.Add(new Spell(s.Id, 目标));
+                    if (s != null)
+                    {
+                        slot.Add(new Spell(s.Id, 目标));
+                        if (是先天禀赋(瞬发)) 记先天((uint)目标.GameObjectId);
+                    }
                 }
             }
         }
