@@ -1271,6 +1271,8 @@ public static class HealTargetHelper
             {
                 // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
                 if (敌人 == null || !敌人.对象有效()) continue;
+                // ★ 2026-10-04：攻击无效（无敌/魔法反射/伤害无效）的怪别上毒 ✓
+                if (敌人状态.攻击无效(敌人)) continue;
 
                 try
                 {
@@ -1889,4 +1891,43 @@ public static class HealTargetHelper
 
     // 说明：AEAssist 里"自动选敌"各家做法不同。
     // 骨架里不强行走位选怪 —— 没目标就不输出，避免抢 T 的仇恨。
+}
+
+/// <summary>
+/// 敌人侧的"打了也白打"状态判据。
+///
+/// ★ 2026-10-04 新增：对照实现有一张统一的**攻击无效状态合集**，
+///   在 DoT 选目标 / AOE 命中数 / 目标选择**三处**都查（`HasAttackBlock`）；
+///   我们全项目原本没有这条判据 —— 结果：无敌/魔法反射阶段白交 GCD，
+///   而且 DoT 会反复"补不上"（只能靠 `Dot黑名单` 的自适应拉黑兜底，要 3 次才生效）。
+///
+/// ⚠️ 已确证的 id（来自对照实现的 IL）：
+///     · 敌人魔法攻击无效自建库 = {942, 3621, 2166}
+///     · 无法造成伤害自建库     = {2208, 2209}
+///   ⚠️ 未确证的部分（对照实现还并入了 `InvincibleStatus` / `MagicReflectStatus`
+///      两张框架表，其成员**不在本工作区可读的资料里**）—— 待补：
+///      目前先用上面 5 个 id 兜住"魔法无效/伤害无效"这类最常见的情况。
+/// </summary>
+public static class 敌人状态
+{
+    /// <summary>敌人魔法攻击无效 / 无法造成伤害的状态 id（已确证部分）。</summary>
+    private static readonly uint[] 攻击无效Ids = { 942, 3621, 2166, 2208, 2209 };
+
+    /// <summary>这只怪现在是不是"打上去没用"（无敌 / 魔法反射 / 伤害无效）。</summary>
+    public static bool 攻击无效(IBattleChara 敌人)
+    {
+        try
+        {
+            if (敌人 == null || !敌人.对象有效()) return true;   // 拿不到就当无效，别浪费 GCD
+
+            foreach (var id in 攻击无效Ids)
+                if (敌人.HasAura(id)) return true;
+
+            return false;
+        }
+        catch
+        {
+            return false;   // 读失败 → 不拦（宁可打，也别把输出全堵死）
+        }
+    }
 }
