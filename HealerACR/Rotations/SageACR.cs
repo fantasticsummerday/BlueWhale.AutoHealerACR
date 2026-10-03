@@ -220,10 +220,18 @@ public class SGESpellTable : JobSpellTable
     public override uint DotBuff => AuraIds.贤者Dot;
     // 均衡注药有三档 buff（2614/2615/2616，另有 2864 同名的另一档），
     // 只查一档的话满级会一直认为"没上 DoT"→ 无限补
+    //
+    // ★ 2026-10-04（表 #104）：**加上群 DOT 的 3897「均衡失衡」** ★
+    //   [!] 参考实现（shiyuvi）把 3897 和三个单体毒放在**同一条判据**里 ——
+    //       也就是"目标身上有没有我的毒"这一个问题，四个 id 一起问。
+    //       我们原来一条都没登记 ⇒ AI 连"它是一个 DoT"都不知道 ✗
+    //   [!] 加进来的效果：`可补Dot的敌人` 会把"只被群毒盖住"的怪也认成
+    //       "已经有我的毒" ⇒ 不会又给它单体毒（那是重复投入）。
     public override uint[] 所有DotBuff => new[]
     {
         AuraIds.贤者Dot, AuraIds.贤者DotAlt, AuraIds.贤者DotAlt2, AuraIds.贤者DotAlt3,
-        AuraIds.贤者Dot2, AuraIds.贤者Dot1
+        AuraIds.贤者Dot2, AuraIds.贤者Dot1,
+        AuraIds.均衡失衡,
     };
 
     public override uint 单体治疗GCD => SpellIds.取("诊断");
@@ -462,6 +470,12 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             //   [!] 两根 resolver 共用 `Dot补判` 那根保险丝，谁先跑谁补；
             //       放前面才能保证多目标时先铺"还没毒的那只"。
             //   [!] 它自带"候选够 2 个"的判据，单体场景直接跳过 ⇒ 不抢单体毒。
+            // ★ 群 DOT（均衡失衡，Lv82+ 三怪以上）—— **排在单体毒之前** ★
+            //   [!] 它是"一发铺开一整片"的技能，收益量级和单体毒不同：
+            //       三怪场景下先铺群毒，单体毒随后补漏（两者共用 DoT 保险丝）。
+            //   [!] 槽位必须在 `Res_MultiDot` 之前 —— 返回值不参与仲裁，
+            //       位置才算优先级（反汇编已证）。
+            new SlotResolverData(new SGE_AoeDot(), SlotMode.Gcd),
             new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new SGE_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
@@ -504,6 +518,7 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
         加职业开关("自动心关", true);
         加职业开关("根素", true);
         加职业开关("箭毒", true);
+        加职业开关("群DOT", true);
         加职业开关("发炎", true);
     }
 }
