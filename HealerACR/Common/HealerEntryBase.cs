@@ -1546,6 +1546,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Separator();
             ImGui.TextDisabled("占星");
             ImGui.Checkbox("出卡优先近战", ref s.出卡优先近战);
+            ImGui.Checkbox("同一张卡不叠发", ref s.卡牌去重);
             ImGui.SliderFloat("地星提前秒", ref s.地星提前秒, 0f, 10f, "%.1f 秒");
         }
 
@@ -2873,6 +2874,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ⚠️ 占星抽卡节流也要清 —— 它记着"上一次抽卡的时间"，
         //    不清的话下一场开场会以为"刚抽过"，前几秒不抽卡。
         try { HealerACR.Rotations.AST卡牌状态.重置(); } catch { }
+        try { 占星卡目标.重置(); } catch { }
 
         // ══════════════════════════════════════════════════════════
         //  ★ **技能表自检**（2026-10-03）—— 每次加载打一次日志
@@ -3160,6 +3162,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { 技能熔断.重置(); } catch { }
         try { 效果确认.重置(); } catch { }   // 同上：换本也要清
         try { 技能诊断.重置(); } catch { }
+        try { 占星卡目标.重置(); } catch { }   // 换本也要清（和 OnResetBattle 成对）
         try { Dot补判.重置(); } catch { }
         try { 记录模式.重置();
 

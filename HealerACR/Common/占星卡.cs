@@ -122,4 +122,22 @@ public static class 占星卡
 
         return 0;
     }
+
+    /// <summary>
+    /// 从"槽位换出来的技能 id"反推卡面。
+    ///
+    /// [!] 只在 <see cref="JobApiHelper.手牌"/> 读不到时用 ——
+    ///     它一次只能告诉你"某个槽位上有卡"，拿不到"总共有几张"，
+    ///     所以它是兜底、不是主判据。
+    /// </summary>
+    public static CardType 按技能反推卡面(uint 技能Id) => 技能Id switch
+    {
+        37023 => CardType.Balance,
+        37026 => CardType.Spear,
+        37024 => CardType.Arrow,
+        37027 => CardType.Bole,
+        37025 => CardType.Spire,
+        37028 => CardType.Ewer,
+        _ => CardType.None,
+    };
 }

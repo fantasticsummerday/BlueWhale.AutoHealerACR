@@ -508,16 +508,33 @@ public class AST_Draw : ISlotResolver
 }
 
 /// <summary>
-/// 出卡：**按卡面选槽**，近战卡给近战，其余给远程。
+/// 出卡：**按卡面选槽、按卡面选目标**，近战卡给近战，其余给远程。
 ///
 /// [!] 槽位由卡面决定，不能死认一个槽（原来恒取「出卡 III」✗）：
 ///     手上有牌时 `CheckActionChange` 会把对应的槽换成那张卡，
 ///     其余槽保持槽位本身 ⇒ "形态 ≠ 槽位 id"就说明这个槽里有卡。
+///
+/// [!] 目标也不能只按"近战/远程 + 血最少"发（原来就是这样 ✗）：
+///     六张卡的收益差得很远 —— 树要避开已有减伤、塔要避开已有盾、
+///     箭优先给开了秘策的学者、瓶优先给缺血的治疗。
+///     规则统一放在 <see cref="占星卡目标"/>。
 /// </summary>
 public class AST_Play : ISlotResolver
 {
+    /// <summary>战斗开始后这么久内不出卡（开场先让占卜落地）</summary>
+    private const long 开场闸门毫秒 = 5000;
+
+    /// <summary>Check 里挑好的目标，给 Build 用（避免判 A 放 B）</summary>
+    private static IBattleChara? 当前目标;
+
+    /// <summary>这一次出的是哪张卡（卡面）</summary>
+    private static CardType 当前卡面;
+
     public int Check()
     {
+        当前目标 = null;
+        当前卡面 = CardType.None;
+
         if (!HealQt.GetQt("抽卡", true)) return -101;
 
         var 槽 = 占星卡.按卡面选槽();
@@ -529,15 +546,35 @@ public class AST_Play : ISlotResolver
         var 当前 = SpellUtil.当前形态(槽);
         if (当前 == null || !当前.IsReadyWithCanCast()) return -1;
 
-        if (出卡目标() == null) return -1;
+        // 卡面：优先读手牌；读不到就用"槽位换出来的形态"反推
+        var 卡面 = 占星卡.第一张();
+        if (卡面 == CardType.None) 卡面 = 占星卡.按技能反推卡面(当前.Id);
+        if (卡面 == CardType.None) return -1;
+
+        // 战斗刚开始时不出卡（占卜还没落地，卡先出会白白错过团辅窗口）
+        try
+        {
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) < 开场闸门毫秒) return -2;
+        }
+        catch { }
+
+        // ★ 同一张卡不叠发：候选里已经有这张卡的人**不参与挑选**。
+        //   于是"别人还空着"→ 自动换人；"所有人都挂着"→ 挑不出人 ⇒ 这次不发。
+        //   ⚠️ 必须传卡面（`CardType`）而不是 buff id —— 避开的人取决于**手上的牌**，
+        //      不是"目标身上有什么"。
+        var 目标 = 占星卡目标.选目标(卡面, HealSettings.Instance.卡牌去重);
+
+        if (目标 == null) return -1;
+
+        当前目标 = 目标;
+        当前卡面 = 卡面;
 
         return 4;
     }
 
     public void Build(Slot slot)
     {
-        var 目标 = 出卡目标();
-        if (目标 == null) return;
+        if (当前目标 == null || 当前卡面 == CardType.None) return;
 
         var 槽 = 占星卡.按卡面选槽();
         if (槽 == 0) return;
@@ -545,24 +582,10 @@ public class AST_Play : ISlotResolver
         var spell = SpellUtil.当前形态(槽);
         if (spell == null) return;
 
-        slot.Add(new Spell(spell.Id, 目标));
+        slot.Add(new Spell(spell.Id, 当前目标));
 
         // 出掉了 ⇒ 保险丝松开（卡面数据回来前也允许下一轮抽卡）
         AST卡牌状态.等待出卡 = false;
-    }
-
-    private static IBattleChara? 出卡目标()
-    {
-        var 任意Dps = PartyHelper.CastableDps.OrderBy(r => r.血量比例()).FirstOrDefault();
-        var 坦克 = PartyHelper.CastableTanks.FirstOrDefault();
-
-        // 需求：按设置决定优先给近战还是远程
-        if (JobApiHelper.有近战卡() == HealSettings.Instance.出卡优先近战)
-        {
-            return PartyHelper.CastableMelees.OrderBy(r => r.血量比例()).FirstOrDefault() ?? 任意Dps ?? 坦克;
-        }
-
-        return PartyHelper.CastableRangeds.OrderBy(r => r.血量比例()).FirstOrDefault() ?? 任意Dps ?? 坦克;
     }
 }
 
@@ -714,16 +737,78 @@ public class AST_CrownPlay : ISlotResolver
             return -1;
         }
 
-        // 贵妇是治疗卡：没人缺血就先留着。
-        // 领主**不要**检查目标 —— 它是"对自身周围敌人"的范围攻击，选中与否都能打。
-        if (卡.Id == 贵妇 &&
-            HealTargetHelper.最低血量队友(治疗阈值表.取(卡.Id, HealSettings.Instance.单体治疗阈值)) == null)
+        // ★ 2026-10-04：**开场 5 秒内不用王冠卡** ——
+        //   它是一张 60 秒 CD 的大牌，开场那一拍应该留给占卜和地星。
+        //   （对照实现的小奥秘卡第一件事就是这个闸门）
+        try
         {
-            return -1;
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) < 5000) return -200;
         }
+        catch { }
 
-        当前卡 = 卡;
-        return 3;
+        var 阈值 = 治疗阈值表.取(卡.Id, HealSettings.Instance.单体治疗阈值);
+
+        if (卡.Id == 贵妇) return 贵妇判定(阈值);
+        if (卡.Id == 领主) { 当前卡 = 卡; return 领主判定(); }
+
+        诊断($"卡面不认识（id={卡.Id}）");
+        return -1;
+    }
+
+    /// <summary>
+    /// 贵妇（单体治疗卡）的完整条件网。
+    ///
+    /// [!] 四条闸门，任何一条不过就**留着下次**（不是换个弱条件发出去）：
+    ///       ① 地星在场 ⇒ 不发（两份群/单治疗撞同一拍，地星白铺）
+    ///       ② 有人血低于阈值 ⇒ **直接发**（救人优先，后面两条不看）
+    ///       ③ 20 米内敌人 < 3 ⇒ 不发（怪这么少，治疗压力用常规手段就够）
+    ///       ④ 没有血线告急的坦克 ⇒ 不发（贵妇是单体卡，得有个明确的对象）
+    /// </summary>
+    private static int 贵妇判定(float 阈值)
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+
+        // ① 地星在场，别撞车
+        if (占星卡目标.地星在场()) return -8;
+
+        // ② 真有人缺血：发
+        if (HealTargetHelper.低于阈值人数(阈值, 20f) > 0) return 3;
+
+        // ③ 怪太少：不值得
+        if (占星卡目标.近处敌人数量() < 3) return -5;
+
+        // ④ 没有血线告急的坦克：不值得
+        if (!占星卡目标.有血量危险的坦克(阈值)) return -5;
+
+        return 4;
+    }
+
+    /// <summary>
+    /// 领主（范围伤害卡）的完整条件网。
+    ///
+    /// [!] 两条闸门：
+    ///       ① 没有敌人 / 敌人正在消失 ⇒ 不发
+    ///       ② 敌人正好 3 个 ⇒ 不发（3 个时收益最低，留着打更多或更少的时候）
+    ///       ≥6 个敌人时优先级最高 —— 一发打满。
+    /// </summary>
+    private static int 领主判定()
+    {
+        var 当前 = HealTargetHelper.当前目标();
+        if (当前 != null && 当前.对象有效() && 当前.CurrentHp <= 0) return -1;
+
+        var 敌数 = 占星卡目标.近处敌人数量();
+
+        if (敌数 <= 0) return -2;
+
+        // 正好 3 个是收益最低的一档，留着
+        if (敌数 == 3) return -200;
+
+        // 6 个以上打满，优先级最高
+        if (敌数 >= 6) return 22;
+
+        if (占星卡目标.有坦克死刑(2000)) return -13;   // 死刑马上来，先别交输出卡
+
+        return 15;
     }
 
     public void Build(Slot slot)

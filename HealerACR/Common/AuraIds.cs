@@ -276,6 +276,124 @@ public static class AuraIds
         }
     }
 
+    /// <summary>灵极之心（占星抽卡的另一形态）= 1877</summary>
+    public static uint 灵极之心 => 取("灵极之心", 1877);
+
+    /// <summary>占卜（占星团辅，自己身上的）= 1878</summary>
+    public static uint 占卜 => 取("占卜", 1878);
+
+    /// <summary>地星主宰（地星刚放下、还没长大）= 1224</summary>
+    public static uint 地星主宰 => 取("地星主宰", 1224);
+
+    /// <summary>巨星主宰（地星长大后的形态，这时引爆才是高档）= 1248</summary>
+    public static uint 巨星主宰 => 取("巨星主宰", 1248);
+
+    // ---------------- 占星六张卡（挂在**队友**身上的增伤 buff） ----------------
+    //
+    //  ⚠️ 卡牌技能 id（37023-37028）和它们挂出来的 buff id **完全不是一回事** ——
+    //     拿技能 id 去 `HasAura` 一个都查不到，所以必须单独列一张表。
+    //     值全部从 `Status.csv` 反查（名字与状态表逐字一致）。
+
+    /// <summary>太阳神之衡（近战卡）挂在目标身上的增伤 = 3887</summary>
+    public static uint 太阳神之衡 => 取("太阳神之衡", 3887);
+
+    /// <summary>战争神之枪（近战卡）= 3889</summary>
+    public static uint 战争神之枪 => 取("战争神之枪", 3889);
+
+    /// <summary>放浪神之箭（远程卡）= 3888</summary>
+    public static uint 放浪神之箭 => 取("放浪神之箭", 3888);
+
+    /// <summary>世界树之干（远程卡）= 3890</summary>
+    public static uint 世界树之干 => 取("世界树之干", 3890);
+
+    /// <summary>建筑神之塔（远程卡）= 3892</summary>
+    public static uint 建筑神之塔 => 取("建筑神之塔", 3892);
+
+    /// <summary>河流神之瓶（远程卡）= 3891</summary>
+    public static uint 河流神之瓶 => 取("河流神之瓶", 3891);
+
+    /// <summary>卡面值 → 它挂在目标身上的 buff id（0 = 不是卡面）</summary>
+    public static uint 卡面Buff(uint 卡面) => 卡面 switch
+    {
+        1 => 太阳神之衡,
+        4 => 战争神之枪,
+        3 => 放浪神之箭,
+        2 => 世界树之干,
+        6 => 建筑神之塔,
+        5 => 河流神之瓶,
+        _ => 0,
+    };
+
+    /// <summary>身上已经有任意一张占星的卡（六张都算）</summary>
+    public static bool 有任意卡(IBattleChara? 目标)
+    {
+        if (目标 == null || !目标.对象有效()) return false;
+
+        try
+        {
+            foreach (var id in new[] { 太阳神之衡, 战争神之枪, 放浪神之箭, 世界树之干, 建筑神之塔, 河流神之瓶 })
+            {
+                if (id != 0 && 目标.HasAura(id)) return true;
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
+    // ---------------- 「黑头」：长时间吃伤害降低的人 ----------------
+    //
+    //  给一个挂着"伤害降低"的人发增伤卡 = 白送（他的输出本来就打了折）。
+    //  但短时间的伤害降低（比如刚复活的虚弱）不该算 —— 所以判据里带时间上限，
+    //  见 `占星卡目标.有黑头`。
+    //
+    //  ⚠️ 值是**逐条从官方 Status.csv 反查**出来的：所有名字叫「伤害降低」的
+    //     状态里，扣掉副本专属那几个（692/696/1016/1090/2092/2404/2522/2911/
+    //     3166/3304/3964 等，它们只在特定战斗里出现、和玩家发挥无关），
+    //     留下的是**通用**的伤害降低类。
+
+    /// <summary>通用的「伤害降低」类状态（用于"黑头"判据）</summary>
+    private static readonly uint[] 伤害降低类 =
+    {
+        62, 215, 628, 1948, 4370, 4371, 4514,
+    };
+
+    /// <summary>
+    /// 这个状态算不算「黑头」（长时间伤害降低）。
+    ///
+    /// [!] 判据两条（与参考实现一致）：
+    ///       ① 状态在 `伤害降低类` 表里
+    ///       ② 剩余时间 **≤ 600 秒**（不是 >）
+    ///
+    ///     ⚠️ 第二条容易写反：伤害降低大多数是 15~30 秒的机制惩罚，
+    ///        而"黑头"是**整场都在**的那种，所以**长时间**的才算 ——
+    ///        写成 `> 600 秒` 会变成"只有刚吃到短时惩罚的人才算黑头"，
+    ///        正好把要排除的人留下、该发卡的人排除掉。
+    ///
+    /// [!] 这里查的是"目标身上有没有这个状态"，不看是谁挂的 ——
+    ///     伤害降低是机制/他人施加的，不是治疗挂的。
+    ///     ⚠️ 所以**不能**用 `我的Buff剩余毫秒`（它带 `fromMe`，对机制状态恒为 -1）。
+    /// </summary>
+    public static bool 是黑头(IBattleChara? 目标)
+    {
+        if (目标 == null || !目标.对象有效()) return false;
+
+        try
+        {
+            foreach (var id in 伤害降低类)
+            {
+                if (id == 0) continue;
+                if (!目标.HasAura(id)) continue;
+
+                var 剩余毫秒 = AEAssist.Core.Resolve<AEAssist.MemoryApi.MemApiBuff>().GetAuraTimeleft(目标, id, false);
+                if (剩余毫秒 > 0 && 剩余毫秒 <= 600_000) return true;
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
     /// <summary>均衡（贤者）= 2606</summary>
     public static uint 均衡 => 取("均衡", 2606);
 
