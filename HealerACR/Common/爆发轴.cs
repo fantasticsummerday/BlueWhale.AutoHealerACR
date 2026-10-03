@@ -333,7 +333,7 @@ public abstract class 爆发轴基类 : ISlotSequence
     ///    没有参数 —— 它内部自己去查 PotionSetting。
     ///    所以**构造失败时返回 null**，这里必须判空，否则空引用进 slot。
     ///
-    ///    用法照抄 AEAssist 自己的 `HotKeyResolver_Potion.Run`：
+    ///    用法与 AEAssist 自己的 `HotKeyResolver_Potion.Run`：
     ///        Check → PotionSetting.GetPotionId + ItemHelper.CheckPotion
     ///        Run   → Spell.CreatePotion() + Slot.Add(...)
     /// ══════════════════════════════════════════════════════════════════

@@ -122,7 +122,7 @@ public static class 敌人移动检测
             if (!_上次位置.TryGetValue(id, out var 上次))
             {
                 _上次位置[id] = 位置;
-                return false;              // 首次 → 当作"没动"（照抄参考实现）
+                return false;              // 首次 → 当作"没动"（与对照实现一致）
             }
 
             _上次位置[id] = 位置;

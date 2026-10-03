@@ -53,7 +53,7 @@ public class Res_Dot : ISlotResolver
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return -3;
 
         // ══════════════════════════════════════════════════════════
-        //  ★ **这个怪值不值得上 DoT**（照抄参考实现的 ShouldSkipDotByHp）★
+        //  ★ **这个怪值不值得上 DoT**（与对照实现一致的 ShouldSkipDotByHp）★
         //
         //  ⚠️ 和上面「目标快死了」的区别：
         //     · `目标快死了()` 只看**血线** —— 一只满血的杂兵不算"快死了"
