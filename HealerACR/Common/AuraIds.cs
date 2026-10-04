@@ -421,6 +421,30 @@ public static class AuraIds
         }
         catch { return false; }
     }
+
+    /// <summary>
+    /// **我自己身上有没有心关（2604）** —— 贤者心关选择阶梯的**收尾闸门**
+    /// （表 #113）。
+    ///
+    /// [!] 2604 是"心关**给自己**"的那一份（挂在自己身上）；
+    ///     而 2605「关心」是挂在**队友**身上的那一份。
+    ///     参考实现的 `ResolveKardiaTarget` 最后一步就是
+    ///     `Me.HasAura(2604)` ⇒ 有就**返回 null（别动）**：
+    ///       · 心关已经生效了，再按一次是空转；
+    ///       · 而且会**顶掉队友身上那份关心**（同一时刻只有一份心关）。
+    /// </summary>
+    public static bool 我有心关()
+    {
+        try
+        {
+            var 我 = AEAssist.Core.Me;
+            if (我 == null || !我.对象有效()) return false;
+            var id = 心关;
+            if (id == 0) return false;
+            return 我.HasAura(id);
+        }
+        catch { return false; }
+    }
     // ---------------- DoT 状态（按等级段） ----------------
 
     /// <summary>白魔 DoT 满级（天辉）= 1871</summary>

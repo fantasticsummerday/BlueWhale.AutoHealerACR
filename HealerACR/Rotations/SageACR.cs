@@ -849,74 +849,187 @@ public class SGE_Rhizomata : ISlotResolver
 }
 
 /// <summary>
-/// 贤者心关目标选择的**五级阶梯**。
+/// 贤者心关目标选择的**完整阶梯**。
 ///
 /// ★ 2026-10-04 新增：原来只取 `主坦()`，为空直接放弃 ⇒ 无 T 场景永远挂不上心关 ✗
-///   阶梯（与对照实现一致）：
-///     ① 有效血量低于 75% 的坦克（最该被照顾的 T）
-///     ② 当前敌人目标正在打的坦克（target-of-target，接怪那一下最准）
-///     ③ 血量最低的坦克
-///     ④ 没有坦克 ⇒ 有效血量低于 50% 的最低的**非坦克**队友
-///     ⑤ 都没有 ⇒ 自己（保证"关心"这条回血机制至少挂在自己身上）
-///   另外：5 秒内刚按过心关就不再换（对齐对照实现的 RecentlyUsed(24285, 5000)）✓
+///
+/// ══════════════════════════════════════════════════════════════════
+///  [!] 按参考实现（`心关.txt` 的 `ResolveKardiaTarget`）逐级对齐：
+///
+///    **坦克池**（`CastableTanks`，全部要过 `CanUseKardiaTarget`）：
+///      每只坦克都读出四个量：`hp`、`HasKardion`（**带出 `fromCurrentSage`**）
+///      ① **低于 75% 的坦克**（阈值 0.75，取最低）→ 最优先
+///      ② **当前敌人目标正在打的那只坦克**（target-of-target）→ 次优先
+///      ③ **没有「我挂的关心」的坦克**里血最低的
+///         ⚠️ 这一级**原来缺失** ✗ —— 它才是"该换人了"的正解
+///      ④ 我自己身上**已经有心关**（`Me.HasAura(2604)`）⇒ **返回 null，别动** ✗
+///         ⚠️ 这一级**原来也缺失** —— 缺了它就会一直重挂自己
+///      ⑤ 血最低的坦克（兜底）
+///
+///    **坦克池为空** ⇒ 非坦克阶梯（`LowestNonTankKardiaTarget`）：
+///      ⑥ 非坦克里**低于 50% 且血最低**的（排除已有「我挂的关心」的）
+///      ⑦ 非坦克里血最低的（❓ 若"我已有心关"则返回 null）
+///      ⑧ 非坦克里血最低的
+///      ⑨ 都没有 ⇒ 自己（但**我已有心关时返回 null**，别重复挂）
+///
+///  [!] 三个结构性差异（表 #112）就是上面 ③ / ⑥ 的"取最低而不是第一个" /
+///      ⑦ 的"已有心关就返回 null"：
+///        · ① 低血池**必须排除已有「我挂的关心」的坦克**（否则它一直霸着这一级）
+///        · ② 缺"**没有关心的坦克优先**"这一级
+///        · ③ 非坦克取"**最低**"而不是"第一个 &lt; 50%"
+///
+///  [!] `Me.HasAura(2604)` 那道收尾闸门（表 #113）：
+///      **自己身上有心关时一律返回 null** —— 心关是"给自己"的 buff，
+///      挂在身上说明这一发已经生效了，再按一次就是空转（而且会顶掉队友的关心）。
+///
+///  [!] 「关心」是挂在**目标**身上的 2605，且带 `SourceId` —— 必须用
+///      `AuraIds.有心关(目标)`（fromMe），不能只查 2605（别人奶妈的关心不算我的）。
+/// ══════════════════════════════════════════════════════════════════
 /// </summary>
 public static class 贤者心关
 {
     private const uint 心关技能 = 24285;
 
+    /// <summary>低血坦克的阈值（参考口径 0.75）</summary>
+    private const float 低血阈值 = 0.75f;
+
+    /// <summary>非坦克的阈值（参考口径 0.50）</summary>
+    private const float 非坦阈值 = 0.50f;
+
     public static IBattleChara? 目标()
     {
         try
         {
+            // 5 秒内刚按过心关就不再换（对齐对照实现的 RecentlyUsed(24285, 5000)）
             if (AEAssist.Helper.SpellExtension.RecentlyUsed(心关技能, 5000)) return null;
 
-            var 坦克池 = PartyHelper.CastableTanks;
+            // 目标选择开始前先看一次"我身上有没有心关"（收尾闸门用）
+            var 我有心关 = AuraIds.我有心关();
+
+            // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+            var 坦克池 = PartyHelper.CastableTanks?
+                .Where(r => r != null && r.对象有效() && r.活着())
+                .ToList();
             if (坦克池 != null && 坦克池.Count > 0)
             {
-                IBattleChara? 低血 = null; var 低血比 = 0.75f;
-                IBattleChara? 最低 = null; var 最低比 = float.MaxValue;
+                IBattleChara? 低血 = null;      var 低血比 = 低血阈值;
+                IBattleChara? 敌人目标 = null;
+                IBattleChara? 无关心 = null;    var 无关心比 = float.MaxValue;
+                IBattleChara? 最低 = null;      var 最低比 = float.MaxValue;
+                var 有人带我的关心 = false;
+
+                // 敌人正在打谁（target-of-target）
+                IBattleChara? 敌人打的人 = null;
+                try { 敌人打的人 = HealTargetHelper.当前目标()?.GetCurrTarget(); } catch { }
 
                 foreach (var t in 坦克池)
                 {
-                    if (t == null || !t.对象有效() || !t.活着()) continue;
+                    if (!可挂心关(t)) continue;
+
                     var 比 = t.有效血量比例();
-                    if (比 < 低血比) { 低血比 = 比; 低血 = t; }
+
+                    if (AuraIds.有心关(t))
+                    {
+                        // 这只坦克身上有**我挂的**关心 ⇒ 不参与"低血/无关心"两级
+                        有人带我的关心 = true;
+                    }
+                    else
+                    {
+                        // ① 低血坦克（排除已有我挂的关心的 —— 表 #112①）
+                        if (比 < 低血比) { 低血比 = 比; 低血 = t; }
+
+                        // ② 敌人当前目标
+                        if (敌人打的人 != null && t.GameObjectId == 敌人打的人.GameObjectId) 敌人目标 = t;
+
+                        // ③ **没有我挂的关心**的坦克里血最低的（表 #112② 新增）
+                        if (比 < 无关心比) { 无关心比 = 比; 无关心 = t; }
+                    }
+
+                    // ⑤ 血最低的坦克（兜底，不看关心）
                     if (比 < 最低比) { 最低比 = 比; 最低 = t; }
                 }
 
+                if (最低 == null) goto 非坦克;   // 坦克池里一个能挂的都没有
+
                 if (低血 != null) return 低血;
+                if (敌人目标 != null) return 敌人目标;
 
-                // ② 当前敌人目标的 target-of-target
-                var 敌人目标 = HealTargetHelper.当前目标()?.GetCurrTarget();
-                if (敌人目标 != null)
+                // ③ 该换人了：有坦克没带我的关心
+                if (有人带我的关心)
                 {
-                    foreach (var t in 坦克池)
-                    {
-                        if (t == null || !t.对象有效()) continue;
-                        if (t.GameObjectId == 敌人目标.GameObjectId && t.活着()) return t;
-                    }
+                    // ④ 我自己已有心关 ⇒ 别动（表 #113 收尾闸门）
+                    if (我有心关) return null;
+
+                    // 有坦克带着我的关心、但都不是它了 ⇒ 换到"没关心"的那只
+                    if (无关心 != null) return 无关心;
                 }
 
-                if (最低 != null) return 最低;
+                if (无关心 != null) return 无关心;
+                return 最低;
             }
 
-            // ④ 没有坦克 ⇒ 最低的非坦克（<50%）
-            foreach (var a in HealTargetHelper.可治疗队友(30f))
+        非坦克:
+            // ⑥⑦⑧ 没有坦克 ⇒ 非坦克阶梯
             {
-                try
+                IBattleChara? 非坦低于半血 = null; var 非坦低血比 = 非坦阈值;
+                IBattleChara? 非坦最低 = null;     var 非坦最低比 = float.MaxValue;
+                var 非坦带我的关心 = false;
+
+                foreach (var a in PartyHelper.CastableAlliesWithin30)
                 {
-                    if (a == null || !a.对象有效() || !a.活着()) continue;
-                    if (a.GameObjectId == (AEAssist.Core.Me?.GameObjectId ?? 0)) continue;
-                    if (a.有效血量比例() <= 0.5f) return a;
+                    if (!可挂心关(a)) continue;
+                    if (a.IsTank()) continue;
+                    if (a.GameObjectId == (AEAssist.Core.Me?.GameObjectId ?? 0)) continue;   // 自己最后单独判
+
+                    var 比 = a.有效血量比例();
+
+                    if (AuraIds.有心关(a))
+                    {
+                        非坦带我的关心 = true;
+                        continue;
+                    }
+
+                    // ⑥ **取最低**（不是"第一个低于 50%"，表 #112③）
+                    if (比 < 非坦低血比) { 非坦低血比 = 比; 非坦低于半血 = a; }
+                    if (比 < 非坦最低比) { 非坦最低比 = 比; 非坦最低 = a; }
                 }
-                catch { }
+
+                if (非坦低于半血 != null) return 非坦低于半血;
+
+                if (非坦带我的关心)
+                {
+                    if (我有心关) return null;
+                    if (非坦最低 != null) return 非坦最低;
+                }
+
+                if (非坦最低 != null) return 非坦最低;
             }
 
-            // ⑤ 自己
+            // ⑨ 都没有 ⇒ 自己（但我已有心关时返回 null，别重复挂）
+            if (我有心关) return null;
+
             var 我 = AEAssist.Core.Me;
             if (我 != null && 我.对象有效() && 我.活着()) return 我;
         }
         catch { }
         return null;
+    }
+
+    /// <summary>
+    /// 这只目标能不能挂心关（参考的 `CanUseKardiaTarget`）：
+    /// 有效 + **不是敌人** + 活着。
+    /// </summary>
+    private static bool 可挂心关(IBattleChara? c)
+    {
+        if (c == null || !c.对象有效()) return false;
+
+        try
+        {
+            if (c.IsEnemy()) return false;
+            if (!c.活着()) return false;
+        }
+        catch { }
+
+        return true;
     }
 }

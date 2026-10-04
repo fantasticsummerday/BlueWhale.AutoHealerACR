@@ -1526,8 +1526,24 @@ public class Res_KardiaBoost : ISlotResolver
 {
 
       /// <summary>
-      /// 拯救的目标：身上有**我挂的**关心(2605)、没有拯救 buff(2610)、
-      /// 有效血量比例不超过本技能登记阈值（0.70）的**最低**者。
+      /// 拯救的目标（按参考的 `ResolvePepsisTarget` 逐条对齐）：
+      ///   ① 30 米内、**能接受治疗**、**能做单体治疗目标**
+      ///   ② 身上有**心关**（2605「关心」）—— 拯救强化的是心关的回血，没心关就无收益
+      ///   ③ 身上**没有**拯救 buff(2610)
+      ///   ④ 有效血量比例 **≤ 0.70**（本技能登记阈值）
+      ///   ⑤ 取其中**最低**的那个
+      ///
+      ///  [!] 修的是表 **#114**："心关在自己身上 ⇒ 拯救永不交"。
+      ///      `心关` 挂在自己身上时，自己身上是 **2604**（不是队友的 2605）；
+      ///      而原来的判据只查 2605 ⇒ 自己永远不合格 ⇒ `拯救目标 == null` ⇒
+      ///      **拯救一次都交不出去** ✗
+      ///
+      ///  [!] 所以这里**把"我自己"也算进候选**（当 2604 在身时）——
+      ///      与参考的 `CastableAlliesWithin30` 行为一致（它只排除敌人，不排除自己）。
+      ///
+      ///  [!] 另一个 bug：原来把"我有这个 buff"写在 `Check()` 里（`-3`）——
+      ///      那是否决**整条** resolver，而不是"换个人"。现在改成**按目标过滤**：
+      ///      已经带着拯救的那个人跳过，别人照样能吃到。
       /// </summary>
       private IBattleChara? 拯救目标
       {
@@ -1538,11 +1554,25 @@ public class Res_KardiaBoost : ISlotResolver
                   var 阈值 = 治疗阈值表.取(技能, 0.70f);
                   IBattleChara? 最好 = null; var 最低 = float.MaxValue;
 
+                  // ① 自己：只有"心关在自己身上"（2604）时才参与
+                  if (AuraIds.我有心关())
+                  {
+                      var 我 = Core.Me;
+                      if (我 != null && 我.对象有效() && 我.活着() && 我.可以治()
+                          && !(我.HasAura(2610)))
+                      {
+                          var 比0 = 我.有效血量比例();
+                          if (比0 <= 阈值) { 最低 = 比0; 最好 = 我; }
+                      }
+                  }
+
+                  // ①②③④ 队友
                   foreach (var a in HealTargetHelper.可治疗队友(30f))
                   {
                       if (a == null || !a.对象有效() || !a.活着()) continue;
-                      if (!AuraIds.有心关(a)) continue;
-                      if (a.HasAura(2610)) continue;
+                      if (!a.可以治()) continue;
+                      if (!AuraIds.有心关(a)) continue;      // 2605：只认我挂的那一份
+                      if (a.HasAura(2610)) continue;         // 已有拯救 ⇒ 换别人
 
                       var 比 = a.有效血量比例();
                       if (比 > 阈值) continue;
@@ -1564,13 +1594,18 @@ public class Res_KardiaBoost : ISlotResolver
     {
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
+        if (!HealQt.GetQt("单奶")) return -101;   // ★ 参考查「奶人 + 单奶」两个 QT
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
-        if (CharacterExt.我有该技能的Buff(技能)) return -3;
+
+        // ★ 能力技队列深度闸门（参考用 `CanUseOffGcd(2)`）
+        if (!OffGcd闸门.可以排(2)) return -4;
 
         // 有人明显掉血的时候开
         // ★ 2026-10-04：**必须选区** —— 拯救的收益全在「关心真的在回血」上 ✗
         //   原来无目标施放 + 只看「全局有人低于阈值」⇒ 关心在自己身上时完全无收益 ✗
+        //   ⚠️ 原来这里还有一条 `我有该技能的Buff → -3`，那是**否决整条** ✗
+        //      已挪进 `拯救目标` 的按目标过滤（见那里的注释）。
         if (拯救目标 == null) return -1;
 
         return SpellUtil.可用(技能) ? 7 : -1;
