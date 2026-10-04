@@ -1551,18 +1551,9 @@ public class AST_Divination : ISlotResolver
 
         // ⚠️ 占卜在 92 级后会变成"神谕"（37029）—— 同一个技能位的形态，
         //    和 闪灼→闪飒、星极→灵极 是一回事。
-        //    硬放 16552 会被游戏拒绝，所以一律走当前形态。
-        var 当前 = SpellUtil.当前形态(技能);
-        if (当前 == null || !当前.IsReadyWithCanCast())
-        {
-            // 兜底：万一 CheckActionChange 不认这个替换，就直接看"神谕"能不能用
-            var 神谕 = SpellIds.取("神谕");
-            if (神谕 == 0) return -1;
-
-            var s = SpellUtil.Get(神谕);
-            if (s == null || !s.IsReadyWithCanCast()) return -1;
-            当前 = s;
-        }
+        //    硬放 16552 会被游戏拒绝，所以一律走当前形态（含神谕兜底）。
+        var 当前 = 占卜可用形态();
+        if (当前 == null) return -1;
 
         if (!HealTargetHelper.木桩模式)
         {
@@ -1604,8 +1595,28 @@ public class AST_Divination : ISlotResolver
     /// <summary>占卜不再需要反查抽卡（表外审计 A2 已移除那段）。</summary>
     public void Build(Slot slot)
     {
-        var spell = SpellUtil.当前形态(技能);
+        var spell = 占卜可用形态();
         if (spell != null) slot.Add(spell);
+    }
+
+    /// <summary>
+    /// 占卜的「可放形态」—— Check / Build 共用（表外审计 A7）。
+    ///
+    /// [!] 92 级后占卜自动变神谕(37029)，正常 `当前形态(占卜)` 已返回 37029；
+    ///     但万一 CheckActionChange 不认这个替换（返回 null/不可放的 16552），
+    ///     直接看神谕(37029) 能不能放。Check 和 Build 必须走**同一条**来源，
+    ///     否则会出现「Check 说放、Build 却不落技能」的判A放B。
+    /// </summary>
+    private static Spell? 占卜可用形态()
+    {
+        var 当前 = SpellUtil.当前形态(技能);
+        if (当前 != null && 当前.IsReadyWithCanCast()) return 当前;
+
+        var 神谕 = SpellIds.取("神谕");
+        if (神谕 == 0) return null;
+
+        var s = SpellUtil.Get(神谕);
+        return (s != null && s.IsReadyWithCanCast()) ? s : null;
     }
 }
 
