@@ -64,6 +64,40 @@ public class Res_TeamMitigation : ISlotResolver
     public static void 重置团减锁()
     {
         _团减锁到 = 0;
+        _白魔群减互斥到 = 0;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ **白魔 节制 / 全大赦 互斥锁**（表外审计 W3）★
+    //
+    //  [!] 参考 `WhiteMageTools.txt:573-587`：
+    //       `CanUseGroupMitigation() / MarkGroupMitigation()` 用一条 5500ms 的
+    //       内置冷却（key = "白魔_群减互斥_节制全大赦"）把「节制」和「全大赦」
+    //       绑在**同一条**互斥上 —— 交完其中一个，另一个 5.5 秒内都不许交。
+    //
+    //  [!] 为什么需要：两者都是白魔的大 CD 团队资源（一个减伤、一个群疗强化），
+    //       同一场 AOE 里连着倒两张等于把整段团队窗口一次性烧光。
+    //       boss 读条预读窗口 5~10 秒内会**持续成立**，没有这把锁两发都会被点。
+    //
+    //  [!] 注意：这是**白魔专属**（key 里写死了"白魔"），别职业的团减/
+    //       群疗各有各的节流，不要复用这把锁。
+    // ══════════════════════════════════════════════════════════════════
+    private const int 群减互斥毫秒 = 5500;
+
+    private static long _白魔群减互斥到;
+
+    /// <summary>白魔 节制/全大赦 的 5.5 秒互斥是否还在</summary>
+    public static bool 白魔群减互斥中()
+    {
+        try { return Environment.TickCount64 < _白魔群减互斥到; }
+        catch { return false; }
+    }
+
+    /// <summary>记一次白魔群减（节制/全大赦），锁 5.5 秒</summary>
+    public static void 记白魔群减互斥()
+    {
+        try { _白魔群减互斥到 = Environment.TickCount64 + 群减互斥毫秒; }
+        catch { }
     }
 
     /// <summary>本帧要交的团减编排（Check 算好、Build 照放 —— 开发约定 F③）</summary>
@@ -184,6 +218,9 @@ if (团减快照.已有减伤()) return -1;
         //   [!] `bossAoE要求` 在 AOE 真正落地前会**持续成立**（预读窗口 10 秒），
         //       没有这把锁时同一场 AOE 会被铺两层，第二层完全浪费。
         if (团减锁中()) return -1;
+
+        // ★ 表外审计 W3：白魔 节制/全大赦 5.5 秒互斥（参考 `节制.txt:37` 的 CanUseGroupMitigation）
+        if (_t.Job == Jobs.WhiteMage && 白魔群减互斥中()) return -5;
 
         // ★ oGCD 队列深度闸门（参考口径 CanUseOffGcd(2) —— 贤者的自动减伤）
         if (!OffGcd闸门.可以排(2)) return -4;
@@ -461,6 +498,10 @@ if (团减快照.已有减伤()) return -1;
 
     public void Build(Slot slot)
     {
+        // ★ 表外审计 W3：白魔 节制 交出去就记互斥锁（参考 `节制.txt:142` 的 MarkGroupMitigation；
+        //   Build 被调到 = Check 已放行，这里无条件记，和"判 A 放 A"同源）
+        if (_t.Job == Jobs.WhiteMage) 记白魔群减互斥();
+
         // ★ **团减编排分支**（表 #121）—— Check 算好的编排在这里照放 ★
         //   [!] 判 A 放 A（开发约定 F③）：组合 / 群盾兜底都在 Check 里选定，
         //       Build 只负责把 `_本帧编排` 里那几个按顺序塞进去。

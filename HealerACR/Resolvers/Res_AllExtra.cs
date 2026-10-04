@@ -854,6 +854,9 @@ public class Res_BigAoEHeal : ISlotResolver
             // ★ 职业级 QT（表 #66）—— 参考给大宇宙单开了一个开关
             if (id == SpellIds.取("大宇宙") && !HealQt.GetQt("大宇宙", true)) continue;
 
+            // ★ 表外审计 W3：全大赦 与 节制 共享 5.5 秒互斥（参考 `全大赦.txt:40` 的 CanUseGroupMitigation）
+            if (id == SpellIds.取("全大赦") && Res_TeamMitigation.白魔群减互斥中()) continue;
+
             // ══════════════════════════════════════════════════════════
             //  ★ 贤者 魂灵风息：**直线输出用法**（表 #107）★
             //
@@ -965,6 +968,9 @@ public class Res_BigAoEHeal : ISlotResolver
 
             var spell = SpellUtil.当前形态(id);
             if (spell == null) continue;
+
+            // ★ 表外审计 W3：全大赦交出去就记互斥锁（参考 `全大赦.txt:87` 的 MarkGroupMitigation）
+            if (id == SpellIds.取("全大赦")) Res_TeamMitigation.记白魔群减互斥();
 
             // ★ 直线落点分支（魂灵风息）：把 Check 选中的那个落点交给它
             if (本帧用落点 && 本帧落点 != null && 本帧落点.对象有效())

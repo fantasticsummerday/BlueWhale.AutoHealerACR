@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>HealerACR</AssemblyName>
     <RootNamespace>HealerACR</RootNamespace>
-    <Version>0.7.6.4</Version>
+    <Version>0.7.6.5</Version>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <!-- 这个包里的 dll 由 AEAssist 主程序在运行时提供，不复制 -->

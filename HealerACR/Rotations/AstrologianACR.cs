@@ -1589,6 +1589,15 @@ public class AST_Divination : ISlotResolver
             // ══════════════════════════════════════════════════════════════
         }
 
+        // ★ 表外审计（参考 `占卜.txt:68-77`）：开场 5 秒内不放占卜 ——
+        //    `CurrBattleTimeInMs > 5000` 才放（否则 return -9）。
+        //    进本就绪没错，但留 5 秒让开场的前置动作（抽卡/地星落地）先走完。
+        try
+        {
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) <= 5000) return -9;
+        }
+        catch { }
+
         return 2;
     }
 
