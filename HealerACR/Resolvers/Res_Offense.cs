@@ -15,18 +15,47 @@ public class Res_OffensiveAbility : ISlotResolver
 {
     private readonly JobSpellTable _t;
 
+    /// <summary>
+    /// Check 里选好的目标，给 Build 用（表 #52：判 A 放 A）。
+    ///
+    /// [!] 原来 Check 判的是 `HealTargetHelper.当前目标()`、
+    ///     Build 又去重新取一次 —— 两处**可能取到不同的东西**
+    ///     （同一帧里目标可能被切走）。现在只选一次。
+    /// </summary>
+    private static IBattleChara? 本帧目标;
+
     public Res_OffensiveAbility(JobSpellTable table) => _t = table;
 
     public int Check()
     {
         if (!HealQt.GetQt("输出")) return -100;
         if (_t.输出能力技.Length == 0) return -102;
-        if (HealTargetHelper.当前目标() == null) return -1;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ **和 DoT / AOE / 基础输出用同一个选目标器**（表 #52）★
+        //
+        //  [!] 原来这里用 `HealTargetHelper.当前目标()` ——
+        //      它是"游戏里当前选中的那个"，**不带任何筛选**；
+        //      而 `Res_Dot` / `Res_AoEDamage` / `Res_BaseDamage`
+        //      全都走 `输出目标.选()`（带攻击无效过滤 + 距离 + 落点评分）。
+        //
+        //  [!] 后果（学者最明显 —— 只有它配了输出能力技「能量吸收」）：
+        //        **同一帧里 DoT 打 A、能量吸收打 B** ——
+        //        两个"同一套输出循环"的动作分成两半，
+        //        而且如果 B 是打不动的目标，能量吸收直接浪费。
+        //
+        //  [!] 修法：统一走 `输出目标.选()`（F③：同一个决策全项目一份判据），
+        //      Check 判谁、Build 就放谁（目标存进字段，见 `本帧目标`）。
+        // ══════════════════════════════════════════════════════════════
+        var 目标 = 输出目标.选();
+        if (目标 == null || !目标.对象有效()) return -1;
+
+        本帧目标 = 目标;
 
         // 视线被挡就别交 —— 输出能力技是对敌人的，打不出去等于白按
         // （诊断日志里"所有条件都 True 但技能不放"的成因之一就是这个）
         // [!] 传**这个技能自己的**有效射程 —— 自身中心 AOE 按 25 米判会误放
-        if (!技能数据.打得到(HealTargetHelper.当前目标(), 技能数据.取有效射程(_t.输出能力技[0]))) return -6;
+        if (!技能数据.打得到(目标, 技能数据.取有效射程(_t.输出能力技[0]))) return -6;
 
         // 残血小怪不交（木桩模式例外）——
         // 和 Res_Dot / Res_BaseDamage / 苦难之心 保持同一套判断。
@@ -134,7 +163,10 @@ public class Res_OffensiveAbility : ISlotResolver
         //    但 CastSpell 里永远看不到它（日志诊断证明七个条件全 True）。
         //
         //    这正是官方错题集第 3 条「技能目标错误」的变种。
-        var 目标 = HealTargetHelper.当前目标();
+        //
+        // ★ 目标用 Check 选好的那一个（表 #52：和 DoT / AOE 同源，判 A 放 A）
+        var 目标 = 本帧目标;
+        if (目标 == null || !目标.对象有效()) return;
 
         foreach (var id in _t.输出能力技)
         {
@@ -142,11 +174,7 @@ public class Res_OffensiveAbility : ISlotResolver
             if (!SpellUtil.已解锁(id)) continue;
             if (!SpellUtil.可用(id)) continue;
 
-            // 输出能力技**必须有目标**：传 SpellTargetType.Self 会打不出去，
-            // 传 null 底层会拒绝。所以没目标就直接不放。
-            if (目标 == null) return;
-
-            // 明确打当前目标（能力技不等服务器回包）
+            // 明确打同一个目标（能力技不等服务器回包）
             slot.Add(CharacterExt.能力技(id, 目标));
 
             return;
