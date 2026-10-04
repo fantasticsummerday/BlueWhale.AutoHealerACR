@@ -851,6 +851,9 @@ public class Res_BigAoEHeal : ISlotResolver
         {
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
 
+            // ★ 职业级 QT（表 #66）—— 参考给大宇宙单开了一个开关
+            if (id == SpellIds.取("大宇宙") && !HealQt.GetQt("大宇宙", true)) continue;
+
             // ══════════════════════════════════════════════════════════
             //  ★ 贤者 魂灵风息：**直线输出用法**（表 #107）★
             //

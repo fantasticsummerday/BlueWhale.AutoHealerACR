@@ -119,6 +119,8 @@ public class AST_Horoscope : ISlotResolver
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群奶")) return -101;
+        // ★ 职业级 QT（表 #66）—— 参考给天宫图单开了一个开关
+        if (!HealQt.GetQt("天宫图", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // ⚠️ 脱战不放：没接怪就没有"即将到来的伤害"可言，

@@ -1552,6 +1552,8 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.Checkbox("同一张卡不叠发", ref s.卡牌去重);
             ImGui.Checkbox("占卜等抽卡", ref s.占卜对齐抽卡);
             ImGui.SliderInt("保留先天数量", ref s.保留先天数量, 0, 3);
+            ImGui.Checkbox("地星优先场中", ref s.地星优先场中);
+            ImGui.Checkbox("地星优先目标脚下", ref s.地星优先目标位置);
             ImGui.Separator();
             ImGui.TextDisabled("起手（打 /countdown 时）");
             ImGui.SliderInt("预读时间", ref s.预读时间, 500, 5000);
