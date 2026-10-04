@@ -911,6 +911,7 @@ public class SCHSpellTable : JobSpellTable
             new SlotResolverData(new SCH_WhisperingDawn(), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Aetherpact(), SlotMode.OffGcd),
+            new SlotResolverData(new SCH_DissolveUnion(), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Seraph(), SlotMode.OffGcd),
             // ══════════════════════════════════════════════════════════════════
             //  ★★★ **这里原来还有 `SCH_SummonFairy` —— 已删除（崩溃修复）** ★★★
@@ -1064,11 +1065,11 @@ public class SCH_FeyBlessing : ISlotResolver
 ///      ==> 配合 ①`Effect ends upon reuse` ==> **按第二下就解除** ==> 反复挂/反复断。
 ///      （`AuraIds` 现在补了 `以太契约 => 1223`，那个守卫才真正开始工作。）
 ///
-///  [!] 所以本类**绝不主动解除**（用户明确要求"不需要解除"）：
-///      能量耗尽、目标超 30 米、用了别的仙女技能 —— 这三种由**游戏自己**断，
-///      我们只管"断了就重挂"，**不主动去断**。
-///      （参考实现里唯一解除它的是 `Scholar_DissolveUnion`，判据是 HP>99%，
-///        而 shiyuvi 那条路的解除常量是 0.95 —— 我们不需要，因为我们要的是"一直挂着"。）
+///  [!] 主动解除交给 `SCH_DissolveUnion`（用户拍板「复刻 shiyuvi」）：
+///      连线目标血满（HP > 99%）时放 7869 解除，节能省以太。
+///      本类只管"掉了血就挂"；能量耗尽、目标超 30 米、用了别的仙女技能
+///      —— 三种由**游戏自己**断，我们只在"断了就重挂"。
+///      （shiyuvi `Scholar_DissolveUnion` 判据就一条：目标 HP% > 0.99 且 1223 连线在。）
 /// ══════════════════════════════════════════════════════════════════
 /// </summary>
 public class SCH_Aetherpact : ISlotResolver
@@ -1093,43 +1094,15 @@ public class SCH_Aetherpact : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.妖精能量 < 20) return -3;
 
-        var tank = HealTargetHelper.主坦();
-        if (tank == null) return -1;
+        // shiyuvi `Scholar_Aetherpact`：目标 = 30 米内血最少（含盾）且低于「妖精契约血线」的队友，
+        // 不是固定主坦。`最低血量队友(阈值)` 已按 `有效血量比例() <= 阈值` 筛过（含盾，同 shiyuvi 口径）。
+        var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.妖精契约血线, 30f);
+        if (目标 == null) return -1;
 
-        // ══════════════════════════════════════════════════════════════
-        //  ★★ 接线：`妖精契约血线` —— 这个设置**原来没有任何 resolver 在读** ★★
-        //
-        //  [!] 发现经过：对照参考实现时发现我们有个"死设置"。
-        //      `HealSettings.妖精契约血线_基础`（默认 0.80）在设置页有滑条、
-        //      在 `AiThresholdAdapter` 里也能被 AI 调 ——
-        //      但**全仓库没有一处代码读它**（我逐处搜过）。
-        //      ==> 结果是"连线**无条件**挂在主坦身上"，血线完全不起作用。
-        //
-        //  [!] 参考实现的对应阈值（IL 实证，两者差 5 个点）：
-        //        shiyuvi `ScholarSettings::Aetherpact = 0.6f`
-        //                （`Scholar_Aetherpact` 的条件：`hp + shield/100 <= 0.6`）
-        //        youshu  `ScholarSettingsData::链子阈值 = 55`（整数=55%）
-        //      ==> 都是 **0.55~0.60**，而我们的默认是 **0.80**（高得多）。
-        //          我没有擅自改默认值（那是设置项，应该由你决定）——
-        //          只是**把它接上**，让它真的生效。
-        //          如果你要跟参考实现对齐，把滑条调到 0.55~0.60。
-        //
-        //  [!] 判据用 `有效血量比例()`（含盾）而不是 `血量比例()`：
-        //      参考实现是 `CurrentHpPercent + ShieldPercentage/100 <= 阈值`，
-        //      同一个口径（我们的 `有效血量比例()` 就是这个和）。
-        // ══════════════════════════════════════════════════════════════
-        try
-        {
-            var 血线 = HealSettings.Instance.妖精契约血线;
-            if (血线 > 0f && tank.有效血量比例() > 血线) return -7;
-        }
-        catch { }
-
-        // ── ① 已经在挂 -> 绝对不碰（避免 `Effect ends upon reuse` 把它解除）──
-        //   [!] 双重判据：目标身上的连线 + **小仙女身上的 union 状态**。
-        //       单查目标有可能因为 buff 读取延迟而漏，查两处更稳。
-        try { if (tank.HasAura(AuraIds.以太契约)) return -4; } catch { }
-        try { if (CharacterExt.我有光环(AuraIds.以太契约)) return -4; } catch { }
+        // ── ① 已经在挂（任意队友身上有 1223 连线）-> 绝对不碰 ──
+        //   [!] shiyuvi 遍历 CastableAlliesWithin30 查**任意**队友是否有 1223；
+        //       只查"最低血那个"会漏（连线在别人身上时，再按 7437 = Effect ends upon reuse = 断链）。
+        try { if (HealTargetHelper.可治疗队友(30f).Any(r => r.HasAura(AuraIds.以太契约))) return -4; } catch { }
 
         // ── ② 刚按过 -> 静默（防 buff 读取延迟/失败时反复按）──
         try
@@ -1154,13 +1127,45 @@ public class SCH_Aetherpact : ISlotResolver
     {
         // ⚠️ 必须和 Check 用**同一个判据**（审计发现过 Check 用设置值、Build 写死 0.8f
         //    导致"Check 通过但 slot 是空的"⇒ 技能静默不放）。
-        var tank = HealTargetHelper.主坦();
-        if (tank == null) return;
-        // 再确认一次没在挂 —— Check 和 Build 之间隔了一小段，且这个技能"重复按 = 解除"
-        try { if (tank.HasAura(AuraIds.以太契约)) return; } catch { }
+        var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.妖精契约血线, 30f);
+        if (目标 == null) return;
+        // 再确认一次没在挂（任意队友）—— Check 和 Build 之间隔了一小段，且"重复按 = 解除"
+        try { if (HealTargetHelper.可治疗队友(30f).Any(r => r.HasAura(AuraIds.以太契约))) return; } catch { }
 
-        slot.Add(new Spell(技能, tank));
+        slot.Add(new Spell(技能, 目标));
         try { _上次按下 = TimeHelper.Now(); } catch { }
+    }
+}
+
+/// <summary>
+/// 解除以太契约（复刻 shiyuvi `Scholar_DissolveUnion`）：
+/// 连线目标血满（HP &gt; 99%）时主动断链，省以太（Fey Union 是持续烧能量的）。
+/// 断链技能 7869 只在连线激活时才会亮，`可用(7869)` 天然就是「确实在连线」的守卫。
+/// </summary>
+public class SCH_DissolveUnion : ISlotResolver
+{
+    private static uint 技能 => SpellIds.取("融光解除");   // 7869
+
+    public int Check()
+    {
+        if (HealTargetHelper.木桩模式) return -300;
+        if (!HealQt.GetQt("自动断链")) return -100;
+
+        // 有「挂着连线(1223)且血已满(>99%)」的队友才值得断
+        try
+        {
+            var 队友 = HealTargetHelper.可治疗队友(30f)
+                .FirstOrDefault(r => r.HasAura(AuraIds.以太契约) && r.血量比例() > 0.99f);
+            if (队友 == null) return -1;
+        }
+        catch { return -1; }
+
+        return SpellUtil.可用(技能) ? 1 : -1;
+    }
+
+    public void Build(Slot slot)
+    {
+        slot.Add(CharacterExt.能力技(技能));   // 无目标技能 —— 断掉当前连线
     }
 }
 
