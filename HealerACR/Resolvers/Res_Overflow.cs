@@ -42,6 +42,12 @@ public class SGE_CholeOverflow : ISlotResolver
         // ★ 单奶开关也要尊重（参考的 `自动单奶` 在「奶人 + 单奶」之下）★
         if (!HealQt.GetQt("单奶")) return -101;
 
+        // ★ **蛇胆互斥**（表 #118 / #119）：两次蛇胆消费至少隔 2000ms ★
+        //   灵橡和 输血 / 白牛清汁 吃**同一池蛇胆** ——
+        //   不带这条时，"刚交过输血 → 这一帧又交灵橡"会连着倒两颗，
+        //   第二发常常打在刚被奶满的人身上。
+        if (!蛇胆节流.可以花()) return -3;
+
         // 必须有人真的低于灵橡阈值才花（否则宁可留着豆子）
         // 灵橡阈值 0.50（对照实现的 `灵橡阈值` 默认 50）✓
         if (HealTargetHelper.低于阈值人数(灵橡线) == 0) return -1;
@@ -87,5 +93,8 @@ public class SGE_CholeOverflow : ISlotResolver
         var spell = SpellUtil.Get(技能);
         if (spell == null) return;
         slot.Add(new Spell(spell.Id, 目标));
+
+        // ★ 花掉一颗蛇胆 ⇒ 记账（和另外两个消费点共用同一条节流）
+        蛇胆节流.记一次消费();
     }
 }

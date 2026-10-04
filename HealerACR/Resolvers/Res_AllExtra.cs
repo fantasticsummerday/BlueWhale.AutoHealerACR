@@ -1176,6 +1176,71 @@ public class Res_InstantHealAbility : ISlotResolver
 {
     private readonly JobSpellTable _t;
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ **蛇胆消费的节流**（表 #118 / #119）★
+    //
+    //  [!] 贤者的 输血 / 白牛清汁 / 灵橡清汁 都吃**同一池蛇胆**（上限 3 颗）。
+    //      没有互斥时，血崩那一瞬间三条路会在**几帧之内**连着交出去：
+    //        输血 → 白牛清汁 → 灵橡清汁
+    //      后两发常常打在**刚被第一发奶满的人**身上（第二发几乎全过量）✗
+    //
+    //  [!] 参考实现的做法（IL 直读 `自动单奶.SelectAction`）：
+    //      消费顺序固定 **输血 → 白牛清汁 → 灵橡清汁**，
+    //      并且带一个「**最近用过就不重复**」的窗口 —— **2000ms**。
+    //
+    //  [!] 本 resolver 覆盖了 `预铺单奶能力技`（白牛）与 `瞬发单奶能力技`（输血/白牛/灵橡）
+    //      两个槽位，也就是**除灵橡溢出通道之外的全部蛇胆消费点**。
+    //      溢出通道（`SGE_CholeOverflow`）单独判同一条节流。
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// **这个技能吃不吃蛇胆**，以及"现在能不能吃"。
+    ///
+    /// [!] 吃蛇胆的只有贤者那三个：输血 24305 / 白牛清汁 24303 / 灵橡清汁 24296。
+    ///     其余职业的同名槽位（学者 活性法 / 白魔 神名…）**不吃蛇胆**，恒放行。
+    ///
+    /// [!] 两条判据：
+    ///      ① 蛇胆 &gt; 0（没豆子就放不出去 —— 挡的是"空按"）
+    ///      ② `蛇胆节流.可以花()`（两次消费至少隔 2000ms —— 参考的时间窗）
+    /// </summary>
+    private static bool 蛇胆类可用(uint 技能Id)
+    {
+        try
+        {
+            if (!是蛇胆消费技(技能Id)) return true;   // 不吃蛇胆 ⇒ 不受这两条约束
+            if (JobApiHelper.蛇胆 <= 0) return false;
+            return 蛇胆节流.可以花();
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>这个技能是不是"花一颗蛇胆"的（输血 / 白牛清汁 / 灵橡清汁）</summary>
+    private static bool 是蛇胆消费技(uint 技能Id)
+    {
+        if (技能Id == 0) return false;
+
+        foreach (var id in new[]
+                 {
+                     SpellIds.取("输血"),
+                     SpellIds.取("白牛清汁"),
+                     SpellIds.取("灵橡清汁"),
+                 })
+        {
+            if (id != 0 && id == 技能Id) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>花掉之后记账（`Build` 里调）</summary>
+    private static void 记蛇胆消费(uint 技能Id)
+    {
+        if (是蛇胆消费技(技能Id)) 蛇胆节流.记一次消费();
+    }
+
     public Res_InstantHealAbility(JobSpellTable t) => _t = t;
 
     /// <summary>
@@ -1254,7 +1319,10 @@ public class Res_InstantHealAbility : ISlotResolver
             // ⚠️ 有人濒危时让路给急救（`Res_HealEmergency` 排在 OffGcd 趟，
             //    这里只保证不跟"必须奶满/急救"抢目标）
             if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
+            {
+                if (!蛇胆类可用(预铺)) return -3;
                 return 26;
+            }
         }
 
         // ── ② 瞬发类 ──
@@ -1271,6 +1339,11 @@ public class Res_InstantHealAbility : ISlotResolver
         var 瞬发 = _t.瞬发单奶能力技;
         if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
         {
+            // ★ **蛇胆互斥**（表 #118 / #119）：两次蛇胆消费至少隔 2000ms ——
+            //   不带这条时，血崩瞬间 输血 → 白牛 → 灵橡 会在几帧内连着倒出去，
+            //   后两发常常打在**刚被第一发奶满的人**身上（几乎全过量）。
+            if (!蛇胆类可用(瞬发)) return -3;
+
             // ★ 血线改成**按技能查**（`治疗阈值表`），查不到才回落到职业表的 `瞬发单奶血线` ★
             //   [!] 参考实现的阈值是**每技能一个**（IL 实证）：
             //         shiyuvi Lustrate 0.45 / Adloquium 0.4 / FeyBlessing 0.6 …
@@ -1402,7 +1475,7 @@ public class Res_InstantHealAbility : ISlotResolver
                 if (目标 != null)
                 {
                     var s = SpellUtil.当前形态(预铺);
-                    if (s != null) { slot.Add(new Spell(s.Id, 目标)); return; }
+                    if (s != null) { slot.Add(new Spell(s.Id, 目标)); 记蛇胆消费(预铺); return; }
                 }
             }
         }
@@ -1441,6 +1514,7 @@ public class Res_InstantHealAbility : ISlotResolver
                     {
                         slot.Add(new Spell(s.Id, 目标));
                         if (是先天禀赋(瞬发)) 记先天((uint)目标.GameObjectId);
+                        记蛇胆消费(瞬发);
 
                         // ★ 按目标记账（和 Check 同源）
                         try { 本地施放记录.记目标(瞬发, (uint)目标.GameObjectId); } catch { }
