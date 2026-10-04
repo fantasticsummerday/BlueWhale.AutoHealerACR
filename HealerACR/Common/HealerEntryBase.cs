@@ -305,6 +305,7 @@ public abstract class HealerEntryBase : IRotationEntry
         加开关("醒梦", s.醒梦);
         加开关("输出", s.输出);
         加开关("AOE", s.AOE);
+        加开关("法令", true);   // 白魔法令：卡 CD 的 AOE 输出（对齐 youshu「法令」QT）
         加开关("DOT", s.挂Dot);
         加开关("减伤", true);
         加开关("群盾", true);   // ★ 2026-10-04：对照实现默认开；我们原来 false ⇒ 均衡预后群盾与泛输血永不触发 ✗

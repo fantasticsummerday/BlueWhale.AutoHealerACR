@@ -26,8 +26,8 @@ public class Res_Raise : ISlotResolver
         // 没学会（低等级）
         if (!SpellUtil.已解锁(_t.复活)) return -2;
 
-        // 没蓝拉不动
-        if (CharacterExt.我的当前蓝量() < 2400) return -8;
+        // 没蓝拉不动；但白魔挂有无中生有 buff（下一发免蓝）时可以拉
+        if (CharacterExt.我的当前蓝量() < 2400 && !CharacterExt.我有光环(AuraIds.无中生有)) return -8;
 
         var target = HealTargetHelper.待复活队友();
         if (target == null) return -1;

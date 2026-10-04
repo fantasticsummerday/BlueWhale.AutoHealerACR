@@ -517,59 +517,28 @@ public class WHMSpellTable : JobSpellTable
             //   详见 Res_InstantHealAbility 的类注释。
             new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **减伤/盾整组「在前」**（用户拍板 —— 对齐 youshu 槽位 5~9）★★
+            //
+            //  [!] 参考 `白魔技能策略`：节制(5)·神爱抚(6)·全大赦(7)·庇护所(8)·水流幕(9)
+            //      排在所有 GCD 治疗（10~18：狂喜/医养/医治/安慰/再生/救疗/愈疗）**之前**。
+            //      ⇒ 减伤/盾要先「预铺」（伤害落地前交），治疗等掉了血再补。
+            //
+            //  [!] 急救 / 必须奶满 / 复活 仍在最前（那些是救命，减伤不该抢）。
+            //  [!] `Res_HealShield` 读 `_t.单体盾` + `_t.护盾前置`（通用），
+            //      白魔没有护盾前置时那一段自动跳过 ✓
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),
+
+            // ── GCD 治疗（减伤/盾之后）──
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 再生
             new SlotResolverData(new WHM_AfflatusRapture(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_AfflatusSolace(_spells), SlotMode.Gcd),
 
             // ══════════════════════════════════════════════════════════════
-            //  ★★ **白魔的「预铺单体盾」通路**（表外审计 P1-1 —— 整条缺失）★★
-            //
-            //  [!] 现象：`WhiteMageACR.单体盾 => 神祝祷` 这个登记
-            //      **全项目零消费者** ✗ —— 四奶里只有白魔的队列没有 `Res_HealShield`
-            //      （贤者 `SageACR`、学者 `ScholarACR`、幻术师 `ConjurerACR` 都有）。
-            //      后果：
-            //        · 神祝祷**永远不会被预铺**（它只在 `个人减伤` 那条路上出现，
-            //          而那条是"给自己、血少/时间轴"的语义，不是"给坦克预铺"）
-            //        · `治疗阈值表` 登记的「神祝祷 0.70」成了死登记
-            //        · 表 #65 修的「水流幕坦克/非坦双档」是另一条路（`Res_SingleMitigation`），
-            //          和这一条不是一回事
-            //
-            //  [!] 参考位置：`白魔技能策略` **slot 21**（神祝祷），
-            //      在 天赐/神名（slot 19/20 一类的能力技）之后、醒梦之前。
-            //      我们这里对应"治疗能力技之后"（`Res_InstantHealAbility` 是 9 位），
-            //      所以放在这条治疗 GCD 段末尾、减伤整组之前。
-            //
-            //  [!] `Res_HealShield` 是**通用的**（读 `_t.单体盾` + `_t.护盾前置`）——
-            //      贤者"均衡 → 均衡诊断"和学者"鼓舞激励之策"走的就是这条路，
-            //      白魔没有护盾前置（`_t.护盾前置 == 0`）时那一段自动跳过 ✓
-            // ══════════════════════════════════════════════════════════════
-            new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
-
-            // ══════════════════════════════════════════════════════════════
-            //  ★★ **减伤整组提前**（表 #94）★★
-            //
-            //  [!] 参考实现的槽序（`占星技能策略` IL 直读）：**治疗 1~4 位铺完，
-            //      紧接着就是减伤整组 5~8 位，然后才是所有输出（20 位以后）**。
-            //      而我们把减伤放在**输出之后**（原 26/27/36 位）——
-            //      ⇒ 输出 GCD 长期抢占减伤窗口：等轮到减伤时，
-            //        boss 那一发**已经落地了** ✗
-            //
-            //  [!] 位置：**所有治疗之后、所有输出之前**。
-            //      · 放治疗之后 —— 减伤再急也不该抢 `必须奶满` / 急救 / 复活
-            //      · 放输出之前 —— 这才是这一条的目的
-            //
-            //  [!] 为什么搬位置是安全的：每条 resolver 的 `Check()` 自带完整守卫
-            //      （移动中 / 资源 / 血线 / 时间轴 / 敌人数量 / `团减快照`）；
-            //      返回值不参与仲裁，**只有行号算优先级**（反汇编已证）。
-            //      贤者那一路已由 #110 按同一口径搬过，行为符合预期。
-            //
-            //  [!] 一并搬过来的还有 `Res_SingleMitigation`（单盾类）——
-            //      它是"给某个人交减伤"，和团减同族，分开摆会互相抢窗口。
-            // ══════════════════════════════════════════════════════════════
-            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),
-                        // ══════════════════════════════════════════════════════════════
             //  ★ 移动中开即刻咏唱 ★
             //
             //  [!] 为什么需要（用户实测："全程移动 ai 不奶了"）：

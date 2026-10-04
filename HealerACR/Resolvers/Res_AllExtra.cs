@@ -1151,8 +1151,9 @@ public class Res_FreeCast : ISlotResolver
         if (Environment.TickCount64 - 上次开 < 4000) return -7;
         if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
-        // 有人需要治疗时才开（不然白开）
-        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.单体治疗阈值) == 0) return -1;
+        // 有人需要治疗时才开（不然白开）；或蓝不够但有队友躺了（下一发复活免蓝）也开
+        var 复活等蓝 = CharacterExt.我的当前蓝量() < 2400 && HealTargetHelper.待复活队友() != null;
+        if (HealTargetHelper.低于阈值人数(HealSettings.Instance.单体治疗阈值) == 0 && !复活等蓝) return -1;
 
         return SpellUtil.可用(技能) ? 6 : -1;
     }
