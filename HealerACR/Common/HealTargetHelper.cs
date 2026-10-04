@@ -478,6 +478,61 @@ public static class HealTargetHelper
         return 可治疗队友(半径).Count(r => r.有效血量比例() <= 阈值);
     }
 
+    /// <summary>
+    /// 小仙女（学者召唤物）的当前位置 —— 给祥光/低语/慰藉那三个「以召唤物为圆心」的群奶数人用。
+    ///
+    /// [!] 仙女平时跟着人走（Heel），但可以被 Place 到别处，这时那三个技能的范围
+    ///     圆心是**仙女**，不是玩家本人（表外审计 C3）。
+    /// [!] 没召唤 / 读不到 ⇒ 返回 null，调用方退回玩家位置（和旧行为一致，安全）。
+    /// </summary>
+    private static Vector3? 小仙女位置()
+    {
+        try
+        {
+            if (!JobApiHelper.有小仙女) return null;
+            foreach (var o in ECommons.DalamudServices.Svc.Objects)
+            {
+                if (o == null || !o.对象有效()) continue;
+                try
+                {
+                    // 参考 `ScholarTools.txt:1262-1264` `FairyCenter`：BaseId == 1008 就是小仙女本体
+                    if (o.BaseId != 1008) continue;
+                    return o.Position;
+                }
+                catch { continue; }
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 以小仙女为圆心数「血量不高于阈值」的可治疗队友数 —— 祥光/低语/慰藉专用。
+    ///
+    /// [!] 普通 <see cref="低于阈值人数(float, float)"/> 以玩家本人为圆心；
+    ///     仙女被 Place 到别处时，这三个技能的正确判定是**仙女周围**这几个人（表外审计 C3）。
+    /// </summary>
+    public static int 小仙女中心低于阈值人数(float 阈值, float 半径 = 30f)
+    {
+        var 中心 = 小仙女位置() ?? CharacterExt.我的位置();
+        var 队友 = 可治疗队友(30f);   // 全队（30f 不筛距离），再按仙女圆心手筛
+        var 数 = 0;
+        foreach (var r in 队友)
+        {
+            if (r == null || !r.对象有效()) continue;
+            try
+            {
+                if (Vector3.Distance(中心, r.Position) > 半径) continue;
+                if (r.有效血量比例() <= 阈值) 数++;
+            }
+            catch { }
+        }
+        return 数;
+    }
+
     /// <summary>队伍里血量最低的人（不看阈值，给大加用）</summary>
     public static IBattleChara? 最危险队友()
     {

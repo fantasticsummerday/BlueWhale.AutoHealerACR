@@ -60,7 +60,8 @@ public class SCH_WhisperingDawn : ISlotResolver
         // ★ 用**这个技能自己的**阈值（`治疗阈值表`），查不到才回落统一群疗阈值 ★
         //   参考：shiyuvi WhisperingDawn 0.7 ｜ youshu 低语 70
         var 本技血线 = 治疗阈值表.取(技能, s.群体治疗阈值);
-        if (HealTargetHelper.低于阈值人数(本技血线, 20f) < 要求人数) return -1;
+        // ★ 以小仙女为圆心数人（表外审计 C3）：低语是召唤物技能，范围圆心是仙女不是玩家
+        if (HealTargetHelper.小仙女中心低于阈值人数(本技血线, 20f) < 要求人数) return -1;
 
         return SpellUtil.可用(技能) ? 17 : -1;
     }
