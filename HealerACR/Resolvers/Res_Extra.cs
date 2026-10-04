@@ -150,29 +150,61 @@ public class AST_Horoscope : ISlotResolver
         if (!HealQt.GetQt("天宫图", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        var s = HealSettings.Instance;
+        // ★ 读本技能登记值（表里 0.75；参考 youshu 天宫图阈值 75）
+        var 基础阈值 = 治疗阈值表.取(技能, s.群体治疗阈值);
+        var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 表外审计 A6：**引爆分支**（原来只会铺、从不引爆，400 威力白存）★
+        //
+        //  [!] 天宫图的机制是「先铺、再引爆」：
+        //       铺下(16557) → 身上出「天宫图」(1890，200 威力) →
+        //       再放阳星/阳星相位 → 升级成「阳星天宫图」(1891，400 威力) →
+        //       再按一下才把存的治疗结算出去（游戏把按钮换成 16558）。
+        //
+        //  [!] 原来这里只有「时间轴要来才铺」，铺完**从没有引爆那条路**
+        //      ⇒ 存的治疗到期自动消失，等于白放一个 60 秒 CD 的群疗 ✗
+        //
+        //  [!] 参考 `天宫图.txt:27-57`（IL 直读）：
+        //        ① 有 1890（基础）→ 阈值 = 天宫图阈值 - 35 → 引爆(return 9)
+        //        ② 有 1891（升级）→ 阈值 = 天宫图阈值        → 引爆(return 8)
+        //        ③ 都没有          → 铺(16557, return 7)
+        //      两者都用 `当前形态` 去放（按钮会自动换成引爆用的 16558）。
+        // ══════════════════════════════════════════════════════════════
+
+        // ① 已铺「天宫图」（1890，200 威力）：血线更低（阈值 -0.35）才值得引爆
+        if (AuraIds.天宫图 != 0 && CharacterExt.我有光环(AuraIds.天宫图))
+        {
+            var 引爆阈值 = Math.Clamp(基础阈值 - 0.35f, 0f, 1f);
+            if (HealTargetHelper.低于阈值人数(引爆阈值, 30f) < 要求人数) return -8;
+            return 9;   // 引爆
+        }
+
+        // ② 已铺「阳星天宫图」（1891，400 威力）：到线就引爆
+        if (AuraIds.阳星天宫图 != 0 && CharacterExt.我有光环(AuraIds.阳星天宫图))
+        {
+            if (HealTargetHelper.低于阈值人数(基础阈值, 30f) < 要求人数) return -7;
+            return 8;   // 引爆
+        }
+
+        // ③ 没铺：预铺（原有逻辑）
         // ⚠️ 脱战不放：没接怪就没有"即将到来的伤害"可言，
         //    而且满血铺预备等于空铺。
         if (!CharacterExt.我在战斗()) return -4;
 
-        // 时间轴预报 / boss 读条 → 提前铺
         var 要来了 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
         if (!要来了) return -1;
 
-        // ⚠️ 全队满血时别铺 —— 它是"受治疗才触发的预备"，
-        //    没人需要治疗就等于空铺（还白搭一个 60 秒 CD）。
-        var 阈值 = HealSettings.Instance.群体治疗阈值;
-        var 要求人数 = HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数);
-        if (HealTargetHelper.低于阈值人数(阈值, 20f) < 要求人数) return -5;
+        if (HealTargetHelper.低于阈值人数(基础阈值, 20f) < 要求人数) return -5;
 
-        // 已经铺过就不重复（buff id 通常和技能一致）
-        if (CharacterExt.我有该技能的Buff(技能)) return -3;
-
-        return SpellUtil.可用(技能) ? 13 : -1;
+        return SpellUtil.可用(技能) ? 7 : -1;
     }
 
     public void Build(Slot slot)
     {
-        // 用当前形态：这类"预铺"技能有可能被游戏替换
+        // ⚠️ 用当前形态：铺下后游戏会把按钮换成引爆技（16558），
+        //    所以「铺」和「引爆」在这里是同一个动作、交给游戏自己换形态（表外审计 A6）。
         var spell = SpellUtil.当前形态(技能);
         if (spell == null) return;
         slot.Add(new Spell(spell.Id, SpellTargetType.Self));

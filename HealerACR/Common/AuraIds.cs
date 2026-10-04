@@ -717,8 +717,11 @@ public static class AuraIds
     /// <summary>拯救（贤者）技能 24294 / buff 2610</summary>
     public static uint 拯救 => 取("拯救", 2610);
 
-    /// <summary>天宫图（占星）技能 16557 / buff 1890</summary>
+    /// <summary>天宫图（占星）技能 16557 / buff 1890（铺下后的基础形态）</summary>
     public static uint 天宫图 => 取("天宫图", 1890);
+
+    /// <summary>阳星天宫图（占星）buff 1891 —— 铺下天宫图后再放阳星/阳星相位会升级成它（400 威力）</summary>
+    public static uint 阳星天宫图 => 取("阳星天宫图", 1891);
 
     /// <summary>
     /// 把**技能 ID** 换算成它对应的 **buff ID**。
