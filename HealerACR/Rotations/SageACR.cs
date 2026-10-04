@@ -585,34 +585,168 @@ public class SGE_Dot : ISlotResolver
     }
 }
 
-/// <summary>箭毒：毒刺快溢出或打 AOE 时泄掉。</summary>
+/// <summary>
+/// 箭毒：毒刺快溢出或打 AOE 时泄掉。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 按参考实现（`箭毒.txt`）补齐的完整闸门网（表 #106 / #109）★
+///
+///  [!] 原来只有三条：毒刺 &gt; 0、`毒刺 &lt; 泄刺阈值 且 周围 &lt; 2` 就挡、木桩/攒资源让路 ✗
+///      缺了：目标与视线、走位延迟、攒爆发/倾泻资源两档、**AOE 智能换目标**。
+///
+///  ── 闸门（顺序即参考的 IL 顺序）──
+///    ① QT「箭毒」开着、等级够、没被静默
+///    ② 有目标 + 不是"打上去没用"（无敌/反射）+ 25 米内且没死
+///    ③ **走位延迟**：刚起步那几帧不按（`移动时长 < 箭毒延迟毫秒` → -8）
+///    ④ **攒爆发中**（占卜临近）且**没在倾泻资源** ⇒ 毒刺 ≤ 2 时留着（-30）
+///    ⑤ **倾泻资源中** ⇒ 毒刺 == 0 才停（-9）
+///    ⑥ **保留红豆**（= 我们的 `箭毒泄刺阈值`）：毒刺 ≤ 保留数 ⇒ 留着（-9）
+///    ⑦ 毒刺 ≤ 0 ⇒ -9
+///    ⑧ 技能要可用（视线/射程）
+///    ⑨ **倾泻资源 ⇒ 无条件交**（返回 50）
+///    ⑩ **智能 AOE 换目标**：以当前目标为锚找一个能覆盖 ≥2 个敌人的圆形落点
+///       （半径 5 米）—— 换到了就返回 **15**（比走位那条更高）
+///    ⑪ 落点必须在 25 米内、可见
+///    ⑫ 没换目标时：**只有在移动中且 GCD 已就绪**才交（返回 10）
+///       —— 箭毒是瞬发，站着的时候该让给读条的高威力填充
+///
+///  [!] 「攒爆发」用**占卜 CD** 当判据（我们不做职业级 QT）：
+///      `占卜 CD &lt; 8000ms` 视为攒爆发窗口，和 `占卜临近()` 同一个口径。
+///  [!] 「倾泻资源」用**一键爆发**（`HealQt.GetQt("一键爆发")`）当判据。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
 public class SGE_Toxikon : ISlotResolver
 {
     // 箭毒 66 级、箭毒II 82 级，用等级链取当前该用的那个
     private static uint 技能 => SpellUtil.取已解锁(SpellIds.取("箭毒II"), SpellIds.取("箭毒"));
 
+    /// <summary>智能 AOE 落点的半径（箭毒是 5 米圆形）</summary>
+    private const float 落点半径 = 5f;
+
+    /// <summary>落点至少覆盖几个敌人才值得换目标</summary>
+    private const int 落点门槛 = 2;
+
+    /// <summary>Check 里选好的落点，给 Build 用（避免判 A 放 B）</summary>
+    private static IBattleChara? 本帧目标;
+
     public int Check()
     {
+        本帧目标 = null;
+
         if (!HealQt.GetQt("输出")) return -100;
         if (!HealQt.GetQt("箭毒", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
-        var 毒刺 = JobApiHelper.毒刺;
-        if (毒刺 <= 0) return -3;
-        if (毒刺 < HealSettings.Instance.箭毒泄刺阈值 && HealTargetHelper.周围敌人数量() < 2) return -4;
+        // ② 目标与视线
+        var 目标 = 输出目标.选();
+        if (目标 == null || !目标.对象有效()) return -1;
+        if (敌人状态.攻击无效(目标)) return -1;
+        if (目标.CurrentHp <= 0) return -2;
 
-        if (!HealTargetHelper.木桩模式)
+        try
         {
-            if (HealSettings.Instance.时间轴攒资源 && TimelineManager.未来有减伤(8.0)) return -5;
+            if (目标.Distance(Core.Me!) > 25f) return -2;
+        }
+        catch { }
+
+        // ③ 走位延迟：刚起步那几帧不按
+        try
+        {
+            var 移动 = SpellUtil.移动时长毫秒();
+            if (移动 > 0 && 移动 < HealSettings.Instance.箭毒延迟毫秒) return -8;
+        }
+        catch { }
+
+        var 毒刺 = JobApiHelper.毒刺;
+
+        // ④ 攒爆发中且没在倾泻 ⇒ 毒刺 ≤ 2 就留着
+        if (占卜临近() && !倾泻资源中())
+        {
+            if (毒刺 <= 2) return -30;
         }
 
-        return SpellUtil.可用(技能) ? 4 : -1;
+        // ⑤ 倾泻资源中 ⇒ 毒刺 0 才停
+        if (倾泻资源中())
+        {
+            if (毒刺 <= 0) return -9;
+        }
+
+        // ⑥ 保留红豆（我们的设置项）
+        if (毒刺 <= HealSettings.Instance.箭毒泄刺阈值
+            && HealTargetHelper.周围敌人数量() < 2) return -9;
+
+        // ⑦ 没豆子就没什么可放的
+        if (毒刺 <= 0) return -9;
+
+        // ⑧ 技能要可用
+        if (!SpellUtil.可用(技能)) return -3;
+
+        // ⑨ 倾泻资源 ⇒ 无条件交
+        if (倾泻资源中())
+        {
+            本帧目标 = 目标;
+            return 50;
+        }
+
+        // ⑩ 智能 AOE 换目标：以当前目标为锚找能覆盖 ≥2 个敌人的落点
+        try
+        {
+            var 落点 = 智能选目标.圆形最优(落点半径, 落点门槛);
+            if (落点 != null && 落点.对象有效()
+                && HealTargetHelper.自身周围敌人数量(落点半径) >= 落点门槛)
+            {
+                本帧目标 = 落点;
+                return 15;
+            }
+        }
+        catch { }
+
+        // ⑪/⑫ 没换目标：只有在**移动中且 GCD 已就绪**才交
+        //     [!] 箭毒是瞬发 —— 站着的时候该让给读条的高威力填充（注药）。
+        if (!SpellUtil.在移动()) return -1;
+        if (!HealTargetHelper.木桩模式
+            && HealSettings.Instance.时间轴攒资源
+            && TimelineManager.未来有减伤(8.0)) return -5;
+
+        本帧目标 = 目标;
+        return 10;
     }
 
     public void Build(Slot slot)
     {
-        var spell = SpellUtil.Get(技能);
-        if (spell != null) slot.Add(spell);
+        var 目标 = 本帧目标;
+        if (目标 == null || !目标.对象有效()) return;
+
+        var spell = SpellUtil.当前形态(技能);
+        if (spell == null) return;
+
+        slot.Add(new Spell(spell.Id, 目标));
+    }
+
+    /// <summary>占卜 CD &lt; 8 秒 = 攒爆发窗口（与 `AST_Divination.占卜临近` 同口径）</summary>
+    private static bool 占卜临近()
+    {
+        try
+        {
+            var 占卜 = SpellIds.取("占卜");
+            if (占卜 == 0) return false;
+
+            var s = SpellUtil.Get(占卜);
+            if (s == null) return false;
+
+            return s.Cooldown.TotalMilliseconds < 8000;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>倾泻资源中（用「一键爆发」开关当判据，我们不做职业级 QT）</summary>
+    private static bool 倾泻资源中()
+    {
+        try { return HealQt.GetQt("一键爆发", false); }
+        catch { return false; }
     }
 }
 

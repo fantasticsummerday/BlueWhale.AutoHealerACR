@@ -247,8 +247,13 @@ public static class 智能选目标
     /// <summary>用平方距离比，省一次开方</summary>
     private static float 距离(Vector3 a, Vector3 b) => Vector3.Distance(a, b);
 
-    /// <summary>点是不是落在"从我出发、朝某方向的矩形"里</summary>
-    private static bool 在矩形内(Vector3 我, Vector3 方向, Vector3 点, float 长度, float 宽度)
+    /// <summary>
+    /// 点是不是落在"从我出发、朝某方向的矩形"里。
+    ///
+    /// [!] 公开给 `Res_BigAoEHeal` 用（贤者魂灵风息的直线落点要自己数命中数）——
+    ///     判据必须**只有一份**（开发约定 F③），不能那边再写一套。
+    /// </summary>
+    public static bool 在矩形内(Vector3 我, Vector3 方向, Vector3 点, float 长度, float 宽度)
     {
         try
         {

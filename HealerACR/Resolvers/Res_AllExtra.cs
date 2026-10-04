@@ -801,8 +801,25 @@ public class Res_BigAoEHeal : ISlotResolver
 
     public Res_BigAoEHeal(JobSpellTable t) => _t = t;
 
+    /// <summary>
+    /// Check 里选好的落点目标，给 Build 用（避免判 A 放 B）。
+    ///
+    /// [!] 只有贤者的魂灵风息用得上（它是**直线 AOE**，落点决定打几个）；
+    ///     其余职业的候选是自身中心 / 地面放置技，这个字段保持 null。
+    /// </summary>
+    private static IBattleChara? 本帧落点;
+
+    /// <summary>这一发是不是"直线落点分支"（决定 Build 要不要用 `本帧落点`）</summary>
+    private static bool 本帧用落点;
+
+    /// <summary>魂灵风息的直线尺寸（参考口径：矩形长 25、宽 3）</summary>
+    private const float 直线长 = 25f;
+    private const float 直线宽 = 3f;
+
     public int Check()
     {
+        本帧落点 = null;
+        本帧用落点 = false;
 
         // ★ 2026-10-04：已有减伤就不再叠（对照实现的 CurrentMitigation 快照）
         if (团减快照.已有减伤()) return -1;
@@ -813,6 +830,64 @@ public class Res_BigAoEHeal : ISlotResolver
         foreach (var id in 候选())
         {
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
+
+            // ══════════════════════════════════════════════════════════
+            //  ★ 贤者 魂灵风息：**直线输出用法**（表 #107）★
+            //
+            //  [!] 它是**直线 AOE**（矩形 25×3），落点直接决定打几个 ——
+            //      原来固定 `slot.Add(spell)`（自身中心 / 当前目标），
+            //      在怪横排时经常只打到 1 个 ✗
+            //
+            //  [!] 参考实现（`贤炮.txt`）的完整分支：
+            //      ① 落点找得到且覆盖 ≥ 2 个敌人 ⇒ **返回 2**（低优先，先治病）
+            //      ② 高难模式外、落点覆盖 **≥ 6 个** ⇒ **返回 3**（爆发式群攻）
+            //         —— 6 个是"这一发打满"的门槛，参考里它比"治病"低一档
+            //      ③ "没人需要治"（`CannotReceiveHeal` / 奶人 QT 关掉）时，
+            //         上面两条一旦成立就直接交（返回 2）
+            //      ④ 都不成立 ⇒ 才看掉血人数（`魂灵风息阈值` 数人 ≥ 群奶人数）
+            //
+            //  [!] 我们只做**输出那一半**（①②④）：`CannotReceiveHeal` 那类
+            //      "全队都治不了"的特殊语义我们没建模，硬套会改变治疗行为。
+            // ══════════════════════════════════════════════════════════
+            if (id == SpellIds.取("魂灵风息"))
+            {
+                var 落点 = 智能选目标.直线最优(直线长, 直线宽, 至少几个: 2);
+
+                if (落点 != null && 落点.对象有效())
+                {
+                    var 命中 = 直线命中数(落点);
+                    var s1 = HealSettings.Instance;
+
+                    // ② 覆盖 ≥ 6：爆发式群攻，优先于普通治疗
+                    if (命中 >= 6)
+                    {
+                        本帧落点 = 落点;
+                        本帧用落点 = true;
+                        return 3;
+                    }
+
+                    // ④ 掉血人数够 ⇒ 用这个落点交（既是群疗也是群攻）
+                    var 血线1 = 治疗阈值表.取(id, s1.大招血线);
+                    if (HealTargetHelper.低于阈值人数(血线1, 20f) >= s1.群奶最少人数)
+                    {
+                        本帧落点 = 落点;
+                        本帧用落点 = true;
+                        return 17;
+                    }
+
+                    // ① 覆盖 ≥ 2、但没人需要治 ⇒ 只在"要来了"时才交
+                    var 要来了1 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
+                    if (要来了1)
+                    {
+                        本帧落点 = 落点;
+                        本帧用落点 = true;
+                        return 2;
+                    }
+
+                    continue;   // 这个候选这一拍不交，看下一个
+                }
+                // 落点找不到（没有 ≥2 个敌人的直线）⇒ 退回普通治疗判据
+            }
 
             var s = HealSettings.Instance;
             // ⚠️ 血线走 `治疗阈值表`（每技能值 + AI 三种偏移）——
@@ -834,6 +909,31 @@ public class Res_BigAoEHeal : ISlotResolver
         return -1;
     }
 
+    /// <summary>以某个落点为目标时，我→它那条直线能覆盖几个敌人</summary>
+    private static int 直线命中数(IBattleChara 落点)
+    {
+        try
+        {
+            var 我 = CharacterExt.我的位置();
+            var 方向 = 落点.Position - 我;
+            if (方向.LengthSquared() < 0.01f) return 0;
+
+            var 数 = 0;
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null || !敌人.对象有效()) continue;
+                if (敌人.CurrentHp <= 0) continue;
+                if (敌人状态.攻击无效(敌人)) continue;
+                if (智能选目标.在矩形内(我, 方向, 敌人.Position, 直线长, 直线宽)) 数++;
+            }
+            return 数;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
     public void Build(Slot slot)
     {
         foreach (var id in 候选())
@@ -841,7 +941,16 @@ public class Res_BigAoEHeal : ISlotResolver
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
 
             var spell = SpellUtil.当前形态(id);
-            if (spell != null) slot.Add(spell);
+            if (spell == null) continue;
+
+            // ★ 直线落点分支（魂灵风息）：把 Check 选中的那个落点交给它
+            if (本帧用落点 && 本帧落点 != null && 本帧落点.对象有效())
+            {
+                slot.Add(new Spell(spell.Id, 本帧落点));
+                return;
+            }
+
+            slot.Add(spell);
             return;
         }
     }

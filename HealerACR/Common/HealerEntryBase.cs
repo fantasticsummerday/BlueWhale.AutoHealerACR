@@ -1543,6 +1543,7 @@ public abstract class HealerEntryBase : IRotationEntry
             ImGui.SliderInt("以太保留数", ref s.以太保留数, 0, 3);
             ImGui.SliderInt("蛇胆保留数", ref s.蛇胆保留数, 0, 3);
             ImGui.SliderInt("箭毒泄刺阈值", ref s.箭毒泄刺阈值, 1, 3);
+            ImGui.SliderInt("箭毒走位延迟", ref s.箭毒延迟毫秒, 0, 1000);
             ImGui.Separator();
             ImGui.TextDisabled("占星");
             ImGui.Checkbox("出卡优先近战", ref s.出卡优先近战);
