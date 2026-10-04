@@ -95,7 +95,9 @@ public class SCH_FeyIllumination : ISlotResolver
         //      表里目前没登记它 -> 回落统一群疗阈值（行为不变），
         //      要改的话在 `治疗阈值表` 里加一条即可。
         var 本技血线 = 治疗阈值表.取(技能, HealSettings.Instance.群体治疗阈值);
-        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线)
+        // ★ P2·半径/口径：以**小仙女为圆心 + 20 米**数人（参考 `CountLowEffectiveHpPartyMembersWithin20`）
+        //   幻光是仙女技能，仙女被 Place 到别处时不改圆心就算错人；20 米对齐参考口径。
+        var 团队掉血 = HealTargetHelper.小仙女中心低于阈值人数(本技血线, 20f)
                        >= HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数);
 
         if (!要来伤害 && !团队掉血) return -1;
