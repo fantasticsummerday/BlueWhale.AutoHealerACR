@@ -293,6 +293,44 @@ public class SGESpellTable : JobSpellTable
     public override bool 自身AOE可走位 => true;
 
     /// <summary>
+    /// **心关的回血量（170/130）** —— 表 #115。
+    ///
+    /// [!] 数据来源：`dump_healpot.tsv` 直读
+    ///      `贤者 24285 心关 … 特定攻击魔法命中后，令带有关心状态的目标恢复体力 恢复力：170/130`
+    ///      —— 也就是**贤者所有伤害技能**命中后，都会给「关心」目标回这一口。
+    ///      （170 = 带 XX 特性 / 130 = 不带，同一格的两种取值；表里统一记 170。）
+    ///
+    /// [!] 为什么它算在**伤害技能**头上而不是"心关自己"头上：
+    ///      心关本身是 5 秒 CD 的挂载技能、不回血；
+    ///      真正回血的是**打出去的那些攻击魔法**。
+    ///      所以"这一发能回多少血"要挂在伤害技能上，
+    ///      AI 在权衡「打输出 vs 读条治疗」时才看得到这个正收益。
+    ///
+    /// [!] 只影响**给 AI 看的候选注释**，不参与本地威力比较。
+    /// </summary>
+    public override int 回血量(uint 技能Id)
+    {
+        if (技能Id == 0) return 0;
+
+        // 贤者的"特定攻击魔法"= 注药系列 / 发炎系列 / 失衡系列 / 箭毒系列
+        foreach (var id in new[]
+                 {
+                     SpellIds.取("注药"), SpellIds.取("注药II"), SpellIds.取("注药III"), 基础输出,
+                     SpellIds.取("发炎"), SpellIds.取("发炎II"), SpellIds.取("发炎III"),
+                     SpellIds.取("失衡"), SpellIds.取("失衡II"), 群体输出,
+                     SpellIds.取("箭毒"), SpellIds.取("箭毒II"),
+                 })
+        {
+            if (id != 0 && id == 技能Id) return 心关回血量;
+        }
+
+        return 0;
+    }
+
+    /// <summary>心关每次触发的回血量（恢复力 170）</summary>
+    public const int 心关回血量 = 170;
+
+    /// <summary>
     /// **失衡本身的两道硬闸门**（表 #100 / #101）——
     /// 命中任何一条 ⇒ **这个技能这一拍整个不能用**（连单体输出也不能退回它）。
     ///
@@ -952,7 +990,25 @@ public static class 贤者心关
                 if (最低 == null) goto 非坦克;   // 坦克池里一个能挂的都没有
 
                 if (低血 != null) return 低血;
+
+                // ② 敌人当前目标（target-of-target）= 参考的"接怪那一下最准"
                 if (敌人目标 != null) return 敌人目标;
+
+                // ②′ **退回我们自己的粘滞 MT**（表 #115 的"两套主坦口径"）——
+                //     [!] 参考的 target-of-target 在**没怪打坦克的那一刻**会取不到
+                //         （转场 / 死刑间隔 / 小怪刚死），那一瞬间参考没有这一级兜底。
+                //     [!] 我们的 `主坦()` 是**粘滞 + 按"怪在看谁"投票**的，
+                //         刚好补上这个空档，而且口径同源：**都看 `TargetObjectId`**。
+                //     [!] 这样"心关钉谁"与"治疗血线看谁"就统一到同一个定义上了 ——
+                //         不会再出现"心关钉 A、判据看 B"。
+                try
+                {
+                    var 粘滞MT = HealTargetHelper.主坦();
+                    if (粘滞MT != null && 粘滞MT.对象有效() && 粘滞MT.活着()
+                        && 粘滞MT.GameObjectId != (Core.Me?.GameObjectId ?? 0))
+                        return 粘滞MT;
+                }
+                catch { }
 
                 // ③ 该换人了：有坦克没带我的关心
                 if (有人带我的关心)

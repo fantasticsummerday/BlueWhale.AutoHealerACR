@@ -33,31 +33,55 @@ public class SGE_CholeOverflow : ISlotResolver
         // 只有满了才走这条（不满的时候留给真正的治疗场景用）
         if (JobApiHelper.蛇胆 < 3) return -1;
 
-        // ★ 2026-10-04 修（补深度发现 R-1）：对照实现**没有"满 3 卸豆"这条通道** ✗
+        // ★ 2026-10-04 修（补深度发现 R-1 / 表 #117）：对照实现**没有"满 3 卸豆"这条通道** ✗
         //   灵橡清汁只是它 `自动单奶.SelectAction` 的**最后选择**，而且要求目标 ≤ 灵橡阈值(0.50) ✓
         //   原来我们满 3 就花、还无视一切治疗开关 ⇒ 很可能花在**满血的人**身上 ✗
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
 
+        // ★ 单奶开关也要尊重（参考的 `自动单奶` 在「奶人 + 单奶」之下）★
+        if (!HealQt.GetQt("单奶")) return -101;
+
         // 必须有人真的低于灵橡阈值才花（否则宁可留着豆子）
         // 灵橡阈值 0.50（对照实现的 `灵橡阈值` 默认 50）✓
-        const float 灵橡线 = 0.50f;
         if (HealTargetHelper.低于阈值人数(灵橡线) == 0) return -1;
 
-        // 满了就是资源溢出，**无视一切治疗开关**（木桩模式 / 奶人）--
-        // 攒着本身就是亏，卸掉总比浪费强
-
-        // 目标兜底到自己（单人环境可能没有队友）
-        if (HealTargetHelper.最危险队友() == null && CharacterExt.我的当前血量() <= 0) return -1;
+        // ⚠️ 血线**必须带阈值** —— 不能用 `最危险队友()`（它没有阈值，
+        //    队伍全员健康时也会返回"相对最惨的那个"，等于把豆子花在满血的人身上）
+        if (选目标() == null) return -1;
 
         return SpellUtil.可用(技能) ? 12 : -1;
     }
 
+    /// <summary>灵橡清汁的血线（对照实现的 `灵橡阈值` 默认 50）</summary>
+    private const float 灵橡线 = 0.50f;
+
+    /// <summary>
+    /// 灵橡清汁的目标：**血线之下的最低者**，没有就退到自己（但**自己也要过线**）。
+    ///
+    /// [!] 和 `Check` 同源（开发约定 F③）—— 判谁就放谁，不能这边判"有人低于 0.5"、
+    ///     那边抓一个 0.9 的人来治。
+    /// </summary>
+    private static IBattleChara? 选目标()
+    {
+        try
+        {
+            var 队友 = HealTargetHelper.最低血量队友(灵橡线, 30f);
+            if (队友 != null) return 队友;
+
+            // 没队友在血线之下 ⇒ 看自己（自己也要过线才值得花）
+            var 我 = AEAssist.Core.Me;
+            if (我 != null && 我.对象有效() && 我.活着()
+                && 我.有效血量比例() <= 灵橡线) return 我;
+        }
+        catch { }
+
+        return null;
+    }
+
     public void Build(Slot slot)
     {
-        var 目标 = HealTargetHelper.最危险队友()
-                   ?? HealTargetHelper.血量最低的坦克()
-                   ?? AEAssist.Core.Me;
+        var 目标 = 选目标();
         if (目标 == null) return;
 
         var spell = SpellUtil.Get(技能);
