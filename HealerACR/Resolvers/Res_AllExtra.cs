@@ -1416,7 +1416,18 @@ public class Res_InstantHealAbility : ISlotResolver
             // ══════════════════════════════════════════════════════════
             if (是先天禀赋(瞬发))
             {
-                if (!充能够花(瞬发)) return -5;
+                // ★ 职业级 QT（表外审计）：参考给先天禀赋单开了两个开关
+                //   [!] `自动先天` 关掉 = **完全不自动交**（这一条整条让路）
+                //   [!] `保留先天` 关掉 = **不考虑保留数**（有几颗交几颗，
+                //       只看血线）—— 对应参考 `CanSpendAddersgallStatic` 里
+                //       `if (!GetQt("保留蓝豆")) return true;` 那条短路
+                if (!HealQt.GetQt("自动先天", true)) return -5;
+
+                if (HealQt.GetQt("保留先天", true))
+                {
+                    if (!充能够花(瞬发)) return -5;
+                }
+
                 if (充能过剩(瞬发)) 单奶血线 += 0.10f;
             }
 
@@ -1548,7 +1559,8 @@ public class Res_InstantHealAbility : ISlotResolver
                 //    否则 Check 过了 Build 找不到目标 —— 就是"判 A 放 B"。
                 if (是先天禀赋(瞬发))
                 {
-                    if (!充能够花(瞬发)) return;
+                    if (!HealQt.GetQt("自动先天", true)) return;
+                    if (HealQt.GetQt("保留先天", true) && !充能够花(瞬发)) return;
                     if (充能过剩(瞬发)) 单奶血线 += 0.10f;
                 }
 

@@ -573,16 +573,30 @@ public class Res_SelfMitigation : ISlotResolver
         var 自己血少 = !CharacterExt.我有效()
             || (AEAssist.Core.Me?.有效血量比例() ?? 1f) <= 0.6f;
 
-        // ★ 2026-10-04 补（#51）：**血线触发** —— 表里给罩子登记了 0.35，但原先没有任何读取点（死登记）✗
-        //   对照实现的罩子按「20 米内低于阈值的人数」交 ✓
-        try
-        {
-            var 罩子线 = 治疗阈值表.取(_t.团队减伤, HealSettings.Instance.群体治疗阈值);
-            if (HealTargetHelper.低于阈值人数(罩子线, 20f)
-                >= HealTargetHelper.群疗能力技人数要求(HealSettings.Instance.群奶最少人数)
-                && SpellUtil.可用(_t.团队减伤)) return 9;
-        }
-        catch { }
+        // ══════════════════════════════════════════════════════════════════
+        //  ★★ 删掉一段「判 A 放 B」（白魔审计 P0-1）★★
+        //
+        //  [!] 这里原来有一块「**罩子**血线触发」：
+        //        var 罩子线 = 治疗阈值表.取(_t.团队减伤, 群体治疗阈值);
+        //        if (低于阈值人数(罩子线, 20f) >= 群疗能力技人数要求(...)
+        //            && SpellUtil.可用(_t.团队减伤)) return 9;
+        //      —— 它判的是 **`团队减伤`**（白魔 = 节制 16536），
+        //      而这一条 resolver 的 `Build` 放的是 **`个人减伤`**（白魔 = 神祝祷 7432）✗
+        //
+        //  [!] 后果（白魔最惨）：白魔**唯一**的自身减伤「神祝祷」
+        //      被"**节制是否就绪** + 团队血线"这个**完全无关的判据**常态烧掉 ——
+        //      四人本几乎每波小怪都满足 ⇒ 真需要的时候它正在 CD ✗
+        //      而且它 `return 9` 绕过了下面那条"自己血少"的守卫。
+        //
+        //  [!] 为什么现在删而不是改判据：罩子（野战治疗阵）**有自己的 resolver** ——
+        //      `Res_TeamMitigation`（见本文件 :577 附近，判 `_t.团队减伤` + 20 米 + 人数门槛）。
+        //      这条"罩子线"放在 `Res_SelfMitigation` 里本来就是放错地方了。
+        //
+        //  [!] 参考实现确认两者是**两条独立 resolver**（IL 直读）：
+        //        `白魔技能策略` slot 5 = 节制 / slot 21 = 神祝祷，
+        //        各自判各自的技能（`节制.txt` 查 1911/1873；`神祝祷.txt` 查 AbilityHealTarget）。
+        //      ⇒ 一条 resolver 里判一个技能、放另一个技能，是明确的错。
+        // ══════════════════════════════════════════════════════════════════
 
         if (!时间轴要求 && !自己血少 && !减伤Helper.即将来大伤害()) return -1;
 
@@ -820,7 +834,28 @@ public class Res_GroupShield : ISlotResolver
 /// </summary>
 public static class 团减快照
 {
-    private static readonly uint[] 已有减伤Ids = { 2613, 2643, 3033, 3365, 2618 };
+    /// <summary>
+    /// **贤者 / 学者**的减伤类状态（照对照实现的 `CurrentMitigation` IL）：
+    ///   · 2613 泛输血 / 2643 泛血印
+    ///   · 3033 暗血   / 3365 整体盾（整体论的盾）
+    ///   · 2618 坚角清汁
+    /// </summary>
+    private static readonly uint[] 贤者学者Ids = { 2613, 2643, 3033, 3365, 2618 };
+
+    /// <summary>
+    /// **白魔 / 占星**的减伤类状态（表外审计 P2-3 补）。
+    ///
+    /// [!] 原来这份快照**只有贤者/学者那 5 个 id** ——
+    ///     白魔/占星身上挂着 节制(1873) 或 庇护所(1911) 时，
+    ///     `已有减伤()` 仍然返回 false ⇒ 会**再叠一层** ✗
+    ///
+    /// [!] 数值来自参考 IL：
+    ///     · 白魔 `节制.txt:39-48` 查 `Me.HasAura(1911)`（庇护所）与 `HasAura(1873)`（节制）
+    ///     · 白魔 `庇护所.txt:37-48` 查同一对
+    ///     占星那边 `太阳星座` / `中间学派` 走的是同一套思路，
+    ///     这里只登记**两套参考都确证过**的白魔那两条（宁缺勿猜）。
+    /// </summary>
+    private static readonly uint[] 白魔占星Ids = { 1873, 1911 };
 
     /// <summary>自己身上已经有这些减伤之一 ⇒ 不要再叠。</summary>
     public static bool 已有减伤()
@@ -830,7 +865,10 @@ public static class 团减快照
             var 我 = AEAssist.Core.Me;
             if (我 == null || !我.对象有效()) return false;
 
-            foreach (var id in 已有减伤Ids)
+            foreach (var id in 贤者学者Ids)
+                if (我.HasAura(id)) return true;
+
+            foreach (var id in 白魔占星Ids)
                 if (我.HasAura(id)) return true;
 
             return false;

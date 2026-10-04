@@ -28,6 +28,33 @@ public class SCH_WhisperingDawn : ISlotResolver
         if (!HealQt.GetQt("小仙女", true)) return -103;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 表外审计补的两条（参考 `仙光的低语.txt` 有，我们原来没有）
+        //
+        //  [!] ① **身上已经有低语 HoT(315) 就别再放** ⇒ -8
+        //        参考 IL：`IL_004d ldc.i4 315` / `IL_0052 HasAura` / `IL_0057 ldc.i4.s -8`
+        //        HoT 是"叠时间不叠效果"的 —— 重复放只延长，不增加治疗量 ✗
+        //  [!] ② **炽天使快结束了就让路**（`IsSeraphEndingSoon(3000)`）⇒ -5
+        //        参考 IL：`IL_00ba ldc.i4 3000` / `IsSeraphEndingSoon` / `ldc.i4.s -5`
+        //        炽天使马上要消失，这时候再叫小仙女做动作会**用不出来**（白占一拍）。
+        // ══════════════════════════════════════════════════════════════
+        try
+        {
+            if (AuraIds.仙光的低语 != 0 && CharacterExt.我有光环(AuraIds.仙光的低语)) return -8;
+        }
+        catch { }
+
+        try
+        {
+            // [!] `IsSeraphEndingSoon(3000)` 的形参名是 **thresholdMs**（参考 IL 直读）——
+            //     所以这里比的是**毫秒**。我们读的是 AEAssist 的
+            //     `JobApi_Scholar.SeraphTimer`（`JobApiHelper.炽天使剩余`），
+            //     同一个字段在参考里也当毫秒用（`IsSeraphActive()` 只判 `> 0`）。
+            //     ⚠️ 若实机发现炽天使快结束时这条不触发，先查这个字段的单位。
+            if (JobApiHelper.炽天使剩余 > 0 && JobApiHelper.炽天使剩余 <= 3000) return -5;
+        }
+        catch { }
+
         var s = HealSettings.Instance;
         var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
         // ★ 用**这个技能自己的**阈值（`治疗阈值表`），查不到才回落统一群疗阈值 ★
