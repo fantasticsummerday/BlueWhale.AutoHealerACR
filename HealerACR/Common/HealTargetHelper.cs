@@ -387,19 +387,42 @@ public static class HealTargetHelper
         }
     }
 
+    /// <summary>
+    /// **活死人优先的坦克**（表 #29）—— 811「死而不僵」那个必须被奶满的人。
+    ///
+    /// [!] 为什么拎出来单独一个函数：原来这段判据在四条选人路径里**各抄了一遍**，
+    ///     抄第三遍的时候就把 `有效血量比例() &lt;= 0.8f` 漏掉了 ——
+    ///     而少了那一条，**满血开着死而不僵的坦克也会被当成"最优先"** ✗
+    ///     ⇒ 判据必须只有一份（开发约定 F③），四条路径都调它。
+    ///
+    /// [!] 判据三条都在 `AuraIds.是活死人优先()` 里：
+    ///     是坦克 + 有 811 + 有效血量 ≤ 0.80。
+    /// </summary>
+    public static IBattleChara? 活死人优先()
+    {
+        try
+        {
+            // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679）
+            var 坦克们 = PartyHelper.CastableTanks?
+                .Where(r => r != null && r.对象有效() && r.活着())
+                .ToList();
+
+            if (坦克们 == null) return null;
+
+            foreach (var t in 坦克们)
+                if (AuraIds.是活死人优先(t)) return t;
+        }
+        catch { }
+
+        return null;
+    }
+
     /// <summary>血量最低、且低于阈值的队友；没有就是 null</summary>
     public static IBattleChara? 最低血量队友(float 阈值, float 半径 = 30f)
     {
-        // ★ 2026-10-04：**811「死而不僵」坦克最优先** —— 它生效后必须被奶满才解除，
-        //   否则时间到即死。对照实现在四条选人路径里都把它排在最前 ✓
-        try
-        {
-            foreach (var t in PartyHelper.CastableTanks)
-                if (t != null && t.对象有效() && t.活着()
-                    && t.HasAura(AuraIds.死而不僵) && t.有效血量比例() <= 0.8f)
-                    return t;
-        }
-        catch { }
+        // ★ **活死人优先**（表 #29）—— 811 生效后必须被奶满才解除，否则时间到即死
+        var 活死人 = 活死人优先();
+        if (活死人 != null) return 活死人;
 
         using var _深度 = HealerACR.Common.调用深度.进("最低血量队友");
 
@@ -458,16 +481,9 @@ public static class HealTargetHelper
     /// <summary>队伍里血量最低的人（不看阈值，给大加用）</summary>
     public static IBattleChara? 最危险队友()
     {
-        // ★ 2026-10-04：**811「死而不僵」坦克最优先** —— 它生效后必须被奶满才解除，
-        //   否则时间到即死。对照实现在四条选人路径里都把它排在最前 ✓
-        try
-        {
-            foreach (var t in PartyHelper.CastableTanks)
-                if (t != null && t.对象有效() && t.活着()
-                    && t.HasAura(AuraIds.死而不僵) && t.有效血量比例() <= 0.8f)
-                    return t;
-        }
-        catch { }
+        // ★ **活死人优先**（表 #29）—— 811 生效后必须被奶满才解除，否则时间到即死
+        var 活死人 = 活死人优先();
+        if (活死人 != null) return 活死人;
 
         return 可治疗队友().FirstOrDefault();
     }
@@ -641,6 +657,10 @@ public static class HealTargetHelper
     {
         try
         {
+            // ★ **活死人优先**（表 #29）：811「死而不僵」排在所有坦克之前
+            var 活死人 = 活死人优先();
+            if (活死人 != null) return 活死人;
+
             return PartyHelper.CastableTanks
                 .Where(r => r.活着())
                 .OrderBy(r => r.有效血量比例())
@@ -661,6 +681,12 @@ public static class HealTargetHelper
     /// </summary>
     public static IBattleChara? 血量最低的坦克(float 阈值 = 1f)
     {
+        // ★ **活死人优先**（表 #29）：811「死而不僵」要奶满才解除，
+        //   它必须是**所有选坦克路径的第一关键字** ——
+        //   只按血量排的话，另一个坦克血更低就会把资源抢走 ✗
+        var 活死人 = 活死人优先();
+        if (活死人 != null) return 活死人;
+
         return PartyHelper.CastableTanks
             .Where(r => r.活着() && r.有效血量比例() <= 阈值)
             .OrderBy(r => r.有效血量比例())
