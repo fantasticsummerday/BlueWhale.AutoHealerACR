@@ -411,6 +411,12 @@ public class Res_GroupHoT : ISlotResolver
         if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ **我自己不能接受治疗时，别把地面技铺在自己脚下**（表 #30）
+        //   [!] 参考里白魔 庇护所 在 Check 里判它（返回 -7）——
+        //       白魔的庇护所是"脚下场地"、贤者的自生是"自身中心"，
+        //       两者落点都必然包含我自己 ⇒ 我治不了自己时那一份是纯损失。
+        if (AuraIds.我无法接受治疗()) return -7;
+
         var s = HealSettings.Instance;
 
         // 时间轴预报到伤害 → 提前铺（庇护所是场地、自生是自身中心）
@@ -835,6 +841,12 @@ public class Res_BigAoEHeal : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群奶")) return -101;
 
+        // ★ **我自己不能接受治疗时，别交自身中心的大群奶**（表 #30）
+        //   [!] 参考里占星 大宇宙 在 Check 里判它（返回 -71）。
+        //   [!] 这一族（大宇宙 / 整体论 / 全大赦 / 魂灵风息）的落点
+        //       **必然包含我自己** ⇒ 我治不了自己时那一份是纯损失。
+        if (AuraIds.我无法接受治疗()) return -71;
+
         foreach (var id in 候选())
         {
             if (id == 0 || !SpellUtil.已解锁(id) || !SpellUtil.可用(id)) continue;
@@ -993,6 +1005,12 @@ public class Res_PlacedHeal : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
+
+        // ★ **我自己不能接受治疗时，别把地面技铺在自己脚下**（表 #30）
+        //   [!] 参考里白魔 庇护所 / 铃铛 都在同一位置判它（返回 -7）。
+        //   [!] 理由：这类技能的落点**必然包含我自己**，而我治不了自己的时候
+        //       那一份效果是**纯损失**（不是少治一点，是零）。
+        if (AuraIds.我无法接受治疗()) return -7;
 
         // ★ 2026-10-04：补**血线触发** —— 原来只判"伤害要来" ✗
         //   对照实现的判据是「20 米内低于群奶阈值的人数 >= 群奶人数」✓
