@@ -835,6 +835,11 @@ public class WHM_AfflatusMisery : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         if (!HealSettings.Instance.用苦难之心) return -6;
         if (JobApiHelper.血百合 < 3) return -3;
+
+        // ★ 表外审计 W5·门①：开场 5 秒不放（参考 `苦难之心.txt:44-48` `battleTime > 5000`）
+        //   进本时血百合可能残留满 3（上波怪攒的），别在开场那一拍把大伤害喷给还没聚好的怪。
+        if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) <= 5000) return -8;
+
         if (HealTargetHelper.当前目标() == null) return -1;
 
         // 视线/射程：和别的输出技同一套判断（对着柱子放等于白按）
