@@ -416,6 +416,42 @@ public class SGESpellTable : JobSpellTable
             new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_GroupShield(_spells), SlotMode.Gcd),
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ 槽序对齐参考实现（表 #110 / #111）★★
+            //
+            //  [!] 参考的贤者槽序（IL 直读 `贤者技能策略` 的 cctor，逐个 newobj）：
+            //        1 爆发药 · 2 过路圣人复活 · 3 复苏 · 4 **自动减伤**
+            //        5 康复 · 6 群盾 · 7 预后 · 8 自生 · 9 智慧之爱 · 10 寄生
+            //        11 单盾 · 12 诊断 · 13 输血 · 14 自动单奶 · 15 拯救
+            //        16 醒梦 · **17 心关 · 18 根素** · 19 心神风息 · 20 强制发炎
+            //        21 即刻注药 · 22 群DOT · 23 双DOT · 24 DOT
+            //        25 移动走位即刻注药 · 26 发炎 · 27 箭毒 · 28 贤炮 · 29 失衡
+            //
+            //  [!] 我们原来错在两处：
+            //      ① **团减在第 30/31 位** —— 输出 GCD 一路抢在它前面，
+            //         等轮到它时团减窗口常常已经过了 ✗
+            //      ② **心关/根素在 27/29 位** —— 它们是**资源类**，
+            //         让位于输出 = 心关掉了没人补、根素满了没人收 ✗
+            //
+            //  [!] 现在按参考提前：
+            //       · 自动减伤（自己 + 团队）→ **紧跟在群盾之后、输出之前**
+            //       · 心关 / 根素 → **醒梦之后、心神风息之前**
+            //       · 其余保持原相对次序（各自都有完整守卫，提前不会"抢错"）
+            //
+            //  [!] 为什么提前是安全的（和 #94 同一套论证）：
+            //       每条 resolver 的 `Check()` 自带完整守卫
+            //       （移动中 / 资源 / 血线 / 时间轴 / 敌人数量 / 团减快照）；
+            //       返回值不参与仲裁，**只有行号算优先级**（反汇编已证）。
+            //       而"已有减伤就不再叠"由 `团减快照.已有减伤()` 兜着 ——
+            //       参考那边也有 `HasActiveMitigation(1)`，同一个语义。
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
+
+            // 心关 / 根素：**资源类，排在输出之前**
+            new SlotResolverData(new SGE_Kardia(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new SGE_Rhizomata(), SlotMode.OffGcd),
                         // ══════════════════════════════════════════════════════════════
             //  ★ 移动中开即刻咏唱 ★
             //
@@ -494,11 +530,7 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new SGE_Philosophia(), SlotMode.OffGcd),            // 智慧之爱（Lv100 群疗大招）
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new SGE_Kardia(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_CholeOverflow(), SlotMode.OffGcd),
-            new SlotResolverData(new SGE_Rhizomata(), SlotMode.OffGcd),
-            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_Psyche(), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealBooster(_spells), SlotMode.OffGcd),          // 活化
