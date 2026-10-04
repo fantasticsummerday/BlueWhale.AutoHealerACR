@@ -1412,6 +1412,8 @@ public class Res_InstantHealAbility : ISlotResolver
             if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
             {
                 if (!蛇胆类可用(预铺)) return -3;
+                // ★ 学者绿帽（深谋远虑之策）吃以太：没豆子 = 放不出去（参考 Scholar_Lustrate 的 Aetherflow 闸）
+                if (以太管理.以太治疗技没豆子(预铺)) return -3;
                 return 26;
             }
         }
@@ -1435,6 +1437,8 @@ public class Res_InstantHealAbility : ISlotResolver
             //   不带这条时，血崩瞬间 输血 → 白牛 → 灵橡 会在几帧内连着倒出去，
             //   后两发常常打在**刚被第一发奶满的人**身上（几乎全过量）。
             if (!蛇胆类可用(瞬发)) return -3;
+            // ★ 学者活性法吃以太：没豆子 = 放不出去（参考 Scholar_Lustrate 的 Aetherflow 闸）
+            if (以太管理.以太治疗技没豆子(瞬发)) return -3;
 
             // ★ 血线改成**按技能查**（`治疗阈值表`），查不到才回落到职业表的 `瞬发单奶血线` ★
             //   [!] 参考实现的阈值是**每技能一个**（IL 实证）：

@@ -589,6 +589,13 @@ public class SCHSpellTable : JobSpellTable
             var 以太 = JobApiHelper.以太;
             if (以太 <= 0) return Array.Empty<uint>();   // 没豆子，等以太超流补
 
+            // ★ 参考 `Scholar_EnergyDrain2` 的「NoAetherflow」门：刚卸过豆子，7 秒内别再卸 ——
+            //   不加这条时，开战（转化转好 → 消耗技快转好()恒真）会把三颗豆子连着卸光。
+            if (以太管理.抑制中) return Array.Empty<uint>();
+
+            // ★ 参考开场门：开战头 3.3 秒不卸豆（先让起手 + 第一口治疗落地）。
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) <= 3301) return Array.Empty<uint>();
+
             // ── 条件①：爆发窗口 → 拿去换输出 ──
             if (以太管理.在爆发窗口()) return new[] { 能量吸收 };
 

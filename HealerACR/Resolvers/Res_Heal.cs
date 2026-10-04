@@ -420,7 +420,8 @@ public class Res_HealEmergency : ISlotResolver
         {
             var 技 = 奶满技能;
 
-            if (技 != 0 && SpellUtil.已解锁(技) && SpellUtil.可用(技)) return 35;
+            if (技 != 0 && SpellUtil.已解锁(技) && SpellUtil.可用(技)
+                && !以太管理.以太治疗技没豆子(技)) return 35;
 
             // ⚠️ 没有"一次到满"的能力技时，**不要 return -1** ——
             //    那会把**整个 resolver**（包括下面的常规急救）一起否掉。
@@ -449,12 +450,14 @@ public class Res_HealEmergency : ISlotResolver
         if (target == null) return -1;
 
         if (决定技 != null)
-            return SpellUtil.可用(决定技.Id) ? 30 : -1;
+            // ★ 学者活性法吃以太：没豆子就让路给 GCD 单奶（参考 Scholar_Lustrate 的 `Aetherflow==0 → return -1`）
+            return (以太管理.以太治疗技没豆子(决定技.Id) || !SpellUtil.可用(决定技.Id)) ? -1 : 30;
 
         // 候选集挑不出 → 退回旧槽位（行为与接入前完全一致）
         if (_t.紧急单奶 == 0) return -102;
         if (!HealQt.每技能通过(_t.紧急单奶)) return -4;   // 每技能 QT（活性法等被关）
         if (!SpellUtil.已解锁(_t.紧急单奶)) return -2;
+        if (以太管理.以太治疗技没豆子(_t.紧急单奶)) return -1;   // 吃以太的技能没豆子=本帧不放
         return SpellUtil.可用(_t.紧急单奶) ? 30 : -1;
         }
         finally
