@@ -505,6 +505,31 @@ public class WHMSpellTable : JobSpellTable
             new SlotResolverData(new Res_SingleHoT(_spells), SlotMode.Gcd),   // 再生
             new SlotResolverData(new WHM_AfflatusRapture(_spells), SlotMode.Gcd),
             new SlotResolverData(new WHM_AfflatusSolace(_spells), SlotMode.Gcd),
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **减伤整组提前**（表 #94）★★
+            //
+            //  [!] 参考实现的槽序（`占星技能策略` IL 直读）：**治疗 1~4 位铺完，
+            //      紧接着就是减伤整组 5~8 位，然后才是所有输出（20 位以后）**。
+            //      而我们把减伤放在**输出之后**（原 26/27/36 位）——
+            //      ⇒ 输出 GCD 长期抢占减伤窗口：等轮到减伤时，
+            //        boss 那一发**已经落地了** ✗
+            //
+            //  [!] 位置：**所有治疗之后、所有输出之前**。
+            //      · 放治疗之后 —— 减伤再急也不该抢 `必须奶满` / 急救 / 复活
+            //      · 放输出之前 —— 这才是这一条的目的
+            //
+            //  [!] 为什么搬位置是安全的：每条 resolver 的 `Check()` 自带完整守卫
+            //      （移动中 / 资源 / 血线 / 时间轴 / 敌人数量 / `团减快照`）；
+            //      返回值不参与仲裁，**只有行号算优先级**（反汇编已证）。
+            //      贤者那一路已由 #110 按同一口径搬过，行为符合预期。
+            //
+            //  [!] 一并搬过来的还有 `Res_SingleMitigation`（单盾类）——
+            //      它是"给某个人交减伤"，和团减同族，分开摆会互相抢窗口。
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),
                         // ══════════════════════════════════════════════════════════════
             //  ★ 移动中开即刻咏唱 ★
             //
@@ -579,8 +604,6 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_MoveGcd(_spells), SlotMode.Gcd),
 
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new WHM_PresenceOfMind(), SlotMode.OffGcd),
             new SlotResolverData(new Res_FreeCast(_spells), SlotMode.OffGcd),        // 无中生有
@@ -591,7 +614,6 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_GroupHoT(_spells), SlotMode.OffGcd),        // 庇护所
             new SlotResolverData(new Res_PlacedHeal(_spells), SlotMode.OffGcd),      // 礼仪之铃
             new SlotResolverData(new Res_BigAoEHeal(_spells), SlotMode.OffGcd),      // 全大赦
-            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd), // 水流幕
             new SlotResolverData(new Res_LimitBreak(), SlotMode.OffGcd),                  // 极限技
         };
     }

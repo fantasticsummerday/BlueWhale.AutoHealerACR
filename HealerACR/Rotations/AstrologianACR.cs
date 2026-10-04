@@ -356,6 +356,31 @@ public override uint 个人减伤 => 0;   // ★ 2026-10-04：擢升改由 AST_A
             new SlotResolverData(new Res_MoveInstantOutput(_spells), SlotMode.Gcd),
 new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **减伤整组提前**（表 #94）★★
+            //
+            //  [!] 参考槽序（`占星技能策略` IL 直读）：
+            //        **治疗 1~4 位 → 减伤整组 5~8 位 → 所有输出（20 位以后）**。
+            //      我们原来把减伤放在**输出之后**（原 33/34/35/38/39 位）——
+            //      ⇒ 输出 GCD 长期抢占减伤窗口，等轮到减伤时 boss 那一发已经落地 ✗
+            //
+            //  [!] 位置：**所有治疗之后、所有输出之前**。
+            //      · 放治疗之后 —— 减伤再急也不该抢 `必须奶满` / 急救 / 复活
+            //      · 放输出之前 —— 这才是这一条的目的
+            //
+            //  [!] 安全性的依据：每条 resolver 自带完整守卫
+            //      （移动中 / 资源 / 血线 / 时间轴 / 敌人数量 / `团减快照`）；
+            //      返回值不参与仲裁，**只有行号算优先级**（反汇编已证）。
+            //
+            //  [!] 五项一起搬（自减 / 擢升 / 中间学派 / 多一层团减 / 单减）——
+            //      它们同族，分开摆会互相抢窗口。
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new AST_AllyMitigation(), SlotMode.OffGcd),
+            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_GroupMitigationExtra(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),
             // ══════════════════════════════════════════════════════════════
             //  ★ 顺序修正：**DoT 必须在 AOE 之前**（对齐两套参考实现的槽序）★
             //
@@ -420,14 +445,9 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new AST_EarthlyStar(), SlotMode.OffGcd),
             // ★ 2026-10-04：紧随其后 —— 地星放下后由它引爆 ✓
             new SlotResolverData(new AST_StarDetonation(), SlotMode.OffGcd),
-            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
             // ★ 2026-10-04：擢升是**给队友**的减伤（原来只在个人减伤槽里 ⇒ 永远给不到坦克 ✗）
-            new SlotResolverData(new AST_AllyMitigation(), SlotMode.OffGcd),
-            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealLink(_spells), SlotMode.OffGcd),             // 星位合图
-            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),     // 天星交错
-            new SlotResolverData(new Res_GroupMitigationExtra(_spells), SlotMode.OffGcd), // 命运之轮
             new SlotResolverData(new Res_BigAoEHeal(_spells), SlotMode.OffGcd),           // 大宇宙/小宇宙
             new SlotResolverData(new Res_LimitBreak(), SlotMode.OffGcd),                  // 极限技
         };

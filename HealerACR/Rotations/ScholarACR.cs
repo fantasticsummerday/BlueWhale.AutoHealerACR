@@ -740,6 +740,31 @@ public class SCHSpellTable : JobSpellTable
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_SpreadShield(_spells), SlotMode.Gcd),  // 展开战术：要有盾可扩散
+
+            // ══════════════════════════════════════════════════════════════
+            //  ★★ **减伤整组提前**（表 #94）★★
+            //
+            //  [!] 参考槽序：**治疗铺完 → 减伤整组 → 然后才是所有输出**。
+            //      我们原来把减伤放在**输出之后**（原 35/36/40/41 位）——
+            //      ⇒ 输出 GCD 长期抢占减伤窗口，等轮到减伤时 boss 那一发已经落地 ✗
+            //
+            //  [!] 位置：**所有治疗之后、所有输出之前**。
+            //      · 放治疗之后 —— 减伤再急也不该抢 `必须奶满` / 急救 / 复活
+            //      · 放输出之前 —— 这才是这一条的目的
+            //
+            //  [!] 安全性的依据：每条 resolver 自带完整守卫
+            //      （移动中 / 资源 / 血线 / 时间轴 / 敌人数量 / `团减快照`）；
+            //      返回值不参与仲裁，**只有行号算优先级**（反汇编已证）。
+            //      贤者那一路已按同一口径搬过（#110），行为符合预期。
+            //
+            //  [!] 一起搬的还有 `Res_GroupMitigationExtra` / `Res_SingleMitigation`——
+            //      它们是"多一层团减 / 给某个人交减伤"，和团减同族，
+            //      分开摆会互相抢窗口。
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_GroupMitigationExtra(_spells), SlotMode.OffGcd),
+            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),
             // ══════════════════════════════════════════════════════════════
             //  ★★ **从这里往下是【输出】，整段必须在所有治疗 GCD 之后** ★★
             //
@@ -880,13 +905,9 @@ public class SCHSpellTable : JobSpellTable
             //
             //  [!] ⚠️ **不要再把它加回来**；要改召唤逻辑就改 `Res_SummonPet`。
             // ══════════════════════════════════════════════════════════════════
-            new SlotResolverData(new Res_SelfMitigation(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new Res_TeamMitigation(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealBooster(_spells), SlotMode.OffGcd),         // 秘策
             new SlotResolverData(new Res_Emergency(_spells), SlotMode.OffGcd),           // 应急战术
-            new SlotResolverData(new Res_GroupMitigationExtra(_spells), SlotMode.OffGcd), // 疾风怒涛之计
-            new SlotResolverData(new Res_SingleMitigation(_spells), SlotMode.OffGcd),    // 生命回生法
             new SlotResolverData(new SCH_Dissipation(), SlotMode.OffGcd),                // 转化
             new SlotResolverData(new SCH_Seraphism(), SlotMode.OffGcd),                  // 炽天附体(100)
             new SlotResolverData(new SCH_AdloquiumUpgrade(), SlotMode.OffGcd),           // 意气轩昂之策(96)
