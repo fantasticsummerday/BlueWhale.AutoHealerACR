@@ -1223,7 +1223,10 @@ public class SCH_Consolation : ISlotResolver
         var s = HealSettings.Instance;
         // ★ 用这个技能自己的阈值 ★  参考：youshu 慰藉 55
         var 本技血线 = 治疗阈值表.取(技能, s.大招血线);
-        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线, 20f) >= s.群奶最少人数;   // 慰藉 20 米
+        // ⚠️ 表外审计 C6：慰藉半径 20 → **30**。两套参考（youshu 与 shiyuvi）这里都是
+        //    `ldc.r4 30`（`慰藉.txt:66`）—— 慰藉是炽天使的全队群盾，30 米才是它真实覆盖。
+        //    20 米会漏掉 20~30 米那一圈掉血的队员 ⇒ 该铺盾的时候人数不够、不铺 ✗
+        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线, 30f) >= s.群奶最少人数;   // 慰藉 30 米
         var 要来伤害 = TimelineManager.未来有减伤(2.0) || 减伤Helper.即将来大伤害();
 
         if (!团队掉血 && !要来伤害) return -1;

@@ -830,6 +830,20 @@ public class SGE_Toxikon : ISlotResolver
         // ⑪/⑫ 没换目标：只有在**移动中且 GCD 已就绪**才交
         //     [!] 箭毒是瞬发 —— 站着的时候该让给读条的高威力填充（注药）。
         if (!SpellUtil.在移动()) return -1;
+
+        // ⚠️ 表外审计 S3：缺「GCD 已就绪」门（注释一直写着有，代码里其实没判）✗
+        //     [!] 箭毒是**瞬发但占 GCD** 的技能：移动中 GCD 还在转时硬塞，
+        //         这一发会直接失败（GCD 没好）⇒ 白点一下、还打断注药的填充节奏。
+        //     [!] 参考 IL（`箭毒.txt:146`）在这里是 `GCDHelper::GetGCDDuration` + `brfalse`
+        //         —— 语义是「GCD 没转好（剩余 > 0）⇒ 让位」。
+        //         我们这边读「GCD 剩余」用 `GetGCDCooldown()`（和 `可以插能力技` 同源），
+        //         统一 < 600ms 算就绪（网络/排队余量）。
+        try
+        {
+            if (GCDHelper.GetGCDCooldown() >= 600) return -1;
+        }
+        catch { }
+
         if (!HealTargetHelper.木桩模式
             && HealSettings.Instance.时间轴攒资源
             && TimelineManager.未来有减伤(8.0)) return -5;

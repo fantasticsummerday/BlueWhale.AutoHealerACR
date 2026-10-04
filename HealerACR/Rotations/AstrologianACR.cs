@@ -804,6 +804,15 @@ public class AST_MinorArcana : ISlotResolver
         if (!HealQt.GetQt("抽卡", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ 表外审计 A9：开场 5 秒内不按小奥秘卡（参考 `小奥秘卡.txt:11-18`
+        //    `CurrBattleTimeInMs < 5000 → -200`）。开场那一拍要留给占卜/地星，
+        //    立刻转成王冠会抢掉那 5 秒窗口（和 `AST_Play`/`AST_CrownPlay` 的 5 秒门同一条）。
+        try
+        {
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) < 5000) return -200;
+        }
+        catch { }
+
         // 只在"还是小奥秘卡"的时候按。满足条件后它会变成 王冠之贵妇 / 王冠之领主，
         // 那时候是 AST_CrownPlay 的活，这里不能再触发。
         var 当前 = SpellUtil.当前形态(技能);
@@ -1121,7 +1130,10 @@ public class AST_EarthlyStar : ISlotResolver
         // ── ⑧ 常规：有人低于「地星阈值」──
         var s = HealSettings.Instance;
         var 阈值 = 治疗阈值表.取(技能, s.群体治疗阈值);
-        if (HealTargetHelper.低于阈值人数(阈值, 地星半径) >= HealTargetHelper.群疗能力技人数要求(s.群奶最少人数))
+        // ⚠️ 表外审计 A3：地星常规触发人数门槛 **≥1**（原来是 `群疗能力技人数要求`
+        //    默认 2）。参考 `地星.txt:123-126` 是 `CountAlliesHpBelow(…) + ldc.i4.1 + blt`，
+        //    即「低于阈值的人数 < 1 才跳过」，反过来 = **有 1 个人低于阈值就放**。
+        if (HealTargetHelper.低于阈值人数(阈值, 地星半径) >= 1)
             return 60;
 
         // ── ⑨ 时间轴预报（我们比参考多这一条）──
