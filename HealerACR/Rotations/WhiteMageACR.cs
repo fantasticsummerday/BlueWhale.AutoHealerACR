@@ -586,11 +586,12 @@ public class WHMSpellTable : JobSpellTable
             //      不是一移动就烧 60 秒 CD —— 详见 Res_移动开即刻 的注释。
             // ══════════════════════════════════════════════════════════════
             new SlotResolverData(new Res_移动开即刻(_spells), SlotMode.Gcd),
-            // ★ 紧跟着：即刻已经在身上时，把这一发打在**最高档的输出 GCD** 上
-            //   （奶妈的输出 GCD 全是读条的，不放这条移动中就一个都打不出来）。
-            new SlotResolverData(new Res_MoveInstantOutput(_spells), SlotMode.Gcd),
-new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
+            // ★ 移动即刻输出移到 GCD 治疗之后（参考槽位 32，P2·槽序）：
+            //   开即刻打开的 Swiftcast 应该**先留给治疗**（移动中救急），
+            //   没人要治时才拿它打输出。原来放在治疗之前会抢走刚开的即刻 ✗
+            new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_MoveInstantOutput(_spells), SlotMode.Gcd),
             // 输出顺序：AOE（敌人>=3 才触发）→ DoT → 职业输出 → 兜底
             // DoT 必须排在职业输出前面：起手先让它开始跳伤害，
             // 已上之后它自己的 Check 会跳过，不会重复占 GCD
