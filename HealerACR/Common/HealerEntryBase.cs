@@ -2888,6 +2888,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { SpellUtil.重置移动状态(); } catch { }
         try { HealerACR.Resolvers.Res_InstantHealAbility.重置先天记录(); } catch { }
         try { 蛇胆节流.重置(); } catch { }
+        try { HealerACR.Resolvers.Res_TeamMitigation.重置团减锁(); } catch { }
 
         // ══════════════════════════════════════════════════════════
         //  ★ **技能表自检**（2026-10-03）—— 每次加载打一次日志
@@ -3184,6 +3185,7 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { SpellUtil.重置移动状态(); } catch { }
         try { HealerACR.Resolvers.Res_InstantHealAbility.重置先天记录(); } catch { }
         try { 蛇胆节流.重置(); } catch { }
+        try { HealerACR.Resolvers.Res_TeamMitigation.重置团减锁(); } catch { }
         try { Dot补判.重置(); } catch { }
         try { 记录模式.重置();
 

@@ -27,13 +27,163 @@ public class Res_TeamMitigation : ISlotResolver
 
     private readonly JobSpellTable _t;
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ **6 秒团减锁**（表 #121）★
+    //
+    //  [!] 参考实现（`自动减伤.txt`）：交完一发团减就写
+    //        `mitigationLockUntil = Environment.TickCount64 + 6000`
+    //      下一次 Check 开头先比这个时间戳，没到就直接 `-1`。
+    //
+    //  [!] 为什么需要它：团减是**大 CD**，而"boss 要 AOE"这个条件
+    //      在 AOE 真正落地前会**持续成立**（预读窗口 10 秒）——
+    //      没有锁的话，同一场 AOE 会被连着铺两层（第二层完全浪费）。
+    //      6 秒 ≈ 一次 AOE 的"来 → 落地 → 伤害结算完"周期。
+    //
+    //  [!] 只对**编排组合**那条路生效（贤者的 坚角+泛输血 等）——
+    //      单发罩子（学者/占星/白魔）原来就有 `团减快照` 兜着，行为不变。
+    // ══════════════════════════════════════════════════════════════════
+    private const int 团减锁毫秒 = 6000;
+
+    private static long _团减锁到;
+
+    /// <summary>在 6 秒锁里 ⇒ 不要再交团减</summary>
+    public static bool 团减锁中()
+    {
+        try { return Environment.TickCount64 < _团减锁到; }
+        catch { return false; }
+    }
+
+    /// <summary>记一次"刚交了团减编排"，锁 6 秒</summary>
+    private static void 记团减锁()
+    {
+        try { _团减锁到 = Environment.TickCount64 + 团减锁毫秒; }
+        catch { }
+    }
+
+    /// <summary>战斗重置 / 换本时清（有状态就得清 —— 开发约定 F①）</summary>
+    public static void 重置团减锁()
+    {
+        _团减锁到 = 0;
+    }
+
+    /// <summary>本帧要交的团减编排（Check 算好、Build 照放 —— 开发约定 F③）</summary>
+    private static readonly List<uint> _本帧编排 = new();
+
     public Res_TeamMitigation(JobSpellTable table) => _t = table;
+
+    /// <summary>
+    /// **团减编排**（表 #121）：参考实现的 `FillMitigationSpells` 一次会排 **1~2 个**技能 ——
+    ///
+    /// ```
+    ///   坚角清汁(24298) 可用 且 泛输血(24311) 可用 ⇒ 排【两个】
+    ///   坚角清汁 可用 且 整体论(24310) 可用     ⇒ 排【两个】
+    ///   整体论 可用                              ⇒ 排 { 整体论 }
+    ///   泛输血 可用                              ⇒ 排 { 泛输血 }
+    ///   坚角清汁 可用                            ⇒ 排 { 坚角清汁 }
+    ///   都不可用 ⇒ 群盾兜底（见 `群盾兜底`）
+    /// ```
+    ///
+    /// [!] 顺序**不能反**：先试"两个一起"的组合，再退到单发 ——
+    ///     参考就是按这个次序写的 if 链（IL 里的 `brfalse` 逐层下落）。
+    ///
+    /// [!] 我们原来**完全没有编排**：坚角清汁 / 泛输血 / 整体论 各自在自己的
+    ///     resolver 里单打独斗 ⇒ 要么只交一个、要么三个同帧撞在一起 ✗
+    ///
+    /// [!] 只有**贤者**有这套组合（别的职业的团减是单发罩子类）。
+    ///     非贤者返回空表 ⇒ 走原来的单发路径，行为不变。
+    /// </summary>
+    private List<uint> 团减编排()
+    {
+        _本帧编排.Clear();
+
+        try
+        {
+            if (_t.Job != Jobs.Sage) return _本帧编排;
+
+            var 坚角 = SpellIds.取("坚角清汁");
+            var 泛输血 = SpellIds.取("泛输血");
+            var 整体论 = SpellIds.取("整体论");
+
+            // 前置：有蛇胆才有坚角清汁（它是蛇胆技，Lv50+）
+            var 能坚角 = false;
+            try
+            {
+                能坚角 = 坚角 != 0 && JobApiHelper.蛇胆 > 0
+                         && CharacterExt.我的等级() >= 50
+                         && SpellUtil.可用(坚角);
+            }
+            catch { }
+
+            var 能泛输血 = false;
+            try { 能泛输血 = 泛输血 != 0 && SpellUtil.可用(泛输血); } catch { }
+
+            var 能整体论 = false;
+            try { 能整体论 = 整体论 != 0 && SpellUtil.可用(整体论); } catch { }
+
+            if (能坚角 && 能泛输血) { _本帧编排.Add(坚角); _本帧编排.Add(泛输血); return _本帧编排; }
+            if (能坚角 && 能整体论) { _本帧编排.Add(坚角); _本帧编排.Add(整体论); return _本帧编排; }
+            if (能整体论) { _本帧编排.Add(整体论); return _本帧编排; }
+            if (能泛输血) { _本帧编排.Add(泛输血); return _本帧编排; }
+            if (能坚角) { _本帧编排.Add(坚角); return _本帧编排; }
+        }
+        catch { }
+
+        return _本帧编排;
+    }
+
+    /// <summary>
+    /// 团减的**群盾兜底**（参考的 `TryAddShieldFallback`）：
+    /// boss 5 秒内要 AOE、蓝量 &gt; 1000、绿盾(24292) 已解锁且可用，
+    /// 且**20 米内缺盾的人 &gt; 4** ⇒ 用群盾顶上。
+    ///
+    /// [!] 门槛是"**严格大于 4 个人缺盾**"（参考的 `ble` 之后取反）——
+    ///     不是"≥4"，也不是"有人缺盾就交"。写下界容易写宽。
+    /// </summary>
+    private bool 群盾兜底()
+    {
+        try
+        {
+            if (_t.Job != Jobs.Sage) return false;
+            if (!减伤Helper.即将来大伤害(5000)) return false;
+            if (CharacterExt.我的当前蓝量() <= 1000) return false;
+
+            var 群体盾 = _t.群体盾;            // 贤者 = 预后 24286（均衡后变均衡预后）
+            if (群体盾 == 0 || !SpellUtil.可用(群体盾)) return false;
+
+            // 缺盾的人：20 米内、能接受治疗、身上没有 2607/2608/2609 三种均衡盾之一
+            var 缺盾 = 0;
+            foreach (var a in HealTargetHelper.可治疗队友(20f))
+            {
+                if (a == null || !a.对象有效() || !a.活着()) continue;
+                if (a.HasAura(2607) || a.HasAura(2608) || a.HasAura(2609)) continue;
+                缺盾++;
+            }
+
+            if (缺盾 <= 4) return false;
+
+            // 护盾前置（均衡）要能用 —— 和 `Res_GroupShield` 同一条判据
+            if (_t.护盾前置 != 0 && !JobApiHelper.均衡中 && !SpellUtil.可用(_t.护盾前置)) return false;
+
+            _本帧编排.Clear();
+            _本帧编排.Add(群体盾);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     public int Check()
     {
 
 // ★ 2026-10-04：已有减伤就不再叠（对照实现的 CurrentMitigation 快照）
 if (团减快照.已有减伤()) return -1;
+
+        // ★ **6 秒团减锁**（表 #121）—— 同一场 AOE 不要连着铺两层 ★
+        //   [!] `bossAoE要求` 在 AOE 真正落地前会**持续成立**（预读窗口 10 秒），
+        //       没有这把锁时同一场 AOE 会被铺两层，第二层完全浪费。
+        if (团减锁中()) return -1;
 
         // ★ 2026-10-04：**刚有人消耗过豆子 ⇒ 这一拍别再消耗** ✓
         //   本项目采用「一次消耗后全局抑制」的口径（以太层数下降后 7 秒）——
@@ -147,6 +297,21 @@ if (团减快照.已有减伤()) return -1;
             if (!时间轴要求 && !读条要求 && !敌人够多) return -1;
 
             // ══════════════════════════════════════════════════════════
+            //  ★ **团减编排**（表 #121）：触发条件成立之后，
+            //    贤者优先走"坚角+泛输血 / 坚角+整体论"这套组合 ——
+            //    组合失败（都没好）再退到群盾兜底，最后才走原来的单发路径。
+            //  [!] 这一段必须在**触发条件之后**：编排本身不判断"该不该交"，
+            //      它只回答"交的话交哪几个"（分工和 `OffGcd闸门` 一样）。
+            // ══════════════════════════════════════════════════════════
+            if (_t.Job == Jobs.Sage)
+            {
+                var 编排 = 团减编排();
+                if (编排.Count > 0) return 14;
+
+                if (群盾兜底()) return 13;
+            }
+
+            // ══════════════════════════════════════════════════════════
             //  ★ **移动中不铺地面减伤**（道中小怪阶段实测报的问题）★
             //
             //  ── 现象 ──
@@ -238,6 +403,36 @@ if (团减快照.已有减伤()) return -1;
 
     public void Build(Slot slot)
     {
+        // ★ **团减编排分支**（表 #121）—— Check 算好的编排在这里照放 ★
+        //   [!] 判 A 放 A（开发约定 F③）：组合 / 群盾兜底都在 Check 里选定，
+        //       Build 只负责把 `_本帧编排` 里那几个按顺序塞进去。
+        if (_本帧编排.Count > 0)
+        {
+            foreach (var id in _本帧编排)
+            {
+                // 群盾（预后）要带护盾前置（均衡），且目标是自己（自身中心 AOE）
+                if (_t.Job == Jobs.Sage && id == _t.群体盾)
+                {
+                    if (_t.护盾前置 != 0 && !JobApiHelper.均衡中 && SpellUtil.可用(_t.护盾前置))
+                    {
+                        var pre = SpellUtil.Get(_t.护盾前置);
+                        if (pre != null) slot.Add(pre);
+                    }
+
+                    var 盾 = SpellUtil.当前形态(_t.群体盾);
+                    if (盾 != null) slot.Add(new Spell(盾.Id, SpellTargetType.Self));
+                    continue;
+                }
+
+                var sp = SpellUtil.Get(id);
+                if (sp != null) slot.Add(sp);
+            }
+
+            记团减锁();
+            _本帧编排.Clear();
+            return;
+        }
+
         try
         {
             // ── 地面放置型技能的位置选择（参考同类 ACR 的 Qt「脚下放罩」）──
