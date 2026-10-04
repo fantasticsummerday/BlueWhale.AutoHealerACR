@@ -106,4 +106,65 @@ public static class 减伤Helper
         if (敌人 == null || !敌人.对象有效()) return false;
         return TargetHelper.IsBoss(敌人);
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ **坦克死刑预判**（表 #38）★
+    //
+    //  [!] 参考实现里这是一个**独立于"大伤害"之外**的函数
+    //      （`HealerEnemyTargetHelper.HasBossCastingTankbusterWithin(int)`，IL 直读）：
+    //
+    //        · 遍历 `TargetMgr.Enemys`
+    //        · 只取 `TargetHelper.IsBoss(敌)` 的
+    //        · 距离 **≤30 米**（远了不关我的事）
+    //        · `IsTargetCastingActionSoon()` 且 `Helper.IsTankDeathSentence(CastActionId)`
+    //        · 有就返回 true
+    //
+    //  [!] 为什么单独拎出来（而不是继续复用 `即将来大伤害()`）：
+    //      `即将来大伤害()` 查的是 **BossAOE ∪ DeathSentence** 两类，
+    //      语义是"**全队**要吃一发大的" —— 减伤、群盾那些用它最合适。
+    //      而**死刑是打坦克一个人的**，它的正确应对是**给坦克单体预铺**
+    //      （单盾 / 输血 / 绿帽），不是"全队减伤"。
+    //      ⇒ 两个决策要用**各自的判据**，混用会让"坦克死刑"被当成"AOE"
+    //        去触发团减（浪费），或者反过来该预铺的时候没预铺 ✗
+    //
+    //  [!] 默认提前量给 **5000ms**（比 AOE 的 2500 长）：
+    //      单体盾有读条、输血是能力技要在窗口里插 —— 预铺必须比 AOE 更早。
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>坦克死刑的默认预判窗口（毫秒）—— 比 AOE 的提前量更长</summary>
+    public const int 死刑预判毫秒 = 5000;
+
+    /// <summary>boss 距离多远之内才关心（参考口径 30 米）</summary>
+    private const float 死刑关心距离 = 30f;
+
+    /// <summary>
+    /// **30 米内有没有 boss 正在读一发坦克死刑**（`timeLeftMs` 毫秒内落地）。
+    ///
+    /// [!] 判据四条（照参考的 IL）：是 boss + ≤30 米 + 很快放出来 + 那一下是死刑。
+    /// </summary>
+    public static bool boss要打坦克死刑(int 提前毫秒 = 死刑预判毫秒)
+    {
+        return 正在读死刑的boss(提前毫秒) != null;
+    }
+
+    /// <summary>正在读坦克死刑的那个 boss（拿来当"给谁预铺"的参考；没有返回 null）</summary>
+    public static IBattleChara? 正在读死刑的boss(int 提前毫秒 = 死刑预判毫秒)
+    {
+        try
+        {
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                if (敌人 == null || !敌人.对象有效()) continue;
+                if (敌人.CurrentHp <= 0) continue;
+                if (!是Boss(敌人)) continue;
+
+                try { if (敌人.Distance(Core.Me!) > 死刑关心距离) continue; } catch { }
+
+                if (TargetHelper.targetCastingIsDeathSentenceWithTime(敌人, 提前毫秒)) return 敌人;
+            }
+        }
+        catch { }
+
+        return null;
+    }
 }
