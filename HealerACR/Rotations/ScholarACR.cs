@@ -901,10 +901,14 @@ public class SCHSpellTable : JobSpellTable
             //      ==> 所以**保持现状 + 记下差异**，等拿到可靠对应关系再动。
             //          （第 38 轮试过两次通用规则，都因打破别的意图而回滚。）
             // ══════════════════════════════════════════════════════════════
-            new SlotResolverData(new SCH_Consolation(), SlotMode.OffGcd),
-            new SlotResolverData(new SCH_WhisperingDawn(), SlotMode.OffGcd),
-            new SlotResolverData(new SCH_FeyBlessing(), SlotMode.OffGcd),
+            // ★ 表外审计（槽序）：小仙女四件套已按参考逐槽对齐
+            //    参考（`学者技能策略.txt`）：异想的幻光(10) · 慰藉(11) · 异想的祥光(12) · 仙光的低语(13)
+            //    —— 幻光(增疗)排最前，让后面的治疗吃它的 +10% 治疗量。
+            //    这四件技能名与参考 1:1 对应（非靠名字瞎猜），可安全对齐。
             new SlotResolverData(new SCH_FeyIllumination(), SlotMode.OffGcd),
+            new SlotResolverData(new SCH_Consolation(), SlotMode.OffGcd),
+            new SlotResolverData(new SCH_FeyBlessing(), SlotMode.OffGcd),
+            new SlotResolverData(new SCH_WhisperingDawn(), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealAoEAbility(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Aetherpact(), SlotMode.OffGcd),
             new SlotResolverData(new SCH_Seraph(), SlotMode.OffGcd),
