@@ -611,9 +611,11 @@ public class Res_GroupShield : ISlotResolver
     /// </summary>
     private static bool 群盾要活化;
 
+    /// <summary>活化（Zoe）= 24300</summary>
+    private static uint 活化 => SpellIds.取("活化");
+
     /// <summary>能不能/该不该用活化（等级 ≥45 且身上没有活化 buff）</summary>
-    private static bool 该用活化()
-    {
+    private static bool 该用活化()    {
         try
         {
             if (CharacterExt.我的等级() < 45) return false;
@@ -771,10 +773,36 @@ public class Res_GroupShield : ISlotResolver
             if (pre != null) slot.Add(pre);
         }
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ **活化（Zoe）是群盾的一步，不是独立 resolver**（表 #129）★
+        //
+        //  [!] 参考（`群盾.txt`）：`shouldUseZoe` 这个字段是**群盾 Check 里算出来的**，
+        //      `Build` 时如果它为真就**先塞活化再塞群盾** ——
+        //      也就是说活化**从来不是一条独立的决策**，
+        //      它只是"这一发群盾要不要先加个成"的一个分支 ✓
+        //
+        //  [!] 我们原来做成了独立 resolver（`Res_HealAmp` 之外的 `Res_HealBooster`），
+        //      它自己判断时机、自己排队 ⇒ **可能和群盾错开**：
+        //      活化的 20 秒增疗窗口开在"没有盾要铺"的时刻 ✗
+        //
+        //  [!] 现在按参考：只有 `群盾要活化` 为真（= 出血人数那一档成立、
+        //      等级 ≥45、身上没有活化）时才在这里补一发。
+        //      ⚠️ 独立 resolver 保留（别的职业/别的场景还要用它），
+        //      但**贤者这一路**由群盾接管 —— 见 `SageACR` 队列里的说明。
+        // ══════════════════════════════════════════════════════════════
+        if (_t.Job == Jobs.Sage && 群盾要活化 && 活化 != 0)
+        {
+            var zoe = SpellUtil.Get(活化);
+            if (zoe != null && SpellUtil.可用(活化) && !CharacterExt.我有光环(AuraIds.活化))
+                slot.Add(zoe);
+        }
+
         // 用当前形态：贤者的"预后"在均衡状态下会变成"均衡预后"
         var 盾 = SpellUtil.当前形态(_t.群体盾);
         if (盾 == null) return;
         slot.Add(new Spell(盾.Id, SpellTargetType.Self));
+
+        群盾要活化 = false;   // 用完即清（下一帧重新算）
     }
 }
 

@@ -1519,9 +1519,47 @@ public class Res_InstantHealAbility : ISlotResolver
                     if (是先天禀赋(瞬发) && 同目标冷却中(目标)) return;
                     if (本地施放记录.刚放过目标(瞬发, (uint)目标.GameObjectId)) return;
 
+                    // ══════════════════════════════════════════════════════
+                    //  ★ **混合（Krasis）要和这一发单奶同目标**（表 #128）★
+                    //
+                    //  [!] 参考（`自动单奶.txt` IL 第 120~145 行 + Build 第 8~33 行）：
+                    //       `useKrasis` 的判据是**针对这一发选出来的 target**：
+                    //         · 混合(24317) 对该目标 `IsReady`
+                    //         · 该目标身上**没有** 2622（混合的 buff）
+                    //         · 该目标的血量 **≤ `GCD单奶阈值`**
+                    //       成立 ⇒ `Build` 里**先塞混合、再塞那一发单奶**，
+                    //       两个动作**同一个 target** ✓
+                    //
+                    //  [!] 我们原来把混合做成了一条**独立的 resolver**（`Res_HealAmp`），
+                    //       目标写死 `主坦()` ⇒ 两个问题：
+                    //         ① 混合加在坦克身上，而这一发单奶可能是治疗别人
+                    //            ⇒ 增疗加成了个**没人被治的人** ✗
+                    //         ② 坦克满血时它靠"要来"这个弱判据照样交 ✗
+                    //
+                    //  [!] 现在按参考：**先选单奶目标，再决定要不要给它配混合** ——
+                    //       目标同源，条件同源（F③）。
+                    // ══════════════════════════════════════════════════════
+                    var 混合 = SpellIds.取("混合");
+                    var 该配混合 = false;
+                    try
+                    {
+                        该配混合 = 混合 != 0
+                                   && SpellUtil.已解锁(混合)
+                                   && SpellUtil.可用(混合)
+                                   && !目标.HasAura(2622)
+                                   && 目标.有效血量比例() <= 混合血线();
+                    }
+                    catch { }
+
                     var s = SpellUtil.当前形态(瞬发);
                     if (s != null)
                     {
+                        if (该配混合)
+                        {
+                            var 增疗 = SpellUtil.Get(混合);
+                            if (增疗 != null) slot.Add(new Spell(增疗.Id, 目标));
+                        }
+
                         slot.Add(new Spell(s.Id, 目标));
                         if (是先天禀赋(瞬发)) 记先天((uint)目标.GameObjectId);
                         记蛇胆消费(瞬发);
@@ -1531,6 +1569,25 @@ public class Res_InstantHealAbility : ISlotResolver
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// 配混合的血线（参考的 `GCD单奶阈值`）。
+    ///
+    /// [!] 参考拿它和"这一发要治的那个人的血量"比；
+    ///     我们表里 `混合` 登记的是 `单体治疗阈值` 那一档，查不到就回落。
+    /// </summary>
+    private static float 混合血线()
+    {
+        try
+        {
+            var v = 治疗阈值表.取(SpellIds.取("混合"), HealSettings.Instance.单体治疗阈值);
+            return v > 0f ? v : HealSettings.Instance.单体治疗阈值;
+        }
+        catch
+        {
+            return HealSettings.Instance.单体治疗阈值;
         }
     }
 }

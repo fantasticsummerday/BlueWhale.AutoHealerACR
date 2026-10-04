@@ -330,6 +330,9 @@ public class SGESpellTable : JobSpellTable
     /// <summary>心关每次触发的回血量（恢复力 170）</summary>
     public const int 心关回血量 = 170;
 
+    /// <summary>贤者的位移技 = 神翼（Icarus 24295，Lv74）</summary>
+    public override uint 位移技 => SpellIds.取("神翼");
+
     /// <summary>
     /// **失衡本身的两道硬闸门**（表 #100 / #101）——
     /// 命中任何一条 ⇒ **这个技能这一拍整个不能用**（连单体输出也不能退回它）。
@@ -571,8 +574,26 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new SGE_CholeOverflow(), SlotMode.OffGcd),
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new SGE_Psyche(), SlotMode.OffGcd),
-            new SlotResolverData(new Res_HealBooster(_spells), SlotMode.OffGcd),          // 活化
-            new SlotResolverData(new Res_HealAmp(_spells), SlotMode.OffGcd),              // 混合
+            // ⚠️ 默认关（和参考一致：神翼在参考里只是个热键，策略槽里没有它）
+            new SlotResolverData(new Res_Dash(_spells), SlotMode.OffGcd),
+            // ══════════════════════════════════════════════════════════
+            //  ★ 贤者**不再单独排**「活化」与「混合」（表 #128 / #129）★
+            //
+            //  [!] 参考里这两个都**不是独立 resolver**：
+            //       · **活化（Zoe）** 是 `群盾.Build` 里的一步
+            //         （`shouldUseZoe` 由群盾的 Check 算出，Build 先塞活化再塞群盾）；
+            //       · **混合（Krasis）** 是 `自动单奶.Build` 里的一步
+            //         （`useKrasis` 针对**那一发选出来的 target**，两个动作同目标）。
+            //
+            //  [!] 我们原来两条都做成了独立 resolver ⇒ 会和真正的治疗**错开**：
+            //       活化的增疗窗口开在"没有盾要铺"的时刻；
+            //       混合加在坦克身上而那一发单奶治的是别人 ✗
+            //       ⇒ 两条都已挪进对应的 Build（见 `Res_GroupShield.Build`
+            //         与 `Res_InstantHealAbility.Build`）。
+            //
+            //  [!] 这里**不排**它们，但两个 resolver 类都还留着 ——
+            //      别的职业/别的场景没有这两条替代路径，将来的扩展也要用。
+            // ══════════════════════════════════════════════════════════
             new SlotResolverData(new Res_KardiaBoost(_spells), SlotMode.OffGcd),          // 拯救
             new SlotResolverData(new Res_Emergency(_spells), SlotMode.OffGcd),            // 寄生清汁
             new SlotResolverData(new Res_GroupHoT(_spells), SlotMode.OffGcd),             // 自生
@@ -596,6 +617,9 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
         加职业开关("保留发炎", false);   // 保住充能，只在移动/溢出时交
         // ★ 心神风息有**自己的开关**（参考里它不复用「输出」，表 #127）
         加职业开关("心神风息", true);
+        // ★ 位移技（神翼）默认**关** —— 和参考一致：参考只把它做成热键，
+        //   策略槽里没有它（表 #130）。打开后才会"走位中飞向最低血坦克"。
+        加职业开关("位移技", false);
     }
 }
 
