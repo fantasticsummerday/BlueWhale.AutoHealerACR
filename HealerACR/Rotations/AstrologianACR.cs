@@ -1643,8 +1643,23 @@ public class AST_StarDetonation : ISlotResolver
         //   原来只判「可用(8324)」⇒ 一放下就炸 ⇒ 恒吃低档 ✗
         //   对照实现的两条按血线引爆分支也全部锁在 1248 之后 ✓
         if (!CharacterExt.我有光环(1248)) return -1;
+        if (!SpellUtil.可用(技能)) return -3;
 
-        return SpellUtil.可用(技能) ? 8 : -1;
+        // ── 表外审计 A4：按血线引爆，不再「巨星一到就无条件炸」──
+        //   原来无条件引爆 ⇒ 全队满血时把 720 治疗白烧（星体到点会自己引爆，输出不丢）
+        //
+        // ① 倾泻资源（一键爆发）→ 无条件引爆（参考 `星体爆轰.txt:59-63` 返回 22）
+        if (HealQt.GetQt("一键爆发")) return 22;
+
+        // ② 残血小怪 / boss 快死 → 引爆当输出（参考 日常模式 + HasDyingTrash/HasLowHpBoss 返回 3/4）
+        if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return 4;
+
+        // ③ ≥1 人低于「星体爆轰阈值」(0.75) 才引爆（参考 `星体爆轰.txt:92-107` 返回 1）
+        var 星体爆轰阈值 = 治疗阈值表.取(技能, 0.75f);
+        if (HealTargetHelper.低于阈值人数(星体爆轰阈值, 30f) >= 1) return 1;
+
+        // ④ 都没触发 → 先不炸（参考默认 -200，把治疗留到真正需要时）
+        return -200;
     }
 
     public void Build(Slot slot)
