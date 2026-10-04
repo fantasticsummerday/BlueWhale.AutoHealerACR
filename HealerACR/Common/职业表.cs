@@ -48,6 +48,19 @@ public static class 职业表
     // ── 法系 ──
     public static readonly uint[] 法系 = { 6, 25, 26, 27, 35, 36, 42 };  // 幻术/咒术/秘术/召喚/黑魔/绘灵
 
+    /// <summary>
+    /// **赤魔（Red Mage）= 35** —— 复活优先级里单独提一档。
+    ///
+    /// [!] 为什么它要单独列：赤魔有「复活」，**他起来之后能再拉别人** ——
+    ///     所以拉他等于**多一个复活源**，收益比"拉一个普通 DPS"高。
+    ///     这是参考实现（youshu）的复活顺序 `坦克 &gt; 奶妈 &gt; 赤魔 &gt; DPS` 里
+    ///     最容易漏掉、也最容易被问"为什么是他"的一位。
+    /// </summary>
+    public const uint 赤魔 = 35;
+
+    /// <summary>这个玩家是不是赤魔</summary>
+    public static bool 是赤魔(IBattleChara? c) => 取职业(c) == 赤魔;
+
     /// <summary>这个玩家是不是治疗职业</summary>
     public static bool 是奶妈(IBattleChara? c)
     {
