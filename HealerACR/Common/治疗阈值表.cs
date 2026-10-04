@@ -672,6 +672,7 @@ public static class 治疗阈值表
         设(SpellIds.取("安慰之心"), 0.40f);   // youshu 安慰之心阈值 40
         设(SpellIds.取("狂喜之心"), 0.75f);   // youshu 狂喜之心阈值 75
         设(SpellIds.取("医养"),     0.65f);   // youshu 医养阈值 65（注：该 resolver 实际施放 133）
+        设(SpellIds.取("医济"),     0.65f);   // youshu 医养阈值 65（医济=133 是医养 37010 的 50 级底版，同一档）
         设(SpellIds.取("医治"),     0.45f);   // youshu 医治阈值 45
         设(SpellIds.取("愈疗"),     0.40f);   // youshu 愈疗阈值 40
         设(SpellIds.取("再生"),     0.40f);   // youshu GCD单奶阈值 40（再生用同一档）
