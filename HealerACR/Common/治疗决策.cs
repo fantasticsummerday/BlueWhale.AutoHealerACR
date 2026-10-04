@@ -169,6 +169,12 @@ public static class 治疗决策
             if (移动中 && !技.瞬发) return false;
             if (只瞬发 && !技.瞬发) return false;
 
+            // ★ 表外审计 W1：MP 门**进到「能不能放」**里 —— 蓝不够的从候选里剔除，
+            //   自然退到下一档（救疗 1400 蓝不够 → 落到治疗 800）。参考 `救疗.txt`
+            //   是 `useCure2 ? 40 : 20` 的**降级**，不是"选高了再拦"。
+            //   原来只挡在 `Res_HealSingleGcd.Check` 选完之后，等于"选高不放"（静默空转）。
+            if (!技能MP表.蓝够(技.Id)) return false;
+
             return SpellUtil.可用(技.Id);
         }
         catch

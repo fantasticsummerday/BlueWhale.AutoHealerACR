@@ -1281,6 +1281,41 @@ public class Res_InstantHealAbility : ISlotResolver
     public Res_InstantHealAbility(JobSpellTable t) => _t = t;
 
     /// <summary>
+    /// 解析本帧要用的瞬发单奶能力技。
+    ///
+    /// [!] **贤者三档**（表外审计 S4）：`输血 → 白牛清汁 → 灵橡清汁` 按「就绪」选第一个。
+    ///     原来 `瞬发单奶能力技 => 取已解锁(输血,白牛,灵橡)` 恒取**输血**，
+    ///     而输血是 120 秒大 CD —— 一转 CD，`可用()` 就恒假，整条 ② 直接跳过，
+    ///     **白牛/灵橡 永远上不了台**（它们的 0.65 / 0.50 阈值也彻底读不到）✗
+    ///
+    /// [!] 参考 `自动单奶.txt:182-218` `SelectAction` 正是按「就绪」挑第一个，
+    ///     每个技能各配各的阈值 —— 输血 70 / 白牛 65 / 灵橡 50（`治疗阈值表` 已登记）。
+    ///
+    /// [!] 其余职业的 `瞬发单奶能力技` 是单一技能位（神名/先天禀赋/活性法…），
+    ///     直接返回，不受这条影响。
+    /// </summary>
+    private uint 解析瞬发技能(JobSpellTable t)
+    {
+        try
+        {
+            if (t.Job != Jobs.Sage) return t.瞬发单奶能力技;
+
+            var 候选 = new[]
+            {
+                SpellIds.取("输血"),
+                SpellIds.取("白牛清汁"),
+                SpellIds.取("灵橡清汁"),
+            };
+            foreach (var id in 候选)
+            {
+                if (id != 0 && SpellUtil.已解锁(id) && SpellUtil.可用(id)) return id;
+            }
+            return 0;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>
     /// 坦克低于这个血线就值得给预铺技。
     ///
     /// ⚠️ **0.60 不是随手定的**（第一版我写了 0.85，太高 —— 已改）。
@@ -1391,8 +1426,8 @@ public class Res_InstantHealAbility : ISlotResolver
         //          GCD 单奶                 → **40%**
         //      便宜的先交、贵的后交 —— 这才是"优先用不读条的"。
         //      如果这里用 0.52，神名会等到比 GCD 单奶还晚，等于白配。
-        var 瞬发 = _t.瞬发单奶能力技;
-        if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
+        var 瞬发 = 解析瞬发技能(_t);
+        if (瞬发 != 0)
         {
             // ★ **蛇胆互斥**（表 #118 / #119）：两次蛇胆消费至少隔 2000ms ——
             //   不带这条时，血崩瞬间 输血 → 白牛 → 灵橡 会在几帧内连着倒出去，
@@ -1566,8 +1601,8 @@ public class Res_InstantHealAbility : ISlotResolver
             }
         }
 
-        var 瞬发 = _t.瞬发单奶能力技;
-        if (瞬发 != 0 && SpellUtil.已解锁(瞬发) && SpellUtil.可用(瞬发))
+        var 瞬发 = 解析瞬发技能(_t);
+        if (瞬发 != 0)
         {
             if (必须奶满.找目标() == null)
             {
