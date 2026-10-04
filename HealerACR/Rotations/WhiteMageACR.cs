@@ -412,6 +412,21 @@ public class WHMSpellTable : JobSpellTable
     public override bool 群体治疗能力技是输出型 => true;   // 法令要卡 CD
     public override uint 团队减伤 => SpellIds.取("节制");
 
+    /// <summary>
+    /// **节制的血线触发少要 1 个人**（表外审计 P1-2/P1-3）。
+    ///
+    /// [!] 参考 `节制.txt:51-71` 的 IL 逐字是：
+    ///       `CastableAlliesWithin30.Count(…)` → **`IL_00bd ldc.i4.1`** → **`IL_00be add`**
+    ///       → `Clamp(群减人数, 0, 8)` → `bge`
+    ///     ⇒ 判的是 **`人数 + 1 >= 群减人数`**，反过来读就是"至少 `群减人数 - 1` 人"。
+    ///       默认 2 ⇒ **1 人**就够（和学者罩子的 4 人形成对比 —— 这正是不能写死的原因）。
+    ///
+    /// [!] 另外参考在人数这一关**之前**还有两条守卫（我们放在下面一起补了）：
+    ///       `IL_0066 CanUseGroupMitigation`（= 5.5 秒的"节制↔全大赦"互斥）
+    ///       `IL_0072 HasAura(1911 庇护所)` / `IL_0084 HasAura(1873 节制)` 任一在身 ⇒ -5
+    /// </summary>
+    public override int 团队减伤人数加成 => -1;
+
     /// <summary>神圣/豪圣是 8 米范围（比其他奶妈的 AOE 大）</summary>
     public override int AOE伤害范围 => 8;
     public override uint 个人减伤 => SpellIds.取("神祝祷");

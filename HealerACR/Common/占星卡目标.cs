@@ -44,15 +44,33 @@ public static class 占星卡目标
 
     /// <summary>
     /// 战斗时间（毫秒）→ 用哪张优先级表。
-    /// 30 秒内是起手，30~120 秒之间按"2 分钟+"表（也就是循环期），
-    /// 120 秒之后也一直用 2 分钟表。
+    ///
+    /// [!] **起手表一直用到 120 秒**（表外审计 P1-8 修正；原来是 30 秒）。
+    ///
+    /// 参考 IL（`发卡设置.更新战斗阶段`，L298-318）逐字是：
+    /// <code>
+    ///   var t = AI.Instance.BattleData.CurrBattleTimeInMs;
+    ///   int next;
+    ///   if (t &lt;= 30000)      next = 2;              // IL_0054 ble.s  → ldc.i4.2
+    ///   else if (t &lt; 120000) next = 当前战斗阶段;    // IL_005d bge.s 失败 → br IL_0069
+    ///   else                 next = 3;              // IL_0065        → ldc.i4.3
+    /// </code>
+    /// ⇒ **30 秒 ~ 120 秒这一段"阶段不变"**，也就是说起手那一档（阶段 2）
+    ///   会**一直用到 120 秒**，不是 30 秒就换。
+    ///
+    /// [!] 参考的字典键只有两个：`"起手"` 与 `"2分钟+"`（`.cctor` 里
+    ///     `ldstr "起手"` / `ldstr "2分钟+"` 各出现两次，分别给近战和远程）
+    ///     —— 没有第三张表，所以"不切换"就等于"继续用起手表" ✓
+    ///
+    /// [!] 我们原来在 30 秒就切到二分钟表 ⇒ 30~120 秒这一段发卡顺序与参考不同
+    ///     （这一段是开场爆发的后半段，顺序差异会有实际影响）。
     /// </summary>
     private static bool 用起手表()
     {
         try
         {
             var 毫秒 = AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0;
-            return 毫秒 <= 30_000;
+            return 毫秒 <= 120_000;
         }
         catch
         {
@@ -458,12 +476,49 @@ public static class 占星卡目标
     {
         try
         {
-            if (AuraIds.地星主宰 != 0 && 我 != null && 我.HasAura(AuraIds.地星主宰)) return true;
-            if (AuraIds.巨星主宰 != 0 && 我 != null && 我.HasAura(AuraIds.巨星主宰)) return true;
+            // ⚠️ 表外审计 P0：**读 `Core.Me` 的光环前必须先判 `对象有效()`**
+            //
+            // [!] 项目铁律（`HealTargetHelper.cs:102-104`）：已释放的游戏对象是
+            //     哨兵 `0x12345679` 而**不是 null**，在它身上读原生字段会抛
+            //     **访问违例 `0xc0000005`，而且穿透 `catch` 直接杀进程**。
+            //     所以 `我 != null` **不够**，必须再判一次 `对象有效()`。
+            //
+            // [!] 参考侧也没判（`小奥秘卡.txt:233-244` 直接 `Core.Me` + `HasAura`），
+            //     但那是参考的疏漏 —— 我们自己的铁律要求判，而且这条
+            //     **每帧都会被走到**（`AST_EarthlyStar.Check` 与贵妇判定都调它）。
+            //
+            // [!] 读不到时返回 `false`（= "没铺地星"）：
+            //     代价是"可能多铺一颗地星"（游戏会拒绝重复铺，无害），
+            //     比"读到哨兵直接崩游戏"好得多 ✓
+            var 自己 = Self();
+            if (自己 == null || !自己.对象有效()) return false;
+
+            if (AuraIds.地星主宰 != 0 && 自己.HasAura(AuraIds.地星主宰)) return true;
+            if (AuraIds.巨星主宰 != 0 && 自己.HasAura(AuraIds.巨星主宰)) return true;
         }
         catch { }
 
         return false;
+    }
+
+    /// <summary>
+    /// 自己（判过 `对象有效()` 的版本）。
+    ///
+    /// [!] 表外审计新增：`我` 那个属性直接返回 `Core.Me`（**没判有效性**），
+    ///     凡是读它的**属性**（`HasAura` 等）都必须先过这一层。
+    ///     纯做 `== null` 比较的地方可以继续用 `我`。
+    /// </summary>
+    private static IBattleChara? Self()
+    {
+        try
+        {
+            var me = AEAssist.Core.Me;
+            return me != null && me.对象有效() ? me : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>20 米内的敌人数量（王冠卡判断"这一发值不值得交"用）</summary>

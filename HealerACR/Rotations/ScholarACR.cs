@@ -231,6 +231,19 @@ public class SCHSpellTable : JobSpellTable
     public override uint 群体盾 => SpellIds.取("士气高扬之策");
     public override uint 团队减伤 => SpellIds.取("野战治疗阵");
 
+    /// <summary>
+    /// **罩子的血线触发要多 2 个人**（表外审计 P1-3）。
+    ///
+    /// [!] 参考 `野战治疗阵.txt:27-42` 的 IL 逐字是：
+    ///       `ldfld 野战治疗阵阈值` → `Clamp(...,0,100)` → `CountLowHp(…, 20)`
+    ///       → `ldfld 群奶人数` → **`IL_0056 ldc.i4.2`** → **`IL_0057 add`** → `Clamp(0,8)`
+    ///     ⇒ 门槛是 **`群奶人数 + 2`**（默认 2 ⇒ 要 **4** 人）。
+    ///
+    /// [!] 我们原来复用 `群疗能力技人数要求(群奶最少人数)` = `Clamp(基础,1,8)`
+    ///     ⇒ 默认只要 **2** 人 —— 少了一半，一个条件成立就把 30 秒 CD 的团减交掉 ✗
+    /// </summary>
+    public override int 团队减伤人数加成 => 2;
+
     public override uint 复活 => SpellIds.取("复生");
     public override uint 驱散 => SpellsDefine.Esuna;
     public override uint 醒梦 => SpellsDefine.LucidDreaming;
