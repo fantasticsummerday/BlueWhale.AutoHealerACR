@@ -205,6 +205,7 @@ public class Res_MustFullHeal : ISlotResolver
             foreach (var h in _t.治疗候选.已解锁())
             {
                 if (!h.瞬发) continue;
+                if (!HealQt.每技能通过(h.Id)) continue;
                 if (SpellUtil.可用(h.Id)) return true;
             }
         }
@@ -216,6 +217,7 @@ public class Res_MustFullHeal : ISlotResolver
             foreach (var id in new[] { _t.瞬发单奶能力技, _t.预铺单奶能力技, _t.紧急单奶 })
             {
                 if (id == 0) continue;
+                if (!HealQt.每技能通过(id)) continue;
                 if (!SpellUtil.已解锁(id)) continue;
                 if (SpellUtil.可用(id)) return true;
             }
@@ -448,6 +450,7 @@ public class Res_HealEmergency : ISlotResolver
 
         // 候选集挑不出 → 退回旧槽位（行为与接入前完全一致）
         if (_t.紧急单奶 == 0) return -102;
+        if (!HealQt.每技能通过(_t.紧急单奶)) return -4;   // 每技能 QT（活性法等被关）
         if (!SpellUtil.已解锁(_t.紧急单奶)) return -2;
         return SpellUtil.可用(_t.紧急单奶) ? 30 : -1;
         }
@@ -492,7 +495,7 @@ public class Res_HealEmergency : ISlotResolver
         }
 
         // 候选集挑不出 → 退回旧槽位
-        if (_t.紧急单奶 != 0)
+        if (_t.紧急单奶 != 0 && HealQt.每技能通过(_t.紧急单奶))
             slot.Add(new Spell(_t.紧急单奶, target));
     }
 }
@@ -527,6 +530,8 @@ public class Res_HealAoEAbility : ISlotResolver
         }
         if (_t.群体治疗能力技 == 0) return -102;
         if (!SpellUtil.已解锁(_t.群体治疗能力技)) return -2;
+        // ★ 每技能 QT（学者「不屈」等被关掉就整条不放）
+        if (!HealQt.每技能通过(_t.群体治疗能力技)) return -4;
 
         // ⚠️ **能力技队列深度闸门**（对照分析发现的缺口）——
         //    参考实现里群疗能力技用 `CanUseOffGcd(1)` / `(2)`。

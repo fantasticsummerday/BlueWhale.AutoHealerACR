@@ -94,6 +94,10 @@ public class Res_SummonPet : ISlotResolver
         }
         catch { }
 
+        // ★ 朝日召唤 24 秒节流（复刻 shiyuvi GetPet）：炽天召唤后 24 秒内不重召。
+        //    炽天附体结束小仙女会自动回来，这个窗口里召等于打断附体或白召。
+        try { if (SpellExtension.RecentlyUsed(SpellIds.取("炽天召唤"), 24000)) return -8; } catch { }
+
         if (!SpellUtil.已解锁(_t.召唤宠物)) return -2;
         if (!SpellUtil.可用(_t.召唤宠物)) return -5;
 

@@ -4,6 +4,7 @@ using AEAssist.CombatRoutine.Module;
 using AEAssist.Extension;
 using AEAssist.Helper;
 using HealerACR.Common;
+using HealerACR.Timeline;
 
 namespace HealerACR.Rotations;
 
@@ -68,6 +69,15 @@ public class SGE_AoeDot : ISlotResolver
         if (!HealQt.GetQt("群DOT", true)) return -100;
         if (!HealQt.GetQt("输出", true)) return -101;
         if (技能 == 0 || 均衡 == 0) return -102;
+
+        // ★ 失衡硬闸门（复刻 youshu 失衡.txt）：地图黑名单里失衡系会误伤/失效，
+        //    群毒（均衡失衡）也是失衡家族，同样禁用。低蓝豁免门走 SageACR.自身AOE硬闸门。
+        try
+        {
+            var 地图 = TimelineManager.实时副本Id();
+            if (地图 == 293u || 地图 == 296u || 地图 == 1046u) return -200;
+        }
+        catch { }
 
         try
         {

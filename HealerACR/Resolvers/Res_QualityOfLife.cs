@@ -40,6 +40,10 @@ public class Res_MoveGcd : ISlotResolver
         if (技能 == 0) return -102;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ 失衡硬闸门（复刻 youshu）：贤者的移动填充技是失衡，
+        //    命中硬闸门（地图黑名单 / 低蓝+虚弱 / 均衡中）就整条禁用。
+        if (_t.自身AOE硬闸门()) return -3;
+
         // 只在真的在移动时用
         if (!MoveHelper.IsMoving()) return -1;
 

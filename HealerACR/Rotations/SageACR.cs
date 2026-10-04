@@ -353,9 +353,19 @@ public class SGESpellTable : JobSpellTable
     ///      ① 当前地图 ∈ {293, 296, 1046} ⇒ 禁用
     ///      ② `MP < 1000` **且** 身上有 43「衰弱」/ 44「濒死」⇒ 禁用
     ///         （注意：**不是**"低蓝就禁用"—— 没有那两个状态时低蓝照样能用）
+    ///      ③ 均衡中 ⇒ 禁用（失衡被换成群毒，交给 SGE_AoeDot）
     /// </summary>
     public override bool 自身AOE硬闸门()
     {
+        try
+        {
+            // ③ 均衡中硬闸门（复刻 youshu 失衡.txt:26-29 `IsEukrasiaActiveOrBuffed`）：
+            //    均衡状态下的失衡会被换成群毒（均衡失衡），不是我们要的瞬发 AOE ——
+            //    这一拍整条禁用，群毒交给 SGE_AoeDot 走它自己的路线。
+            if (JobApiHelper.均衡中) return true;
+        }
+        catch { }
+
         try
         {
             // ① 地图黑名单

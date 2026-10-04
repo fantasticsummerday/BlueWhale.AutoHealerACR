@@ -961,6 +961,26 @@ public class SCHSpellTable : JobSpellTable
         加职业开关("链式策略", true);
         加职业开关("小仙女", true);
         加职业开关("炽天使", true);
+        // ★ 每技能 QT（复刻 shiyuvi）—— 8 个技能各自一个开关
+        加职业开关("低语", true);
+        加职业开关("祥光", true);
+        加职业开关("幻光", true);
+        加职业开关("慰藉", true);
+        加职业开关("不屈", true);
+        加职业开关("活性法", true);
+        加职业开关("绿帽", true);
+        加职业开关("链子", true);
+        // ★ 登记「技能 id → QT 名」。通用 resolver（治疗决策/群疗能力技/预铺/瞬发）和
+        //   AI 候选集都查 `每技能通过`，这样关掉开关后【本地 + AI】两条路一起失效，
+        //   不会出现「本地不奶、AI 还在建议」的失联。
+        HealQt.每技能注册(SpellIds.取("仙光的低语"), "低语");
+        HealQt.每技能注册(SpellIds.取("异想的祥光"), "祥光");
+        HealQt.每技能注册(SpellIds.取("异想的幻光"), "幻光");
+        HealQt.每技能注册(SpellIds.取("慰藉"), "慰藉");
+        HealQt.每技能注册(SpellIds.取("不屈不挠之策"), "不屈");
+        HealQt.每技能注册(SpellIds.取("生命活性法"), "活性法");
+        HealQt.每技能注册(SpellIds.取("深谋远虑之策"), "绿帽");
+        HealQt.每技能注册(SpellIds.取("以太契约"), "链子");
     }
 
     /// <summary>爆发轴（勾上「一键爆发」才生效）</summary>
@@ -1022,6 +1042,7 @@ public class SCH_FeyBlessing : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群奶")) return -101;
         if (!HealQt.GetQt("小仙女", true)) return -103;
+        if (!HealQt.GetQt("祥光")) return -104;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var s = HealSettings.Instance;
@@ -1091,6 +1112,7 @@ public class SCH_Aetherpact : ISlotResolver
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("小仙女", true)) return -103;
+        if (!HealQt.GetQt("链子")) return -105;      // 每技能开关（复刻 shiyuvi「链子」）
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.妖精能量 < 20) return -3;
 
@@ -1219,6 +1241,7 @@ public class SCH_Consolation : ISlotResolver
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("炽天使", true)) return -104;
+        if (!HealQt.GetQt("慰藉")) return -105;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
         if (JobApiHelper.炽天使剩余 <= 0) return -3;
 

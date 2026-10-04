@@ -189,12 +189,18 @@ public static class 以太管理
     ///     ⇒ 转化转好前我们不会提前卸豆 ⇒ 豆子白白溢出 ✗
     ///
     /// [!] 方向保守：两个都读不到（返回 -1）⇒ 不算"快转好"（不会无脑卸豆）✓
+    ///
+    /// [!] 2026 节流复刻：窗口从**固定 8 秒**改成「**GCD 时长 × 以太层数**」（shiyuvi EnergyDrain2）。
+    ///     手里 N 颗豆子要 N 个 GCD 才清得掉，补豆技只剩 N×GCD 时开卸才既不溢出、也清得完。
     /// </summary>
-    public static bool 消耗技快转好(int 提前毫秒 = 8000)
+    public static bool 消耗技快转好()
     {
         try
         {
-            if (以太超流快转好(提前毫秒)) return true;
+            var 层数 = Math.Clamp(JobApiHelper.以太, 1, 3);
+            var 窗口毫秒 = (int)(CharacterExt.GCD时长 * 层数);
+
+            if (以太超流快转好(窗口毫秒)) return true;
 
             var 转化 = SpellIds.取("转化");
             if (转化 == 0) return false;
@@ -202,7 +208,7 @@ public static class 以太管理
             var 剩余秒 = CharacterExt.冷却剩余秒(转化);
             if (剩余秒 < 0f) return false;      // 读不到 → 不当作快转好（与上面同向）
 
-            return 剩余秒 * 1000f <= 提前毫秒;
+            return 剩余秒 * 1000f <= 窗口毫秒;
         }
         catch
         {

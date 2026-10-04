@@ -796,6 +796,11 @@ public class Res_GroupShield : ISlotResolver
             {
                 if (CharacterExt.我的当前蓝量() < 1000) return -9;
                 if (JobApiHelper.蛇胆 < 1) return -9;
+
+                // ★ HasActiveMitigation 硬门（复刻 youshu 群盾.txt:46-55）：
+                //    已有团队减伤铺着，就别再叠盾——减伤已经在干活，
+                //    再铺盾是重复覆盖，那一拍白费。
+                if (团减快照.已有减伤()) return -7;
             }
             catch { }
         }

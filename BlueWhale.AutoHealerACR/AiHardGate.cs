@@ -66,6 +66,20 @@ public static class AiHardGate
 
         {
 
+            // ★ 每技能 QT（学者 8 技能开关）：关掉的技能一律拒 ——
+            //   无论 AI 是从候选集选还是走「技能ID抛接」的兜底路，这里兜住
+            //   （和本地 `治疗决策.选最优` / 通用 resolver 同一判据，H9 联动）。
+            if (!HealerACR.Common.HealQt.每技能通过(c.技能Id))
+
+            {
+
+                原因 = "用户关闭了该技能的每技能开关";
+
+                return false;
+
+            }
+
+
             if (c.类 == 候选集.类别.减伤)
 
             {

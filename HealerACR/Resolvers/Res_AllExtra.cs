@@ -1405,7 +1405,7 @@ public class Res_InstantHealAbility : ISlotResolver
 
         // ── ① 预铺类 ──
         var 预铺 = _t.预铺单奶能力技;
-        if (预铺 != 0 && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺) && 预铺目标(预铺) != null)
+        if (预铺 != 0 && HealQt.每技能通过(预铺) && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺) && 预铺目标(预铺) != null)
         {
             // ⚠️ 有人濒危时让路给急救（`Res_HealEmergency` 排在 OffGcd 趟，
             //    这里只保证不跟"必须奶满/急救"抢目标）
@@ -1428,6 +1428,7 @@ public class Res_InstantHealAbility : ISlotResolver
         //      便宜的先交、贵的后交 —— 这才是"优先用不读条的"。
         //      如果这里用 0.52，神名会等到比 GCD 单奶还晚，等于白配。
         var 瞬发 = 解析瞬发技能(_t);
+        if (!HealQt.每技能通过(瞬发)) return -4;   // 每技能 QT（活性法被关）
         if (瞬发 != 0)
         {
             // ★ **蛇胆互斥**（表 #118 / #119）：两次蛇胆消费至少隔 2000ms ——
@@ -1589,7 +1590,7 @@ public class Res_InstantHealAbility : ISlotResolver
         // ⚠️ 必须和 Check 同源（开发约定 F③）：判谁就放谁，顺序也必须一致。
 
         var 预铺 = _t.预铺单奶能力技;
-        if (预铺 != 0 && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺))
+        if (预铺 != 0 && HealQt.每技能通过(预铺) && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺))
         {
             if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
             {
@@ -1603,7 +1604,7 @@ public class Res_InstantHealAbility : ISlotResolver
         }
 
         var 瞬发 = 解析瞬发技能(_t);
-        if (瞬发 != 0)
+        if (瞬发 != 0 && HealQt.每技能通过(瞬发))
         {
             if (必须奶满.找目标() == null)
             {

@@ -1423,6 +1423,9 @@ public static class 候选集
         foreach (var 技 in 技能表.治疗候选.已解锁())
         {
             if (技.Id == 0) continue;
+            // ★ 每技能 QT（学者 8 技能开关）：关掉的技能不进入 AI 候选，
+            //    和本地 `治疗决策.选最优` / 各类通用 resolver 同一判据（H9 联动）。
+            if (!HealQt.每技能通过(技.Id)) continue;
             try
             {
                 if (!SpellUtil.已解锁(技.Id)) continue;

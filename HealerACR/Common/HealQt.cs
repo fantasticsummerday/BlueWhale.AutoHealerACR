@@ -185,6 +185,26 @@ public static class HealQt
     /// <summary>当前登记了多少个 QT 开关（诊断用）</summary>
     public static int 登记数 => _已登记.Count;
 
+    // ==================== 每技能 QT（单技能开关，如学者 8 技能）====================
+
+    /// <summary>技能 id → QT 开关名。登记过的技能由那个开关决定是否放行。</summary>
+    private static readonly Dictionary<uint, string> _每技能QT = new();
+
+    /// <summary>登记一个「每技能开关」：技能 id 对应某个 QT 名。</summary>
+    public static void 每技能注册(uint 技能Id, string QT名)
+    {
+        if (技能Id == 0 || string.IsNullOrEmpty(QT名)) return;
+        _每技能QT[技能Id] = QT名;
+    }
+
+    /// <summary>该技能的每技能开关是否放行（没登记过 = 不设单技能开关 = 放行）。</summary>
+    public static bool 每技能通过(uint 技能Id)
+    {
+        if (技能Id == 0) return true;
+        if (!_每技能QT.TryGetValue(技能Id, out var 名)) return true;
+        return GetQt(名, true);
+    }
+
     // ==================== 一次性开关（模拟按钮）====================
 
     private static bool _上次解除熔断;

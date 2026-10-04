@@ -26,6 +26,7 @@ public class SCH_WhisperingDawn : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群奶")) return -101;
         if (!HealQt.GetQt("小仙女", true)) return -103;
+        if (!HealQt.GetQt("低语")) return -104;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // ══════════════════════════════════════════════════════════════
@@ -87,6 +88,7 @@ public class SCH_FeyIllumination : ISlotResolver
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("小仙女", true)) return -103;
+        if (!HealQt.GetQt("幻光")) return -104;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var 要来伤害 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();

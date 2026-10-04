@@ -45,6 +45,10 @@ public class SCH_AutoDissipation : ISlotResolver
         // 已经在转化中就别再放
         if (AuraIds.转化中 != 0 && CharacterExt.我有光环(AuraIds.转化中)) return -4;
 
+        // ★ 转化 22 秒节流（复刻 shiyuvi）：炽天召唤后 22 秒内不转化。
+        //    炽天附体期间小仙女被替换，没有可牺牲的仙女；刚结束也别立刻转化。
+        try { if (SpellExtension.RecentlyUsed(SpellIds.取("炽天召唤"), 22000)) return -7; } catch { }
+
         // 小仙女不在场就没得牺牲（也用不出这个技能）
         if (!JobApiHelper.有小仙女) return -5;
 

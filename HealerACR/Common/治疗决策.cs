@@ -127,6 +127,8 @@ public static class 治疗决策
                 if (只群体 && !技.群体) continue;
                 if (只要GCD && 技.是能力技_实际) continue;   // GCD 槽不能塞能力技
                 if (技.仅自己) continue;
+                // ★ 每技能 QT 开关（学者 8 技能之一被关掉就从候选里剔除）
+                if (!HealQt.每技能通过(技.Id)) continue;
 
                 // ④ 可用性：冷却 / 资源 / 移动
                 if (!可用(技, 移动中, 只瞬发)) continue;
