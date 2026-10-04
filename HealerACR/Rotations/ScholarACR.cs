@@ -728,7 +728,7 @@ public class SCHSpellTable : JobSpellTable
             //   详见 Res_InstantHealAbility 的类注释。
             new SlotResolverData(new Res_HealEmergency(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_InstantHealAbility(_spells), SlotMode.OffGcd),
-            new SlotResolverData(new SCH_Accession(), SlotMode.Gcd),                 // 降临之章（炽天附体期间）
+            new SlotResolverData(new SCH_Accession(), SlotMode.OffGcd),               // 降临之章（炽天附体期间，20s oGCD）
                         // ══════════════════════════════════════════════════════════════
             //  ★ 移动中开即刻咏唱 ★
             //
@@ -861,7 +861,6 @@ public class SCHSpellTable : JobSpellTable
             //   [!] 它自带"候选够 2 个"的判据，单体场景直接跳过 ⇒ 不抢单体毒。
             new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_Dot(_spells), SlotMode.Gcd),
-            new SlotResolverData(new SCH_BanefulImpaction(), SlotMode.Gcd),   // 埋伏之毒（需预备 buff）
             // ⚠️ 位置很重要：必须在 `Res_MoveGcd`（移动填充）**之前** ——
             //   药尾声补刀最该生效的场景就是**移动中**（读条放不出来），
             //   排在移动填充后面等于**永远选不到**。
@@ -945,7 +944,7 @@ public class SCHSpellTable : JobSpellTable
             new SlotResolverData(new Res_Emergency(_spells), SlotMode.OffGcd),           // 应急战术
             new SlotResolverData(new SCH_Dissipation(), SlotMode.OffGcd),                // 转化
             new SlotResolverData(new SCH_Seraphism(), SlotMode.OffGcd),                  // 炽天附体(100)
-            new SlotResolverData(new SCH_AdloquiumUpgrade(), SlotMode.OffGcd),           // 意气轩昂之策(96)
+            new SlotResolverData(new SCH_BanefulImpaction(), SlotMode.OffGcd),           // 埋伏之毒（1s oGCD 需预备 buff，参考末尾第 27 槽）
             new SlotResolverData(new Res_LimitBreak(), SlotMode.OffGcd),                  // 极限技
         };
     }

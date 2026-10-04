@@ -6,12 +6,14 @@ using HealerACR.Timeline;
 namespace HealerACR.Rotations;
 
 // ============================================================================
-//  学者 90-100 级的三个技能（0.3.8 补）。
+//  学者 90-100 级的 90+ 技能（0.3.8 补）。
 //
 //  参考同类 ACR 的类型表发现的缺口：
-//    Scholar_Baneful_Impaction -> 埋伏之毒（92）
+//    Scholar_Baneful_Impaction -> 埋伏之毒（92，见 ScholarBaneful.cs）
 //    Scholar_Seraphism         -> 炽天附体（100）
-//    96 级那个 同类 ACR 没单独建类，但它是独立的群盾强化
+//  96 级「意气轩昂之策」是**士气高扬之策（群盾）的升级形态** ——
+//    它已由 `Res_GroupShield`（`当前形态(群体盾)`）自动覆盖，不需要单独建类。
+//    （表外审计 C5：曾有一个重复的 `SCH_AdloquiumUpgrade`，已删 —— 见队列注释。）
 // ============================================================================
 
 /// <summary>
@@ -40,39 +42,6 @@ public class SCH_Seraphism : ISlotResolver
         if (!掉血多 && !要来了) return -1;
 
         return SpellUtil.可用(技能) ? 18 : -1;
-    }
-
-    public void Build(Slot slot)
-    {
-        var spell = SpellUtil.当前形态(技能);
-        if (spell != null) slot.Add(spell);
-    }
-}
-
-/// <summary>
-/// 意气轩昂之策（学者 96 级）。群体护盾/治疗强化，
-/// 按"预铺"用：时间轴预报到伤害或 boss 正在读条时铺。
-/// </summary>
-public class SCH_AdloquiumUpgrade : ISlotResolver
-{
-    private static uint 技能 => SpellIds.取("意气轩昂之策");
-
-    public int Check()
-    {
-        if (HealTargetHelper.木桩模式) return -300;
-        if (!HealQt.GetQt("奶人")) return -100;
-        if (!SpellUtil.已解锁(技能)) return -2;
-
-        if (!TimelineManager.未来有减伤(4.0) && !减伤Helper.即将来大伤害()) return -1;
-
-        // ⚠️ 移动守卫（审计发现漏了）——
-        //    意气轩昂之策（盾）是 **GCD 读条**技能，
-        //    移动中塞进去必然被打断（日志里 SelfCastCancel 就有一条 185 的）。
-        //    ⚠️ 但**不硬挡**：如果有瞬发盾可用（学者没有，留给以后）……
-        //       这里先按标准做法放守卫 —— 让路给别的瞬发盾/治疗。
-        if (!SpellUtil.移动中可用(技能)) return -7;
-
-        return SpellUtil.可用(技能) ? 15 : -1;
     }
 
     public void Build(Slot slot)
