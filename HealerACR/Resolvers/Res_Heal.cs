@@ -308,7 +308,10 @@ public class Res_HealEmergency : ISlotResolver
         using var _深度 = HealerACR.Common.调用深度.进("Res_HealEmergency.决定常规急救");
         try
         {
-            var 目标 = HealTargetHelper.最低血量队友(HealSettings.Instance.紧急单奶阈值);
+            // ★ 按技能查阈值：白魔紧急单奶「天赐」登记 0.20（youshu 20），
+            //   不再落回统一 0.30；查不到（其它职业未登记）落回 紧急单奶阈值（行为不变）。
+            var 目标 = HealTargetHelper.最低血量队友(
+                治疗阈值表.取(_t.紧急单奶, HealSettings.Instance.紧急单奶阈值));
             if (目标 == null) return (null, null);
 
             var 帧 = AEAssist.Helper.TimeHelper.Now() / 50;
@@ -542,11 +545,6 @@ public class Res_HealAoEAbility : ISlotResolver
         if (!_t.群体治疗能力技是输出型 && !OffGcd闸门.可以排(OffGcd闸门.默认上限())) return -1;
 
         var s = HealSettings.Instance;
-        // ⚠️ 必须传**技能真实半径**（20 米）—— 不传就落到默认 30 米，
-        //    会把 20 米外的人也算成"该群疗" → 交掉一个大 CD 却只治到 1 个人。
-        //    （不屈不挠之策 3583 / 天星冲日 16553 / 消化 24301 都是 20 米）
-        var 低于血线 = HealTargetHelper.低于阈值人数(
-            治疗阈值表.取(_t.群体治疗能力技, s.群体治疗阈值), 20f);   // ★ 2026-10-04：读本技能阈值（表里 0.70），原来读大类 0.62 ⇒ 表里的值根本读不到 ✗
 
         // 输出型（白魔法令）：卡 CD 打，不等掉血。
         // 注意**不要**检查当前目标 —— 法令是"以自己为中心"的范围技，
@@ -577,6 +575,13 @@ public class Res_HealAoEAbility : ISlotResolver
 
             return SpellUtil.可用(_t.群体治疗能力技) ? 25 : -1;
         }
+
+        // ⚠️ 必须传**技能真实半径**（20 米）—— 不传就落到默认 30 米，
+        //    会把 20 米外的人也算成"该群疗" → 交掉一个大 CD 却只治到 1 个人。
+        //    （不屈不挠之策 3583 / 天星冲日 16553 / 消化 24301 都是 20 米）
+        // [!] 输出型（白魔法令）在上面已返回，读不到这里 —— 法令无血量判据。
+        var 低于血线 = HealTargetHelper.低于阈值人数(
+            治疗阈值表.取(_t.群体治疗能力技, s.群体治疗阈值), 20f);   // ★ 读本技能阈值（不屈 0.70 / 天星冲日 0.80），查不到落回大类
 
         // ══════════════════════════════════════════════════════════════
         //  ★ 门槛改成**设置项**（对齐两套参考实现）★

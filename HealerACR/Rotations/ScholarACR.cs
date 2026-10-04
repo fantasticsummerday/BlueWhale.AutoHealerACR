@@ -1349,6 +1349,10 @@ public class SCH_ChainStratagem : ISlotResolver
         }
         catch { }
 
+        // ★ 四人本 hold（对照参考 `ShouldHoldForFourPlayerDuty`）：
+        //   四人本道中打小怪时，把 120 秒 CD 的连环计留给 Boss，别随手交在杂兵波上。
+        if (四人本道中该Hold连环计()) return -1;
+
         return SpellUtil.可用(技能) ? 2 : -1;
     }
 
@@ -1356,5 +1360,49 @@ public class SCH_ChainStratagem : ISlotResolver
     {
         var spell = SpellUtil.Get(技能);
         if (spell != null) slot.Add(spell);
+    }
+
+    /// <summary>
+    /// 是否该在四人本道中把连环计 hold 住（留给 Boss）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  对照参考 `ShouldHoldForFourPlayerDuty`：五条门全过才 hold ——
+    ///   ① 在副本里（`IsBoundByDuty`）
+    ///   ② 非高难本（高难看玩家自己排轴，不自动 hold）
+    ///   ③ 队伍恰为 4 人（四人本单奶；8 人 / 24 人照旧）
+    ///   ④ 不在 Boss 战（当前目标不是 Boss）
+    ///   ⑤ 不是「直接 Boss 讨伐」地图（伊弗利特讨伐战 1045 /
+    ///      究极神兵破坏作战 1048 —— 没有道中小怪，无从“留给 Boss”）
+    /// ══════════════════════════════════════════════════════════════════
+    ///  参考还有「连环计限制」开关（默认开），本项目不单做开关，恒按“限制”处理。
+    /// </summary>
+    private static bool 四人本道中该Hold连环计()
+    {
+        try
+        {
+            // ① 不在副本里（木桩 / 野外 / 房区）→ 不 hold
+            if (!进本识别.在副本里()) return false;
+
+            // ② 高难本 → 不自动 hold
+            if (减伤Helper.是高难本()) return false;
+
+            // ③ 只有 4 人小队才 hold
+            if ((PartyHelper.Party?.Count ?? 0) != 4) return false;
+
+            // ④ 已经在 Boss 战（当前目标就是 Boss）→ 不 hold
+            var 目标 = HealTargetHelper.当前目标();
+            if (目标 != null && 减伤Helper.是Boss(目标)) return false;
+
+            // ⑤ 「直接 Boss 讨伐」地图（无道中小怪）→ 不 hold
+            var 地图 = TimelineManager.当前地图Id;
+            if (地图 == 1045 || 地图 == 1048) return false;
+
+            // 其余（四人本道中打小怪）→ hold
+            return true;
+        }
+        catch
+        {
+            return false;   // 判断不了 → 不 hold，别把连环计憋没了
+        }
     }
 }
