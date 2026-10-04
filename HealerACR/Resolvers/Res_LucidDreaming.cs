@@ -31,6 +31,14 @@ public class Res_LucidDreaming : ISlotResolver
         // 两次能力技之间别插太挤
         if (!CharacterExt.可以插能力技()) return -6;
 
+        // ★ **读条中不放**（表 #34）—— 参考（`WhiteMage.Resolvers.Ability.醒梦`）
+        //   的**第一条**判据就是 `Me.IsCasting ⇒ -1`。
+        //   [!] 为什么：醒梦是补蓝，不救命；读条中插它没有收益，
+        //       而 `可以插能力技()` 那一条只保证"能力技窗口开着"，
+        //       并不排除"我正在读一个 2.5 秒的条" ⇒ 会插在半途，
+        //       白白占掉一次能力技窗口（后续真正要连发的治疗就用不上了）。
+        if (CharacterExt.我在读条()) return -5;
+
         // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(1)` —— 醒梦是点名特例）
         if (!OffGcd闸门.可以排(1)) return -4;
 
