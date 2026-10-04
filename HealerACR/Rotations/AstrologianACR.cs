@@ -1654,11 +1654,16 @@ public class AST_StarDetonation : ISlotResolver
         // ② 残血小怪 / boss 快死 → 引爆当输出（参考 日常模式 + HasDyingTrash/HasLowHpBoss 返回 3/4）
         if (!HealTargetHelper.木桩模式 && HealTargetHelper.目标快死了()) return 4;
 
-        // ③ ≥1 人低于「星体爆轰阈值」(0.75) 才引爆（参考 `星体爆轰.txt:92-107` 返回 1）
-        var 星体爆轰阈值 = 治疗阈值表.取(技能, 0.75f);
+        // ③ 群疗线：巨星 + ≥群奶人数 低于「天宫图阈值」(0.75) → 2（参考 `星体爆轰.txt:75-91`）
+        var 天宫图 = SpellIds.取("天宫图");
+        var 天宫图阈值 = 天宫图 != 0 ? 治疗阈值表.取(天宫图, 0.75f) : 0.75f;
+        if (HealTargetHelper.低于阈值人数(天宫图阈值, 30f) >= HealSettings.Instance.群奶最少人数) return 2;
+
+        // ④ 单体线：≥1 人低于「星体爆轰阈值」(0.60) → 1（参考 `星体爆轰.txt:92-107`）
+        var 星体爆轰阈值 = 治疗阈值表.取(技能, 0.60f);
         if (HealTargetHelper.低于阈值人数(星体爆轰阈值, 30f) >= 1) return 1;
 
-        // ④ 都没触发 → 先不炸（参考默认 -200，把治疗留到真正需要时）
+        // ⑤ 都没触发 → 先不炸（参考默认 -200，把治疗留到真正需要时）
         return -200;
     }
 

@@ -698,7 +698,7 @@ public static class 治疗阈值表
         设(SpellIds.取("王冠之贵妇"), 0.70f);  // youshu 贵妇卡阈值 70
         设(SpellIds.取("地星"),     0.30f);   // youshu 地星阈值 30
         // 星体爆轰：原来 `SpellIds` 没有 8324 ⇒ 登记会写进 key=0。现已补进 SpellIds（表外审计 A4）。
-        设(SpellIds.取("星体爆轰"), 0.75f);   // youshu 星体爆轰阈值 75（设置 .ctor 字节级核对）
+        设(SpellIds.取("星体爆轰"), 0.60f);   // youshu 星体爆轰阈值 60（设置 .ctor 逐字核对，值在 stfld 之前）
         设(SpellIds.取("大宇宙"),   0.55f);   // shiyuvi GCD群奶治疗阈值 0.5 / youshu GCD群奶 55
     }
 
