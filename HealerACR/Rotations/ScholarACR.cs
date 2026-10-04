@@ -1308,6 +1308,15 @@ public class SCH_ChainStratagem : ISlotResolver
             if (HealSettings.Instance.时间轴攒资源 && TimelineManager.未来有减伤(8.0)) return -5;
         }
 
+        // ★ 表外审计（参考 `连环计.txt:37-44`）：开场 5 秒内不放连环计 ——
+        //    `CurrBattleTimeInMs > 5000` 才放（否则 return -9）。
+        //    与占卜/苦难之心同一套开场门：开场那几拍留给前置动作，团辅别抢跑。
+        try
+        {
+            if ((AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0) <= 5000) return -9;
+        }
+        catch { }
+
         return SpellUtil.可用(技能) ? 2 : -1;
     }
 
