@@ -520,6 +520,10 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
         加职业开关("箭毒", true);
         加职业开关("群DOT", true);
         加职业开关("发炎", true);
+        // ★ 参考实现的发炎是**四 QT 分层**（表 #108）——
+        //   这两个是"另两条路"：强制放 / 反过来留着。
+        加职业开关("强制发炎", false);   // 不看任何条件，直接放（手动用）
+        加职业开关("保留发炎", false);   // 保住充能，只在移动/溢出时交
     }
 }
 
