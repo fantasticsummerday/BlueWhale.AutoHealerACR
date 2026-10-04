@@ -227,6 +227,35 @@ public static class 敌人移动检测
     ///
     /// 因为 ① 有"观察满 3 秒"的门槛，所以**小怪刚出现那几秒会自动退回自己脚下**，
     /// 不会出现"扔在待机小怪脚下、它马上冲进来"的浪费。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 表 #40：**按参考实现的三分支选落点** ★
+    ///
+    ///  [!] 参考的 `GroundCastPosition(优先场中, 挂模式, 优先目标位置, 当前目标)`
+    ///      是一个**三分支**函数（IL 直证）：
+    ///
+    ///        ① **场中**（`地星优先场中` 设置开着）
+    ///           → `MapCenter(自己位置)`；
+    ///             若地图中心**离自己 ≥30 米**（`DistanceSquared >= 900`）
+    ///             说明中心不在这一场的活动范围内 ⇒ **退回自己脚下**
+    ///        ② **目标位置**（`地星优先目标位置` 开着，且目标有效
+    ///           且 `HitboxRadius < 15`，即**不是巨型 Boss**）
+    ///           → 目标脚下
+    ///        ③ 兜底 → **自己脚下**
+    ///
+    ///  [!] 我们原来**只有 ②③ 两支**（"敌人站得稳就放它脚下，否则放自己脚下"）：
+    ///      · 缺 ① 场中分支 ⇒ 用户说的"落点永远在脚下"就是这一支缺失 ✗
+    ///      · 也缺 ② 的 `HitboxRadius < 15` 过滤 ⇒
+    ///        对**巨型 Boss**（判定圈很大）会把落点放在它脚下，
+    ///        而它的脚下往往离队伍很远 ⇒ 铺了个没人的位置 ✗
+    ///
+    ///  [!] 关于 ① 的 `MapCenter`：参考读的是 `TerritoryType.Map` 的
+    ///      `OffsetX/OffsetY` 取负（= 地图坐标原点在世界里的位置）。
+    ///      我们**不引 Lumina 表**，改成用**战场上敌人（没有则队友）的质心**
+    ///      作为"场中" —— 语义一致（"大家围着打的那个地方"），
+    ///      而且不依赖任何外部数据源。
+    ///      同样保留参考的"太远就退回自己脚下"（≥30 米）那条守卫。
+    /// ══════════════════════════════════════════════════════════════════
     /// </summary>
     public static Vector3 地面技能位置(IBattleChara? 优选敌人 = null)
     {
@@ -240,6 +269,18 @@ public static class 敌人移动检测
         if (优选敌人 != null && !优选敌人.对象有效()) 优选敌人 = null;
         try
         {
+            // ── ① 场中分支 ──
+            if (HealSettings.Instance.地星优先场中)
+            {
+                var 场中 = 战场质心();
+                if (场中.HasValue)
+                {
+                    var 我 = CharacterExt.我的位置();
+                    // 参考的守卫：中心离自己 ≥30 米 ⇒ 中心不在这一场里 ⇒ 退回自己脚下
+                    if (Vector3.DistanceSquared(我, 场中.Value) < 900f) return 场中.Value;
+                }
+            }
+
             var 敌人 = 优选敌人;
 
             if (敌人 == null) 敌人 = HealTargetHelper.当前目标();
@@ -248,14 +289,66 @@ public static class 敌人移动检测
             // ★ 守卫放在**回退链之后**（回退链本身可能给出已释放的对象）
             if (敌人 == null || !敌人.对象有效()) return CharacterExt.我的位置();
 
-            if (敌人.CurrentHp > 0 && 移动很少(敌人))
+            // ── ② 目标脚下分支 ──
+            //   [!] 参考要求 `HitboxRadius < 15` —— **巨型 Boss 不给它脚下**
+            //       （它判定圈太大，脚下常常离队伍很远）
+            if (HealSettings.Instance.地星优先目标位置
+                && 敌人.CurrentHp > 0
+                && 敌人.HitboxRadius < 15f
+                && 移动很少(敌人))
             {
                 return 敌人.Position;
             }
         }
         catch { }
 
+        // ── ③ 兜底：自己脚下 ──
         return CharacterExt.我的位置();
+    }
+
+    /// <summary>
+    /// **战场质心** —— 敌人（没有则队友）位置的平均值，当"场中"用（表 #40）。
+    ///
+    /// [!] 为什么不用地图几何中心：那要读 `TerritoryType.Map` 的 OffsetX/OffsetY
+    ///     （参考用的 `MapCenter`），而我们**不引 Lumina 表**。
+    ///     质心在语义上更贴"大家围着打的那个地方"，而且不依赖外部数据。
+    ///
+    /// [!] 没有任何可比位置时返回 **null** —— 由调用方退回自己脚下。
+    /// </summary>
+    private static Vector3? 战场质心()
+    {
+        try
+        {
+            var 累加 = Vector3.Zero;
+            var 数量 = 0;
+
+            foreach (var 敌 in Data.AllHostileTargets)
+            {
+                if (敌 == null || !敌.对象有效()) continue;
+                if (敌.CurrentHp <= 0) continue;
+
+                累加 += 敌.Position;
+                数量++;
+            }
+
+            if (数量 == 0)
+            {
+                // 没敌人（纯治疗窗口）⇒ 用队友的质心
+                foreach (var 友 in PartyHelper.CastableAlliesWithin30)
+                {
+                    if (友 == null || !友.对象有效() || !友.活着()) continue;
+
+                    累加 += 友.Position;
+                    数量++;
+                }
+            }
+
+            return 数量 > 0 ? 累加 / 数量 : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
