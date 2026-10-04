@@ -185,6 +185,9 @@ if (团减快照.已有减伤()) return -1;
         //       没有这把锁时同一场 AOE 会被铺两层，第二层完全浪费。
         if (团减锁中()) return -1;
 
+        // ★ oGCD 队列深度闸门（参考口径 CanUseOffGcd(2) —— 贤者的自动减伤）
+        if (!OffGcd闸门.可以排(2)) return -4;
+
         // ★ 2026-10-04：**刚有人消耗过豆子 ⇒ 这一拍别再消耗** ✓
         //   本项目采用「一次消耗后全局抑制」的口径（以太层数下降后 7 秒）——
         //   避免同一拍把豆子连打光、也避免两个能力技互相抢（两套对照实现都有等价物）
@@ -559,6 +562,8 @@ public class Res_SelfMitigation : ISlotResolver
         if (!HealQt.GetQt("减伤", true)) return -100;
         if (!HealSettings.Instance.自动减伤) return -101;
         if (_t.个人减伤 == 0) return -102;
+        // ★ oGCD 队列深度闸门（参考口径 CanUseOffGcd(1) —— 个人减伤不属于连发池）
+        if (!OffGcd闸门.可以排(1)) return -4;
         if (!SpellUtil.已解锁(_t.个人减伤)) return -2;
 
         var 时间轴要求 = HealQt.GetQt("时间轴", true) && TimelineManager.该铺减伤();
@@ -596,6 +601,56 @@ public class Res_GroupShield : ISlotResolver
 {
     private readonly JobSpellTable _t;
 
+    /// <summary>
+    /// 这一发群盾要不要**先交活化**（参考的 `shouldUseZoe`）。
+    ///
+    /// [!] 参考口径：出血人数那一档（≥2 / ≥4）成立时，
+    ///     若**等级 ≥45 且身上没有活化(2611)** ⇒ 标记 `shouldUseZoe = true`，
+    ///     铺盾前先补一个活化，把盾的厚度拉满。
+    ///     等级不到 45（还没学活化）时该标记恒为 false。
+    /// </summary>
+    private static bool 群盾要活化;
+
+    /// <summary>能不能/该不该用活化（等级 ≥45 且身上没有活化 buff）</summary>
+    private static bool 该用活化()
+    {
+        try
+        {
+            if (CharacterExt.我的等级() < 45) return false;
+            return !CharacterExt.我有光环(AuraIds.活化);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// **出血队友数量**（参考的 `CountBleedingPartyMembers(hpPercent, range)`）：
+    /// 30 米内、能接受治疗、血量 ≤ 阈值、**身上有「出血」类状态**、
+    /// 且**不是需要驱散的那种**（可驱散的不算 —— 那是 `Res_Esuna` 的活）。
+    /// </summary>
+    private static int 出血队友数量(float 血线, float 半径)
+    {
+        var 数 = 0;
+
+        try
+        {
+            foreach (var a in HealTargetHelper.可治疗队友(半径))
+            {
+                if (a == null || !a.对象有效() || !a.活着()) continue;
+                if (a.有效血量比例() > 血线) continue;
+                if (!AuraIds.有出血(a)) continue;
+                if (HealTargetHelper.可驱散目标(a)) continue;
+
+                数++;
+            }
+        }
+        catch { }
+
+        return 数;
+    }
+
     public Res_GroupShield(JobSpellTable table) => _t = table;
 
     public int Check()
@@ -606,8 +661,62 @@ public class Res_GroupShield : ISlotResolver
         if (_t.群体盾 == 0) return -102;
         if (!SpellUtil.已解锁(_t.群体盾)) return -2;
 
+        // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(2)` —— 群盾在连发池里）
+        if (!OffGcd闸门.可以排(2)) return -4;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ **群盾的 MP / 蛇胆前置**（表 #125）★
+        //
+        //  [!] 参考（`群盾.txt` 的 IL 第 37~45 行）：
+        //        `MP < 1000 || Addersgall < 1` ⇒ **直接 -9**
+        //      也就是说群盾**必须留着至少一颗蛇胆和 1000 蓝**才能铺 ——
+        //      它铺完紧接着就是"盾转治疗"那一套（寄生清汁），
+        //      没豆子的话盾铺出来也接不上后续。
+        //
+        //  [!] 原来我们**完全没有这两条** ✗ ⇒ 低蓝 / 没豆子时照样排群盾，
+        //      按不出去白占一拍，或者把最后一次盾浪费在"接不上"的位置。
+        //
+        //  ⚠️ 只对**贤者**加 —— 学者/白魔的群盾不吃蛇胆，低蓝线也各有自己的门。
+        // ══════════════════════════════════════════════════════════════
+        if (_t.Job == Jobs.Sage)
+        {
+            try
+            {
+                if (CharacterExt.我的当前蓝量() < 1000) return -9;
+                if (JobApiHelper.蛇胆 < 1) return -9;
+            }
+            catch { }
+        }
+
         var 时间轴要求 = HealQt.GetQt("时间轴", true) && TimelineManager.该铺减伤();
         if (!时间轴要求 && !减伤Helper.即将来大伤害()) return -1;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ **群盾的「出血人数」触发**（表 #124）★
+        //
+        //  [!] 参考（`群盾.txt` IL 第 56~97 行）：
+        //        `bleedCount = CountBleedingPartyMembers(80, 30)`
+        //         —— **30 米内、血量 ≤80%、身上带「出血」、且不是可驱散状态**的人
+        //          · `>= 4` ⇒ **返回 10**（这一档要最强）
+        //          · `>= 2` ⇒ **返回 4**
+        //      两档都额外要求"等级 ≥45 且身上没有活化(2611)"⇒ 标记 `shouldUseZoe`
+        //      （= 铺盾前先交活化/ Zoe，把盾加成拉满）。
+        //
+        //  [!] 为什么这条触发源重要：**持续掉血型机制**（出血 debuff）下
+        //      队伍血线是"慢慢漏"，而 `低于阈值人数` 那条判据在漏到阈值之前
+        //      一直不成立 ⇒ **盾永远铺不上**，等漏到阈值时已经来不及 ✗
+        //      "出血人数"看的是**正在漏**这件事本身，比血线更早。
+        //
+        //  [!] 判据与参考同源：`AuraIds.有出血()` + `需要驱散队友` 排除 + 80%/30 米。
+        //      `shouldUseZoe` 那一层（活化加成）留给 `Res_HealBooster`，
+        //      这里只借用它的"没有活化"条件把这一档标出来 —— 见 `群盾要活化`。
+        // ══════════════════════════════════════════════════════════════
+        if (_t.Job == Jobs.Sage)
+        {
+            var 出血人数 = 出血队友数量(0.80f, 30f);
+            if (出血人数 >= 4) { 群盾要活化 = 该用活化(); return 10; }
+            if (出血人数 >= 2) { 群盾要活化 = 该用活化(); return 4; }
+        }
 
         // 对应 外部 ACR SuperAOEHeal 的"检测队友身上有没有盾"：
         // 血线够低、身上又没盾的人，才值得铺；都有盾了就跳过，别重叠浪费

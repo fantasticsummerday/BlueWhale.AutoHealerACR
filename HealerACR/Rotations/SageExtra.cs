@@ -215,6 +215,9 @@ public class SGE_Psyche : ISlotResolver
         if (!HealQt.GetQt("输出")) return -100;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(2)` —— 心神风息在连发池里）
+        if (!OffGcd闸门.可以排(2)) return -4;
+
         // 对目标的伤害技，需要选中目标
         if (HealTargetHelper.当前目标() == null) return -1;
 
@@ -252,6 +255,9 @@ public class SGE_Philosophia : ISlotResolver
         if (技能 == 0) return -101;
         if (!HealQt.GetQt("群奶", true)) return -101;     // 属于群奶范畴
         if (!SpellUtil.已解锁(技能)) return -2;
+
+        // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(2)` —— 智慧之爱在连发池里）
+        if (!OffGcd闸门.可以排(2)) return -4;
 
         // 大招不能滥用 —— 门槛抬到"群体治疗阈值"以下的人数 ≥ 2
         var 阈值 = HealSettings.Instance.大招血线;

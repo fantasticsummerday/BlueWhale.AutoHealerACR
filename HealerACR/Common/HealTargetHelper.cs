@@ -693,8 +693,12 @@ public static class HealTargetHelper
     /// <summary>
     /// 这个队友**现在能不能被选中驱散**（参考实现的 `IsValidEsunaTarget`）：
     /// 有效 + 活着 + 在 30 米内 + **可选择** + 不在"不可选中合集"里。
+    ///
+    /// [!] 公开给 `Res_GroupShield` 的「出血人数」判据用（参考的
+    ///     `CountBleedingPartyMembers` 里就有 `HasDispelStatus` 这一条排除）——
+    ///     判据只能有一份（开发约定 F③）。
     /// </summary>
-    private static bool 可驱散目标(IBattleChara? c)
+    public static bool 可驱散目标(IBattleChara? c)
     {
         if (c == null || !c.对象有效()) return false;
 

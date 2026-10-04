@@ -33,6 +33,9 @@ public class SGE_CholeOverflow : ISlotResolver
         // 只有满了才走这条（不满的时候留给真正的治疗场景用）
         if (JobApiHelper.蛇胆 < 3) return -1;
 
+        // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(2)` —— 输血/灵橡/寄生在连发池里）
+        if (!OffGcd闸门.可以排(2)) return -4;
+
         // ★ 2026-10-04 修（补深度发现 R-1 / 表 #117）：对照实现**没有"满 3 卸豆"这条通道** ✗
         //   灵橡清汁只是它 `自动单奶.SelectAction` 的**最后选择**，而且要求目标 ≤ 灵橡阈值(0.50) ✓
         //   原来我们满 3 就花、还无视一切治疗开关 ⇒ 很可能花在**满血的人**身上 ✗

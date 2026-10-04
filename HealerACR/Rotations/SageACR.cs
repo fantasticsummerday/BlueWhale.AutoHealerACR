@@ -839,6 +839,11 @@ public class SGE_Kardia : ISlotResolver
         if (!HealQt.GetQt("自动心关", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(1)` —— **心关是 1，不是 2**）
+        //   [!] 参考里贤者的 11 个 oGCD 中**只有心关与醒梦是 `CanUseOffGcd(1)`**，
+        //       其余 9 个（根素/拯救/寄生/自生/输血/智慧之爱/心神风息/自动减伤/…）全是 **2**。
+        if (!OffGcd闸门.可以排(1)) return -4;
+
         // [!] **必须用 `主坦()`，不能用血量最低的坦克()**（MT/ST 修正）——
         //     心关是打敌人顺带治 MT的机制，**钉错人整场少一大块治疗**。
         //     而 `血量最低的坦克()` 是跟着谁掉血跑的 ==> 八人本 ST 掉血时会跑到 ST 上。
@@ -868,6 +873,9 @@ public class SGE_Rhizomata : ISlotResolver
         // 木桩也要补蛇胆 —— 补了才有得花，属于资源循环
         if (!HealQt.GetQt("根素", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
+
+        // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(2)` —— 根素在连发池里）
+        if (!OffGcd闸门.可以排(2)) return -4;
         if (JobApiHelper.蛇胆 >= 2) return -3;   // ★ 2026-10-04：对照实现是「≤1 颗就补」，原来 >=1 ⇒ 只在 0 颗时补，平均少一颗 ✗
 
         // ★ 低蓝时不补蛇胆（和学者的补豆同一个道理）★

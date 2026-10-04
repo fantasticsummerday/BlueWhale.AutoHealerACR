@@ -407,6 +407,8 @@ public class Res_GroupHoT : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("HoT", true)) return -101;
         if (技能 == 0) return -102;
+        // oGCD 队列深度闸门（参考口径 CanUseOffGcd(2)）
+        if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var s = HealSettings.Instance;
@@ -669,6 +671,8 @@ public class Res_GroupShieldAbility : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("群盾", true)) return -101;
         if (技能 == 0) return -102;
+        // oGCD 队列深度闸门（参考口径 CanUseOffGcd(2)）
+        if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         if (!TimelineManager.未来有减伤(4.0) && !减伤Helper.即将来大伤害()) return -1;
@@ -703,6 +707,8 @@ public class Res_HealBooster : ISlotResolver
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (技能 == 0) return -102;
+        // oGCD 队列深度闸门（参考口径 CanUseOffGcd(2)）
+        if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 已经开着就不重复
@@ -739,6 +745,8 @@ public class Res_HealAmp : ISlotResolver
         if (HealTargetHelper.木桩模式) return -300;
         if (!HealQt.GetQt("奶人")) return -100;
         if (技能 == 0) return -102;
+        // oGCD 队列深度闸门（参考口径 CanUseOffGcd(2)）
+        if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // ══════════════════════════════════════════════════════════════
@@ -1031,6 +1039,8 @@ public class Res_Emergency : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("应急", true)) return -101;   // 兜底改成 true —— 之前是 false 导致紧急治疗从未生效
         if (技能 == 0) return -102;
+        // oGCD 队列深度闸门（参考口径 CanUseOffGcd(2)）
+        if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         var s = HealSettings.Instance;
