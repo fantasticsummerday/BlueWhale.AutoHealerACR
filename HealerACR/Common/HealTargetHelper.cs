@@ -1172,6 +1172,49 @@ public static class HealTargetHelper
     }
     
     /// <summary>
+    /// **以任意点为中心**数敌人（罩子等「以落点为中心」的判定用）。
+    ///
+    /// ⚠️ 与 <see cref="周围敌人数量"/>（以当前目标为中心）和
+    ///    <see cref="自身周围敌人数量"/>（以自己为中心）的区别：
+    ///    罩子的参考判据是「坦克周围 7 米内有几只在打」——
+    ///    既不是自己也不是当前目标，得显式传坦克的坐标。
+    /// </summary>
+    /// <param name="点">圆心坐标（通常是坦克的位置）</param>
+    /// <param name="半径">判定半径（米；参考口径 7 米）</param>
+    public static int 以点为中心敌人数量(Vector3 点, float 半径)
+    {
+        var 数 = 0;
+        try
+        {
+            foreach (var 敌人 in Data.AllHostileTargets)
+            {
+                // ★ 判 对象有效()：换图时成员被释放但仍非 null（哨兵 0x12345679），只判 null 会崩
+                if (敌人 == null || !敌人.对象有效()) continue;
+                if (敌人.CurrentHp <= 0) continue;
+                // ★ 攻击无效的怪不计入（与 `自身周围敌人数量` 同一口径：打不动的怪不算威胁）
+                if (敌人状态.攻击无效(敌人)) continue;
+
+                try
+                {
+                    if (!敌人.IsTargetable) continue;
+                    // 正在死的不算（0.1% 血线）
+                    if (敌人.MaxHp > 0 &&
+                        敌人.CurrentHp / (float)敌人.MaxHp <= 0.001f) continue;
+
+                    var 距 = Vector3.Distance(点, 敌人.Position) - 敌人.HitboxRadius;
+                    if (距 > 半径) continue;
+                }
+                catch { continue; }
+
+                数++;
+            }
+        }
+        catch { }
+
+        return 数;
+    }
+
+    /// <summary>
     /// **诊断版**：返回命中数 + 每个被数进来的敌人的明细。
     ///
     /// [!] 为什么需要它：用户报「50 级究极神兵（单体）还在打破阵法」，
