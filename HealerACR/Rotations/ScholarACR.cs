@@ -1139,7 +1139,16 @@ public class SCH_FeyBlessing : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.Get(技能);
-        if (spell != null) slot.Add(spell);
+        if (spell != null)
+        {
+            slot.Add(spell);
+            // ★ 2026-10-15 **补接线**（全代码审查发现我上一轮只接了一半）：
+            //   仙女技（低语/幻光/祥光/慰藉）共享 `_上次仙女动作` 那枚时间戳，
+            //   用来挡住"几帧内连着倒两个不同仙女技"。`c2963d8` 只在低语、幻光两处
+            //   盖了戳，**祥光这里（与慰藉那里）漏了** ⇒ 那两条仍能绕过跨技能闸
+            //   （各自 Check 的 `RecentlyUsed(本技能, 2000)` 只挡**同一个**技能）。
+            HealerACR.Rotations.SCH_Aetherpact.记仙女动作();
+        }
     }
 }
 
@@ -1420,6 +1429,10 @@ public class SCH_Consolation : ISlotResolver
         var spell = SpellUtil.Get(技能);
         if (spell == null) return;
         slot.Add(spell);
+        // ★ 2026-10-15 **补接线**（同祥光那处，全代码审查发现我上一轮只接了一半）：
+        //   慰藉也是仙女技，必须盖同一枚 `_上次仙女动作` 时间戳，
+        //   否则"800ms 内不重复放仙女技"这道跨技能闸对它会失效。
+        HealerACR.Rotations.SCH_Aetherpact.记仙女动作();
     }
 }
 
