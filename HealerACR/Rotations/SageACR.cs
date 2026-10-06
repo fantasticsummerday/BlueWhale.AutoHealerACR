@@ -622,6 +622,17 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
         };
     }
 
+    /// <summary>
+    /// **策略序列**（不受「一键爆发」门控，见 `HealerEntryBase.构建策略序列()`）。
+    ///
+    /// [!] 目前只挂一条：参考的贤者「**奶满策略**」（`ACR.Sage.Resolvers.Strategy.贤者奶满策略`）。
+    ///     它**不能**放进 `构建爆发轴()` —— 那条路只在勾了「一键爆发」时才走。
+    ///     ⚠️ 该策略的 `StartCheck()` 自己就是"**非高难模式**才生效"（IL 的 `bne.un` 方向），
+    ///        所以它不会在高难本里抢技能（详见 `SageFullHealStrategy.cs` 的类注释）。
+    /// </summary>
+    protected override AEAssist.CombatRoutine.Module.ISlotSequence[] 构建策略序列()
+        => new AEAssist.CombatRoutine.Module.ISlotSequence[] { new 贤者奶满策略(Spells) };
+
     protected override void 构建QT()
     {
         base.构建QT();
