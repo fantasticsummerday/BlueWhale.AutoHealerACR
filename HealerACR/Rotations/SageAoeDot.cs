@@ -143,7 +143,15 @@ public class SGE_AoeDot : ISlotResolver
         var spell = SpellUtil.当前形态(技能);
         if (spell == null) return;
 
-        slot.Add(new Spell(spell.Id, 输出目标.选()));
+        // ★ 2026-10-15 修（崩溃防护）：`输出目标.选()` 这里**又挑了一次**目标（Check 也挑过一次），
+        //   若它返回的是**已释放的哨兵**（0x12345679 ≠ null），`new Spell(id, 目标)` 之后的
+        //   施法路径会读原生内存 ⇒ 访问违例穿透 catch。
+        //   ⚠️ **只拦"非 null 但已释放"** —— 原来就直接允许传 null（自身中心类技能靠它），
+        //      所以 null 语义**保持不变**，避免顺手改掉行为。
+        var 目标 = 输出目标.选();
+        if (目标 != null && !目标.对象有效()) return;
+
+        slot.Add(new Spell(spell.Id, 目标));
 
         // 记账：本地去重 + DoT 保险丝（和 Res_Dot / Res_MultiDot 共用）
         try { 本地施放记录.记(技能); } catch { }

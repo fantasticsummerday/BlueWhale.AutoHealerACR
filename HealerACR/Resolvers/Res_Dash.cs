@@ -60,7 +60,14 @@ public class Res_Dash : ISlotResolver
         // ② 够远才值得飞
         try
         {
-            if (目标.Distance(Core.Me!) < _t.位移最短距离) return -4;
+            // ★ 2026-10-15 修（崩溃防护）：不能把**未判有效**的 `Core.Me!` 交给**外部库**的
+            //   `Distance` —— 换图/登录时 `Core.Me` 可为 null 或哨兵（0x12345679 ≠ null），
+            //   原生访问违例发生在**库内部**，我们的 catch 拦不住 ✗
+            //   （那个 `!` 还正好压制了指向这个问题的可空告警。）
+            //   读不到自己 / 目标不可用 ⇒ **保守当"不够远"**（不飞），与项目"读不到就不放"同口径。
+            if (Core.Me == null || !Core.Me.对象有效()) return -4;
+            if (目标 == null || !目标.对象有效()) return -4;
+            if (目标.Distance(Core.Me) < _t.位移最短距离) return -4;
         }
         catch { }
 
