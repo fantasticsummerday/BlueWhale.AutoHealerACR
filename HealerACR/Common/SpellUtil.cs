@@ -452,13 +452,21 @@ public static class SpellUtil
         try
         {
             var s = Get(技能Id);
-            if (s == null) return 0f;
+
+            // ★ 2026-10-15 修：**"读不到"必须与"已就绪"区分开** —— 原来两者都返回 `0f`，
+            //   而 `战斗指标` 把 `剩余 == 0` 当作"技能空着/空转" ⇒ **读不到被算成空转**，
+            //   指标整体虚增（本项目 `CharacterExt.冷却剩余秒` 的同款函数读不到时返回 `-1`，
+            //   这里与它同源）。
+            //   [!] 兼容性：调用方普遍写 `<= 0f`（"就绪就放"）⇒ `-1f` 与 `0f` 在那里的含义一致 ✓；
+            //       只有按 `== 0` 严格判"空着"的地方会因此不再把"读不到"算进去 —— 那正是修正目标。
+            if (s == null) return -1f;
+
             var cd = s.Cooldown;
             return cd > TimeSpan.Zero ? (float)cd.TotalSeconds : 0f;
         }
         catch
         {
-            return 0f;
+            return -1f;
         }
     }
 
