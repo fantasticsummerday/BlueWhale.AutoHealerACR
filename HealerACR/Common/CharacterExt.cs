@@ -142,7 +142,12 @@ public static class CharacterExt
     /// </summary>
     public static int Buff层数(this IBattleChara c, uint buffId)
     {
-        if (c == null || buffId == 0) return 0;
+        // ★ 2026-10-15 修（崩溃防护）：补 `对象有效()` —— 只判 null 不够：
+        //   哨兵地址（0x12345679）≠ null，而 `GetAuraStack` 是**原生热读**
+        //   ⇒ 访问违例（穿透 catch、无转储、进程直接没）。
+        //   本文件其它读游戏对象的辅助函数（`:500` / `:528` / `:640` / `:667` / `:695` / `:1191`）
+        //   都先判了 ⇒ 判据同源（开发约定 F③）。
+        if (c == null || !c.对象有效() || buffId == 0) return 0;
         try { return c.GetAuraStack(buffId); } catch { return 0; }
     }
 
@@ -391,7 +396,9 @@ public static class CharacterExt
     /// </summary>
     public static float 我的Buff剩余毫秒(this IBattleChara c, uint buffId)
     {
-        if (c == null || buffId == 0) return -1f;
+        // ★ 2026-10-15 修（崩溃防护）：同上，补 `对象有效()` —— `GetAuraTimeleft` 把 `c`
+        //   交给原生层（`MemApiBuff`），未验有效时会访问违例（穿透 catch）。
+        if (c == null || !c.对象有效() || buffId == 0) return -1f;
 
         try
         {

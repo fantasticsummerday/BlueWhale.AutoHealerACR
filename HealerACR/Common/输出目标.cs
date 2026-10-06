@@ -195,7 +195,12 @@ public static class 输出目标
         try
         {
             var t = CharacterExt.我的目标();
-            if (t == null) return null;
+            // ★ 2026-10-15 修（崩溃防护）：**只判 null 不够** —— 换图/目标消失时拿到的是
+            //   哨兵地址（0x12345679 ≠ null），而 `CurrentHp` 是**原生热读**
+            //   ⇒ 访问违例（**穿透 catch、无转储、进程直接没**；本项目 12 次崩溃全是这一类）。
+            //   本文件 `候选()` 与 `找个()`/`挑一个()` 都先判了 `对象有效()`，
+            //   只有这条**最热**的路径（被 20+ 处每帧调用）漏了 ⇒ 判据同源（开发约定 F③）。
+            if (t == null || !t.对象有效()) return null;
 
             // 活着
             if (t.CurrentHp == 0) return null;
