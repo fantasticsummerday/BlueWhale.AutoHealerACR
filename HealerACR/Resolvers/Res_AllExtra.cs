@@ -717,6 +717,12 @@ public class Res_HealBooster : ISlotResolver
         if (!OffGcd闸门.可以排(2)) return -4;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ 2026-10-15：**每技能 QT**（学者「秘策」在 `ScholarACR.构建QT` 注册了独立开关）★
+        //   [!] 关掉「秘策」⇒ 本地这条也一起失效（AI 候选集查的是同一个 `每技能通过`，
+        //       两条路同时失效，不会出现"本地不奶、AI 还在建议"的失联）。
+        //   [!] 未注册的技能（贤者「活化」）`每技能通过` 返回 true ⇒ 行为不变。
+        if (!HealQt.每技能通过(技能)) return -4;
+
         // 已经开着就不重复
         if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
@@ -1279,6 +1285,14 @@ public class Res_InstantHealAbility : ISlotResolver
         if (是蛇胆消费技(技能Id)) 蛇胆节流.记一次消费();
     }
 
+    /// <summary>
+    /// 本帧是不是"**绿帽交不出去 → 改放秘策**"（复刻 youshu `深谋远虑之策.Check` 第 11 步）。
+    ///
+    /// [!] Check 里选定、Build 里照放（开发约定 F③：判 A 放 A）。
+    ///     为真时 Build 放 **16542（秘策）且不带目标**（参考的 Build 就是 `Ability(16542)` 无参）。
+    /// </summary>
+    private static bool _秘策兜底;
+
     public Res_InstantHealAbility(JobSpellTable t) => _t = t;
 
     /// <summary>
@@ -1389,6 +1403,10 @@ public class Res_InstantHealAbility : ISlotResolver
     public int Check()
     {
 
+        // ★ 2026-10-15：每帧先把"秘策兜底"标记清掉（有状态就得每帧重算，
+        //   否则上一次为真会泄漏到下一次 Check —— 开发约定 F① 同源）
+        _秘策兜底 = false;
+
         // ★ 2026-10-04：**刚有人消耗过豆子 ⇒ 这一拍别再消耗** ✓
         //   本项目采用「一次消耗后全局抑制」的口径（以太层数下降后 7 秒）——
         //   避免同一拍把豆子连打光、也避免两个能力技互相抢（两套对照实现都有等价物）
@@ -1413,7 +1431,50 @@ public class Res_InstantHealAbility : ISlotResolver
             {
                 if (!蛇胆类可用(预铺)) return -3;
                 // ★ 学者绿帽（深谋远虑之策）吃以太：没豆子 = 放不出去（参考 Scholar_Lustrate 的 Aetherflow 闸）
-                if (以太管理.以太治疗技没豆子(预铺)) return -3;
+                if (以太管理.以太治疗技没豆子(预铺))
+                {
+                    // ══════════════════════════════════════════════════════
+                    //  ★ 2026-10-15：**秘策联动**（复刻 youshu `深谋远虑之策.Check`）★
+                    //
+                    //  [!] youshu IL 的分支次序（逐条直读 `深谋远虑之策.txt`）：
+                    //        ① `HasAetherflow && CanSpendAetherflow`：
+                    //             `IsReady(7434,1)` 真 → chosen=7434（20）；假 → **-200**（放弃，不退秘策）
+                    //        ② 自身带 `1896`（秘策 buff = 下一发治疗必暴击）且 `IsReady(7434,1)`
+                    //            → chosen=7434（20）  ← **免费那一发**
+                    //        ③ QT「秘策」且 `IsReady(16542,1)` → chosen=**16542**（5）
+                    //        ④ 否则 → -2
+                    //      `Build`：chosen==16542 → `Ability(16542)`（**不带目标**，打自己）；
+                    //                否则 → `Ability(7434, target)`
+                    //
+                    //  [!] 我们原来的缺口：`没豆子 → return -3` 就结束了，
+                    //      秘策完全由独立 resolver（`Res_HealBooster`，按掉血人数/大伤害触发）负责
+                    //      ⇒ **与绿帽脱钩**：这里明明有预铺目标，却什么都不会发生 ✗
+                    //
+                    //  [!] 本项目的结构差异（已知、有意保留）：
+                    //      参考是"一个技能一条 resolver"，可以从容 `return -200`；
+                    //      我们是"预铺 + 瞬发"合并成一条 resolver（`Res_InstantHealAbility`），
+                    //      所以**"有豆但绿帽 CD 中"这一种情况我们不 return**，
+                    //      而是落到下面的瞬发分支（同一拍还有活性法可用）——
+                    //      这比参考的 `-200` 更宽松，是本项目 resolver 合并的必要差异。
+                    // ══════════════════════════════════════════════════════
+                    var 秘策 = SpellIds.取("秘策");
+
+                    // ② 身上已有「秘策」(1896) ⇒ 这一发绿帽免费，照放
+                    //    （绿帽可用已由外层 if 条件保证：外层要求 `SpellUtil.可用(预铺)`）
+                    if (秘策 != 0 && CharacterExt.我有光环(AuraIds.秘策)) return 26;
+
+                    // ③ QT「秘策」开 + 16542 就绪 ⇒ 补一发秘策（不带目标），留给后面的治疗
+                    //    ⚠️ 额外加"身上没有秘策 buff"—— 参考靠 `IsReady(16542,1)` 隐式排除，
+                    //       我们显式判（`AuraIds.秘策` = 1896），避免把 90 秒 CD 浪费在重复挂 buff 上
+                    if (秘策 != 0 && HealQt.每技能通过(秘策) && SpellUtil.可用(秘策)
+                        && !CharacterExt.我有该技能的Buff(秘策))
+                    {
+                        _秘策兜底 = true;
+                        return 25;
+                    }
+
+                    return -3;
+                }
                 return 26;
             }
         }
@@ -1592,6 +1653,20 @@ public class Res_InstantHealAbility : ISlotResolver
     public void Build(Slot slot)
     {
         // ⚠️ 必须和 Check 同源（开发约定 F③）：判谁就放谁，顺序也必须一致。
+
+        // ★ 2026-10-15：**秘策兜底**（Check 里选定）—— 放 16542，**不带目标** ★
+        //   [!] 参考 `深谋远虑之策.Build`：`chosenActionId == 16542` ⇒ `Ability(16542)`（无参）
+        //       ⇒ 目标为自身/默认，**不是**那个预铺目标（秘策是给自己挂的 buff）。
+        if (_秘策兜底)
+        {
+            _秘策兜底 = false;
+            var 秘策 = SpellIds.取("秘策");
+            if (秘策 != 0)
+            {
+                var sp = SpellUtil.Get(秘策);
+                if (sp != null) { slot.Add(sp); return; }
+            }
+        }
 
         var 预铺 = _t.预铺单奶能力技;
         if (预铺 != 0 && HealQt.每技能通过(预铺) && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺))
