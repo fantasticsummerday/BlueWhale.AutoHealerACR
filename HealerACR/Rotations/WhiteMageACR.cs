@@ -42,7 +42,17 @@ public class WHMSpellTable : JobSpellTable
     public override int AOE门槛(int 等级) => 等级 >= 72 ? 3 : 2;
 
     /// <summary>药尾声补刀用的瞬发填充技 —— 白魔：闪灼（25859）—— 基础输出，即刻下变瞬发。</summary>
-    public override uint 药尾声填充技 => SpellIds.取("闪灼");
+    /// <summary>
+    /// 药尾声填充技 = **基础输出**（照 `ScholarACR.cs:54` / `SageACR.cs:29` 的同型修复）。
+    ///
+    /// [!] ★ 2026-10-15 修（**真缺陷，同型修复漏了这一职业**）：
+    ///     原来写死 `SpellIds.取("闪灼")`（**82 级**技能，官方 `Action.csv` `25859` 行
+    ///     ClassJobLevel=82）⇒ 而 `Res_PotionTail.cs:55` 有 `if (!SpellUtil.已解锁(技)) return -2;`
+    ///     ⇒ **82 级以下的药尾声补刀恒不触发**（那一段本来正是靠爆发药补伤害的等级区间）。
+    ///     `基础输出` 在本项目已经是"按等级取已解锁的最强填充"的口径 ⇒ 让药尾声与
+    ///     常规输出**同源**（开发约定 F③），低等级自动退回低阶填充，高等级自动用闪灼。
+    /// </summary>
+    public override uint 药尾声填充技 => 基础输出;
     /// <summary>
     /// **自身 AOE 技**（`CastType=2 Range=0`，以自己为中心的圆形攻击）。
     ///

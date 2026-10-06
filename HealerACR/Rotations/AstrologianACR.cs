@@ -20,7 +20,16 @@ public class ASTSpellTable : JobSpellTable
         SpellIds.取("灾星"), SpellIds.取("凶星"));
 
     /// <summary>药尾声补刀用的瞬发填充技 —— 占星：落陷凶星（25871）—— 即刻下变瞬发。</summary>
-    public override uint 药尾声填充技 => SpellIds.取("落陷凶星");
+    /// <summary>
+    /// 药尾声填充技 = **基础输出**（照 `ScholarACR.cs:54` / `SageACR.cs:29` 的同型修复）。
+    ///
+    /// [!] ★ 2026-10-15 修（**真缺陷，同型修复漏了这一职业**）：
+    ///     原来写死 `SpellIds.取("落陷凶星")`（**82 级**技能，`Action.csv` `25871` 行
+    ///     ClassJobLevel=82）⇒ 与 `Res_PotionTail.cs:55` 的 `!SpellUtil.已解锁(技) ⇒ -2`
+    ///     组合起来，**82 级以下的药尾声补刀恒不触发**。
+    ///     改走 `基础输出`（按等级取已解锁的最强填充）⇒ 与常规输出**同源**（F③）。
+    /// </summary>
+    public override uint 药尾声填充技 => 基础输出;
     public override uint 群体输出 => SpellUtil.取已解锁(
         SpellIds.取("中重力"), SpellIds.取("重力"));
 
