@@ -213,8 +213,35 @@ public abstract class HealerEntryBase : IRotationEntry
         }
         catch { }
 
+        // ── ★ 2026-10-15：**策略序列**（**不受「一键爆发」门控**）★ ──
+        //   [!] 为什么必须单独一条路：`构建爆发轴()` 里的序列**只在勾了「一键爆发」时才走**
+        //       （`爆发轴.cs:95-96` 的总开关先判 `GetQt("一键爆发", false)`），
+        //       而参考实现里的 **Strategy**（如贤者「奶满策略」）是**独立于爆发**的策略 ——
+        //       塞进爆发轴会变成"只有开一键爆发才奶满" ✗
+        //   [!] `ISlotSequence` 接口本身带 `int StartCheck()`（我们的 `爆发轴基类` 已实现，
+        //       `爆发轴.cs:91`），与参考 Strategy 的 `int StartCheck()` **同名同签名**；
+        //       参考的 `BuildHealSlot(Slot)` 对应子类的 `构建()`
+        //       ⇒ 新增这一条注册路径即可**忠实承载**参考的 Strategy。
+        //   [!] 默认空数组 ⇒ **不影响任何现有职业**（子类需要时才 override）。
+        try
+        {
+            var 策略 = 构建策略序列();
+            if (策略 != null && 策略.Length > 0) rot.AddSlotSequences(策略);
+        }
+        catch { }
+
         return rot;
     }
+
+    /// <summary>
+    /// 子类返回自己的**策略序列**（返回空数组 = 不用）。
+    ///
+    /// [!] 与 `构建爆发轴()` 的区别：**不受「一键爆发」门控** ——
+    ///     它承载参考实现里的 Strategy（例如贤者的「奶满策略」），
+    ///     由各自的 `StartCheck()` 决定何时生效。
+    /// </summary>
+    protected virtual AEAssist.CombatRoutine.Module.ISlotSequence[] 构建策略序列()
+        => Array.Empty<AEAssist.CombatRoutine.Module.ISlotSequence>();
 
     /// <summary>
     /// 子类返回自己的爆发轴（返回空数组 = 不用）。
