@@ -65,6 +65,7 @@ public class Res_TeamMitigation : ISlotResolver
     {
         _团减锁到 = 0;
         _白魔群减互斥到 = 0;
+        _待补团减 = 0;      // 学者的"下一帧补交"（见 `学者团减编排`）
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -165,6 +166,185 @@ public class Res_TeamMitigation : ISlotResolver
         return _本帧编排;
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ **学者 组合优先级 if 链**（复刻 youshu `自动减伤.GetAoeMitigationSpells`）★
+    //
+    //  IL 出处：`.il\cls_youshu\ACR.Scholar.Resolvers.自动减伤.txt` 第 201~634 行
+    //  局部变量对照（该文件第 202 行 locals 注释 + IL 逐条）：
+    //      V0=罩子(野战治疗阵 188，`BuildSacredSoil`)  V1=异想的幻光(16538)
+    //      V2=疾风怒涛之计(25868)                      V3=慰藉(16546)
+    //      V4=炽天召唤(16545)                          V5=有以太 / V6=秘策光环1896
+    //      V7=炽天使剩余  V8=有小仙女
+    //      V9=罩子就绪  V10=幻光就绪  V11=跑快快就绪  V14=慰藉就绪
+    //
+    //  [!] 顺序就是优先级，**不能重排** —— IL 里是一串 `brfalse` 逐层下落：
+    //      先试"两个一起"，再退到单发（和贤者那支 `团减编排()` 同一个写法）。
+    //  [!] 返回值不参与仲裁（队列行号才是优先级）⇒ 这里只回答"交哪几个"。
+    //  [!] 只对学者生效；贤者走 `团减编排()` / `群盾兜底()`，两边互不影响。
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// 学者"下一帧补交"的技能 id（IL 的 `pendingMitigation` 字段）。
+    ///
+    /// [!] IL_0261（罩子）/ IL_02dc（疾风怒涛之计）：炽天使**不在场**时，参考当帧只排
+    ///     [炽天召唤(16545), 慰藉(16546)]，把罩子 / 跑快快记进 `pendingMitigation`，
+    ///     **下一帧补交**。这两支以外不写这个字段（照 IL）。
+    /// [!] 0 = 没有待补。
+    /// </summary>
+    private static uint _待补团减;
+
+    private bool 学者团减编排()
+    {
+        _本帧编排.Clear();
+
+        try
+        {
+            if (_t.Job != Jobs.Scholar) return false;
+
+            var 罩子 = SpellIds.取("野战治疗阵");       // 188   —— IL_006e
+            var 幻光 = SpellIds.取("异想的幻光");       // 16538 —— IL_0006
+            var 跑快快 = SpellIds.取("疾风怒涛之计");   // 25868 —— IL_0011
+            var 慰藉 = SpellIds.取("慰藉");             // 16546 —— IL_001c
+            var 炽天 = SpellIds.取("炽天召唤");         // 16545 —— IL_0027
+
+            if (罩子 == 0 || 幻光 == 0 || 跑快快 == 0 || 慰藉 == 0 || 炽天 == 0) return false;
+
+            // ── 就绪标志（照 IL 逐条抄）──────────────────────────────────
+            // 有以太：IL_0033~0042 `HasAetherflow() ? CanSpendAetherflow() : false`
+            //   [IL 无法确定] `CanSpendAetherflow` 是 Helper 内部实现
+            //                 ⇒ 用 `JobApiHelper.以太 > 0`（= 有豆子可花）落地。
+            // 秘策光环：IL_0044~0054 `Me.HasAura(1896)`
+            var 有以太或秘策 = JobApiHelper.以太 > 0 || CharacterExt.我有光环(1896);
+
+            // 炽天使剩余：IL_0056~005b `ScholarTools::get_SeraphTimeLeft`
+            //   [IL 无法确定] 它是 Helper 内部实现 ⇒ 用 `JobApiHelper.炽天使剩余` 落地。
+            var 炽天在场 = JobApiHelper.炽天使剩余 > 0;
+
+            // 有小仙女：IL_005d~006c（先 `Charges(16546)`、紧接着 `HasFairy()`，
+            //   两者关系 [IL 无法确定]）⇒ 只按 `HasFairy` 落地。
+            var 有小仙女 = JobApiHelper.有小仙女;
+
+            // 罩子就绪：IsUnlock(188) && (有以太 || 秘策) && Cooldown.TotalMs==0
+            //   —— IL_006e~00ae（`bubble.Cooldown` 那一对 `ldc.r8 0` + `ceq`）
+            var 罩子就绪 = SpellUtil.已解锁(罩子) && 有以太或秘策
+                           && CharacterExt.冷却剩余秒(罩子) <= 0f;
+
+            // 幻光就绪：IsUnlock(16538) && 有小仙女 && Cooldown.TotalMs==0
+            //   —— IL_00b0~00ec
+            var 幻光就绪 = SpellUtil.已解锁(幻光) && 有小仙女
+                           && CharacterExt.冷却剩余秒(幻光) <= 0f;
+
+            // 跑快快就绪：IL_00ee~0121
+            //   QT「跑快快」&& `IsReady(25868, 1)` && `HasMyAuraWithTimeleft(2711, 3000)` 取反
+            //   [!] 2711 = 疾风怒涛之计的自身 buff（照 IL 裸 id；`AuraIds` 里没有这一条）。
+            //   [!] `HealerActionHelper::IsReady` 是 Helper 内部实现 [IL 无法确定]
+            //       ⇒ 用 `SpellUtil.可用()`（= IsReadyWithCanCast）落地。
+            //   [!] QT「跑快快」我们**没有注册** ⇒ `HealQt.GetQt` 返回兜底 true（恒真）。
+            var 跑快快就绪 = HealQt.GetQt("跑快快", true)
+                             && SpellUtil.可用(跑快快)
+                             && CharacterExt.我的Buff剩余毫秒安全(2711) < 3000f;
+
+            // 慰藉就绪：IL_017b~01a9
+            //   `Charges(16546) >= 1`（`ldc.r4 1` + `blt.un`）&& `!RecentlyUsed(16546, 5000)`
+            //   && (炽天在场 || `IsReady(16545, 1)`)
+            var 慰藉就绪 = CharacterExt.充能数(慰藉) >= 1
+                           && !AEAssist.Helper.SpellExtension.RecentlyUsed(慰藉, 5000)
+                           && (炽天在场 || SpellUtil.可用(炽天));
+
+            // ── 组合优先级（IL 的 if 链，逐条一行；顺序不能反）──────────
+            // 罩子 + 幻光 —— IL_01ab~01e5：列表 = [罩子(V0), 幻光(V1)]
+            if (罩子就绪 && 幻光就绪) { _本帧编排.Add(罩子); _本帧编排.Add(幻光); return true; }
+
+            // 罩子 + 跑快快 —— IL_01e6~0220：列表 = [罩子(V0), 跑快快(V2)]
+            if (罩子就绪 && 跑快快就绪) { _本帧编排.Add(罩子); _本帧编排.Add(跑快快); return true; }
+
+            // 罩子 + 慰藉 —— IL_0221~029b（含"炽天使在场与否"决定顺序那一支）
+            if (罩子就绪 && 慰藉就绪)
+            {
+                if (炽天在场) { _本帧编排.Add(慰藉); _本帧编排.Add(罩子); }        // IL_022d~0260
+                else
+                {
+                    _待补团减 = 罩子;                                               // IL_0261
+                    _本帧编排.Add(炽天); _本帧编排.Add(慰藉);                       // IL_0281~0295
+                }
+                return true;
+            }
+
+            // 跑快快 + 慰藉 —— IL_029c~0316（同样含"炽天使在场与否"那一支）
+            if (跑快快就绪 && 慰藉就绪)
+            {
+                if (炽天在场) { _本帧编排.Add(慰藉); _本帧编排.Add(跑快快); }      // IL_02a8~02db
+                else
+                {
+                    _待补团减 = 跑快快;                                             // IL_02dc
+                    _本帧编排.Add(炽天); _本帧编排.Add(慰藉);                       // IL_02fc~0310
+                }
+                return true;
+            }
+
+            // 单发垫底（IL_0317 / IL_03fc 的 DeploymentSpells 与 IL_0416 的 186 两支已跳过）
+            if (罩子就绪) { _本帧编排.Add(罩子); return true; }                     // IL_033c~0369
+            if (跑快快就绪) { _本帧编排.Add(跑快快); return true; }                 // IL_036a~0397
+
+            // 单发慰藉 —— IL_0398~03fb（"没炽天使 ⇒ 先排炽天召唤"这一支也照抄）
+            if (慰藉就绪)
+            {
+                if (炽天在场) { _本帧编排.Add(慰藉); }                              // IL_03d2~03f5
+                else { _本帧编排.Add(炽天); _本帧编排.Add(慰藉); }                  // IL_03a1~03d0
+                return true;
+            }
+        }
+        catch { }
+
+        _本帧编排.Clear();
+        return false;
+    }
+
+    /// <summary>
+    /// **编排分支里的地面团减**（目前只有学者的罩子 188，CastType=7）——
+    /// 选位与单发路径**同一套三分支**（那边写在 `Build()` 尾部，`★ 选位 ★` 那段）：
+    ///   ① 主坦脚下（`主坦()` = 被最多敌人盯着的那个 T）② 当前目标且 `HitboxRadius <= 19`
+    ///   ③ 自己脚下。
+    ///
+    /// [!] 为什么要单独一份：单发路径写死了 `_t.团队减伤`，而组合链里罩子可能和
+    ///     别的技能一起排在 `_本帧编排` 里，不能改写 `_t.团队减伤`
+    ///     （贤者/占星/白魔共用同一个 Build）✗
+    /// [!] 两处必须同步改：`Build()` 尾部 + 这里（450ms 延迟放置也是同一个值）。
+    /// </summary>
+    private void 放地面团减(Slot slot, uint 技能Id)
+    {
+        try
+        {
+            if (技能Id == 0) return;
+
+            var 落点 = CharacterExt.我的位置();   // ③ 兜底：自己脚下（和参考实现一致）
+
+            try
+            {
+                var 坦克落点 = HealTargetHelper.主坦();
+                if (坦克落点 != null && 坦克落点.活着())
+                    落点 = 坦克落点.Position;
+                else
+                {
+                    var 目标 = 输出目标.选();
+                    if (目标 != null && 目标.活着() && 目标.HitboxRadius <= 19f)
+                        落点 = 目标.Position;
+                }
+            }
+            catch { }
+
+            // 地面技能尤其容易吃"按了但没落下去"的亏 —— 延迟 450ms（与单发路径同值）
+            slot.AddDelaySpell(450, new Spell(技能Id, 落点));
+        }
+        catch (Exception e)
+        {
+            LogHelper.Info("[HealerACR] 团减放置失败，退回普通放置：" + e.Message);
+
+            var 兜底 = SpellUtil.Get(技能Id);
+            if (兜底 != null) slot.Add(兜底);
+        }
+    }
+
     /// <summary>
     /// 团减的**群盾兜底**（参考的 `TryAddShieldFallback`）：
     /// boss 5 秒内要 AOE、蓝量 &gt; 1000、绿盾(24292) 已解锁且可用，
@@ -211,6 +391,39 @@ public class Res_TeamMitigation : ISlotResolver
     public int Check()
     {
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 学者 **下一帧补交**（IL 的 `pendingMitigation`）★
+        //    IL 出处：`.il\cls_youshu\ACR.Scholar.Resolvers.自动减伤.txt`
+        //             `IL_0261`（补罩子）/ `IL_02dc`（补疾风怒涛之计）。
+        //    炽天使不在场时，参考当帧只排 [炽天召唤(16545), 慰藉(16546)]，
+        //    把罩子 / 跑快快记下来，**下一帧补交**。
+        //  [!] 必须放在所有闸门**之前**：这是**上一帧已经决定好的**动作，
+        //      而下一帧 `已有减伤()`（慰藉的盾 3098 刚上）与 6 秒团减锁
+        //      （Build 结尾 `记团减锁()`）都已经成立 ⇒ 放后面永远补不出来 ✗
+        //      （同"判 A 放 A"：Check 决定，这里只补放）
+        //  [!] 只对学者生效：别的职业不会写 `_待补团减`。
+        //  [!] 返回值不参与仲裁（队列行号才是优先级）—— 这里只是排在 188 那一槽。
+        // ══════════════════════════════════════════════════════════════
+        if (_待补团减 != 0 && _t.Job == Jobs.Scholar)
+        {
+            var 补 = _待补团减;
+            _待补团减 = 0;
+
+            try
+            {
+                if (!HealTargetHelper.木桩模式
+                    && HealQt.GetQt("减伤", true)
+                    && HealSettings.Instance.自动减伤
+                    && SpellUtil.已解锁(补))
+                {
+                    _本帧编排.Clear();
+                    _本帧编排.Add(补);
+                    return 16;
+                }
+            }
+            catch { }
+        }
+
 // ★ 2026-10-04：已有减伤就不再叠（对照实现的 CurrentMitigation 快照）
 if (团减快照.已有减伤()) return -1;
 
@@ -253,7 +466,10 @@ if (团减快照.已有减伤()) return -1;
         {
             try
             {
-                if (JobApiHelper.以太 <= 0) return -2;
+                if (JobApiHelper.以太 <= 0 && !CharacterExt.我有光环(1896)) return -2;
+                //  [!] 补上"秘策光环 1896"这一半：IL_007e~00ae 的罩子就绪是
+                //      `IsUnlock(188) && (有以太 || Me.HasAura(1896)) && CD==0` ——
+                //      秘策在身时罩子不花豆子，0 豆也该放行（照 IL 抄，别只判豆子）
             }
             catch { }
         }
@@ -459,6 +675,15 @@ if (团减快照.已有减伤()) return -1;
             }
 
             // ══════════════════════════════════════════════════════════
+            //  ★ **学者 组合优先级**（复刻 youshu `自动减伤.GetAoeMitigationSpells`）★
+            //    罩子(188) 打头，与 幻光(16538) / 跑快快(25868) / 慰藉(16546) 组合，
+            //    单发垫底 —— 逐条照 IL（见 `学者团减编排()` 里的 IL_xxxx 出处）。
+            //  [!] 只到"选哪几个"：该不该交仍由上面的触发条件回答（和贤者那支同源）。
+            //  [!] 贤者那一段**原样保留**（上面几行没动）。
+            // ══════════════════════════════════════════════════════════
+            if (_t.Job == Jobs.Scholar && 学者团减编排()) return 16;
+
+            // ══════════════════════════════════════════════════════════
             //  ★ **移动中不铺地面减伤**（道中小怪阶段实测报的问题）★
             //
             //  ── 现象 ──
@@ -572,6 +797,18 @@ if (团减快照.已有减伤()) return -1;
 
                     var 盾 = SpellUtil.当前形态(_t.群体盾);
                     if (盾 != null) slot.Add(new Spell(盾.Id, SpellTargetType.Self));
+                    continue;
+                }
+
+                // ★ 学者 罩子(188) 是**地面放置型**（CastType=7）——
+                //   必须带落点坐标：直接 `SpellUtil.Get` 会丢掉"主坦脚下 / 目标脚下"的选位
+                //   ⇒ 组合链里的罩子会放歪 ✗（400ms 延迟放置同理）
+                if (技能数据.是地面技能(id))
+                {
+                    if (HealQt.GetQt("脚下放罩", false))
+                        slot.Add(new Spell(id, CharacterExt.我的位置()));
+                    else
+                        放地面团减(slot, id);
                     continue;
                 }
 
