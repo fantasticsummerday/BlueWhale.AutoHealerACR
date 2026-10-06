@@ -2124,6 +2124,23 @@ public class Res_InstantHealAbility : ISlotResolver
         var 预铺 = _t.预铺单奶能力技;
         if (预铺 != 0 && HealQt.每技能通过(预铺) && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺))
         {
+            // ★ 2026-10-15 修：**Build 也要过 Check 那两道「水流幕」硬门**（判 A 放 A / F③）★
+            //   [!] 问题：Check 在 `预铺 == 水流幕` 时判了 QT「减伤」（-100）与
+            //       `RecentlyUsed(140 天赐祝福, 3000)`（-1，见 Check 里 1823 起那段注释），
+            //       而 **Build 这里是自己重新选 `预铺`** 的，只判了 每技能通过 / 已解锁 / 可用
+            //       ⇒ **可以放出 Check 从未批准的水流幕**（判 A 放 B），
+            //         并且**绕过用户关掉的「减伤」开关** ✗
+            //   [!] 判据只此一份：这里用与 Check **逐字相同**的两条表达式，不另写一套。
+            if (预铺 == SpellIds.取("水流幕"))
+            {
+                if (!HealQt.GetQt("减伤", true)) return;
+                try
+                {
+                    if (AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("天赐祝福"), 3000)) return;
+                }
+                catch { }
+            }
+
             if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
             {
                 // ★ 占星 天星交错：**优先用 Check 里五档选定的目标**（同一来源，F③）；
