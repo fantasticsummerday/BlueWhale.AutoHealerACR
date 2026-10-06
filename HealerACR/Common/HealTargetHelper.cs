@@ -1996,7 +1996,13 @@ public static class HealTargetHelper
                 try
                 {
                     foreach (var b in 我的DotBuffs)
-                        if (b != 0 && c.HasAura(b)) return true;
+                        // ★ 2026-10-15 修（**同一判据两套写法 F③**）：这里原来用 `HasAura`，
+                //   而本文件 `:1598`（`可补Dot的敌人` 内同名局部函数）用的是 `HasLocalPlayerAura`，
+                //   并且那里注释写明了理由："原来 `HasAura` 会把**别人挂的同名 DoT** 算成我的 ✗"。
+                //   [!] 而本函数的 `敌人信息.有我的Dot` 字段注释就是"身上有没有**我挂的** DoT"，
+                //       还被 `OrderByDescending(x => x.有我的Dot)` 排序并写进 AI 局面报告
+                //       ⇒ 队里有同职业时，AI 会以为"已有 DoT、不用补" ✗
+                if (b != 0 && c.HasLocalPlayerAura(b)) return true;
                 }
                 catch { }
 
