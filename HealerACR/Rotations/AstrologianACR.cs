@@ -446,7 +446,7 @@ public override uint 个人减伤 => 0;   // ★ 2026-10-04：擢升改由 AST_A
             new SlotResolverData(new Res_移动开即刻(_spells), SlotMode.Gcd),
             // ★ 紧跟着：即刻已经在身上时，把这一发打在**最高档的输出 GCD** 上
             //   （奶妈的输出 GCD 全是读条的，不放这条移动中就一个都打不出来）。
-new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
             // ★ 2026-10-15 修（与白魔 `WhiteMageACR.cs:569-573` 同源、逐字同理由）：
             //   开即刻打开的 Swiftcast 应该**先留给治疗**（移动中救急），
