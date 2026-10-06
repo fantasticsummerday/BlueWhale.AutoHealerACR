@@ -24,7 +24,12 @@ namespace HealerACR.Rotations;
 ///      **爆发药窗口**、**起手门**、**AOE 智能换目标**、无充能时的溢出判据。
 ///
 ///  ── 闸门（顺序即参考的 IL 顺序）──
-///    ① QT：`发炎` 开着 **或** `强制发炎` 开着（后者是不看任何条件的强放）
+///    ① QT：**只认 `发炎`**；`发炎` 关着 ⇒ 直接 -100
+///       （IL 出处：`.il\cls_youshu\ACR.Sage.Resolvers.GCD.发炎.txt:14-21`
+///        —— `ldstr "发炎"` → `GetQt` → `brfalse` 跳过 `ldc.i4.s -100`/`ret`；
+///        该分支体**不读** `强制发炎`）
+///       `强制发炎` 是**另一条独立 resolver**（IL 同名文件），
+///       槽序在发炎之前、判定更宽（不查充能/药窗），见 `SGE_PhlegmaForce`
 ///    ② 目标 + 打上去有用 + 6 米内且没死
 ///    ③ 技能可用（视线/射程）
 ///    ④ `保留发炎` 且**没在倾泻资源**，且充能 ≤ 1 ⇒ 留着（-9）
@@ -70,8 +75,11 @@ public class SGE_Phlegma : ISlotResolver
     {
         本帧目标 = null;
 
-        // ① 两个 QT 任一开着就走（`强制发炎` = 不看任何条件）
-        if (!HealQt.GetQt("发炎", true) && !HealQt.GetQt("强制发炎", false)) return -100;
+        // ① QT 门：**`发炎` 关着就不放**（方向已按 IL 修正 —— 原来写成
+        //    `!发炎 && !强制发炎`，等于"两个都关才放"，恰好写反；表 #108 的
+        //    「发炎关 **或** 强制发炎开 ⇒ -100」其实是**两条 resolver 各自的**门）。
+        //    IL 出处：`.il\cls_youshu\ACR.Sage.Resolvers.GCD.发炎.txt:14-21`。
+        if (!HealQt.GetQt("发炎", true)) return -100;
         if (技能 == 0 || !SpellUtil.已解锁(技能)) return -2;
 
         // ② 目标
@@ -194,6 +202,157 @@ public class SGE_Phlegma : ISlotResolver
     }
 
     /// <summary>倾泻资源中（用「一键爆发」开关当判据）</summary>
+    private static bool 倾泻资源中()
+    {
+        try { return HealQt.GetQt("一键爆发", false); }
+        catch { return false; }
+    }
+}
+
+/// <summary>
+/// **强制发炎**（独立 resolver，表 #108）。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 为什么要有这么一条（原来是错的）★
+///
+///  [!] 参考实现里 `强制发炎` 是**一条自己的 resolver**
+///      （IL 文件：`.il\cls_youshu\ACR.Sage.Resolvers.GCD.强制发炎.txt`，
+///       槽序见 `ACR.Sage.Resolvers.Strategy.贤者技能策略.txt`：第 20 位，
+///       **在 `发炎`（第 26 位）之前**）。
+///      我们原来把它的开关**并进了 `SGE_Phlegma` 的那一行门**里 ——
+///      两个开关同开时会照打，而参考里「强制发炎开」本身并不代表 `发炎` 也开。
+///
+///  [!] 现在按 IL 拆回独立判定（槽序仍在 `发炎` 之前，所以"强制"确实更优先）。
+///
+///  ── IL 逐条（出处：`ACR.Sage.Resolvers.GCD.强制发炎.txt`）──
+///    ⓘ 上界：本类**不查充能、不查爆发药窗口、不查起手门** ——
+///      这正是它和 `SGE_Phlegma` 的全部差别（那些闸门只在 `发炎.txt` 里）。
+///    ① `!GetQt("强制发炎")` ⇒ **-100**（IL_0022-0030）
+///    ② 技能不可用 ⇒ 放过（IL_00a2-00c0：`GetAdjustedActionId(24289)` + `IsReady`）
+///       24289 = `SpellIds.取("发炎")`（谱面基准技）
+///    ③ 没有目标 / 攻击无效 ⇒ **-1**（IL_003a-004c）
+///    ④ 目标为空、或 距离 &gt; 6 、或濒死 ⇒ **-200**（IL_004d-0086）
+///    ⑤ `攒爆发` 开且 `倾泻资源` 关 ⇒ **-30**（IL_0087-00a1）
+///    ⑥ `倾泻资源` 开 ⇒ **50**（IL_00c1-00d6）
+///    ⑦ 战斗 ≤ 5000ms 且目标 &gt; 6 米 ⇒ **-9**（IL_00d7-0103）
+///    ⑧ 选目标：`智能AOE目标` 关 ⇒ 当前目标；开 ⇒ 圆形落点，门槛
+///       `GetAdjustedActionId(24289) == 24307 ? 3 : 2`（24307 = `发炎II`）
+///       （IL_0104-011f 与 `SelectTarget` IL_0000-004a）
+///    ⑨ 落点选中（`useSmartTarget`）⇒ **20**；否则 **10**（IL_0120-012d）
+///
+///  [!] 「IL 无法确定」标注两处（**不猜**）：
+///       · `SelectCircularAoeTarget` 的第 4 参（IL 的 `ldc.i4.1`）语义未知，
+///         我们沿用项目里 `SGE_Phlegma` 的同名调用形态 `圆形最优(5f, 门槛)`
+///         —— **半径 5 米与 IL 字面的 6 只能二者取一，取项目一致的那个**；
+///       · IL 用 `TargetHelper.GetNearbyEnemyCount` 复核，我们用
+///         `HealTargetHelper.自身周围敌人数量`（项目统一的安全实现，口径相同）。
+///
+///  ⚠ 返回值语义：负数 = 不放，正数 = 放行；**返回值不参与仲裁**
+///    ⇒ 所有"让路"都写成 `return -1`（照 IL，不用别的负数表示让路）。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class SGE_PhlegmaForce : ISlotResolver
+{
+    /// <summary>发炎 III / II / I 的等级链（与 `SGE_Phlegma` 同一口径）</summary>
+    private static uint 技能 => SpellUtil.取已解锁(
+        SpellIds.取("发炎III"), SpellIds.取("发炎II"), SpellIds.取("发炎"));
+
+    /// <summary>Check 里选好的落点，给 Build 用（避免判 A 放 B）</summary>
+    private static IBattleChara? 本帧目标;
+
+    /// <summary>近战距离门槛（IL_005c 的 `ldc.r4 6`）</summary>
+    private const float 近战距离 = 6f;
+
+    /// <summary>开场这么久的距离门（IL_00e6 的 `ldc.i4 5000`，毫秒）</summary>
+    private const long 近战距离门槛毫秒 = 5000;
+
+    /// <summary>群体形态（发炎II）的 AOE 门槛；单体形态是 2（IL_013a-013b）</summary>
+    private const int 群体落点门槛 = 3;
+
+    public int Check()
+    {
+        本帧目标 = null;
+
+        // ① 本 resolver 只管自己的开关（IL_0022-0030）
+        if (!HealQt.GetQt("强制发炎", false)) return -100;
+
+        var 技能Id = 技能;
+        if (技能Id == 0 || !SpellUtil.已解锁(技能Id)) return -2;
+
+        // ② 目标
+        var 目标 = 输出目标.选();
+        if (目标 == null || !目标.对象有效()) return -1;
+        if (敌人状态.攻击无效(目标)) return -1;
+
+        var 距离 = 0f;
+        try { 距离 = 目标.Distance(Core.Me!); } catch { }
+        if (目标.CurrentHp <= 0) return -200;
+        if (距离 > 近战距离) return -200;
+
+        // ③ 技能可用（不查充能 —— 这是「强制」的定义）
+        var spell = SpellUtil.当前形态(技能Id);
+        if (spell == null || !spell.IsReadyWithCanCast()) return -1;
+
+        // ④ 攒爆发 ⇒ 留着
+        if (HealQt.GetQt("攒爆发", false) && !倾泻资源中()) return -30;
+
+        // ⑤ 倾泻资源 ⇒ 无条件交
+        if (倾泻资源中())
+        {
+            本帧目标 = 目标;
+            return 50;
+        }
+
+        // ⑥ 开场 5 秒内且目标太远 ⇒ 先别交
+        if (战斗毫秒() <= 近战距离门槛毫秒 && 距离 > 近战距离) return -9;
+
+        // ⑦ AOE 智能换目标（门槛按形态分档）
+        var 是群体形态 = spell.Id == SpellIds.取("发炎II");
+        var 落点门槛 = 是群体形态 ? 群体落点门槛 : 2;
+        var 用智能落点 = false;
+        try
+        {
+            // 参考的 `智能AOE目标` 开关在本项目**没有同名设置**
+            // （`HealSettings.cs` 里只有 `AOE`，:197）—— 这里用它当代理判据，
+            // 语义一致（"允许 AOE 目标优化"）；**没有新增设置项**。
+            if (HealSettings.Instance.AOE)
+            {
+                var 落点 = 智能选目标.圆形最优(5f, 落点门槛);
+                if (落点 != null && 落点.对象有效()
+                    && HealTargetHelper.自身周围敌人数量(5f) >= 落点门槛)
+                {
+                    本帧目标 = 落点;
+                    用智能落点 = true;
+                }
+            }
+        }
+        catch { }
+
+        if (用智能落点) return 20;
+
+        本帧目标 = 目标;
+        return 10;
+    }
+
+    public void Build(Slot slot)
+    {
+        var 目标 = 本帧目标;
+        if (目标 == null || !目标.对象有效()) return;
+
+        var spell = SpellUtil.当前形态(技能);
+        if (spell == null) return;
+
+        slot.Add(new Spell(spell.Id, 目标));
+    }
+
+    /// <summary>当前战斗时间（毫秒；拿不到返回 0）</summary>
+    private static long 战斗毫秒()
+    {
+        try { return AI.Instance?.BattleData?.CurrBattleTimeInMs ?? 0; }
+        catch { return 0; }
+    }
+
+    /// <summary>倾泻资源中（与 `SGE_Phlegma` 同口径：用「一键爆发」开关当判据）</summary>
     private static bool 倾泻资源中()
     {
         try { return HealQt.GetQt("一键爆发", false); }

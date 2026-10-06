@@ -574,6 +574,7 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new SGE_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
+            new SlotResolverData(new SGE_PhlegmaForce(), SlotMode.Gcd),  // 强制发炎：参考槽序第 20 位（发炎之前）
             new SlotResolverData(new SGE_Phlegma(), SlotMode.Gcd),   // 发炎：DoT 之后才轮到它
             new SlotResolverData(new SGE_Toxikon(), SlotMode.Gcd),
             // ⚠️ 位置很重要：必须在 `Res_MoveGcd`（移动填充）**之前** ——
@@ -950,6 +951,12 @@ public class SGE_Rhizomata : ISlotResolver
         if (!HealQt.GetQt("根素", true)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ★ **Lv≥76 硬门**（IL 出处：`.il\cls_youshu\ACR.Sage.Resolvers.Ability.根素.txt:17-22`
+        //    —— `get_Me` → `get_Level` → `ldc.i4.s 76` → `bge` 跳过 `ldc.i4.s -3`/`ret`；
+        //    76 是根素 24309 的解锁等级，等级不够时**白按也无效**）
+        var 等级 = 玩家等级();
+        if (等级 > 0 && 等级 < 76) return -3;
+
         // ★ oGCD 队列深度闸门（参考口径 `CanUseOffGcd(2)` —— 根素在连发池里）
         if (!OffGcd闸门.可以排(2)) return -4;
         if (JobApiHelper.蛇胆 >= 2) return -3;   // ★ 2026-10-04：对照实现是「≤1 颗就补」，原来 >=1 ⇒ 只在 0 颗时补，平均少一颗 ✗
@@ -967,6 +974,13 @@ public class SGE_Rhizomata : ISlotResolver
     {
         var spell = SpellUtil.Get(技能);
         if (spell != null) slot.Add(spell);
+    }
+
+    /// <summary>玩家当前等级（拿不到返回 0 ⇒ 调用点视为"判不了、不拦"）</summary>
+    private static int 玩家等级()
+    {
+        try { return Core.Me?.Level ?? 0; }
+        catch { return 0; }
     }
 }
 
