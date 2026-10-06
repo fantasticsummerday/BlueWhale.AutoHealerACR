@@ -1185,7 +1185,19 @@ public class SCH_Aetherpact : ISlotResolver
     private static long _上次仙女动作;
 
     /// <summary>由仙女系 resolver 在施放后调用（低语/幻光/祥光/慰藉/炽天召唤都会断链）。</summary>
-    public static void 记仙女动作() { try { _上次仙女动作 = TimeHelper.Now(); } catch { } }
+        // ★ 2026-10-15 修（**两套时基 + 零调用**，全代码审查发现）：
+    //   ① **时基必须与读取处一致**：这里原来写 `TimeHelper.Now()`，而守卫（`:1221`）
+    //      读的是 `Environment.TickCount64` ⇒ **两个不同时基相减毫无意义**
+    //      （就算被调用，比较结果也是垃圾值）。统一用 `Environment.TickCount64`。
+    //   ② **本方法目前全仓零调用点** ⇒ `_上次仙女动作` 恒为 0 ⇒ 守卫 `:1221` 的
+    //      `!= 0` 恒假 ⇒ **"800ms 内不重复放仙女技"这道闸从未生效** ✗
+    //      ⇒ 真正修好需要在**仙女技真正入队的那一刻**调用本方法
+    //        （学者的仙女技：慰藉 / 异想的祥光 / 异想的低语，见本文件它们的入队点）。
+    //      本轮先修时基；补调用点留作独立一步，避免仓促接错位置反而制造新缺陷。
+    public static void 记仙女动作()
+    {
+        try { _上次仙女动作 = Environment.TickCount64; } catch { }
+    }
 
     public int Check()
     {
