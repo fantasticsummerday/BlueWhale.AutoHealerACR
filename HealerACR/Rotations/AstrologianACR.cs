@@ -526,6 +526,23 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new AST_EarthlyStar(), SlotMode.OffGcd),
             // ★ 2026-10-04：紧随其后 —— 地星放下后由它引爆 ✓
             new SlotResolverData(new AST_StarDetonation(), SlotMode.OffGcd),
+            // ══════════════════════════════════════════════════════════════
+            //  ★ 2026-10-15：**神谕（37029）是独立 resolver**（用户裁决 + IL 定论）★
+            //
+            //  [!] 槽序来源 = youshu 的 `占星技能策略` 注册表
+            //      （`.il\cls_youshu\ACR.Astrologian.Resolvers.Strategy.占星技能策略.txt`）。
+            //      它是**按显式槽号**写进 `Span<SlotResolverData>` 的（不是 List.Add）：
+            //        `V1[12] = 地星`、`V1[13] = 星体爆轰`（IL_0141~014e）、
+            //        **`V1[14] = 神谕`（IL_0156~0168）**、`V1[15] = 天星冲日`、…
+            //        `V1[22] = 光速`、`V1[23] = 占卜`（IL_0213~0225）、`V1[24] = 出卡1`…
+            //      ⇒ **IL 的槽序是 神谕(14) 先于 占卜(23)**；
+            //        （父代理交办时说的是"神谕在占卜之后"——**与 IL 事实不符，已按 IL 摆位并回报**。）
+            //
+            //  [!] 为什么紧跟 `AST_StarDetonation`：本项目既有的
+            //      `AST_EarthlyStar → AST_StarDetonation` 正对应 youshu 的 12 → 13，
+            //      所以这里紧跟着放 = youshu 的第 **14** 号槽，逐位对齐。
+            // ══════════════════════════════════════════════════════════════
+            new SlotResolverData(new AST_Oracle(), SlotMode.OffGcd),
             // ★ 2026-10-04：擢升是**给队友**的减伤（原来只在个人减伤槽里 ⇒ 永远给不到坦克 ✗）
             new SlotResolverData(new Res_LucidDreaming(_spells), SlotMode.OffGcd),
             new SlotResolverData(new Res_HealLink(_spells), SlotMode.OffGcd),             // 星位合图
@@ -588,11 +605,24 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
         //   [!] 默认 `true` = **保持当前行为不变**；注册只是把控制权交回用户。
         加职业开关("能力技奶", true);
         加职业开关("大宇宙", true);     // 大宇宙（地面放置群疗）
-        // ⚠️ 表外审计删掉了一个 QT：**「神谕」** ——
-        //    它**不是独立技能**，而是「占卜」在 92 级后的**形态**
-        //    （`SpellUtil.当前形态(占卜)` 会换成 37029）。
-        //    单开一个开关没有对应的行为可以接 ⇒ 必然是假开关，
-        //    所以拿掉（占卜那个开关已经覆盖了它）。
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 2026-10-15：**回滚"删掉神谕 QT"的决定** —— 经 IL 定论，神谕是独立 resolver ★
+        //
+        //  [!] 这里原来写着「⚠️ 表外审计删掉了一个 QT：**「神谕」** —— 它**不是独立技能**，
+        //      而是「占卜」在 92 级后的**形态**（`SpellUtil.当前形态(占卜)` 会换成 37029）
+        //      ⇒ 必然是假开关，所以拿掉」。
+        //      **那个判断是错的**（用户裁决 + IL 实证，见 `AST_Oracle` 的类注释）：
+        //      · `.il\cls_youshu\ACR.Astrologian.Resolvers.神谕.txt`（153 行，自带
+        //        `:: int Check()` / `:: void Build(Slot)` / `:: void .ctor()`）与
+        //        `ACR.Astrologian.Resolvers.占卜.txt`（90 行）是**两个独立的类**；
+        //      · 它的 Check 自己读 `ldstr "神谕"` 这个**属于它自己的 QT 名**（IL_0020/003b）。
+        //
+        //  [!] 开发约定 F②：开关的注册与读取必须对齐 ——
+        //      注册（此处 `加职业开关("神谕", true)`）与读取
+        //      （`AST_Oracle.Check` 的 `HealQt.GetQt("神谕", true)`）默认值**都是 true**。
+        //  [!] 默认 `true` = **保持"到点就放"的既有行为不变**，注册只是把控制权交回用户。
+        // ══════════════════════════════════════════════════════════════
+        加职业开关("神谕", true);       // 神谕(37029) —— 独立 resolver，不再是"占卜的形态"
         加职业开关("自动先天", true);   // 自动交先天禀赋
     }
 }
@@ -1705,6 +1735,230 @@ public class AST_Divination : ISlotResolver
 
         var s = SpellUtil.Get(神谕);
         return (s != null && s.IsReadyWithCanCast()) ? s : null;
+    }
+}
+
+/// <summary>
+/// **神谕（37029）—— 独立 resolver**（用户裁决 + IL 定论）。
+///
+/// ══════════════════════════════════════════════════════════════════
+///  ★ 为什么恢复成独立 resolver ★
+///   项目此前把「神谕」误判成「占卜」在 92 级后的**形态**，并因此删掉了它的 QT。
+///   用户裁决 + IL 实证：它是**独立文件、独立 resolver** ——
+///   `.il\cls_youshu\ACR.Astrologian.Resolvers.神谕.txt`（153 行，
+///   自带 `:: int Check()` / `:: void Build(Slot slot)` / `:: void .ctor()`），
+///   与 `.il\cls_youshu\ACR.Astrologian.Resolvers.占卜.txt`（90 行）**是两个类**。
+///   ⇒ QT「神谕」注册（`AstrologianACR.构建QT`）与读取（本类）两处齐（开发约定 F②）。
+///
+///  ── 闸门顺序（**照抄 IL，含分支方向与每个 `ret` 的返回值**）──
+///    ① `cachedSpell = null`                                    （IL_0000~0006）
+///    ② `StopRequested()` 真 → **-999**                          （IL_0007~0013）—— 未复刻，见下
+///    ③ `GetQt("倾泻资源")` 真  ⇒ 再看 `GetQt("神谕")`：假 → **-100**（IL_0014~002e）
+///       假 ⇒ `GetQt("AOE")`+`GetQt("神谕")`：任一为假 → **-100**  （IL_002f~0049）
+///       ⇒ 等价于 `神谕 QT && (倾泻资源 || AOE)`
+///    ④ `IsReady(37029)` 假 → **-2**                             （IL_004a~0058）
+///    ⑤ `HasSkillSilenceStatus()` 真 → **-1**                     （IL_0059~0061）—— 未复刻，见下
+///    ⑥ `V0 = CurrentTarget`；`V0 != null` 且（`!IsValid` 或 `HasAttackBlock`）→ **-1**（IL_0062~007c）
+///    ⑦ `CanUseOffGcd(1)` 假 → **-4**                             （IL_007d~0087）
+///    ⑧ `Me.HasAura(3893)` 假 → **-1**                            （IL_0088~009b）
+///    ⑨ `Me.InCombat()` 假 → **-1**                               （IL_009c~00a9）
+///    ⑩ `cachedSpell = V0 != null ? Ability(37029,V0) : Ability(37029)`（IL_00aa~00c5）
+///    ⑪ 1878（占卜态）剩余 **> 3000ms** → **100**                  （IL_00ca~00e8）
+///    ⑫ `!高难模式 && ShouldHoldForDyingTrash()` → **-10**         （IL_00e9~00fe）
+///    ⑬ `GetQt("攒爆发")` 真 且 `GetQt("倾泻资源")` 假 → **-50**    （IL_00ff~0119）
+///    ⑭ `GetQt("倾泻资源")` 真 → **50**                            （IL_011a~0128）
+///    ⑮ `CountEnemiesInRange(25f) == 0` → **-5**                   （IL_0129~0137）
+///    ⑯ `智能AOE目标` 真 且 `V0 != null` ⇒ `V1 = SelectCircularAoeTarget(2,25,5,V0,1)`；
+///       `V1 != null` 且 `GetNearbyEnemyCount(V1,25,5) >= 2`
+///       ⇒ `SwitchTargetIfNeeded(V0,V1)` + `cachedSpell = Ability(37029,V1)`；
+///       两条路都返回 **0**                                        （IL_0138~017a / IL_017c）
+///
+///  ★ 返回值语义：**负数 = 不放，0 / 正数 = 放行**；返回值**不参与仲裁**
+///    （队列行号才是优先级）⇒ 照 IL 各给各的负数，不另造让路值。
+///
+///  ★ 队列槽序来源（见 `构建决策队列` 里 `new AST_Oracle()` 处的注释）：
+///    `占星技能策略` 用**显式槽号**写入 `Span<SlotResolverData>` ——
+///    `V1[13] = 星体爆轰`、**`V1[14] = 神谕`（IL_0156~0168）**、`V1[23] = 占卜`（IL_0213~0225），
+///    即 **IL 里神谕(14) 先于 占卜(23)**（交办说明写的是"神谕在占卜之后"，
+///    **与 IL 事实相反**，已按 IL 事实摆位并回报父代理）。
+///
+///  ★「IL 无法确定」清单（**不猜、不自造**）★
+///    · `AstrologianResolverBase::StopRequested`（IL_0007）：本项目**没有对应 API**；
+///      本项目的"停手"是**记录模式直接返回空队列**（`记录模式.cs:48`），
+///      oGCD resolver 层没有这个开关 ⇒ 该门未复刻（IL 的 -999 不会出现）。
+///    · `HealerRuntimeTools::HasSkillSilenceStatus`（IL_0059）：本项目**没有沉默/静默查询 API**
+///      （全项目无对应实现）⇒ 该门未复刻；"技能此刻放不出"由 ④ 的 `可用()` 兜住。
+///    · `MemApiBuff::GetAuraTimeleft(Me, 1878, 1)`（IL_00ca~00da）的**第 3 参 `ldc.i4.1`
+///      语义未知** ⇒ 按项目安全口径读"剩余毫秒"（`我的Buff剩余毫秒安全`），
+///      只照抄 `> 3000` 这个比较与方向（`ble`：≤3000 继续，>3000 返回 100）。
+///    · `AstrologianTools::CountEnemiesInRange(float)`（IL_0129，实参 `25`）内部实现未知
+///      ⇒ 用项目已有的 `附近敌人总数(25f)`（同为"附近活着的敌人总数"口径）。
+///    · `HealerEnemyTargetHelper::SelectCircularAoeTarget(2,25,5,V0,1)`（IL_0147~014d）
+///      的 5 个实参**含义 IL 无法确定**（只能确定第 3 参 `ldc.i4.5` 与
+///      `GetNearbyEnemyCount(V1,25,5)` 里的 5 同源、门槛 2 与 `ldc.i4.2` 同源）
+///      ⇒ 按项目既有的圆形落点选法 `智能选目标.圆形最优(半径 5, 至少 2)` 原样调用
+///      （与 `SageExtra.cs:243-248` 对同一 API 的处理同型），门槛与 IL 的复核值一致。
+///    · `TargetHelper::GetNearbyEnemyCount(V1, 25, 5)`（IL_015a）：25/5 = 施法/伤害范围，
+///      项目该函数**不含施法范围参数** ⇒ 用 `以点为中心敌人数量(V1.Position, 5f) >= 2`
+///      （半径 5 = IL 的伤害范围，门槛 2 = IL_015f 的 `ldc.i4.2`）。
+///    · `AstrologianSettingsData::智能AOE目标`（IL_013d）：本项目**没有同名设置**
+///      ⇒ 沿用既有口径 `HealSettings.Instance.AOE`（与 `SageExtra.cs:315-318` 同一处理，
+///        `HealSettings.cs:197` 默认 true）。
+///    · `AstrologianSettingsData::高难模式`（IL_00ee）：本项目**没有同名设置**
+///      ⇒ 用 `减伤Helper.是高难本()` 代理 —— 依据 `ScholarACR.cs:1502/1517-1518`
+///        就是拿它当"高难模式"用（"高难看玩家自己排轴，不自动 hold"）；
+///        与 `HealSettings.cs:537-541`"我们不做高难模式开关"一句同源。
+///    · `AstrologianQT::GetQt("攒爆发")`（IL_00ff）：本项目**不做这个 QT**
+///      （`AstrologianACR.cs` 的 `占卜临近` 注释明文"我们不做 QT「攒爆发」"，
+///        `SageACR.cs:732-734` / `SageExtra.cs` 对同一 IL 门也都是走代理）
+///      ⇒ 用同口径的**占卜 CD < 8000ms** 代理，在本类内重建
+///        （`AST_Lightspeed.占卜临近()` 是 private；`Res_AllExtra.cs:940-944` 同型处理）。
+///    · `HealerEnemyTargetHelper::SwitchTargetIfNeeded(V0,V1)`（IL_0162）：
+///      本项目**不抢玩家选中的目标**（`输出目标.cs:29-34`：只返回该打的目标，
+///      由 `new Spell(id, 目标)` 打出去）⇒ 用"把技能打在落点上"等价表达。
+///    · `Spell::DontUseGcd()`（Build `IL_0007`）：本项目由注册时的 `SlotMode.OffGcd`
+///      表达（全项目 oGCD resolver 一致，无一处在 Build 里调它）⇒ Build 只 `slot.Add`。
+/// ══════════════════════════════════════════════════════════════════
+/// </summary>
+public class AST_Oracle : ISlotResolver
+{
+    /// <summary>神谕（IL 里所有 `ldc.i4 37029`；`SpellIds.取("神谕")` 已登记 = 37029）</summary>
+    private static uint 技能 => SpellIds.取("神谕");
+
+    /// <summary>
+    /// Check 里算好的技能（含落点目标），给 Build 用 —— 照 IL 的 `cachedSpell`
+    /// （IL_0001~0006 清空、IL_00c5 与 IL_0175 赋值）。**每帧 Check 开头必清**（开发约定 F①）。
+    /// </summary>
+    private static Spell? 缓存技能;
+
+    /// <summary>自身 aura 门（IL_008d 的 `ldc.i4 3893`；**3893 的名字 IL 无法确定** —— 项目表里没有它）</summary>
+    private const uint 自身光环Id = 3893;
+
+    /// <summary>占卜态剩余毫秒门槛（IL_00df 的 `ldc.i4 3000`）</summary>
+    private const int 占卜态剩余门槛毫秒 = 3000;
+
+    /// <summary>攒爆发窗口（IL 无此常量；见类注释「攒爆发」一条：占卜 CD &lt; 8000ms）</summary>
+    private const double 攒爆发窗口毫秒 = 8000;
+
+    public int Check()
+    {
+        // ① IL_0000~0006
+        缓存技能 = null;
+
+        // ② IL_0007~0013（`StopRequested` → -999）—— 本项目无该 API，未复刻，见类注释
+
+        // ③ IL_0014~0049：`神谕` QT 必须开，且（倾泻资源 或 AOE）至少一个开
+        var 倾泻资源 = 倾泻资源中();
+        if (倾泻资源)
+        {
+            // IL_0020~002e
+            if (!HealQt.GetQt("神谕", true)) return -100;
+        }
+        else
+        {
+            // IL_002f~0049：AOE 假 → -100；AOE 真但神谕假 → -100
+            if (!HealQt.GetQt("AOE", true)) return -100;
+            if (!HealQt.GetQt("神谕", true)) return -100;
+        }
+
+        // ④ IL_004a~0058：`IsReady(37029)` 假 → -2（项目等价：`可用()`）
+        if (!SpellUtil.可用(技能)) return -2;
+
+        // ⑤ IL_0059~0061（`HasSkillSilenceStatus` → -1）—— 本项目无对应 API，未复刻，见类注释
+
+        // ⑥ IL_0062~007c：当前目标非空且（无效 或 攻击无效）→ -1
+        //    ⚠️ 读游戏对象属性前先判 `对象有效()`（`当前目标()` 自带，这里按 IL 的显式分支再判一次）
+        var 目标 = HealTargetHelper.当前目标();
+        if (目标 != null && (!目标.对象有效() || 敌人状态.攻击无效(目标))) return -1;
+
+        // ⑦ IL_007d~0087：`CanUseOffGcd(1)` 假 → -4
+        //    [!] 上限 1 是**点名值** —— `OffGcd闸门.cs:75` 写明「占星 出卡2 / 出卡3 / **神谕**」用 1
+        if (!OffGcd闸门.可以排(1)) return -4;
+
+        // ⑧ IL_0088~009b：自身没有 3893 → -1
+        if (!CharacterExt.我有光环(自身光环Id)) return -1;
+
+        // ⑨ IL_009c~00a9：不在战斗中 → -1
+        if (!CharacterExt.我在战斗()) return -1;
+
+        // ⑩ IL_00aa~00c5：`cachedSpell = V0 != null ? Ability(37029,V0) : Ability(37029)`
+        缓存技能 = 目标 != null ? CharacterExt.能力技(技能, 目标) : CharacterExt.能力技(技能);
+
+        // ⑪ IL_00ca~00e8：1878（`AuraIds.占卜`，自身团辅态）剩余 > 3000ms → 100
+        if (CharacterExt.我的Buff剩余毫秒安全(AuraIds.占卜) > 占卜态剩余门槛毫秒) return 100;
+
+        // ⑫ IL_00e9~00fe：非高难 且 整波快结束 ⇒ 留着不打（-10）
+        if (!减伤Helper.是高难本() && HealTargetHelper.敌人波次要结束()) return -10;
+
+        // ⑬ IL_00ff~0119：攒爆发 且 没在倾泻资源 → -50
+        if (攒爆发中() && !倾泻资源) return -50;
+
+        // ⑭ IL_011a~0128：倾泻资源 → 50
+        if (倾泻资源) return 50;
+
+        // ⑮ IL_0129~0137：25 米内一个敌人都没有 → -5
+        if (HealTargetHelper.附近敌人总数(25f) == 0) return -5;
+
+        // ⑯ IL_0138~0179：智能 AOE 落点（"换目标"只体现在"这一发打谁"上，见类注释）
+        if (HealSettings.Instance.AOE && 目标 != null)
+        {
+            // IL_0147~0152
+            var 落点 = 智能选目标.圆形最优(5f, 2);
+
+            // IL_0153~0155：落点非空且有效
+            if (落点 != null && 落点.对象有效())
+            {
+                // IL_0156~0160：复核落点覆盖 ≥ 2
+                if (HealTargetHelper.以点为中心敌人数量(落点.Position, 5f) >= 2)
+                {
+                    // IL_0162~0175（`SwitchTargetIfNeeded` + `Ability(37029, 落点)`）
+                    缓存技能 = CharacterExt.能力技(技能, 落点);
+                }
+            }
+        }
+
+        // IL_017a / IL_017c：两条路都是 0（= 放行）
+        return 0;
+    }
+
+    /// <summary>Build —— 照 IL（`slot.Add(cachedSpell)`）；Check 没算出技能就不放（判 A 放 A）。</summary>
+    public void Build(Slot slot)
+    {
+        var spell = 缓存技能;
+        if (spell == null) return;
+        slot.Add(spell);
+    }
+
+    /// <summary>
+    /// 倾泻资源中 —— 项目口径 = QT「一键爆发」（`WhiteMageACR.cs:884-894`、`SageACR.cs:734`）：
+    /// 参考的 QT 名「倾泻资源」在本项目**没有登记**，登记的是「一键爆发」（默认 false）。
+    /// </summary>
+    private static bool 倾泻资源中()
+    {
+        try { return HealQt.GetQt("一键爆发", false); }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// 攒爆发窗口 —— **占卜 CD &lt; 8000ms**（与 `AST_Lightspeed.占卜临近()` 同一口径）。
+    /// 详见类注释：「攒爆发」这个 QT 在本项目不做（`AstrologianACR.cs:1372` 明文）。
+    /// </summary>
+    private static bool 攒爆发中()
+    {
+        try
+        {
+            var 占卜 = SpellIds.取("占卜");
+            if (占卜 == 0) return false;
+
+            var s = SpellUtil.Get(占卜);
+            if (s == null) return false;
+
+            return s.Cooldown.TotalMilliseconds < 攒爆发窗口毫秒;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
 
