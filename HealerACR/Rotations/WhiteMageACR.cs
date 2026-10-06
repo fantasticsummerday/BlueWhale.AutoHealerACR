@@ -1074,19 +1074,54 @@ public class WHM_Serenity : ISlotResolver
     public int Check()
     {
         if (HealTargetHelper.木桩模式) return -300;
-        if (!HealQt.GetQt("奶人")) return -100;
-        if (!HealQt.GetQt("群奶")) return -101;
+
+        // ══════════════════════════════════════════════════════════════════
+        //  ★ 2026-10-15：**按 youshu `Ability.神爱抚.txt` 的 IL 逐条复刻** ★
+        //
+        //  [!] 参考的门（IL 逐行直读，**含分支方向**，`.il\cls_youshu\ACR.WhiteMage.Resolvers.Ability.神爱抚.txt`）：
+        //        `StopRequested` → -999
+        //        QT「**减伤**」为假 → -100            ← 注意：**不是**「奶人/群奶」
+        //        沉默 → -1
+        //        `IsUnlock(37011)` 为假 → **-100**
+        //        `V0 = RecentlyUsed(16536 节制, 1500)`
+        //        `IL_0044~0055`：`if (!V0 && !IsReady(37011)) → -2`
+        //        `IL_0056~006d`：`if (!V0 && !HasAura(3881)) → -3`
+        //        `IL_006e~0089`：`if (!CanUseOffGcd(2)) → -4`；`if (!InCombat) → -5`；放行 **5**
+        //
+        //  [!] 语义：**神爱抚是「节制」的后续** —— 两条并列要求：
+        //        ① "节制 1500ms 内刚用过" **或** "37011 就绪"；
+        //        ② "节制 1500ms 内刚用过" **或** "身上带 `3881 神爱抚预备`"。
+        //      （`3881` 的**来源**不在本批材料里 ⇒ 只按 IL 的判据用它，**不推断是谁给的**。）
+        //      两个 id 都用官方 `Status.csv` 核验过：`3881 = 神爱抚预备`。
+        //
+        //  [!] ⚠️ **本次替换了我们原来的"保守版"判据**（原：20 米内低于群奶阈值人数 ≥ 群奶人数，
+        //      或"大伤害要来"）—— 参考里**没有**这两条，留着等于"比参考更严"的额外门，
+        //      会让神爱抚在参考该放的时刻不放 ✗
+        // ══════════════════════════════════════════════════════════════════
+        if (!HealQt.GetQt("减伤", true)) return -100;
         if (技能 == 0) return -102;
-        if (!SpellUtil.已解锁(技能)) return -2;
 
-        var 血线 = 治疗阈值表.取(技能, HealSettings.Instance.群体治疗阈值);
-        var 人够多 = HealTargetHelper.低于阈值人数(血线, 20f)
-                     >= HealTargetHelper.群奶人数要求(HealSettings.Instance.群奶最少人数);
-        var 要来 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
+        var 我 = AEAssist.Core.Me;
+        if (我 == null || !我.对象有效()) return -2;
 
-        if (!人够多 && !要来) return -1;
+        // 参考对 `IsUnlock` 失败给的是 **-100**（不是 -2）—— 照抄
+        if (!SpellUtil.已解锁(技能)) return -100;
 
-        return SpellUtil.可用(技能) ? 12 : -1;
+        var 节制刚用过 = false;
+        try
+        {
+            // 用参考同款 API（读游戏自己的施法历史）；
+            // 不能用 `本地施放记录.刚放过` —— 那个只认 `记()` 写过的技能级字典。
+            节制刚用过 = AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("节制"), 1500);
+        }
+        catch { }
+
+        if (!节制刚用过 && !SpellUtil.可用(技能)) return -2;
+        if (!节制刚用过 && !我.HasAura(AuraIds.神爱抚预备)) return -3;
+        if (!OffGcd闸门.可以排(2)) return -4;
+        if (!我.InCombat()) return -5;
+
+        return 5;
     }
 
     public void Build(Slot slot)
