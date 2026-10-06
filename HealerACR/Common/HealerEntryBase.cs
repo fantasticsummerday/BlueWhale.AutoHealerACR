@@ -2978,6 +2978,17 @@ public class HealRotationEventHandler : IRotationEventHandler
         //    新增带状态的模块时，**别忘了往这里加一行**。
         try { 以太管理.重置(); } catch { }
         try { 本地施放记录.重置(); } catch { }
+                    // ★★ 2026-10-15 补两件（全代码审查发现）★★
+                    //   ① `最近释放.确保订阅()` —— 把"施法成功事件订阅"从**只挂在 AI 层**
+                    //      （`AiSuggestionResolver` 里那一处）挪到**本地层也确保一次**：
+                    //      原来**单装 HealerACR（没有 BlueWhale）时永远不订阅**
+                    //      ⇒ `最近释放` 恒空 ⇒ 读条探针的"成功"恒 false、调试窗恒"还没记录到"。
+                    //      该函数**幂等**（`if (_已订阅 || _订阅试过) return;`）⇒ 多调无害 ✓
+                    //   ② `治疗间隔.重置()` —— 我上轮只把它接进 `OnResetBattle` 与
+                    //      `OnTerritoryChanged`，**漏了切职业**（而切职业同样会换掉整套队伍与 id）；
+                    //      这里跟着"本地施放记录.重置()"一起接，三个钩子全覆盖 ✓
+                    try { 最近释放.确保订阅(); } catch { }
+                    try { 治疗间隔.重置(); } catch { }
         try { 死亡追踪.重置(); } catch { }
         try { 敌人移动检测.重置(); } catch { }
         try { HealTargetHelper.清盯人记录(); } catch { }
@@ -3217,6 +3228,17 @@ public class HealRotationEventHandler : IRotationEventHandler
         // ① 本地层的状态：和换本一样全清
         try { 以太管理.重置(); } catch { }
         try { 本地施放记录.重置(); } catch { }
+                    // ★★ 2026-10-15 补两件（全代码审查发现）★★
+                    //   ① `最近释放.确保订阅()` —— 把"施法成功事件订阅"从**只挂在 AI 层**
+                    //      （`AiSuggestionResolver` 里那一处）挪到**本地层也确保一次**：
+                    //      原来**单装 HealerACR（没有 BlueWhale）时永远不订阅**
+                    //      ⇒ `最近释放` 恒空 ⇒ 读条探针的"成功"恒 false、调试窗恒"还没记录到"。
+                    //      该函数**幂等**（`if (_已订阅 || _订阅试过) return;`）⇒ 多调无害 ✓
+                    //   ② `治疗间隔.重置()` —— 我上轮只把它接进 `OnResetBattle` 与
+                    //      `OnTerritoryChanged`，**漏了切职业**（而切职业同样会换掉整套队伍与 id）；
+                    //      这里跟着"本地施放记录.重置()"一起接，三个钩子全覆盖 ✓
+                    try { 最近释放.确保订阅(); } catch { }
+                    try { 治疗间隔.重置(); } catch { }
         try { 死亡追踪.重置(); } catch { }
         try { 敌人移动检测.重置(); } catch { }
         try { Dot黑名单.重置自适应(); } catch { }
@@ -3300,6 +3322,17 @@ public class HealRotationEventHandler : IRotationEventHandler
         //     · 死亡追踪       —— 上场的尸体记录
         try { 以太管理.重置(); } catch { }
         try { 本地施放记录.重置(); } catch { }
+                    // ★★ 2026-10-15 补两件（全代码审查发现）★★
+                    //   ① `最近释放.确保订阅()` —— 把"施法成功事件订阅"从**只挂在 AI 层**
+                    //      （`AiSuggestionResolver` 里那一处）挪到**本地层也确保一次**：
+                    //      原来**单装 HealerACR（没有 BlueWhale）时永远不订阅**
+                    //      ⇒ `最近释放` 恒空 ⇒ 读条探针的"成功"恒 false、调试窗恒"还没记录到"。
+                    //      该函数**幂等**（`if (_已订阅 || _订阅试过) return;`）⇒ 多调无害 ✓
+                    //   ② `治疗间隔.重置()` —— 我上轮只把它接进 `OnResetBattle` 与
+                    //      `OnTerritoryChanged`，**漏了切职业**（而切职业同样会换掉整套队伍与 id）；
+                    //      这里跟着"本地施放记录.重置()"一起接，三个钩子全覆盖 ✓
+                    try { 最近释放.确保订阅(); } catch { }
+                    try { 治疗间隔.重置(); } catch { }
         try { 死亡追踪.重置(); } catch { }
         try { 敌人移动检测.重置(); } catch { }
         try { Dot黑名单.重置自适应(); } catch { }
