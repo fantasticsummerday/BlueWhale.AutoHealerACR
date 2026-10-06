@@ -259,7 +259,7 @@ public class Res_TeamMitigation : ISlotResolver
             //   [!] 2711 = 疾风怒涛之计的自身 buff（照 IL 裸 id；`AuraIds` 里没有这一条）。
             //   [!] `HealerActionHelper::IsReady` 是 Helper 内部实现 [IL 无法确定]
             //       ⇒ 用 `SpellUtil.可用()`（= IsReadyWithCanCast）落地。
-            //   [!] QT「跑快快」**已注册**（`ScholarACR.cs:1015` 的 `加职业开关("跑快快", true)`，
+            //   [!] QT「跑快快」**已注册**（`ScholarACR.cs:1019` 的 `加职业开关("跑快快", true)`，
             //       2026-10-15 补）⇒ 用户**关掉它就能真的关掉**相关组合 ✓
             //       （这里原文写的是"我们没注册 ⇒ 恒真"，那句**已过期**，见提交 `22e1730` 一带。）
             var 跑快快就绪 = HealQt.GetQt("跑快快", true)
