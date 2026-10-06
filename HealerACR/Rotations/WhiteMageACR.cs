@@ -695,6 +695,27 @@ public class WHM_AfflatusSolace : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // ══════════════════════════════════════════════════════════════════
+        //  ★ 2026-10-15：**两条硬冷却**（复刻 youshu `安慰之心.txt`）★
+        //
+        //  [!] IL 顺序（逐条直读）：先 `RecentlyUsed(140 天赐祝福, 3000) → -1`，
+        //      再 `RecentlyUsed(16531 安慰之心, 1500) → -200`。
+        //
+        //  [!] 我们原来**只有"治疗间隔"那一层软门**，没有这两条硬冷却 ——
+        //      团崩时会**连按两朵蓝花**：百合是攒血百合（→苦难之心）的资源，
+        //      连按等于白丢一朵红花的进度（白魔差距审计优先项③）。
+        //
+        //  [!] 用 `SpellExtension.RecentlyUsed`（**参考同款 API**，读游戏自己的施法历史）。
+        //      ⚠️ 不要用 `本地施放记录.刚放过` —— 它只认 `记()` 写入的**技能级**字典，
+        //         本 resolver 若只写 `记目标` 就会恒为 false（静默失效）。
+        // ══════════════════════════════════════════════════════════════════
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(SpellIds.取("天赐祝福"), 3000)) return -1;
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 1500)) return -200;
+        }
+        catch { }
+
+        // ══════════════════════════════════════════════════════════════════
         //  ★ **血百合满 3 时不要再花百合**（表外审计 P1-3）★
         //
         //  [!] 参考 `安慰之心.txt` 的 IL：
@@ -750,6 +771,15 @@ public class WHM_AfflatusRapture : ISlotResolver
     public int Check()
     {
         if (!SpellUtil.已解锁(技能)) return -2;
+
+        // ★ 2026-10-15：**1500ms 内不重放**（复刻 youshu `狂喜之心.txt`：
+        //   `RecentlyUsed(16534, 1500) → -200`）—— 与安慰之心同源理由：
+        //   连按两朵蓝花会白丢一朵红花的进度（白魔差距审计优先项③）。
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 1500)) return -200;
+        }
+        catch { }
 
         // ★ **血百合满 3 时不要再花百合**（表外审计 P1-3）——
         //   和 `WHM_AfflatusSolace` 同一条判据（参考 `狂喜之心.txt:47-51` 也是 `== 3 ⇒ -4`）。
