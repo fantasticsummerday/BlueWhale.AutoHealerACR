@@ -2961,6 +2961,10 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { SpellUtil.重置移动状态(); } catch { }
         try { HealerACR.Resolvers.Res_InstantHealAbility.重置先天记录(); } catch { }
         try { 蛇胆节流.重置(); } catch { }
+                    // ★ 2026-10-15 补：`治疗间隔` 原来**不在任何清零钩子里**（静态字典只增不清，
+                    //   键是 GameObjectId ⇒ 连打两场会带上一场的记录去比对，且表无界增长），
+                    //   而它自己的注释承诺"战斗重置/换本/切职业时清" ⇒ 在此兑现（两个钩子都补）。
+                    try { 治疗间隔.重置(); } catch { }
         try { HealerACR.Resolvers.Res_TeamMitigation.重置团减锁(); } catch { }
 
         // ══════════════════════════════════════════════════════════
@@ -3258,6 +3262,10 @@ public class HealRotationEventHandler : IRotationEventHandler
         try { SpellUtil.重置移动状态(); } catch { }
         try { HealerACR.Resolvers.Res_InstantHealAbility.重置先天记录(); } catch { }
         try { 蛇胆节流.重置(); } catch { }
+                    // ★ 2026-10-15 补：`治疗间隔` 原来**不在任何清零钩子里**（静态字典只增不清，
+                    //   键是 GameObjectId ⇒ 连打两场会带上一场的记录去比对，且表无界增长），
+                    //   而它自己的注释承诺"战斗重置/换本/切职业时清" ⇒ 在此兑现（两个钩子都补）。
+                    try { 治疗间隔.重置(); } catch { }
         try { HealerACR.Resolvers.Res_TeamMitigation.重置团减锁(); } catch { }
         try { Dot补判.重置(); } catch { }
         try { 记录模式.重置();
