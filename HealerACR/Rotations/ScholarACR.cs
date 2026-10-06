@@ -1082,6 +1082,13 @@ public class SCH_FeyBlessing : ISlotResolver
         if (!HealQt.GetQt("祥光")) return -104;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ── 参考 `异想的祥光.txt`（youshu）IL_0051：`Me.HasAura(791) ⇒ -3` ──
+        //    791 = 转化（Dissipation）：转化期间小仙女被牺牲，祥光发不出来。
+        if (CharacterExt.我有光环(AuraIds.转化中)) return -3;
+        // ── 参考 `Scholar_FeyBlessing.txt`（shiyuvi）IL_00eb：`HasPet` 为假 ⇒ -3 ──
+        //    （youshu IL_005c 的 `HasFairy` 为假同理）—— 没有小仙女就没有祥光。
+        if (!JobApiHelper.有小仙女) return -3;
+
         // ══════════════════════════════════════════════════════════════
         //  ★ 补：shiyuvi 的 **25000ms 炽天窗口**（`Scholar_FeyBlessing.txt`）★
         //    IL_00ca~IL_00ea：`SeraphTimer >= 25000` 跳过 / `SeraphTimer <= 0` 跳过
@@ -1367,11 +1374,12 @@ public class SCH_Consolation : ISlotResolver
         var 要来伤害 = TimelineManager.未来有减伤(2.0) || 减伤Helper.即将来大伤害();
 
         // ── ④ 档 2（shiyuvi IL_0102~IL_0148）：人数 `>= AOEHealCount` 分支内
-        //      自身**没有 1917**（[IL 无法确定] 1917 的含义，照 IL 原文用裸 id）
+        //      自身**没有 1917「炽天的幕帘」**（官方 `Status.csv` #1917，已登记进 `AuraIds`；
+        //      [IL 无法确定] 它在参考里**为什么**是否决条件 —— 只照 IL 原文落地）
         //      且 `IsMaxChargeReady(16546, 1)` 且 `SeraphTimer ∈ [4000, 12000)`
         //      （IL_012f `ldc.i4 4000` / IL_0140 `ldc.i4 12000`）⇒ 放。
         if (满充能可释放() && 炽天剩余 >= 4000 && 炽天剩余 < 12000
-            && !CharacterExt.我有光环(1917) && (团队掉血 || 要来伤害))
+            && !CharacterExt.我有光环(AuraIds.炽天的幕帘) && (团队掉血 || 要来伤害))
             return SpellUtil.可用(技能) ? 1 : -1;
 
         // ── ⑤ 档 3（shiyuvi IL_0149~IL_0179）：`IsMaxChargeReady(16546, 1)` 且
