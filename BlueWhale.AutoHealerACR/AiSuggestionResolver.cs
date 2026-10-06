@@ -277,7 +277,38 @@ public class AiSuggestionResolver : ISlotResolver
                           || 类0 == HealerACR.Common.治疗阈值表.类别.大招
                           || 类0 == HealerACR.Common.治疗阈值表.类别.预铺)
                           && HealerACR.Common.HealQt.GetQt("奶人", true))
+                        {
+                            // ★ 2026-10-15 修：**这条兜底也必须过 `AiHardGate`** ★
+                            //   [!] 原来只查了「奶人」就 `return 100` ⇒ 绕过了
+                            //       **每技能开关**与**群盾/单盾/群奶/单奶**这些细分闸 ——
+                            //       用户关掉某个盾/群奶时，本地 resolver 会拒绝，
+                            //       而这条路**照样推** ✗
+                            //   [!] 这正是 `AiHardGate` 自己写下的铁律：
+                            //       "**`完全采信 AI` 永远不能覆盖用户主动关闭的功能开关**"。
+                            //   [!] 修法：不另写判据，**复用同一道硬闸**（开发约定 F③）——
+                            //       从真实技能表补出 `是盾 / 群体`（那正是候选集填这两个字段的来源），
+                            //       构造一个候选交给 `AiHardGate.允许()`。
+                            //       ⚠️ `AiHardGate` 是 **fail-closed** 的：
+                            //          查不到就不会放行（与"宁可拒绝"的既定口径一致）。
+                            var 表0 = HealerACR.Common.HealRotationEventHandler.取当前职业技能表();
+                            var 技0 = 表0?.治疗候选.已解锁().FirstOrDefault(x => x.Id == id);
+
+                            var 假候选 = new 候选集.候选
+                            {
+                                技能Id = id,
+                                类 = 候选集.类别.治疗,
+                                是盾 = 技0?.是盾 ?? false,
+                                群体 = 技0?.群体 ?? false,
+                            };
+
+                            if (!AiHardGate.允许(假候选, out var 原因0))
+                            {
+                                拦截($"兜底放行被硬闸拦下：{原因0}");
+                                return -1;
+                            }
+
                             return 100;   // = 正常采纳的分值（与本 resolver 的其它放行路径一致）
+                        }
                     }
                     catch { }
 
