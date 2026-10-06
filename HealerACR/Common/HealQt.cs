@@ -26,6 +26,22 @@ public static class HealQt
     /// <summary>已经成功登记进窗口的开关（只有这些才信窗口的值）</summary>
     private static readonly HashSet<string> _已登记 = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// **全部已注册的开关名**（取自默认值表）。
+    ///
+    /// ★ 2026-10-15 新增（全代码审查发现）：`HealerEntryBase.应用QT精简()` 原来用**手工维护的
+    ///   36 项名单**去决定"哪些开关该隐藏"，而实际注册的开关有 **78 个** ⇒
+    ///   那 42 个没被列进去的**永远不会被隐藏**，全都堆在 QT 主面板上（纯排版问题，
+    ///   功能不受影响 —— 隐藏 ≠ 关闭）。
+    ///   与其继续手工对齐，不如**从注册表派生**：注册即入名单，从此不可能再漏。
+    ///   [!] 调用方应在**所有 `加开关` / `加职业开关` 都跑完之后**再调（否则拿到的是当时的快照）。
+    /// </summary>
+    public static string[] 全部注册名()
+    {
+        try { return new List<string>(_默认值.Keys).ToArray(); }
+        catch { return Array.Empty<string>(); }
+    }
+
     public static void 绑定(JobViewWindow window)
     {
         // ⚠️ 只清"登记标记"，**绝不清 _默认值**。
