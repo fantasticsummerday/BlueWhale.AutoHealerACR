@@ -777,9 +777,13 @@ public class SCHSpellTable : JobSpellTable
             new SlotResolverData(new Res_移动开即刻(_spells), SlotMode.Gcd),
             // ★ 紧跟着：即刻已经在身上时，把这一发打在**最高档的输出 GCD** 上
             //   （奶妈的输出 GCD 全是读条的，不放这条移动中就一个都打不出来）。
-            new SlotResolverData(new Res_MoveInstantOutput(_spells), SlotMode.Gcd),
+            // ★ 2026-10-15 修（与白魔同源）：**"移动中即刻输出"必须排在治疗 GCD 之后** ——
+            //   排在前面会**抢走 `Res_移动开即刻` 刚为"有人告急 / 大伤害"开出来的那发即刻** ✗
+            //   （白魔早已这么改并写明理由，见 `WhiteMageACR.cs:560` 附近；
+            //     同型修复当时只落到白魔，学者/占星/贤者三职业漏改。）
             new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealSingleGcd(_spells), SlotMode.Gcd),
+            new SlotResolverData(new Res_MoveInstantOutput(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_HealShield(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_SpreadShield(_spells), SlotMode.Gcd),  // 展开战术：要有盾可扩散
 
