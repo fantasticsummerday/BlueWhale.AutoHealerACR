@@ -345,6 +345,84 @@ public class Res_HealEmergency : ISlotResolver
     /// </summary>
     private uint 奶满技能 => 必须奶满.最该用的能力技(_t);
 
+    /// <summary>
+    /// 「必须奶满 / 急救」的**连放序列**（最多 2 个）。
+    ///
+    /// 第 1 发 = <see cref="奶满技能"/>（"一次到满"那类，取值语义**不变**）；
+    /// 第 2 发起 = `必须奶满.助手能力技序列`（参考 IL 同 slot 连放的第二发）。
+    /// </summary>
+    private List<uint> 连放序列()
+    {
+        var 结果 = new List<uint>(2);
+
+        var 主 = 奶满技能;                       // 第 1 发：行为与改动前完全一致
+        if (主 != 0) 结果.Add(主);
+
+        try
+        {
+            foreach (var 副 in 必须奶满.助手能力技序列(_t))
+                if (副 != 0 && !结果.Contains(副)) 结果.Add(副);
+        }
+        catch { }
+
+        return 结果;
+    }
+
+    /// <summary>
+    /// 从序列里挑出**本帧真的能排**的技能（最多 2 个，顺序不变）。
+    ///
+    /// ══════════════════════════════════════════════════════════════════
+    ///  ★ 停手门槛照抄参考 IL ★
+    ///    `QueueEmergencyActions`：`HighPrioritySlots_OffGCD.Count &lt; 2` 才排
+    ///    ⇒ 这里用 `OffGcd闸门.可以排(2)`（**同一个队列、同一个口径**）。
+    ///    门槛只在**序列开头判一次**（和 IL 一致，不是每一发都判）。
+    ///
+    ///  ★ 安全约束 ★
+    ///    · **最多 2 个**（`结果.Count &gt;= 2` 即停）；
+    ///    · **同一技能对同一人连放两发**被 `本地施放记录.刚放过目标` 挡掉
+    ///      （1500ms 窗口，键 =（技能, 目标））；同一帧里重复的技由 `Contains` 挡掉；
+    ///    · 第 1 发沿用改动前的判据（已解锁 + 可用 + 有豆子）；
+    ///      第 2 发**额外**过 `HealQt.每技能通过`（用户关掉的技能不硬塞）；
+    ///    · 任何异常 ⇒ 返回**空表**（调用方落回常规急救，
+    ///      **绝不会**变成 `return -1` 把常规急救一起否掉）。
+    /// ══════════════════════════════════════════════════════════════════
+    /// </summary>
+    private static List<uint> 可排序列(IBattleChara? 目标, List<uint> 序列)
+    {
+        var 结果 = new List<uint>(2);
+
+        try
+        {
+            // ★ 防护红线（全量防护审计 ①）：**读游戏对象属性前必须先判有效性** ★
+            //   [!] 下面要读 `目标.GameObjectId`，而 `IBattleChara` 的属性是原生 getter ——
+            //       换图/登录瞬间对象可以失效，直接读会命中原生访问违例（会崩）。
+            //   [!] 用项目统一入口 `对象有效()`（`CharacterExt`），别自己判 IsValid/Address。
+            if (目标 == null || !目标.对象有效() || 序列 == null || 序列.Count == 0) return 结果;
+
+            // ★ 停手门槛：积压 ≥ 2 就停手（参考 IL 的 `Count < 2`）★
+            if (!OffGcd闸门.可以排(2)) return 结果;
+
+            var 目标Id = (uint)目标.GameObjectId;
+
+            foreach (var 技 in 序列)
+            {
+                if (结果.Count >= 2) break;                              // ★ 最多连放 2 个 ★
+                if (技 == 0 || 结果.Contains(技)) continue;
+                if (!SpellUtil.已解锁(技) || !SpellUtil.可用(技)) continue;
+                if (以太管理.以太治疗技没豆子(技)) continue;
+                if (结果.Count > 0 && !HealQt.每技能通过(技)) continue;    // 只约束"额外那一发"
+                if (本地施放记录.刚放过目标(技, 目标Id)) continue;         // ★ 不对同一人连放两发 ★
+                结果.Add(技);
+            }
+        }
+        catch
+        {
+            结果.Clear();
+        }
+
+        return 结果;
+    }
+
     public int Check()
     {
         // ★★★ **重入断路器 —— 递归环在这里被切断** ★★★
