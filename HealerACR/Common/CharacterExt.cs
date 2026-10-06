@@ -430,7 +430,9 @@ public static class CharacterExt
     /// </summary>
     public static bool 我的Buff还剩超过N秒(this IBattleChara c, uint buffId, float 秒 = 3f)
     {
-        if (c == null || buffId == 0) return false;   // 没有 buff → 不算"还剩得多"
+        // ★ 2026-10-15 修（崩溃防护）：同上，补 `对象有效()` —— `HasMyAuraWithTimeleft`
+        //   是原生热读，只判 null 挡不住哨兵地址（0x12345679）。
+        if (c == null || !c.对象有效() || buffId == 0) return false;   // 没有 buff → 不算"还剩得多"
         try
         {
             return c.HasMyAuraWithTimeleft(buffId, (int)(秒 * 1000));

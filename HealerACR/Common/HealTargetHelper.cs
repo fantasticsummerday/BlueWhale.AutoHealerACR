@@ -842,7 +842,14 @@ public static class HealTargetHelper
             if (!c.IsTargetable) return false;
 
             // 30 米（和 `CastableAlliesWithin30` 同一个口径，双保险）
-            if (c.Distance(Core.Me!) > 30f) return false;
+            // ★ 2026-10-15 修（崩溃防护）：原来把**未判有效**的 `Core.Me!`（`!` 还压制了可空告警）
+            //   交给**外部库**的 `Distance` —— 换图/登录时 `Core.Me` 可为 null 或哨兵，
+            //   原生访问违例发生在外部库内部，穿透我们的 catch ✗
+            //   （本文件 `:1135` 写明的铁律："绝不能把未验证有效的游戏对象传给外部库"。）
+            //   读不到自己 ⇒ 保守当"够不到"（与项目"读不到就不放"同口径；
+            //   原行为是抛异常被外层 catch 吞掉后**返回 true**，等于静默关掉了 30 米门。）
+            if (Core.Me == null || !Core.Me.对象有效()) return false;
+            if (c.Distance(Core.Me) > 30f) return false;
         }
         catch { }
 

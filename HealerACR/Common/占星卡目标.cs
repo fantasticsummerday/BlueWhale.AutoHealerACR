@@ -546,7 +546,13 @@ public static class 占星卡目标
             foreach (var 坦克 in PartyHelper.CastableTanks)
             {
                 if (!可发(坦克)) continue;
-                if (坦克.Distance(我!) > 20f) continue;
+                // ★ 2026-10-15 修（崩溃防护）：原来把**未判有效**的 `我!`（`Core.Me`）交给
+                //   **外部库**的 `Distance` —— 换图/登录时 `Core.Me` 可为 null 或哨兵，
+                //   原生访问违例发生在**外部库内部**，穿透我们的 catch ✗
+                //   （项目铁律："绝不能把未验证有效的游戏对象传给外部库"，见 `HealTargetHelper.cs:1135`。）
+                //   读不到自己位置 ⇒ 保守当"够不到"（与项目"读不到就不放"同口径）。
+                if (我 == null || !我.对象有效()) continue;
+                if (坦克.Distance(我) > 20f) continue;
                 if (坦克.血量比例() < 阈值) return true;
             }
         }
