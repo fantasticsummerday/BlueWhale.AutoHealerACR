@@ -2419,7 +2419,19 @@ public class SCH_Dissipation : ISlotResolver
     public int Check()
     {
         if (HealTargetHelper.木桩模式) return -300;
-        if (!HealQt.GetQt("以太超流", true)) return -101;
+        // ★ 2026-10-15 修（**读错开关名**）：原来是 `GetQt("以太超流", true)` ✗
+        //   [!] 「以太超流」那个开关（`ScholarACR.cs:993` 注册，默认 true）**管的是另一个技能**
+        //       —— 以太超流(Aetherflow) 自己的 oGCD。
+        //       而本类管的是 **转化**（`SCH_Dissipation`：牺牲小仙女换 3 颗以太），
+        //       它的开关是 **「自动转化」**（`HealerEntryBase.cs:368` 注册，**默认 false**）。
+        //   [!] 后果（修前）：
+        //       ① 用户关掉「自动转化」**对这条路完全无效**（假开关）✗
+        //       ② 用户为了停掉"以太超流"而关掉那个开关时，会**连带静默禁掉转化** ✗
+        //          （两个不相干的技能被同一个开关控制。）
+        //   [!] 修法：改读**它自己的**开关，判据与同概念的另一实现**同源** ——
+        //       `ScholarDissipation.cs:33` 就是 `GetQt("自动转化", false)`（开发约定 F③）。
+        //       默认值 `false` 与**注册默认值一致**（注册也是 false）⇒ 行为不变、开关变真。
+        if (!HealQt.GetQt("自动转化", false)) return -101;
         if (!SpellUtil.已解锁(技能)) return -2;
 
         // 以太空了、小仙女还在 → 转化换以太
