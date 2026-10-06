@@ -83,7 +83,16 @@ public class SCH_WhisperingDawn : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.Get(技能);
-        if (spell != null) slot.Add(spell);
+        if (spell != null)
+            {
+                slot.Add(spell);
+                // ★ 2026-10-15 **接线**（全代码审查发现 `记仙女动作()` 全仓零调用点
+                //   ⇒ `ScholarACR` 里那道"800ms 内不重复放仙女技"的闸（`:1221`）**从未生效**）：
+                //   在**仙女技真正放出去**的这一刻盖时间戳。
+                //   本文件的仙女技都盖同一枚 ⇒ "低语 → 幻光 → 祥光"这种连着倒的序列会被**跨技能**挡住 ✓
+                //   （各自 Check 里的 `RecentlyUsed(本技能, 2000)` 只挡**同一个技能**，挡不住跨技能。）
+                HealerACR.Rotations.SCH_Aetherpact.记仙女动作();
+            }
     }
 }
 
@@ -123,7 +132,16 @@ public class SCH_FeyIllumination : ISlotResolver
     public void Build(Slot slot)
     {
         var spell = SpellUtil.Get(技能);
-        if (spell != null) slot.Add(spell);
+        if (spell != null)
+            {
+                slot.Add(spell);
+                // ★ 2026-10-15 **接线**（全代码审查发现 `记仙女动作()` 全仓零调用点
+                //   ⇒ `ScholarACR` 里那道"800ms 内不重复放仙女技"的闸（`:1221`）**从未生效**）：
+                //   在**仙女技真正放出去**的这一刻盖时间戳。
+                //   本文件的仙女技都盖同一枚 ⇒ "低语 → 幻光 → 祥光"这种连着倒的序列会被**跨技能**挡住 ✓
+                //   （各自 Check 里的 `RecentlyUsed(本技能, 2000)` 只挡**同一个技能**，挡不住跨技能。）
+                HealerACR.Rotations.SCH_Aetherpact.记仙女动作();
+            }
     }
 }
 
