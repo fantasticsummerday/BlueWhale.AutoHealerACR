@@ -45,6 +45,19 @@ public class SCH_WhisperingDawn : ISlotResolver
         }
         catch { }
 
+        // ★ 第四条（youshu 侧有，我们原来没有）：**2 秒内刚放过就别再放** ⇒ -4
+        //   youshu `仙光的低语.txt`：IL_00a6 `ldc.i4 16537` / IL_00ab `ldc.i4 2000`
+        //   / `SpellRecentlyUsed` / IL_00b7 `ldc.i4.s -4`。
+        //   [IL 无法确定] youshu 自己的 `HealerActionHelper::SpellRecentlyUsed` 内部实现；
+        //   这里用 AEAssist 的 `SpellExtension.RecentlyUsed(id, 2000)` 落地 ——
+        //   本仓库其它 resolver（`Res_SummonPet` / `SCH_Dissipation` / 占星）都用它当"最近放过"。
+        //   顺序照参考：这条在 `IsSeraphEndingSoon(3000)` **之前**（IL_00a6 < IL_00ba）。
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 2000)) return -4;
+        }
+        catch { }
+
         try
         {
             // [!] `IsSeraphEndingSoon(3000)` 的形参名是 **thresholdMs**（参考 IL 直读）——

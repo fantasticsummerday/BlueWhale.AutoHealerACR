@@ -33,6 +33,17 @@ public class SCH_Seraphism : ISlotResolver
         // 已经开着就不重复
         if (CharacterExt.我有该技能的Buff(技能)) return -3;
 
+        // ★ 补（16545 ⇄ 炽天附体 联动）：youshu `炽天附体.txt` IL_0051 `ldc.i4 16545`
+        //   / IL_0056 `ldc.i4 22000` / IL_005b `RecentlyUsed` / IL_0062 `ldc.i4.s -5`
+        //   —— 「22 秒内刚召过炽天召唤」⇒ 不放炽天附体（炽天还在场，开了是白交）。
+        //   [IL 无法确定] youshu `HealerActionHelper::RecentlyUsed` 内部实现；
+        //   这里用 AEAssist 同族 `SpellExtension.RecentlyUsed` 落地。
+        try
+        {
+            if (SpellExtension.RecentlyUsed(SpellIds.取("炽天召唤"), 22000)) return -5;
+        }
+        catch { }
+
         var s = HealSettings.Instance;
         // ★ 用这个技能自己的阈值 ★  参考：shiyuvi Seraphism 0.4 ｜ youshu 变身 40
         var 本技血线 = 治疗阈值表.取(技能, s.大招血线);

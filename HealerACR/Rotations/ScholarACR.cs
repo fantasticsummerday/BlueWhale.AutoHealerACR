@@ -1082,6 +1082,30 @@ public class SCH_FeyBlessing : ISlotResolver
         if (!HealQt.GetQt("祥光")) return -104;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
 
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 补：shiyuvi 的 **25000ms 炽天窗口**（`Scholar_FeyBlessing.txt`）★
+        //    IL_00ca~IL_00ea：`SeraphTimer >= 25000` 跳过 / `SeraphTimer <= 0` 跳过
+        //    ⇒ 命中时 `SeraphTimer ∈ (0, 25000)` ⇒ IL_00e8 `ldc.i4.s -3` **不放**。
+        //    理由：炽天使在场时小仙女已被升级，祥光根本用不出来（白占一拍）。
+        // ══════════════════════════════════════════════════════════════
+        try
+        {
+            var 炽天 = JobApiHelper.炽天使剩余;
+            if (炽天 > 0 && 炽天 < 25000) return -3;      // IL_00d4 ldc.i4 25000
+        }
+        catch { }
+
+        // ★ 补：youshu 侧的收尾窗 —— `IsSeraphEndingSoon(3000) ⇒ -3`
+        //   `异想的祥光.txt`：IL_0085 `ldc.i4 3000` / IL_008a `IsSeraphEndingSoon`
+        //   / IL_0091 `ldc.i4.s -3`。
+        //   [IL 无法确定] `ScholarTools::IsSeraphEndingSoon` 的内部实现 ——
+        //   按其形参名与常量 3000 当"炽天使剩余 ≤ 3000ms"落地（低语那条同口径）。
+        try
+        {
+            if (JobApiHelper.炽天使剩余 > 0 && JobApiHelper.炽天使剩余 <= 3000) return -3;
+        }
+        catch { }
+
         var s = HealSettings.Instance;
         // 小仙女技能是免费的，门槛比 GCD 群奶低一个人
         var 要求人数 = HealTargetHelper.群疗能力技人数要求(s.群奶最少人数);
@@ -1239,16 +1263,29 @@ public class SCH_Seraph : ISlotResolver
         if (!HealQt.GetQt("奶人")) return -100;
         if (!HealQt.GetQt("小仙女", true)) return -103;
         if (!HealQt.GetQt("炽天使", true)) return -104;
+        // ── ★ 16545 ⇄ 慰藉 联动（复刻 youshu `慰藉.txt`）──────────────────
+        //    参考里 16545 **没有独立 resolver**：它由 `慰藉.Check` 的
+        //    「非炽天使激活」分支发出（IL_011d `ldc.i4 16545` / IL_013c `ldc.i4.2` 放行）。
+        //    那条分支的前置门控含 QT「慰藉」（IL_0020~IL_003a）与
+        //    `IsUnlock(16546)`/`IsUnlock(16545)`（IL_0064~IL_0091）——
+        //    这里照抄，让判据与参考一致（我们不删独立 resolver，只对齐判据）。
+        if (!HealQt.GetQt("慰藉")) return -1;
         if (!SpellUtil.已解锁(技能)) return -2;
+        if (!SpellUtil.已解锁(SpellIds.取("慰藉"))) return -2;   // IL_0064 IsUnlock(16546)
         // ★ 2026-10-04：**没有小仙女就不可能召唤炽天使** —— 补上 ✓（原来缺这条 ⇒ 空转 ✗）
         //   转化期间小仙女被牺牲，同样不能召 ✓（两套对照实现都拒）
         if (!JobApiHelper.有小仙女) return -3;
         if (CharacterExt.我有光环(AuraIds.转化中)) return -3;
-                if (JobApiHelper.炽天使剩余 > 0) return -3;
+        //    「非炽天使激活」= 炽天不在场（youshu 是 `!IsSeraphActive`）；
+        //    炽天在场时由 `SCH_Consolation` 走 16546 ⇒ 这边让路（负数）。
+        if (JobApiHelper.炽天使剩余 > 0) return -3;
 
         // ★ 用这个技能自己的阈值 ★  参考：shiyuvi SummonSeraph 0.55
         var 本技血线 = 治疗阈值表.取(技能, HealSettings.Instance.大招血线);
-        var 团队掉血 = HealTargetHelper.低于阈值人数(本技血线)
+        // ★ 圆心/半径对齐 youshu `慰藉` 的 16545 分支：
+        //   `CountLowHpAlliesNearFairy(慰藉阈值, 30)`（`慰藉.txt` IL_00c8 `ldc.r4 30`）
+        //   ⇒ 以小仙女为圆心 + 30 米（表外审计 C3 同口径）。
+        var 团队掉血 = HealTargetHelper.小仙女中心低于阈值人数(本技血线, 30f)
                        >= HealSettings.Instance.群奶最少人数;
         var 要来伤害 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
@@ -1269,9 +1306,18 @@ public class SCH_Consolation : ISlotResolver
 {
     private static uint 技能 => SpellIds.取("慰藉");
 
-    /// <summary>上次放慰藉的时间。慰藉有 **2 层充能**，不加限流的话
-    /// 条件一成立就会瞬间把两层全交掉（应该分两次用，比如 AOE 前后各一次）。</summary>
-    private static long 上次慰藉;
+    /// <summary>
+    /// 参考 `IsMaxChargeReady(16546, 1)`（shiyuvi `Scholar_Consolation` IL_0114 / IL_0149）
+    /// —— 「豆子够、可以放」。
+    /// [IL 无法确定] 该 Helper 的内部实现，以及第 2 个参数 `1` 的确切语义（疑似"需求层数"）。
+    /// 落地：先问 AEAssist 同族 API，读不到再退回 `GetCharges(16546) >= 1`。
+    /// </summary>
+    private static bool 满充能可释放()
+    {
+        try { return SpellExtension.IsMaxChargeReady(技能, 1f); }
+        catch { }
+        try { return CharacterExt.充能数(技能) >= 1; } catch { return false; }
+    }
 
     public int Check()
     {
@@ -1280,14 +1326,34 @@ public class SCH_Consolation : ISlotResolver
         if (!HealQt.GetQt("炽天使", true)) return -104;
         if (!HealQt.GetQt("慰藉")) return -105;      // 每技能开关（复刻 shiyuvi）
         if (!SpellUtil.已解锁(技能)) return -2;
+
+        // ── 参考 `慰藉.txt`（youshu）IL_004f：`Me.HasAura(791) ⇒ -3` ──
+        //    791 = 转化（Dissipation）：转化期间小仙女被牺牲，慰藉发不出来。
+        if (CharacterExt.我有光环(AuraIds.转化中)) return -3;
+        // ── 参考 `慰藉.txt`（youshu）IL_0094 之前 / shiyuvi IL_010a：
+        //    `HasPet`/`HasFairy` 为假 ⇒ -3（没有小仙女就没有炽天使）──
+        if (!JobApiHelper.有小仙女) return -3;
+
+        // ── ① 非炽天使激活 ⇒ 参考在这一分支放的是 **16545**（youshu `慰藉.txt` IL_011d），
+        //      我们这条走独立 resolver `SCH_Seraph` ⇒ 这里**让路**（负数 = 不放）。
         if (JobApiHelper.炽天使剩余 <= 0) return -3;
 
-        // 慰藉 2 层充能：3 秒内只放一次，避免一口气全交
-        // 慰藉 2 层充能（参考同类 ACR 的 GetCharges）：
-        //   满 2 层时尽快交掉防溢出；只剩 1 层时保持较长限流，避免一口气全交。
-        var 充能 = CharacterExt.充能数(技能);
-        var 限流 = 充能 >= 2 ? 800 : 3000;
-        if (TimeHelper.Now() - 上次慰藉 < 限流) return -7;
+        // ── ② 3 秒内刚放过 ⇒ 不再放（shiyuvi IL_00a2 `RecentlyUsed(16546, 3000)` → `ldc.i4.m1`）
+        //      [IL 无法确定] youshu 的 `SpellRecentlyUsed` 内部实现；
+        //      这里用 AEAssist 同族 `SpellExtension.RecentlyUsed` 落地。
+        try
+        {
+            if (SpellExtension.RecentlyUsed(技能, 3000)) return -1;
+        }
+        catch { }
+
+        var 炽天剩余 = JobApiHelper.炽天使剩余;        // SeraphTimer（毫秒，同参考）
+        var 充能 = CharacterExt.充能数(技能);          // GetCharges(16546)
+
+        // ── ③ 档 1（shiyuvi IL_00b5~IL_00f4）：`SeraphTimer < 22000` 且
+        //      `GetCharges(16546) == 2`（`ldc.r4 2`）且 `SeraphTimer > 0` ⇒ 放。
+        //      注意：这一档参考**不看人数**（是"两层豆防溢出"规则）。
+        if (炽天剩余 < 22000 && 充能 == 2 && 炽天剩余 > 0) return SpellUtil.可用(技能) ? 1 : -1;
 
         var s = HealSettings.Instance;
         // ★ 用这个技能自己的阈值 ★  参考：youshu 慰藉 55
@@ -1297,11 +1363,24 @@ public class SCH_Consolation : ISlotResolver
         //    20 米会漏掉 20~30 米那一圈掉血的队员 ⇒ 该铺盾的时候人数不够、不铺 ✗
         // ★ 以小仙女/炽天使为圆心数人（表外审计 C3）：慰藉是召唤物技能，范围圆心是召唤物不是玩家
         var 团队掉血 = HealTargetHelper.小仙女中心低于阈值人数(本技血线, 30f) >= s.群奶最少人数;   // 慰藉 30 米
+        // ⚠️ 本仓库自己的额外口径（参考里没有）：时间轴预报要来大伤害也算"该铺"。
         var 要来伤害 = TimelineManager.未来有减伤(2.0) || 减伤Helper.即将来大伤害();
 
-        if (!团队掉血 && !要来伤害) return -1;
+        // ── ④ 档 2（shiyuvi IL_0102~IL_0148）：人数 `>= AOEHealCount` 分支内
+        //      自身**没有 1917**（[IL 无法确定] 1917 的含义，照 IL 原文用裸 id）
+        //      且 `IsMaxChargeReady(16546, 1)` 且 `SeraphTimer ∈ [4000, 12000)`
+        //      （IL_012f `ldc.i4 4000` / IL_0140 `ldc.i4 12000`）⇒ 放。
+        if (满充能可释放() && 炽天剩余 >= 4000 && 炽天剩余 < 12000
+            && !CharacterExt.我有光环(1917) && (团队掉血 || 要来伤害))
+            return SpellUtil.可用(技能) ? 1 : -1;
 
-        return SpellUtil.可用(技能) ? 19 : -1;
+        // ── ⑤ 档 3（shiyuvi IL_0149~IL_0179）：`IsMaxChargeReady(16546, 1)` 且
+        //      `SeraphTimer ∈ (0, 4000)`（炽天快结束）⇒ 放（这一档参考也不看人数：
+        //      快过期的充能赶紧用掉）。
+        if (满充能可释放() && 炽天剩余 > 0 && 炽天剩余 < 4000)
+            return SpellUtil.可用(技能) ? 3 : -1;
+
+        return -1;
     }
 
     public void Build(Slot slot)
@@ -1309,7 +1388,6 @@ public class SCH_Consolation : ISlotResolver
         var spell = SpellUtil.Get(技能);
         if (spell == null) return;
         slot.Add(spell);
-        上次慰藉 = TimeHelper.Now();
     }
 }
 
