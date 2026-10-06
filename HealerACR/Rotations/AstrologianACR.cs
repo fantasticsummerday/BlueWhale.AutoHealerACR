@@ -211,8 +211,89 @@ public class ASTSpellTable : JobSpellTable
     };
 
     public override uint 单体治疗GCD => SpellUtil.取已解锁(SpellIds.取("福星"), SpellIds.取("吉星"));
-    public override uint 群体治疗GCD => SpellUtil.取已解锁(
-        SpellIds.取("阳星合相"), SpellIds.取("阳星相位"), SpellIds.取("阳星"));
+
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 阳星族（阳星 / 阳星相位 / 阳星合相）去重互斥（缺口清单⑤）★
+    //
+    //  判据**逐条回 IL 核实**，常量照抄（出处标 IL_00xx）：
+    //   出处 A = `.il/cls_youshu/ACR.Astrologian.Resolvers.GCD.阳星.txt`（3600 阳星）
+    //   出处 B = `.il/cls_youshu/ACR.Astrologian.Resolvers.GCD.阳星合相.txt`
+    //     ⚠️ B 的**文件名/类名写的是「阳星合相」，正文其实是 3601 阳星相位**：
+    //        `IsMovementBlockingCast(3601)`、`IsReady(3601)`、
+    //        `RecentlyUsed(Gcd(3601,0),3500)`、Build 里加的是 `Gcd(3601,0)`。
+    //        `.il` 里**没有 37030（阳星合相）自己的 Check 转储**。
+    //   · A IL_006e–0087：`RecentlyUsed(Gcd(37030,0), 8000)` → **-3**
+    //   · A IL_009c–00b5：`RecentlyUsed(Gcd(3600,0), 3500)` → **-9**
+    //   · B IL_008c–00a4：`RecentlyUsed(Gcd(3601,0), 3500)` → **-1**
+    //   · A IL_00b6–00cd / B IL_01b9–01d0：`Me.HasAura(1248, 0)` → **-222**
+    //   · A IL_003a–0064 / B IL_018b–01b8：QT「能力技奶」&& QT「天宫图」
+    //       && `new 天宫图().Check() >= 0` → **-200**（让位天宫图）
+    //     （B 侧多一个 `!groupTrigger` 前置，那是它自己算的群奶触发数；
+    //       我们这边由 `Res_Heal` 的血线闸门承担 ⇒ 不重复实现。该 `groupTrigger`
+    //       的等价物我们**无法逐位对齐**，标「IL 无法确定」。）
+    //   · A IL_0088–009b：MP < 700 → -2（我们已有：见上面 治疗候选 `MP = 700`）
+    //
+    //  语义：参考里这些是**各自一行队列**、返回负数=不放（行号才是优先级）。
+    //        我们只有一个 `群体治疗GCD` 槽位（`Res_Heal` 直接读它）⇒ 等价做法是把
+    //        被否决的技能**从候选里摘掉**；全被摘掉就返回 0（`Res_Heal` 见 0 即不放）。
+    //        3600 与 37030 是同一个群体治疗 GCD 的两个等级形态（`取已解锁` 选形态）
+    //        ⇒ IL_006e 那条 8000ms 窗口按**当前形态**判。
+    // ══════════════════════════════════════════════════════════════════
+    private const int 阳星合相避让窗口毫秒 = 8000;   // IL_0079（A IL_006e–0087 的 8000）
+    private const int 阳星自身去重毫秒 = 3500;       // IL_00a7（A IL_009c–00b5 的 3500）
+    private const int 阳星相位自身去重毫秒 = 3500;   // IL_0097（B IL_008c–00a4 的 3500）
+    private const uint 巨星主宰 = 1248;              // IL_00bb / IL_01be（1248 = 巨星主宰）
+
+    public override uint 群体治疗GCD
+    {
+        get
+        {
+            // ── 让位天宫图（-200）：A IL_003a–0064 / B IL_018b–01b8 ──
+            //    「能力技奶」这个开关名**全项目未登记** ⇒ 用 `SafeGetQt` 取兜底 true
+            //    （与参考里该 QT 默认为开一致；直接 `GetQt` 会踩未登记开关）。
+            var 让位天宫图 = false;
+            try
+            {
+                if (HealQt.GetQt("奶人") && HealQt.SafeGetQt("能力技奶", true)
+                    && HealQt.GetQt("天宫图", true))
+                    让位天宫图 = new AST_Horoscope().Check() >= 0;   // IL_0057：天宫图.Check()
+            }
+            catch { 让位天宫图 = false; }
+
+            // ── 自身光环 1248（-222）：A IL_00b6–00cd / B IL_01b9–01d0 ──
+            var 有巨星主宰 = false;
+            try { 有巨星主宰 = CharacterExt.我有光环(巨星主宰); }
+            catch { 有巨星主宰 = false; }
+
+            var 合相 = SpellIds.取("阳星合相");
+            var 阳星 = SpellIds.取("阳星");
+
+            // ── 阳星合相 37030 ──
+            //    [!] IL 里**没有** 37030 自己的 Check ⇒ 不给它自造去重窗口；
+            //        只照抄 IL_006e 那条 8000ms（作用于该 GCD 的当前形态）。
+            if (合相 != 0 && SpellUtil.已解锁(合相)
+                && !AEAssist.Helper.SpellExtension.RecentlyUsed(合相, 阳星合相避让窗口毫秒))
+                return 合相;
+
+            // ── 阳星相位 3601（B 行）──
+            var 相位 = SpellIds.取("阳星相位");
+            if (相位 != 0 && SpellUtil.已解锁(相位)
+                && !AEAssist.Helper.SpellExtension.RecentlyUsed(相位, 阳星相位自身去重毫秒)   // B IL_008c
+                && !有巨星主宰                                                              // B IL_01b9
+                && !让位天宫图)                                                             // B IL_018b
+                return 相位;
+
+            // ── 阳星 3600（A 行）──
+            if (阳星 != 0 && SpellUtil.已解锁(阳星)
+                && !AEAssist.Helper.SpellExtension.RecentlyUsed(阳星, 阳星自身去重毫秒)         // A IL_009c
+                && !AEAssist.Helper.SpellExtension.RecentlyUsed(合相, 阳星合相避让窗口毫秒)     // A IL_006e
+                && !有巨星主宰                                                                // A IL_00b6
+                && !让位天宫图)                                                               // A IL_003a
+                return 阳星;
+
+            return 0;   // 全被否决 ⇒ 交给 `Res_Heal`（它见 0 返回 -102，不放）
+        }
+    }
     public override uint 紧急单奶 => SpellIds.取("先天禀赋");
 
     /// <summary>
