@@ -571,7 +571,30 @@ new SlotResolverData(new Res_HealAoEGcd(_spells), SlotMode.Gcd),
             //   [!] 槽位必须在 `Res_MultiDot` 之前 —— 返回值不参与仲裁，
             //       位置才算优先级（反汇编已证）。
             new SlotResolverData(new SGE_AoeDot(), SlotMode.Gcd),
-            new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
+            // ★ 2026-10-15 **移除了通用 `Res_MultiDot`**（真缺陷：它会写假 DoT 记录）★
+            //
+            //  [!] 现象/根因：通用 `Res_MultiDot.Check()` 用的是 `_t.Dot技能`，
+            //      而**贤者的 `Dot技能` 是注药链**（`取已解锁(注药III, 注药II, 注药)`）
+            //      —— 官方 `pow_potency.tsv` 逐字核过：
+            //        · `24312 注药III`  = 「对目标发动**无属性魔法攻击** 威力」⇒ **普通伤害技**
+            //        · `29257 均衡注药III` = 「对目标**附加持续伤害状态**」⇒ 才是 DoT
+            //      ⇒ 通用那条会把**普通技当 DoT 铺到副目标**，而且照写
+            //        `Dot补判.记一次施放` / `Dot黑名单.记按下` ⇒ **假 DoT 记录**：
+            //        补判以为"已经上了毒"，而黑名单还会在 3 次"补失败"后
+            //        **按 NameId 拉黑整类怪** ⇒ 污染是跨帧、跨怪的 ✗
+            //
+            //  [!] 为什么是"删掉"而不是"把 Dot技能 指向均衡注药"：
+            //      贤者**本来就有自己的 DoT 路** —— `SGE_Dot` 用的是
+            //      `SpellIds.取("均衡注药")`（真 DoT），并且 `Build` 里**正确处理了均衡**
+            //      （不在均衡中就只开均衡、这一轮不硬放；`29258 均衡` 只持续 10 秒）。
+            //      通用那条**不处理均衡**，把 Dot技能 换过去也照样会在没均衡时
+            //      打出注药（普通技）并记成 DoT ⇒ 换汤不换药。
+            //      而贤者的 AOE 毒有自己的 `SGE_AoeDot`（见上一行）。
+            //      ⇒ **贤者不需要通用多目标 DoT**：它没有可"铺"的多目标 DoT。
+            //
+            //  [!] 保留给其他三职业：他们的 `Dot技能` 都是**真 DoT**
+            //      （白魔 天辉/烈风/疾风、学者 蛊毒法/猛毒菌/毒菌、占星 焚灼/点灼/烧灼）。
+            // new SlotResolverData(new Res_MultiDot(_spells), SlotMode.Gcd),
             new SlotResolverData(new SGE_Dot(_spells), SlotMode.Gcd),
             new SlotResolverData(new Res_AoEDamage(_spells), SlotMode.Gcd),
             new SlotResolverData(new SGE_PhlegmaForce(), SlotMode.Gcd),  // 强制发炎：参考槽序第 20 位（发炎之前）
