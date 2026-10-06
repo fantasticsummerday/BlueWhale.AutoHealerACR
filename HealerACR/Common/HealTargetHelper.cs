@@ -1896,7 +1896,10 @@ public static class HealTargetHelper
         if (!t.对象有效()) return false;
 
         // 没目标就别拦着（让输出逻辑自己处理）
-        if (t == null) return false;
+// ★ 2026-10-15 删除**恒假判断**（全代码审查发现）：上面那行 `if (!t.对象有效()) return false;`
+//   已经覆盖了 `t == null` 的情形（`对象有效()` 对 null 本身就返回 false）
+//   ⇒ 这一行**永远不会被执行**，留着只会让后来者误以为"这里还额外挡了 null"。
+//   行为**完全不变**（原判断不可达）。
 
         if (t.有效血量比例() <= 血线) return true;
 
