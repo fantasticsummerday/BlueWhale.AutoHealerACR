@@ -196,6 +196,15 @@ public class AST_Horoscope : ISlotResolver
         {
             var 引爆阈值 = Math.Clamp(基础阈值 - 0.35f, 0f, 1f);
             if (HealTargetHelper.低于阈值人数(引爆阈值, 30f) < 要求人数) return -8;
+
+            // ★ 2026-10-15 补（**照 IL**）：参考在放行之前先判 `IsReady(16558)`
+            //   （`.il\cls_youshu\ACR.Astrologian.Resolvers.天宫图.txt`：`ldc.i4 16558 / IsReady / ldc.i4.s -9`）。
+            //   [!] 原来这里**直接 `return 9`** ⇒ 引爆形态未就绪时也放行 ⇒
+            //       本 resolver 已抢下这一拍 ⇒ **空放一拍**（且挡住后面所有治愈链）。
+            //   16558 就是**引爆形态**（`当前形态(16557)` 会把按钮换成它，见上面 :191 的说明）
+            //   ⇒ 判据用 `当前形态(技能)` 的 id，不写死字面量。
+            var 引爆形态 = SpellUtil.当前形态(技能);
+            if (引爆形态 == null || !SpellUtil.可用(引爆形态.Id)) return -9;
             return 9;   // 引爆
         }
 
@@ -203,6 +212,9 @@ public class AST_Horoscope : ISlotResolver
         if (AuraIds.阳星天宫图 != 0 && CharacterExt.我有光环(AuraIds.阳星天宫图))
         {
             if (HealTargetHelper.低于阈值人数(基础阈值, 30f) < 要求人数) return -7;
+            // ★ 同上照 IL：`ldc.i4 16558 / IsReady / ldc.i4.s -8`
+            var 引爆形态 = SpellUtil.当前形态(技能);
+            if (引爆形态 == null || !SpellUtil.可用(引爆形态.Id)) return -8;
             return 8;   // 引爆
         }
 
@@ -214,7 +226,10 @@ public class AST_Horoscope : ISlotResolver
         var 要来了 = TimelineManager.未来有减伤(4.0) || 减伤Helper.即将来大伤害();
         if (!要来了) return -1;
 
-        if (HealTargetHelper.低于阈值人数(基础阈值, 20f) < 要求人数) return -5;
+        // ★ 2026-10-15 修（**照 IL**）：半径 20f → **30f** ——
+        //   `.il\...天宫图.txt` 三处都是 `ldc.r4 30`（`:47`、`:76`、`:100`），
+        //   而我们这一档写成 20f ⇒ **比参考严格**、圈更小 ⇒ 该铺的时候不铺 ✗
+        if (HealTargetHelper.低于阈值人数(基础阈值, 30f) < 要求人数) return -5;
 
         return SpellUtil.可用(技能) ? 7 : -1;
     }
