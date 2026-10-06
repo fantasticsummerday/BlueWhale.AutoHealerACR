@@ -1233,7 +1233,7 @@ public static class AiSituation
                 sb.AppendLine($"蓝量：{CharacterExt.我的当前蓝量()}");
             }
             sb.AppendLine($"战斗中：{(CharacterExt.我在战斗() ? "是" : "否")}");
-            sb.AppendLine($"GCD 剩余：{GCDHelper.GetGCDCooldown()} ms");
+            sb.AppendLine($"GCD剩余 {GCDHelper.GetGCDCooldown()}ms");
             sb.AppendLine($"能否插能力技：{(GCDHelper.GetGCDCooldown() < 600 ? "是" : "否")}");
 
             // ── 我自己身上的状态（含剩余时间）──
@@ -1707,7 +1707,7 @@ public static class AiSituation
             sb.AppendLine($"  血量：{目标.血量比例() * 100f:F0}%（{目标.CurrentHp} / {目标.MaxHp}）");
 
             var 快死了 = HealTargetHelper.目标快死了();
-            if (快死了) sb.AppendLine("   这个目标快死了（预估 12 秒内会死）—— 别在它身上浪费爆发");
+            if (快死了) sb.AppendLine("  快死：预估 12s 内（别在它身上浪费爆发）");
 
             // ══════════════════════════════════════════════════════════
             //  ★ 目标站得稳不稳（让 AI 知道小怪是否稳定在固定位置）★
@@ -1798,7 +1798,7 @@ public static class AiSituation
             }
             catch
             {
-                sb.AppendLine($"周围敌人数量：{HealTargetHelper.周围敌人数量()}");
+                sb.AppendLine($"周围敌人数量（**读不到读数** —— 不能作为 AOE 依据）：0");
             }
 
             // ══════════════════════════════════════════════════════════
@@ -1896,7 +1896,7 @@ public static class AiSituation
                         if (有Dot技能)
                             标记.Add(x.有我的Dot ? "**有DoT**" : "**无DoT**");
                         if (x.血量比例 <= 0.25f) 标记.Add("残血");
-                        if (x.距离 <= 8f) 标记.Add($"近({x.距离:F0}m)");
+                        if (x.距离 <= 8f) 标记.Add($"近 {x.距离:F0}m");
 
                         var 后缀 = 标记.Count > 0 ? "  [" + string.Join("/", 标记) + "]" : "";
                         sb.AppendLine($"  {x.名字}：{x.血量比例 * 100f:F0}%（{x.距离:F0}m）{后缀}");
@@ -2117,7 +2117,7 @@ public static class AiSituation
             var 下一条 = TimelineManager.下一条机制();
             if (下一条 != null && 下一条.Value.还有几秒 > 20.0)
             {
-                sb.AppendLine($"再往后：{下一条.Value.还有几秒:F0}s 后 —— {下一条.Value.名称}" +
+                sb.AppendLine($"再往后：{下一条.Value.还有几秒:F0}s后 → {下一条.Value.名称}" +
                               (下一条.Value.需减伤 ? "（大伤害）" : ""));
             }
 
