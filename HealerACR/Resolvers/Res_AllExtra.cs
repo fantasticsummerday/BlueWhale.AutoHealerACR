@@ -691,6 +691,45 @@ public class Res_GroupMitigationExtra : ISlotResolver
         // ══════════════════════════════════════════════════════════════════
         if (_t.Job == Jobs.Scholar) return -1;
 
+        // ══════════════════════════════════════════════════════════════════
+        //  ★ 占星 命运之轮 / 太阳星座：**Boss 读条门 + `!849` 排除**（照抄 youshu IL）★
+        //
+        //  [!] 为什么要有这道门（缺口清单 ④）：
+        //      原来这一路只看"时间轴 / `即将来大伤害()`（默认提前量 2.5 秒）"，
+        //      ⇒ **本轮根本没有 AOE 读条**时也会把 60 / 120 秒的大招交掉 ✗
+        //
+        //  [!] IL 原文（`.il\cls_youshu\ACR.Astrologian.Resolvers.{命运之轮,太阳星座}.txt`）：
+        //      · `命运之轮.txt` `IL_0065~IL_0073`：
+        //          `HasBossCastingAoeWithin(6000)` 为**假** ⇒ `ldc.i4.s -2`（不放）
+        //      · `太阳星座.txt` `IL_008b~IL_0099`：
+        //          `HasBossCastingAoeWithin(10000)` 为**假** ⇒ `ldc.i4.s -5`（不放）
+        //      · `太阳星座.txt` `IL_009a~IL_00ae`：
+        //          自身 `Me.HasAura(849)` 为**真**（命运之轮在身）⇒ `ldc.i4.s -6`（不放）
+        //          （`849` = 命运之轮，官方名见 `Common/减伤状态表.cs:37,278`）
+        //      ⇒ 负数 = **不放（让路）**，正数才放行 —— 与本文件其余 return 同语义。
+        //
+        //  [!] 复用项：参考的 `HasBossCastingAoeWithin(毫秒)` 在我们这边是
+        //      `减伤Helper.即将来大伤害(毫秒)`（`Common/MitigationHelper.cs:21`）；
+        //      窗口常量 **6000 / 10000 照 IL 原值**，不做缩放。
+        //  ⚠️ 只对**占星**生效（学者的 `疾风怒涛之计` 已在上一行让给组合链）✓
+        // ══════════════════════════════════════════════════════════════════
+        if (_t.Job == Jobs.Astrologian)
+        {
+            if (技能 == SpellIds.取("命运之轮"))
+            {
+                // IL_0065：`HasBossCastingAoeWithin(6000)` 为假 ⇒ -2
+                if (!减伤Helper.即将来大伤害(6000)) return -2;
+            }
+            else if (技能 == SpellIds.取("太阳星座"))
+            {
+                // IL_008b：`HasBossCastingAoeWithin(10000)` 为假 ⇒ -5
+                if (!减伤Helper.即将来大伤害(10000)) return -5;
+
+                // IL_009a：自身 `849`（命运之轮）在身 ⇒ -6
+                if (CharacterExt.我有光环(849)) return -6;
+            }
+        }
+
         if (!TimelineManager.未来有减伤(4.0) && !减伤Helper.即将来大伤害()) return -1;
 
         return SpellUtil.可用(技能) ? 13 : -1;
@@ -882,6 +921,50 @@ public class Res_BigAoEHeal : ISlotResolver
     private const float 直线长 = 25f;
     private const float 直线宽 = 3f;
 
+    /// <summary>
+    /// 占星 **大宇宙该不该等占卜**（120 秒团辅对齐）—— 逐条照抄 youshu
+    /// `.il\cls_youshu\ACR.Astrologian.Resolvers.GCD.大宇宙.txt` 的
+    /// `:: static bool ShouldWaitDivination()`。
+    ///
+    /// ── IL 原文（每条都标了 IL 偏移）──
+    ///   · `IL_0000~IL_0010`：`Gcd(16552).Cooldown` → V0（16552 = 占卜）
+    ///   · `IL_0011~IL_0021`：`V0.TotalMilliseconds` vs `ldc.r8 2000` + `bgt.un.s IL_0037`
+    ///       ⇒ **大于 2000ms 直接 false**（占卜还早，不用等）
+    ///   · `IL_0023~IL_0036`：`Me.HasAura(1878, 0)` 再 `ldc.i4.0 / ceq`
+    ///       ⇒ **自身没有 1878**（占卜的团辅态）时为 **true**
+    ///   ⇒ 判据 = `占卜 CD 剩余 <= 2000ms` **且** `!我有光环(1878)`
+    ///
+    /// [!] 返回值语义：IL 的两个调用点（`IL_00e6~IL_00ef`、`IL_0115~IL_011e`）
+    ///     为真时都是 `ldc.i4.s -8` —— **负数 = 不放（让路）**，见下面调用处。
+    ///
+    /// [!] 为什么没有直接复用 `AstrologianACR.cs` 里的 `占卜临近()`：
+    ///     那个是 `private static`（同类之外不可见），而且窗口是 **8000ms**
+    ///     （攒爆发口径，见 `AstrologianACR.cs:1385`）——
+    ///     与这里 IL 的 **2000ms** 不是同一个判据，
+    ///     故按 IL 原值在本类内重建，避免把两个口径混成一个。
+    /// </summary>
+    private static bool ShouldWaitDivination()
+    {
+        try
+        {
+            var 占卜 = SpellIds.取("占卜");
+            if (占卜 == 0) return false;
+
+            var s = SpellUtil.Get(占卜);
+            if (s == null) return false;
+
+            // IL_0021 `bgt.un.s IL_0037`（> 2000 ⇒ false）
+            if (s.Cooldown.TotalMilliseconds > 2000) return false;
+
+            // IL_0023~IL_0036（`HasAura(1878, 0) == 0` ⇒ true）；1878 = 占卜团辅态
+            return !CharacterExt.我有光环(AuraIds.占卜);
+        }
+        catch
+        {
+            return false;   // 读失败 → 不等（不拦）
+        }
+    }
+
     public int Check()
     {
         本帧落点 = null;
@@ -980,6 +1063,25 @@ public class Res_BigAoEHeal : ISlotResolver
             var 要来了 = TimelineManager.未来有减伤(3.0) || 减伤Helper.即将来大伤害();
 
             if (!人够多 && !要来了) return -1;
+
+            // ══════════════════════════════════════════════════════════
+            //  ★ ③ 占星 大宇宙：**等占卜**（`ShouldWaitDivination`）⇒ `-8` 让路 ★
+            //
+            //  [!] IL 出处：`.il\cls_youshu\ACR.Astrologian.Resolvers.GCD.大宇宙.txt`
+            //      · `IL_00e2~IL_00f2`（20 米敌人 ≥ 6）：`ShouldWaitDivination()` 真 ⇒ `-8`，假 ⇒ 60
+            //      · `IL_0111~IL_0121`（≥ 3 且非高难、奶人 QT 关 / 不能接受治疗）：
+            //          真 ⇒ `-8`，假 ⇒ 30
+            //      ⇒ 我们只落地"**让路**"这一半（`-8`）——
+            //        60 / 30 那两个正数在参考里是"关掉奶人后当 AOE 输出交"的分支，
+            //        与我们的治疗槽位语义不同，不在本次范围（见缺口清单 ③）。
+            //
+            //  [!] 为什么加 `!人够多`：IL 的 `-8` 只出现在"群伤 / 输出"分支；
+            //      真有人掉到阈值以下时（`人够多`）参考走的是补血分支（-1 / 44），
+            //      不在这里等占卜 —— 我们保持"**急救不被团辅对齐拖住**"。
+            //  [!] 负数 = 不放（让路），正数 = 放行 ⇒ 必须 `return -8` 而不是别的正数。
+            //  ⚠️ 候选里只有占星有 `大宇宙`（`候选()` 按职业给），所以**只影响占星** ✓
+            // ══════════════════════════════════════════════════════════
+            if (!人够多 && 要来了 && id == SpellIds.取("大宇宙") && ShouldWaitDivination()) return -8;
 
             return 17;
         }
