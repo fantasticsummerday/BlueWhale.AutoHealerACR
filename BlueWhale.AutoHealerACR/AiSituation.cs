@@ -1740,7 +1740,7 @@ public static class AiSituation
             if (目标状态.Count > 0)
             {
                 sb.AppendLine($"  我挂在它身上的状态：{string.Join("、", 目标状态)}");
-                sb.AppendLine("    （DoT 类：剩余时间还多就别补，补了纯浪费一个 GCD）");
+                sb.AppendLine("    （DoT 剩余多就别补）");
             }
             else
             {
@@ -1779,8 +1779,11 @@ public static class AiSituation
                 //     而下面的「其他敌人」列表**是有仇恨过滤的** —— 两者不同源。
                 //     ==> 原来那句话会让 AI 以为这个数"可以安全 AOE"，
                 //         实际它可能包含**还没被拉进战的怪**。
-                sb.AppendLine($"周围敌人数量（以**当前目标**为中心、{半径9:F0} 米内、" +
-                              $"**未过滤仇恨，可能含还没进战的怪，不能当" + "可以安全 AOE" + "的依据**）：" +
+                // ★ 2026-10-15 **压缩**：把"未过滤仇恨 / 不能当可以安全 AOE 的依据"那段**警告
+                //   搬到系统提示**（`AiDecisionLayer` 的敌人段图例里）——
+                //   逐帧重复的说明语是**纯 token 浪费**，而系统提示是**静态可缓存**的。
+                //   行内只留**必须随数变**的两个事实：以谁为中心、多少米。
+                sb.AppendLine($"周围敌人数量（以当前目标为中心、{半径9:F0} 米内、不含仇恨过滤）：" +
                               $"{HealTargetHelper.周围敌人数量(半径9, 射程9)}");
             }
             catch
@@ -1881,7 +1884,7 @@ public static class AiSituation
                         var 标记 = new List<string>();
                         if (x.是Boss) 标记.Add("Boss");
                         if (有Dot技能)
-                            标记.Add(x.有我的Dot ? "**已有我的DoT**" : "**没有我的DoT**");
+                            标记.Add(x.有我的Dot ? "**有DoT**" : "**无DoT**");
                         if (x.血量比例 <= 0.25f) 标记.Add("残血");
                         if (x.距离 <= 8f) 标记.Add($"近({x.距离:F0}m)");
 
@@ -2087,7 +2090,7 @@ public static class AiSituation
                 foreach (var (还有几秒, 名称, 需减伤) in 预告)
                 {
                     var 时点 = 还有几秒 <= 0.6 ? "刚刚" : $"{还有几秒:F1}s 后";
-                    var 标注 = 需减伤 ? "  ← 大伤害，考虑预铺" : "";
+                    var 标注 = 需减伤 ? "  ←预铺" : "";
                     sb.AppendLine($"  {时点,-10} {名称}{标注}");
                 }
             }
