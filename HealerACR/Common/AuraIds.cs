@@ -375,7 +375,6 @@ public static class AuraIds
     ///       ⇒ 结论：`AuraIds` 与 `占星卡.是近战卡(Balance|Spear)` **保持原样**；
     ///         真正错的是 `占星卡目标.cs:309` 那条"战争神之枪（远程卡）"注释，**那里已更正**。
     /// </summary>
-    /// </summary>
     /// <summary>太阳神之衡（近战卡）挂在目标身上的增伤 = 3887</summary>
     public static uint 太阳神之衡 => 取("太阳神之衡", 3887);
 
