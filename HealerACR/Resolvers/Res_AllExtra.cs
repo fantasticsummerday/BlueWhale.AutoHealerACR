@@ -590,6 +590,12 @@ public class Res_SingleMitigation : ISlotResolver
                 // 已经有这个 buff ⇒ 不重复给
                 if (成员.有该技能的Buff(技能)) continue;
 
+                // ⚠️ 天星交错还要**排除 2717**（IL `CanCastCelestialIntersection`：
+                //    `!HasAura(1889, 0) && HasAura(2717, 0) == 0`）——
+                //    与 `天星交错档位()` / `天星可施()` 同一判据（开发约定 F③）。
+                //    只对占星这一发生效，其余职业行为不变。
+                if (技能 == SpellIds.取("天星交错") && 成员.HasAura(2717)) continue;
+
                 var 是坦克 = 成员.IsTank();
                 var 阈值 = 是坦克 ? 坦克阈值 : 非坦阈值;
                 if (阈值 <= 0f) continue;
@@ -1380,6 +1386,167 @@ public class Res_InstantHealAbility : ISlotResolver
         catch { return 0; }
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  ★ 占星 天星交错（16556）—— **按 IL 顺序的五档** ★
+    //
+    //  出处：`.scratch/参考对比/youshu-占星减伤能力.md`「天星交错（技能 id 16556，
+    //        能力技）」小节（逐条对应参考 IL，权威）；常量逐个照抄，不自造。
+    //
+    //  IL 的档位顺序（本项目只搬"选区 / 档位"这一段，前后门控沿用本项目既有约定）：
+    //    ⑨ 出血档  : 30 码内可施法队友 **≤2** 且 `SelectBleedTarget()` 非空        → **60**
+    //    ⑩ 自身低血: `Me.CurrentHpPercent < threshold` 且可对自己施放                 → **50**
+    //    ⑪ 死刑档  : `HasBossCastingTankbusterWithin(10000)` 且 `SelectTankbusterTarget()` 非空 → **40**
+    //    ⑫ 常规坦  : `SelectRegularTank(threshold)` 非空                             → **30**
+    //    ⑬ 常规非坦: `SelectRegularNonTank(threshold)` 非空                          → **20**
+    //    ⑭ 全落空  : **-1**（负数=不放；返回值不参与仲裁，队列行号才是优先级）
+    //
+    //  常量（逐个 IL 直读）：
+    //    · 死刑窗口       = **10000**（ms，`HasBossCastingTankbusterWithin` 的实参）
+    //    · 出血档血线     = **0.85f**（`CurrentHpPercent < 0.85f`）
+    //    · 出血档人数上限 = **2**（`CastableAlliesWithin30.Count <= 2`）
+    //    · threshold      = `Clamp(设置阈值/100f, 0f, 1f)`（`conv.r4` 后钳制）。
+    //      本项目对应 `治疗阈值表.取(技能, 单体治疗阈值)` —— 表里登记的就是
+    //      youshu 的 **70**（`治疗阈值表.cs:690`「youshu 天星交错阈值 70」）。
+    //
+    //  `CanCastCelestialIntersection(target)`（IL 直读，**含排除 2717**）：
+    //    `CanReceiveHeal && IsInHealRange(target, 30f) && !HasAura(1889, 0) && HasAura(2717, 0) == 0`
+    //  `CountMitigations(target)`（IL 直读）：`HasAura(2717) + HasAura(3890) + HasAura(3892)`，
+    //    **< 2** 才入选（死刑档的目标筛选里用它）。3890 / 3892 的**名字 IL 无法确定** ⇒ 照裸 id 用。
+    //
+    //  ⚠️ **IL 无法确定 / 本项目无对应物 ⇒ 未实现**（不猜，逐条列出）：
+    //    · `SelectBleedTarget` 里还有 `!HasDispelStatus` 与
+    //      `CountAspectedBeneficBleedShields < 2` 两条子判据：后者这个"计数"由哪些 buff
+    //      构成 **IL 无法确定** ⇒ 两条都不加，出血档只按「出血 + <0.85 + 可施」判。
+    //    · `SelectRegularTank` 的 `NeedsLivingDeadHeal` 分支：IL 内部实现 **无法确定**
+    //      ⇒ 未实现，常规坦档只按「血量 < threshold 且最低」判。
+    //    · 两处"最低血"初值 IL 是 `2f`（不做血线门）—— 那个常量照抄。
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>本帧五档选出的天星交错目标（Check 里选、Build 里放 —— 开发约定 F③）。</summary>
+    private static IBattleChara? _天星本次目标;
+
+    private const int 天星死刑窗口毫秒 = 10000;   // IL: HasBossCastingTankbusterWithin(10000)
+    private const float 天星出血血线 = 0.85f;      // IL: CurrentHpPercent < 0.85f
+    private const int 天星出血人数上限 = 2;        // IL: CastableAlliesWithin30.Count <= 2
+
+    /// <summary>
+    /// `CanCastCelestialIntersection(target)`（IL 直读）：
+    /// 可治 + 30 码内（候选来自 `可治疗队友(30f)`，等价 `IsInHealRange(..., 30f)`）
+    /// + 无 1889（天星交错）+ **无 2717（擢升）**。
+    /// </summary>
+    private static bool 天星可施(IBattleChara? 目标)
+    {
+        // ⚠️ 读游戏对象属性前必须判 `对象有效()`（全量防护审计红线）
+        if (目标 == null || !目标.对象有效()) return false;
+        try
+        {
+            if (!目标.活着() || !目标.可以治()) return false;
+            if (目标.HasAura(AuraIds.天星交错)) return false;   // 1889：已经有这个盾
+            if (目标.HasAura(2717)) return false;               // 2717：擢升 ⇒ 不叠（IL 直读）
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>`CountMitigations(target)` = 2717 + 3890 + 3892 计数（IL 直读；3890/3892 名字 IL 无法确定）。</summary>
+    private static int 天星减伤计数(IBattleChara? 目标)
+    {
+        if (目标 == null || !目标.对象有效()) return 0;
+        try
+        {
+            var 数 = 0;
+            if (目标.HasAura(2717)) 数++;   // 2717 = 擢升（`减伤状态表.cs` 有登记）
+            if (目标.HasAura(3890)) 数++;   // 3890：名字 IL 无法确定
+            if (目标.HasAura(3892)) 数++;   // 3892：名字 IL 无法确定
+            return 数;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>
+    /// 天星交错的**五档**判定（IL 顺序，见上面那段说明）。
+    /// 返回 60 / 50 / 40 / 30 / 20；全落空返回 **-1**（负数=不放）。
+    /// 命中时把目标写进 `_天星本次目标`，供 `Build` 用（判 A 放 A）。
+    /// </summary>
+    private static int 天星交错档位(uint 技能)
+    {
+        _天星本次目标 = null;
+        try
+        {
+            // threshold = Clamp(阈值/100f, 0f, 1f)（IL）；本项目从阈值表取（表里 = 70）
+            var 阈值 = Math.Clamp(治疗阈值表.取(技能, HealSettings.Instance.单体治疗阈值), 0f, 1f);
+
+            // 30 码内队友**物化一次**（高频路径：不反复枚举同一集合）
+            var 队友 = HealTargetHelper.可治疗队友(30f);
+
+            // ⑨ 出血档 → 60
+            //    IL: `CastableAlliesWithin30.Count <= 2` 且 `SelectBleedTarget()` 非空
+            if (队友.Count <= 天星出血人数上限)
+            {
+                foreach (var 成员 in 队友)
+                {
+                    if (!天星可施(成员)) continue;                 // 含 30 码 / 无 1889 / 无 2717
+                    if (成员.血量比例() >= 天星出血血线) continue;   // IL: CurrentHpPercent < 0.85f
+                    if (!AuraIds.有出血(成员)) continue;            // IL: HasBleed
+                    _天星本次目标 = 成员;                          // IL: 取**第一个**满足者
+                    return 60;
+                }
+            }
+
+            // ⑩ 自身低血档 → 50
+            //    IL: `Me.CurrentHpPercent < threshold` 且 `CanCastCelestialIntersection(Me)`
+            var 我 = AEAssist.Core.Me;
+            if (我 != null && 我.对象有效() && 我.血量比例() < 阈值 && 天星可施(我))
+            {
+                _天星本次目标 = 我;
+                return 50;
+            }
+
+            // ⑪ 死刑档 → 40
+            //    IL: `HasBossCastingTankbusterWithin(10000)` 且 `SelectTankbusterTarget()` 非空
+            if (减伤Helper.boss要打坦克死刑(天星死刑窗口毫秒))
+            {
+                IBattleChara? 死刑目标 = null;
+                var 死刑最低 = 2f;                            // IL: 最低血初值 2f（⇒ 不做血线门）
+                foreach (var 成员 in 队友)
+                {
+                    if (!天星可施(成员)) continue;
+                    if (!成员.IsTank()) continue;
+                    if (天星减伤计数(成员) >= 2) continue;      // IL: CountMitigations < 2
+                    var 血 = 成员.血量比例();
+                    if (血 < 死刑最低) { 死刑最低 = 血; 死刑目标 = 成员; }
+                }
+                if (死刑目标 != null) { _天星本次目标 = 死刑目标; return 40; }
+            }
+
+            // ⑫ 常规坦 → 30 ；⑬ 常规非坦 → 20
+            //    IL: `SelectRegularTank/NonTank(threshold)` = 「血量 < threshold」里最低者
+            IBattleChara? 常规坦 = null; var 坦最低 = 2f;
+            IBattleChara? 常规非坦 = null; var 非坦最低 = 2f;
+            foreach (var 成员 in 队友)
+            {
+                if (!天星可施(成员)) continue;
+                var 血 = 成员.血量比例();
+                if (血 >= 阈值) continue;                      // IL: CurrentHpPercent < threshold
+                if (成员.IsTank())
+                {
+                    if (血 < 坦最低) { 坦最低 = 血; 常规坦 = 成员; }
+                }
+                else
+                {
+                    if (血 < 非坦最低) { 非坦最低 = 血; 常规非坦 = 成员; }
+                }
+            }
+
+            if (常规坦 != null) { _天星本次目标 = 常规坦; return 30; }
+            if (常规非坦 != null) { _天星本次目标 = 常规非坦; return 20; }
+        }
+        catch { }
+
+        _天星本次目标 = null;
+        return -1;   // ⑭ IL: 全落空 → -1（负数=不放；返回值不参与仲裁）
+    }
+
     /// <summary>
     /// 坦克低于这个血线就值得给预铺技。
     ///
@@ -1457,6 +1624,10 @@ public class Res_InstantHealAbility : ISlotResolver
         //   否则上一次为真会泄漏到下一次 Check —— 开发约定 F① 同源）
         _秘策兜底 = false;
 
+        // ★ 占星 天星交错：同样每帧清（`天星交错档位()` 命中时才会重新写入）——
+        //   否则上一帧的目标会泄漏给 Build（F①）
+        _天星本次目标 = null;
+
         // ★ 2026-10-04：**刚有人消耗过豆子 ⇒ 这一拍别再消耗** ✓
         //   本项目采用「一次消耗后全局抑制」的口径（以太层数下降后 7 秒）——
         //   避免同一拍把豆子连打光、也避免两个能力技互相抢（两套对照实现都有等价物）
@@ -1473,6 +1644,29 @@ public class Res_InstantHealAbility : ISlotResolver
 
         // ── ① 预铺类 ──
         var 预铺 = _t.预铺单奶能力技;
+
+        // ══════════════════════════════════════════════════════════════
+        //  ★ 占星 天星交错（16556）：**先走 IL 的五档**（60/50/40/30/20）★
+        //
+        //  [!] 原来这一发只有 `预铺目标()` 的**单档**（坦克/其余都 0.60）——
+        //      出血档（<0.85）与死刑档（10000ms 内 Boss 读条）**根本进不来** ✗
+        //      ⇒ 五档全部由 `天星交错档位()` 判，命中哪一档就 return 那一档。
+        //
+        //  [!] 五档全落空时**不在这里 return**（IL 是 -1 让路）：继续往下走 ——
+        //      本项目把「预铺 + 瞬发」合并在同一个 resolver（② 里的先天禀赋
+        //      **没有别的 resolver** 负责），这里直接 return -1 会把先天禀赋一起挡掉 ✗
+        //      ⇒ 落到下面的通用预铺路（它只在 `预铺目标()` 非空时才成立）。
+        //      两条路都是"放 16556"，**同一帧内选区同源**（开发约定 F③）。
+        // ══════════════════════════════════════════════════════════════
+        var 是占星交叉 = _t.Job == Jobs.Astrologian && 预铺 != 0 && 预铺 == SpellIds.取("天星交错");
+        if (是占星交叉 && HealQt.每技能通过(预铺) && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺)
+            && 必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
+        {
+            var 档 = 天星交错档位(预铺);
+            if (档 > 0) return 档;
+            // 五档全落空：交给下面的通用预铺路 / ② 瞬发路（见上面的说明）
+        }
+
         if (预铺 != 0 && HealQt.每技能通过(预铺) && SpellUtil.已解锁(预铺) && SpellUtil.可用(预铺) && 预铺目标(预铺) != null)
         {
             // ⚠️ 有人濒危时让路给急救（`Res_HealEmergency` 排在 OffGcd 趟，
@@ -1730,6 +1924,7 @@ public class Res_InstantHealAbility : ISlotResolver
     {
         _先天上次目标 = 0;
         _先天上次时刻 = 0;
+        _天星本次目标 = null;   // ★ 占星 天星交错的目标也是状态 ⇒ 一起清（开发约定 F①）
     }
 
     public void Build(Slot slot)
@@ -1755,7 +1950,13 @@ public class Res_InstantHealAbility : ISlotResolver
         {
             if (必须奶满.找目标() == null && HealTargetHelper.低于阈值人数(0.30f) == 0)
             {
-                var 目标 = 预铺目标(预铺);
+                // ★ 占星 天星交错：**优先用 Check 里五档选定的目标**（同一来源，F③）；
+                //   若 Check 走的是通用预铺路（五档未命中），`_天星本次目标` 为空 ⇒
+                //   回落到同一个 `预铺目标()`（两处判据同源）。
+                var 目标 = (_t.Job == Jobs.Astrologian && 预铺 == SpellIds.取("天星交错") && _天星本次目标 != null)
+                    ? _天星本次目标
+                    : 预铺目标(预铺);
+                _天星本次目标 = null;   // ★ 有状态就得清（开发约定 F①）
                 if (目标 != null)
                 {
                     var s = SpellUtil.当前形态(预铺);
