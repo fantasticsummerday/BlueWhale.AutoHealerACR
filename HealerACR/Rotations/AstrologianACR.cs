@@ -1720,21 +1720,25 @@ public class AST_Divination : ISlotResolver
     /// <summary>
     /// 占卜的「可放形态」—— Check / Build 共用（表外审计 A7）。
     ///
-    /// [!] 92 级后占卜自动变神谕(37029)，正常 `当前形态(占卜)` 已返回 37029；
-    ///     但万一 CheckActionChange 不认这个替换（返回 null/不可放的 16552），
-    ///     直接看神谕(37029) 能不能放。Check 和 Build 必须走**同一条**来源，
-    ///     否则会出现「Check 说放、Build 却不落技能」的判A放B。
+    /// [!] ★ 2026-10-15 修（**真 bug**）：这里原来在 `占卜` 不可放时**回退到神谕(37029)**，
+    ///     理由是"92 级后占卜自动变神谕"。**官方技能描述证明那个前提是错的**：
+    ///       · `pow_potency.tsv`：`16552 占卜`（占星 **Lv50**，CD **120s**）＝
+    ///         「令自身与周围队员发动攻击造成的伤害**提高 6%**」—— **团队增伤 buff**；
+    ///       · `37029 神谕`（占星 **Lv92**，CD **1s**）＝
+    ///         「对目标及其周围敌人发动无属性范围魔法攻击 **威力 860**」—— **纯输出技**。
+    ///     二者在 `Action.csv` 里**各自一行、是两个独立技能** ⇒ 神谕**不是**占卜的形态。
+    ///     后果：占卜这一发会**打出神谕**（860 威力 AOE），把"团队增伤"打成"伤害技" ✗
+    ///
+    /// [!] 现在只认**占卜自己的当前形态**；神谕由**独立 resolver `AST_Oracle`** 负责
+    ///     （经 IL 定论：`.il\cls_youshu\` 里 `神谕.txt`（153 行）与 `占卜.txt`（90 行）是两个文件，
+    ///      且 youshu 的显式槽序 `V1[14]=神谕` **先于** `V1[23]=占卜`）。
+    ///
+    /// [!] Check 和 Build 仍必须走**同一条**来源，否则会出现「Check 说放、Build 却不落技能」的判 A 放 B。
     /// </summary>
     private static Spell? 占卜可用形态()
     {
         var 当前 = SpellUtil.当前形态(技能);
-        if (当前 != null && 当前.IsReadyWithCanCast()) return 当前;
-
-        var 神谕 = SpellIds.取("神谕");
-        if (神谕 == 0) return null;
-
-        var s = SpellUtil.Get(神谕);
-        return (s != null && s.IsReadyWithCanCast()) ? s : null;
+        return (当前 != null && 当前.IsReadyWithCanCast()) ? 当前 : null;
     }
 }
 
