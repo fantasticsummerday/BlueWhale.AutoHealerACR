@@ -417,6 +417,29 @@ public class Res_GroupHoT : ISlotResolver
         //       两者落点都必然包含我自己 ⇒ 我治不了自己时那一份是纯损失。
         if (AuraIds.我无法接受治疗()) return -7;
 
+        // ★ 2026-10-15：**白魔·已有团减就不叠**（复刻 youshu `庇护所.txt` / `节制.txt`：
+        //   自身 `HasAura(1911 庇护所)` 或 `HasAura(1873 节制)` → -5）★
+        //   [!] 两条 aura 都用官方 `Status.csv` 核验过（1911=庇护所 / 1873=节制），
+        //       已登记为 `AuraIds.庇护所` / `AuraIds.节制`。
+        //   [!] 为什么需要：庇护所与节制是白魔的两张**群减**牌（52 级 / 80 级），
+        //       参考在两者各自的门里都查对方的状态 ⇒ 同一次群减窗口只烧一张。
+        //       我们原来只靠 `团减快照`（`Res_TeamMitigation` 那条路），
+        //       而本 resolver 是**另一条路**（OffGcd 的群体 HoT）⇒ 会"节制刚交完、
+        //       庇护所又铺一层"地重复覆盖 ✗
+        //   [!] **只对白魔判** —— 本 resolver 贤者也用（`自生`），
+        //       那两个 id 是白魔的 aura，对贤者判没有意义（还白读两次 aura）。
+        if (_t.Job == Jobs.WhiteMage)
+        {
+            try
+            {
+                var 我 = AEAssist.Core.Me;
+                if (我 != null && 我.对象有效()
+                    && (我.HasAura(AuraIds.庇护所) || 我.HasAura(AuraIds.节制)))
+                    return -5;
+            }
+            catch { }
+        }
+
         var s = HealSettings.Instance;
 
         // 时间轴预报到伤害 → 提前铺（庇护所是场地、自生是自身中心）
@@ -1026,6 +1049,16 @@ public class Res_PlacedHeal : ISlotResolver
         //   [!] 理由：这类技能的落点**必然包含我自己**，而我治不了自己的时候
         //       那一份效果是**纯损失**（不是少治一点，是零）。
         if (AuraIds.我无法接受治疗()) return -7;
+
+        // ★ 2026-10-15：**1000ms 内不重放**（复刻 youshu `礼仪之铃.txt`：
+        //   `RecentlyUsed(25862, 1000) → -200`）—— 它是 **90 秒 CD 的地面技**，
+        //   连放等于白烧一个 CD（白魔差距审计优先项④）。
+        //   [!] 本 resolver 只被白魔注册（`WhiteMageACR.cs:624`）⇒ 这条门不会误伤别职业。
+        try
+        {
+            if (AEAssist.Helper.SpellExtension.RecentlyUsed(技能, 1000)) return -200;
+        }
+        catch { }
 
         // ★ 2026-10-04：补**血线触发** —— 原来只判"伤害要来" ✗
         //   对照实现的判据是「20 米内低于群奶阈值的人数 >= 群奶人数」✓

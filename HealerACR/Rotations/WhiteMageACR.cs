@@ -878,6 +878,20 @@ public class WHM_PresenceOfMind : ISlotResolver
         if (!SpellUtil.已解锁(技能)) return -2;
         // 神速咏唱是**自身 buff**，不需要选中目标（跟法令/王冠领主同一个教训）
         if (!CharacterExt.可以插能力技()) return -6;
+
+        // ★ 2026-10-15：**「倾泻资源」⇒ 提前放行**（复刻 youshu `神速咏唱.txt`：
+        //   `QT「倾泻资源」== true → 提前放行 50`，**跳过后面所有检查**）★
+        //   [!] 本项目的既有口径：**「倾泻资源」= QT「一键爆发」**
+        //       （见 `SageACR.cs:733` 的说明与各处 `倾泻资源中()` 助手）。
+        //   [!] 位置照 IL：在 `CanUseOffGcd` 之后、其余条件之前。
+        //   ⚠️ **不要**写成 `HealQt.GetQt("倾泻资源")` —— 那个开关名在本项目**没有注册**，
+        //      未注册的开关按开发约定 F② 会默认 false ⇒ 这条门静默失效。
+        //   [!] 未做（不猜）：参考还有 `ShouldHoldForFourPlayerDuty()`
+        //       （四人本 + 非 Boss 战 ⇒ 不交神速）—— 它的第一个门是
+        //       **设置项「神速咏唱限制」**，而该设置项的**默认值 IL 无法确定**，
+        //       新增设置项并猜一个默认值会改变四人本行为 ⇒ 留待用户裁决
+        //       （见 `缺口清单-白魔.md` 神速咏唱那一行）。
+        if (HealQt.GetQt("一键爆发")) return 50;
         if (AuraIds.神速魔 != 0 && CharacterExt.我有光环(AuraIds.神速魔)) return -7;
 
         // 需求 2：残血小怪不给爆发（木桩模式不判断）
