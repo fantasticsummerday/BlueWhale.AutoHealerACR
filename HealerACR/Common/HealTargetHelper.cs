@@ -1679,7 +1679,11 @@ public static class HealTargetHelper
                 ? TargetHelper.GetMostCanTargetObjects(技能Id, 期望命中数)
                 : TargetHelper.GetMostCanTargetObjects(技能Id);
 
-            if (最佳 != null && 最佳.CurrentHp > 0) return 最佳;
+            // ★ 2026-10-15 补 `对象有效()`：本文件其它选择器（`:1332` / `:1148` / `:1192`）都判了，
+            //   这里原来只判 `CurrentHp > 0` —— 而 `CurrentHp` 本身就是**热读游戏对象**，
+            //   对象已释放时读它会触发原生访问违例（穿透 catch、无转储、进程直接没）。
+            //   本项目 12 次崩溃全部是这一类 ⇒ 判据必须与同文件其它处**同源**（F③）。
+            if (最佳 != null && 最佳.对象有效() && 最佳.CurrentHp > 0) return 最佳;
         }
         catch
         {

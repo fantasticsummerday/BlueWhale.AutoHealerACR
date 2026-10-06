@@ -239,6 +239,11 @@ public static class 输出目标
                 if (e.CurrentHp == 0) return null;
                 if (!HealTargetHelper.稳定仇恨(e)) return null;
 
+                // ★ 2026-10-15 补显式 `对象有效()`：下面这行读 `e.Position`（热读游戏对象）。
+                //   上一行的 `稳定仇恨(e)` 内部应当已判过，但**显式守卫**是本项目的既定口径
+                //   （"不假设调用方判过"—— 本项目 12 次崩溃全是热读已释放对象，
+                //     原生访问违例会**穿透 catch、无转储**）。
+                if (!e.对象有效()) continue;
                 var 距离 = Vector3.Distance(CharacterExt.我的位置(), e.Position);
                 if (距离 > 可打距离) return null;
 
@@ -293,6 +298,11 @@ public static class 输出目标
                 // ① 硬门槛：没仇恨直接跳过（绝不 ADD）
                 if (!HealTargetHelper.稳定仇恨(e)) continue;
 
+                // ★ 2026-10-15 补显式 `对象有效()`：下面这行读 `e.Position`（热读游戏对象）。
+                //   上一行的 `稳定仇恨(e)` 内部应当已判过，但**显式守卫**是本项目的既定口径
+                //   （"不假设调用方判过"—— 本项目 12 次崩溃全是热读已释放对象，
+                //     原生访问违例会**穿透 catch、无转储**）。
+                if (!e.对象有效()) continue;
                 var 距离 = Vector3.Distance(CharacterExt.我的位置(), e.Position);
                 if (距离 > 可打距离) continue;
 
@@ -334,7 +344,7 @@ public static class 输出目标
 
             foreach (var o in 全部)
             {
-                if (o is IBattleChara b && b.CurrentHp > 0) 列表.Add(b);
+                if (o is IBattleChara b && b.对象有效() && b.CurrentHp > 0) 列表.Add(b);
             }
         }
         catch { }
